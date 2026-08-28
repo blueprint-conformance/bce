@@ -75,12 +75,10 @@ documentation.
 Copy the whole directory, not just `SKILL.md`: `skill-tuning` reads its `references/` on demand,
 and a skill whose references are missing fails by finding nothing rather than by reporting it.
 
-The skill drives the `bce` CLI, so the command has to be reachable. **Today that means a checkout**
-— `git clone https://github.com/blueprint-conformance/bce`, then `npm ci && npm run build`, and use
-`node /path/to/bce/dist/cli.js` wherever the skill says `bce`. `npm install -g bce-engine` is not
-yet the path: the npm name currently holds a `0.0.0` reservation stub whose binary exits 0 on every
-command, so it would hand you an unconditionally-green done-check. It becomes the short path once
-`0.1.0` publishes.
+The skill drives the `bce` CLI, so the command has to be reachable: `npm install -g bce-engine`
+(provides `bce`), or a checkout — `git clone https://github.com/blueprint-conformance/bce`, then
+`npm ci && npm run build`, and `node /path/to/bce/dist/cli.js` wherever the skill says `bce`.
+Run `bce --help` after installing and confirm real usage text before trusting any verdict.
 
 ## Skill, snippet, or MCP server?
 

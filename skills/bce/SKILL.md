@@ -36,20 +36,18 @@ may reach the network, which file shapes may exist, which symbol is the invarian
 
 ## The lifecycle
 
-Get the CLI from a checkout — this is the working path today:
+Get the CLI from npm — the short path:
 
 ```bash
-git clone https://github.com/blueprint-conformance/bce
-cd bce && npm ci && npm run build
-# then run `node /path/to/bce/dist/cli.js` everywhere this page says `bce`
+npm install -g bce-engine   # provides the `bce` command
+bce --help                  # verify: real usage text, not a placeholder
 ```
 
-**Do not reach for `npm install -g bce-engine` yet.** The npm name is currently a `0.0.0`
-reservation stub, and its `bce` binary exits 0 on every command — which means the done-check this
-skill teaches would report green unconditionally, on a repository it never even read. A gate that
-cannot go red is exactly what this tool exists to catch, so shipping one by accident is the worst
-possible first impression. After `0.1.0` publishes, `npm install -g bce-engine` becomes the short
-path; until then, verify what you installed can actually fail before you trust a green from it.
+A checkout works identically when you prefer building from source (`git clone
+https://github.com/blueprint-conformance/bce && cd bce && npm ci && npm run build`, then
+`node /path/to/bce/dist/cli.js` wherever this page says `bce`). Either way, verify what you
+installed can actually FAIL before you trust a green from it — a gate that cannot go red is
+exactly what this tool exists to catch (the quickstart's RED/GREEN pair proves it in seconds).
 
 ### 1. AUTHOR — derive the contract from the real tree
 
