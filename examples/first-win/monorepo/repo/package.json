@@ -1,0 +1,10 @@
+{
+  "name": "storefront-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A two-package workspace: a server-side api package and a browser-side web package.",
+  "workspaces": [
+    "packages/api",
+    "packages/web"
+  ]
+}

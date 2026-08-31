@@ -1,0 +1,63 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "approvals": [
+    {
+      "role": "blueprint-steward",
+      "stage": "ratify"
+    }
+  ],
+  "architecture": {
+    "components": [],
+    "relationships": [
+      {
+        "allowed": false,
+        "from": "*",
+        "to": "axios",
+        "type": "imports"
+      }
+    ]
+  },
+  "constraints": [
+    {
+      "from": "*",
+      "id": "no-direct-http-client",
+      "severity": "critical",
+      "to": "axios",
+      "type": "forbiddenDependency"
+    }
+  ],
+  "evidenceRequirements": [
+    {
+      "onMissing": "block",
+      "required": true,
+      "type": "staticAst"
+    }
+  ],
+  "extraction": {
+    "minFiles": 1,
+    "paths": [
+      "src/**/*.plugin.ts"
+    ],
+    "profile": "plugin-surface"
+  },
+  "intentRefs": [
+    "policy/no-direct-http-client"
+  ],
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "no-direct-http-client",
+    "name": "No Direct HTTP Client — a plugin sends network traffic through the governed host, never a directly-imported HTTP client",
+    "ownerRole": "platform-engineer",
+    "status": "approved",
+    "stewardRole": "blueprint-steward",
+    "version": "0.1.0"
+  },
+  "scope": {
+    "paths": [
+      "src/**/*.plugin.ts"
+    ],
+    "repositories": [
+      "quickstart"
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "notify-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A brand-new service with no source files yet — the starting point for the empty-repo first win.",
+  "type": "commonjs"
+}

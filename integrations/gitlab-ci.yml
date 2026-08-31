@@ -1,0 +1,47 @@
+# integrations/gitlab-ci.yml — copy-paste job snippet: run the bce blueprint-conformance gate
+# in a GitLab pipeline.
+#
+# THIN by construction (same contract as the GitHub action at the repo root): this job invokes
+# the engine and passes its exit code through — it interprets NOTHING. A red verdict is
+# `bce gate` exit 1 → the job fails. There is no skip variable and no allow_failure here;
+# advisory is a COMMITTED `.bce-mode.json` mode the engine reads on its own.
+#
+# Paste this job into your .gitlab-ci.yml (or `include:` this file). Two edits to make:
+#   1. Pin the engine EXACTLY: replace 0.0.0 with the version you adopt. Ranges are refused
+#      by convention — pin exactly (a caret range on a 0.x line silently excludes the next
+#      minor, so `^0.6.0` never picks up 0.7.0).
+#   2. Adjust `stage:` to match your pipeline.
+#
+# What runs, exactly:
+#   - On a merge-request pipeline: the gate is scoped to the MR's changed files
+#     (git diff against $CI_MERGE_REQUEST_DIFF_BASE_SHA). GIT_DEPTH: "0" guarantees the
+#     base SHA exists in the clone.
+#   - On the default branch: a full sweep (no --changed).
+#   - Either way the machine report (bce-report.json) is kept as a job artifact, including
+#     on failure, so an agent or a human can read the exact violations.
+
+bce-gate:
+  image: node:22
+  stage: test
+  variables:
+    GIT_DEPTH: "0" # full clone so the MR diff base SHA is always present
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - |
+      set -eu
+      # --package is required: the package ships two bins (bce, bce-mcp), so npx must be told
+      # which one to run. Pin EXACTLY (see header).
+      BCE="npx --yes --package bce-engine@0.0.0 bce"
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        CHANGED="$(git diff --name-only "$CI_MERGE_REQUEST_DIFF_BASE_SHA" HEAD | tr '\n' ',')"
+        echo "gating changed files: ${CHANGED:-<none>}"
+        $BCE gate --repo . --changed "$CHANGED" --report-json bce-report.json
+      else
+        $BCE gate --repo . --report-json bce-report.json
+      fi
+  artifacts:
+    when: always # keep the machine report on RED too — that is when it is most useful
+    paths:
+      - bce-report.json

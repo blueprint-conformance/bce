@@ -1,0 +1,67 @@
+{
+  "$id": "https://blueprint-conformance.github.io/bce/schemas/evidence-record.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "One immutable link of the append-only, tamper-evident evidence hash-chain (src/emit.ts). `hash` is the SHA-256 of the record’s canonical body (previousHash included); `previousHash` links to the prior record’s `hash`, or the 64-zero genesis sentinel for the first record. Content-derived, deterministic: no wall-clock anywhere in the body.",
+  "properties": {
+    "blueprintRef": {
+      "type": "string"
+    },
+    "ctRepoRevision": {
+      "type": "string"
+    },
+    "hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "id": {
+      "description": "content-derived stable id: `evidence:<blueprintRef>:<hash[0..16]>`",
+      "type": "string"
+    },
+    "previousHash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "reportEvidenceRef": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "1"
+    },
+    "score": {
+      "maximum": 100,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "traceId": {
+      "description": "the chain key (blueprint id — one chain per subsystem)",
+      "type": "string"
+    },
+    "verdict": {
+      "enum": [
+        "pass",
+        "fail"
+      ],
+      "type": "string"
+    },
+    "violationCount": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "traceId",
+    "blueprintRef",
+    "ctRepoRevision",
+    "score",
+    "verdict",
+    "violationCount",
+    "reportEvidenceRef",
+    "previousHash",
+    "hash"
+  ],
+  "title": "EvidenceRecord",
+  "type": "object"
+}

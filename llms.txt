@@ -1,0 +1,57 @@
+# bce — the blueprint conformance engine
+
+> A fail-closed architecture-conformance gate for AI-built systems. You author a blueprint (a durable
+> architectural contract for a repository); bce measures the code against it and produces a
+> deterministic conformance score, a fail-closed required-check gate for merges, and hash-chained
+> evidence anyone can re-derive offline. Extraction is TypeScript/JavaScript today; the blueprint graph
+> model is language-neutral, the extractor seam is documented, and Python is the named next community
+> target. Status: pre-release; names, schemas, and commands may change before the initial public tag.
+
+Core rules for an agent working in a bce-gated repo: (1) the gate is the done-check — a change is not
+done until `bce gate` is green; (2) on a red, fix the code, never silently edit the blueprint; (3) the
+baseline only ever shrinks — accepting a new violation is a reviewed human decision; (4) fail-closed,
+no skip flags — a refusal is a red, not a pass.
+
+## Start here
+
+- [Quickstart (offline RED→fix→GREEN)](examples/quickstart/README.md): the guaranteed path, no API keys, five minutes.
+- [Quickstart summary](docs/quickstart.md): the one-screen version.
+- [First-win matrix](examples/first-win/README.md): the same loop on four starting shapes (empty repo, plain JavaScript, TypeScript, monorepo), each authoring its own contract with `bce author` and each wall-clock timed under 120s in CI.
+- [Pick your shape](docs/first-win.md): which first-win walkthrough matches your repository, and the checkout-vs-published-package distinction.
+- [README](README.md): what bce is, in a paragraph.
+
+## Adoption
+
+- [Adopt on an existing repo](docs/adopt-existing-repo.md): the ladder — advisory → baseline → graduate → enforced; the honest brownfield story.
+- [FAQ](docs/faq.md): why baseline is not a bypass; why there is no skip flag.
+- [Run bce in an agent loop](docs/agent-loop.md): per-harness (Claude Code / Cursor / generic MCP); the violation→fix→re-gate loop.
+- [Integration snippets](integrations/README.md): drop-in CLAUDE.md / AGENTS.md / .cursorrules blocks + the MCP tools.
+- [Agent Skill](skills/README.md): the full author → validate → run → teeth → gate lifecycle as a loadable skill; copy `skills/bce` into `.claude/skills/`.
+
+## Reference
+
+- [Specification](spec/SPEC.md): normative — artifact model, 11-type constraint taxonomy, scoring, modes, versioning.
+- [Exit codes](docs/exit-codes.md): 0 = green, 1 = red/user-error, 2 = fail-closed refusal.
+- [Report contract](docs/report-contract.md): the deterministic compliance report; determinism and canonical serialization.
+- [Evidence format](docs/evidence-format.md): the hash-chained evidence record + the zero-dependency verifier.
+- [Published schemas](spec/schemas): generated JSON Schemas (draft-07).
+- [Conformance vectors](spec/conformance-vectors/README.md): input→expected-verdict data (no runner, no levels at v1alpha1).
+
+## Authoring blueprints
+
+- [Blueprint-author prompt pack (experimental)](prompts/blueprint-author.md): drive an agent to draft a blueprint from an existing repo; always ends in `bce teeth` + human review.
+- [Prompt-pack validation](prompts/VALIDATION.md): the 5-public-repo acceptance runs.
+
+## The engine gates itself
+
+- [Self-hosting](docs/self-hosting.md): bce gates its own tree; Lane A/B, the bootstrap-0 exception, the Lane-A pin ceremony, the admin-override incident policy.
+- [Corpus map](corpus/CORPUS-MAP.md): the seeded-defect corpus (recall denominator) and its relation to the paper corpus.
+- [This repo's blueprint](.blueprints/engine.blueprint.json): the contract the self-gate enforces.
+
+## Project
+
+- [Contributing](CONTRIBUTING.md): DCO sign-off, agent-authored-PR conventions, the violation-message style guide.
+- [Governance](GOVERNANCE.md): solo maintainer, AI-driven operations, no board, no SLA, Apache-2.0 open core.
+- [RFC process](rfcs/RFC-0001-process.md): how the format changes — the widen-only ratchet.
+- [Security policy](SECURITY.md): private vulnerability reporting.
+- [Working on bce itself](AGENTS.md): the repository map for an agent contributing to the engine.

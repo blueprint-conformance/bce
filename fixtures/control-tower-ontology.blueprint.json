@@ -1,0 +1,63 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "control-tower-ontology",
+    "name": "Control Tower — Ontology Write-Authority Surface",
+    "version": "0.1.0",
+    "status": "draft",
+    "ownerRole": "platform-engineer",
+    "stewardRole": "blueprint-steward"
+  },
+  "intentRefs": [
+    "policy/per-tenant-ownership",
+    "adr:ontology-write-authority-model"
+  ],
+  "scope": {
+    "repositories": ["service-beta"],
+    "paths": ["src/app/api/tenants/[id]/objects/**"],
+    "environments": ["staging", "production"]
+  },
+  "architecture": {
+    "components": [
+      { "id": "ontologyStore", "type": "dataStore", "owner": "control-tower" },
+      { "id": "brainReadProjection", "type": "readProjection", "owner": "brain" }
+    ],
+    "relationships": [
+      {
+        "from": "brainReadProjection",
+        "to": "ontologyStore",
+        "type": "write",
+        "allowed": false
+      }
+    ]
+  },
+  "constraints": [
+    {
+      "id": "d6-tenant-guard",
+      "type": "requiredDependency",
+      "severity": "critical",
+      "component": "apiRouteHandler",
+      "evidenceType": "tenantGuard",
+      "policyRef": "policy/per-tenant-ownership"
+    },
+    {
+      "id": "brain-never-writes-objectinstance",
+      "type": "forbiddenDependency",
+      "severity": "high",
+      "from": "brainReadProjection",
+      "to": "ontologyStore",
+      "policyRef": "adr:ontology-write-authority-model"
+    }
+  ],
+  "evidenceRequirements": [
+    {
+      "type": "staticAst",
+      "required": true,
+      "onMissing": "block"
+    }
+  ],
+  "approvals": [
+    { "role": "blueprint-steward", "stage": "ratify" }
+  ]
+}

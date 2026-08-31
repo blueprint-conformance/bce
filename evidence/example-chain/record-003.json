@@ -1,0 +1,13 @@
+{
+  "blueprintRef": "bce-engine-architecture@0.1.0",
+  "ctRepoRevision": "7ce50b4da45db8ca28f9a195e80a863e56735b19",
+  "hash": "00acb720b19f4ae698cb9696c5c214fa45ec54a91409a21dc2838c084dac1a38",
+  "id": "evidence:bce-engine-architecture@0.1.0:00acb720b19f4ae6",
+  "previousHash": "d713c2c3793d7ce7c1d46cf5d3962edff15cdb61ecb1740a6e80f4a3639c98d3",
+  "reportEvidenceRef": "architecture-graph.json@sha256:d2fc7fec00292d00b02978948218dcd015b9dfbc5164a5bcb59c15357371b8b3",
+  "schemaVersion": "1",
+  "score": 100,
+  "traceId": "bce-engine-architecture",
+  "verdict": "pass",
+  "violationCount": 0
+}

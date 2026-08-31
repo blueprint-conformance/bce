@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="300" viewBox="0 0 1280 300" role="img" aria-labelledby="bce-banner-title bce-banner-desc">
+  <title id="bce-banner-title">bce — the blueprint conformance engine</title>
+  <desc id="bce-banner-desc">A dark plate. On the left, a five-by-five grid of calm blue and green cells with exactly one cell lit red — the gate that can go red. To its right, the wordmark "bce" over the tagline "Blueprints with Teeth."</desc>
+
+  <!--
+    HAND-AUTHORED, ZERO-DEPENDENCY. Every shape below is a literal rect or text
+    node, so this file diffs in review like source rather than like an image.
+
+    ONE RED CELL is the whole idea. A conformance gate that cannot go red is
+    decoration; the logo is a calm field of conformant cells with a single
+    refusal in it. The red cell is deliberately off-centre — a refusal shows up
+    where it shows up, not where a layout would like it.
+
+    Self-contained DARK PLATE rather than a theme-reactive asset: GitHub renders
+    README SVGs inside an <img>, where a prefers-color-scheme query is evaluated
+    against the image's own context and cannot be relied on. A plate that owns
+    its background reads identically on the light and dark themes; a transparent
+    one would put dark text on a dark page for half the audience.
+  -->
+
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B1622"/>
+      <stop offset="55%" stop-color="#0C1A28"/>
+      <stop offset="100%" stop-color="#0A131D"/>
+    </linearGradient>
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2E6E8E" stop-opacity="0.9"/>
+      <stop offset="62%" stop-color="#2E8E6E" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#E5484D" stop-opacity="0.85"/>
+    </linearGradient>
+    <pattern id="drafting" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#1B3A52" stroke-width="1" stroke-opacity="0.35"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="300" fill="url(#plate)"/>
+  <rect width="1280" height="300" fill="url(#drafting)"/>
+
+  <!-- The glyph: 5x5 blueprint cells, 18px on a 24px pitch, origin (84, 93). -->
+  <g>
+    <!-- row 0 -->
+    <rect x="84"  y="93"  width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="108" y="93"  width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="132" y="93"  width="18" height="18" rx="2" fill="#164A40" stroke="#2E8E6E" stroke-width="1.5"/>
+    <rect x="156" y="93"  width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="180" y="93"  width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <!-- row 1 -->
+    <rect x="84"  y="117" width="18" height="18" rx="2" fill="#164A40" stroke="#2E8E6E" stroke-width="1.5"/>
+    <rect x="108" y="117" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="132" y="117" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="156" y="117" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="180" y="117" width="18" height="18" rx="2" fill="#164A40" stroke="#2E8E6E" stroke-width="1.5"/>
+    <!-- row 2 — the refusal. -->
+    <rect x="84"  y="141" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="108" y="141" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="132" y="141" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="156" y="141" width="18" height="18" rx="2" fill="#7F1D22" stroke="#F0555B" stroke-width="1.5"/>
+    <rect x="180" y="141" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <!-- row 3 -->
+    <rect x="84"  y="165" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="108" y="165" width="18" height="18" rx="2" fill="#164A40" stroke="#2E8E6E" stroke-width="1.5"/>
+    <rect x="132" y="165" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="156" y="165" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="180" y="165" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <!-- row 4 -->
+    <rect x="84"  y="189" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="108" y="189" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="132" y="189" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+    <rect x="156" y="189" width="18" height="18" rx="2" fill="#164A40" stroke="#2E8E6E" stroke-width="1.5"/>
+    <rect x="180" y="189" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+  </g>
+
+  <!-- Wordmark + tagline. -->
+  <text x="264" y="172" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="104" font-weight="700" fill="#E8F1F8" letter-spacing="-2">bce</text>
+  <text x="272" y="212" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="27" font-weight="600" fill="#8FA6BC" letter-spacing="0.5">Blueprints with Teeth.</text>
+
+  <!-- The plate's own rule: conformant blue, through green, into the one refusal. -->
+  <rect x="264" y="228" width="420" height="3" rx="1.5" fill="url(#rule)"/>
+
+  <text x="1196" y="212" text-anchor="end" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="19" fill="#5C748C">the blueprint conformance engine</text>
+</svg>

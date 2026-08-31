@@ -1,0 +1,93 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "approvals": [
+    {
+      "role": "blueprint-steward",
+      "stage": "ratify"
+    }
+  ],
+  "architecture": {
+    "components": [],
+    "relationships": []
+  },
+  "constraints": [
+    {
+      "component": "pluginSurface",
+      "id": "ext-must-be-recognizable",
+      "policyRef": "policy/plugin-arch",
+      "severity": "high",
+      "type": "requiredComponent"
+    },
+    {
+      "component": "pluginSurface",
+      "id": "ext-registers-through-governed-path",
+      "policyRef": "policy/permission-spine",
+      "severity": "critical",
+      "type": "requiredDependency"
+    },
+    {
+      "from": "*",
+      "id": "no-direct-provider-sdk",
+      "policyRef": "policy/gateway-choke-point",
+      "severity": "critical",
+      "to": "openai",
+      "type": "forbiddenDependency"
+    },
+    {
+      "from": "*",
+      "id": "no-direct-anthropic-sdk",
+      "policyRef": "policy/gateway-choke-point",
+      "severity": "critical",
+      "to": "@anthropic-ai/sdk",
+      "type": "forbiddenDependency"
+    }
+  ],
+  "evidenceRequirements": [
+    {
+      "onMissing": "block",
+      "required": true,
+      "type": "staticAst"
+    }
+  ],
+  "extraction": {
+    "forbiddenImports": [
+      "openai",
+      "@anthropic-ai/sdk",
+      "@google/generative-ai"
+    ],
+    "governedModules": [
+      "@mariozechner/pi-coding-agent",
+      "@example/agent-host-sdk"
+    ],
+    "guardSymbols": [
+      "registerTool",
+      "registerGuardedTool"
+    ],
+    "minFiles": 1,
+    "paths": [
+      "src/extensions/**/*.extension.ts"
+    ],
+    "profile": "plugin-surface"
+  },
+  "intentRefs": [
+    "policy/gateway-choke-point",
+    "policy/permission-spine"
+  ],
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "demo-fleet-extension-governance--example-org-service-alpha",
+    "name": "Demo fleet — governed extension surface (portfolio) — example-org/service-alpha member overlay",
+    "ownerRole": "platform-engineer",
+    "status": "approved",
+    "stewardRole": "blueprint-steward",
+    "version": "1.0.0"
+  },
+  "scope": {
+    "paths": [
+      "src/extensions/**/*.extension.ts"
+    ],
+    "repositories": [
+      "example-org/service-alpha"
+    ]
+  }
+}

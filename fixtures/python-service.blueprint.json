@@ -1,0 +1,110 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "python-service",
+    "name": "Python Service \u2014 gateway-governed provider access over a Python module surface",
+    "version": "0.1.0",
+    "status": "approved",
+    "ownerRole": "platform-engineer",
+    "stewardRole": "blueprint-steward"
+  },
+  "intentRefs": [
+    "policy/gateway-choke-point",
+    "policy/no-committed-secrets"
+  ],
+  "scope": {
+    "repositories": [
+      "python-service"
+    ],
+    "paths": [
+      "service/**/*.py"
+    ],
+    "environments": [
+      "staging",
+      "production"
+    ]
+  },
+  "extraction": {
+    "profile": "python-import-surface",
+    "paths": [
+      "service/**/*.py"
+    ],
+    "forbiddenImports": [
+      "openai"
+    ],
+    "minFiles": 2
+  },
+  "architecture": {
+    "components": [
+      {
+        "id": "serviceModules",
+        "type": "pythonModule",
+        "owner": "service-team"
+      },
+      {
+        "id": "governedGateway",
+        "type": "governedDependency",
+        "owner": "api-gateway"
+      }
+    ],
+    "relationships": [
+      {
+        "from": "serviceModules",
+        "to": "governedGateway",
+        "type": "routes-through",
+        "allowed": true
+      },
+      {
+        "from": "serviceModules",
+        "to": "openai",
+        "type": "imports",
+        "allowed": false
+      }
+    ]
+  },
+  "constraints": [
+    {
+      "id": "py-module-surface-recognizable",
+      "type": "requiredComponent",
+      "severity": "high",
+      "component": "pythonModule",
+      "policyRef": "policy/gateway-choke-point"
+    },
+    {
+      "id": "no-direct-provider-sdk",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "openai",
+      "policyRef": "policy/gateway-choke-point"
+    },
+    {
+      "id": "no-committed-secrets-module",
+      "type": "forbiddenFile",
+      "severity": "high",
+      "path": "**/secrets.py",
+      "policyRef": "policy/no-committed-secrets"
+    },
+    {
+      "id": "no-hardcoded-provider-key",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "pattern": "provider_api_key\\s*=\\s*[\"'][A-Za-z0-9-]{20,}[\"']",
+      "policyRef": "policy/no-committed-secrets"
+    }
+  ],
+  "evidenceRequirements": [
+    {
+      "type": "staticAst",
+      "required": true,
+      "onMissing": "block"
+    }
+  ],
+  "approvals": [
+    {
+      "role": "blueprint-steward",
+      "stage": "ratify"
+    }
+  ]
+}

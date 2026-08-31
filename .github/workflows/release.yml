@@ -1,0 +1,440 @@
+name: release
+
+# ==============================================================================
+# Tag-gated release to the public npm registry — fail-closed to the last byte.
+#
+# A tag push (v*) does NOT publish on its own trust: this workflow RE-EXECUTES,
+# in this run, at the tag, every proof the repository claims — full suite +
+# corpus/recall + self-gate (Lane B) + leakage-gate + the RED/GREEN dist pair —
+# and REFUSES to publish unless ALL of them are green HERE. Citation of a prior
+# green run is never accepted as the proof (the same discipline ci.yml applies on
+# every push). Only after the gate legs pass does it `npm publish --provenance
+# --access public`, then attach the evidence record of THIS gate-run to the
+# GitHub Release.
+#
+# There is no skip flag. `dry_run` (workflow_dispatch only, default true) runs
+# every gate leg and then STOPS BEFORE publish — it proves the gate legs green
+# without publishing; it never turns a red leg green.
+#
+# ------------------------------------------------------------------------------
+# HONEST AUTH NOTE — read before expecting a publish to succeed.
+#
+# `npm publish` to the public registry requires ONE of two operator-provisioned
+# authorities, and this workflow creates NEITHER (creating a fake secret would be
+# a lie the registry rejects anyway):
+#
+#   (A) an NPM_TOKEN repository secret — a GRANULAR automation token scoped to
+#       publish `bce-engine`. On an account with 2FA set to "auth and writes",
+#       the token must be one whose creation was permitted under the account's
+#       2FA-bypass-for-automation setting; a classic token on a writes-2FA
+#       account will be rejected at publish time by the registry, not here.
+#   (B) npmjs Trusted Publishing configured for THIS repository + workflow —
+#       OIDC, no stored token. Requires `id-token: write` (granted on the publish
+#       job below) AND a trusted-publisher entry created on npmjs.com for
+#       blueprint-conformance/bce → .github/workflows/release.yml.
+#
+# Both are OPERATOR ATOMS done once on npmjs.com; they cannot be done from CI.
+# The publish job's pre-flight checks for (A); if NPM_TOKEN is absent it says so
+# LOUDLY and continues ONLY so npm's own OIDC path (B) can run — and if (B) is
+# also not configured, `npm publish` fails loudly with the registry's own
+# "need auth"/"provenance" error. Either way the failure is explicit, named, and
+# never a silent skip or a fabricated success.
+# ==============================================================================
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: >-
+          Run every release gate leg but STOP BEFORE publish (syntactic + gate
+          proof for the workflow itself). Defaults true for a manual dispatch;
+          a real publish only happens on a v* tag push.
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # GATE — every proof, re-executed at the tag. This job is the fail-closed wall
+  # in front of publish: if any leg reds, the job fails, and the publish job
+  # (which `needs:` this one) never runs. Nothing here trusts a prior run.
+  # ----------------------------------------------------------------------------
+  gate:
+    name: release-gate (re-execute every proof at the tag)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      dry_run: ${{ steps.mode.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          # registry-url writes the .npmrc that makes NODE_AUTH_TOKEN usable, so the
+          # publish-auth gate leg below can PROVE the credential against the registry
+          # rather than merely observing that a secret is set.
+          registry-url: https://registry.npmjs.org
+
+      # node-version:22 ships npm 10.9.x. npm's Trusted Publishing (OIDC) requires
+      # npm >= 11.5.1 (and node >= 22.14.0), so auth path (B) is DEAD ON ARRIVAL on
+      # the stock toolchain — the publish would fail no matter what the gate said.
+      # Upgraded in BOTH jobs: the gate must measure the same npm the publish uses,
+      # or the gate's verdict is about a different toolchain than the one that ships.
+      - name: Upgrade npm to the Trusted-Publishing floor (>=11.5.1)
+        run: npm install -g npm@^11.5.1
+
+      - name: Resolve release mode (tag push = real; dispatch = dry_run input)
+        id: mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # A tag push is always a real release attempt — no dry-run escape on a tag.
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            echo "→ tag push ${{ github.ref_name }} — REAL release (gate then publish)"
+          else
+            dr="${{ github.event.inputs.dry_run }}"
+            # Default-safe: ONLY an explicit 'false' is a real publish; anything
+            # else (true, empty, unexpected) stays a dry run. Explicit if — never
+            # the &&/|| idiom — because this output is the publish/no-publish gate.
+            if [ "$dr" = "false" ]; then
+              echo "dry_run=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "dry_run=true" >> "$GITHUB_OUTPUT"
+            fi
+            echo "→ workflow_dispatch — dry_run=${dr:-true}"
+          fi
+
+      - name: Guard — package.json version must match the tag (tag push only)
+        if: ${{ github.event_name == 'push' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ github.ref_name }}"          # e.g. v0.1.0
+          want="${tag#v}"                        # 0.1.0
+          have="$(node -p "require('./package.json').version")"
+          if [ "$have" != "$want" ]; then
+            echo "::error::tag ${tag} implies version ${want} but package.json is ${have} — the tag and the staged version must agree before publish"
+            exit 1
+          fi
+          echo "package.json version ${have} matches tag ${tag}"
+
+      - name: Install (clean, lockfile-exact)
+        run: npm ci
+
+      - name: Build the distributable engine
+        run: npm run build
+
+      - name: Typecheck (tsc --noEmit, full tree)
+        run: npm run typecheck
+
+      - name: Full vitest suite (no filter)
+        run: npm test
+
+      - name: Corpus / measured-recall run (recall arithmetic + real-engine e2e proof)
+        run: npx vitest run tests/recall-gate.test.ts tests/recall-e2e-proof.test.ts
+
+      - name: Self-gate (Lane B) — validate + teeth + self-blueprint sync + evidence chain, fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          node dist/cli.js validate --blueprint .blueprints/engine.blueprint.json
+          node dist/cli.js gate --repo . --repo-name blueprint-conformance/bce
+          node dist/cli.js teeth --blueprint .blueprints/engine.blueprint.json --ct-repo . --out teeth-report.json
+          npx vitest run tests/self-blueprint.test.ts
+          node tools/verify-chain.mjs evidence/example-chain
+          echo "--- teeth report (surfaced in the run log) ---"
+          cat teeth-report.json
+
+      - name: Leakage gate — NUL-proof banned-string scan (re-run at the tag)
+        shell: bash
+        run: |
+          # The banned-string scan, re-executed here so a release can never
+          # publish a tree that would fail leakage-gate.yml. Patterns are
+          # assembled from fragments at runtime so THIS file passes its own scan.
+          set -euo pipefail
+          o1="od"; o2="in"; c1="O"
+          NAME="${o1}${o2}"
+          NAME_PAT="(^|[^a-zA-Z])${NAME}"
+          STEWARD="${c1}d${o2} Labs"
+          sn="blueprintconformance"".dev"
+          t1="redro""cket"; t2="3d""3d"; t3="h""es"; t4="open""value"; t5="hazel""man"; t6="la""rs"; t7="techre""bels"
+          gp="gh""p_"; gs="gh""s_"; go="gh""o_"; gpat="git""hub_pat_"; pk="PRIV""ATE KEY"
+          CRED_PATTERNS=(
+            "(^|[^a-zA-Z0-9])sk_[a-zA-Z0-9]{8,}"
+            "${gp}[A-Za-z0-9]{10,}" "${gs}[A-Za-z0-9]{10,}" "${go}[A-Za-z0-9]{10,}" "$gpat"
+            'AKIA[0-9A-Z]{8,}' 'xox[baprs]-'
+            "-----BEGIN [A-Z ]*${pk}-----" 'eyJ[A-Za-z0-9_-]{20,}\.eyJ'
+          )
+          PATTERNS=(
+            "$NAME_PAT" "$t1" "$t2" "$t4" "$t5" "$t7"
+            "(^|[^a-z0-9_])${t3}([^a-z0-9_]|$)" "(^|[^a-z0-9_])${t6}([^a-z0-9_]|$)"
+            '77\.42\.80\.233' '10\.0\.0\.' '136\.243\.' '65\.21\.'
+            'rule-[0-9]' '(^|[^a-z0-9])vp-[a-z0-9]' '(^|[^a-z0-9])del-[a-z0-9]'
+            'npm\.pkg\.git''hub\.com' "$sn" "${CRED_PATTERNS[@]}"
+          )
+          STEWARD_ALLOWLIST=("NOTICE" "GOVERNANCE.md" "TRADEMARKS.md")
+          fail=0
+          while IFS= read -r -d '' f; do
+            rel="${f#./}"
+            allow=0
+            for a in "${STEWARD_ALLOWLIST[@]}"; do [ "$rel" = "$a" ] && allow=1; done
+            for p in "${PATTERNS[@]}"; do
+              if [ "$allow" -eq 1 ] && [ "$p" = "$NAME_PAT" ]; then
+                hits="$(tr -d '\000' < "$f" | sed "s/${STEWARD}//g" | { grep -a -i -n -E -- "$p" || true; })"
+              else
+                hits="$(tr -d '\000' < "$f" | { grep -a -i -n -E -- "$p" || true; })"
+              fi
+              if [ -n "$hits" ]; then
+                echo "LEAKAGE HIT in ${rel} (pattern: ${p}):"; echo "$hits" | head -20; fail=1
+              fi
+            done
+          # node_modules is EXCLUDED so this scan covers the same surface the standalone
+          # leakage-gate.yml has always enforced. That gate is checkout-only (no `npm ci`),
+          # so it has never seen node_modules; this job installs and builds BEFORE this step,
+          # so without the exclusion it walks ~109 third-party packages that the standalone
+          # gate does not. Measured 2026-08-14 (dry-run 31788403214): that difference alone
+          # failed this gate on 22 hits — every one in node_modules (esbuild, vite, zod and
+          # @types/node tripping the cloud-key, private-range-IP and cycle-id patterns),
+          # ZERO in the repository tree. On a real v* tag that is a publish-blocking false red.
+          #
+          # (The banned strings are deliberately NOT quoted verbatim above — this file is
+          # itself scanned, which is why the pattern list below is assembled from fragments.)
+          #
+          # This is not a relaxation (rule: a gate tightens, never silently relaxes):
+          #   - node_modules is upstream code, is reinstalled from the lockfile, and is NOT
+          #     published — package.json `files:` is [dist, src, fixtures, integrations].
+          #   - The SHIPPED surface stays fully scanned, and the same dry-run proves it clean:
+          #     dist/, src/, fixtures/, integrations/ produced zero hits.
+          done < <(find . -type f ! -path './.git/*' ! -path './node_modules/*' -print0)
+          [ "$fail" -ne 0 ] && { echo "::error::leakage-gate: banned strings found — release refused"; exit 1; } || echo "leakage-gate: PASS"
+
+      - name: RED/GREEN discriminating pair (built dist CLI, real exit codes)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # One blueprint, two trees, opposite verdicts — a gate that cannot go red is not a gate.
+          BPD="$(mktemp -d)"
+          cp fixtures/luna-chat-extension.blueprint.json "$BPD/"
+
+          echo "--- GREEN leg: conformant tree must PASS (exit 0) ---"
+          set +e
+          node dist/cli.js gate --repo fixtures/extension-surface/conformant --blueprint-dir "$BPD" --extractor ast > green.out 2> green.err
+          rc_green=$?
+          set -e
+          cat green.out green.err
+          [ "$rc_green" -ne 0 ] && { echo "::error::GREEN leg exited ${rc_green} (expected 0)"; exit 1; }
+          grep -q "score 100 (pass)" green.out || { echo "::error::GREEN leg exit 0 but pass marker missing"; exit 1; }
+
+          echo "--- RED leg: drifted tree must FAIL (exit exactly 1, violation named) ---"
+          set +e
+          node dist/cli.js gate --repo fixtures/extension-surface/drift-forbidden-import --blueprint-dir "$BPD" --extractor ast > red.out 2> red.err
+          rc_red=$?
+          set -e
+          cat red.out red.err
+          [ "$rc_red" -ne 1 ] && { echo "::error::RED leg exited ${rc_red} (expected exactly 1)"; exit 1; }
+          grep -q "FAILED" red.err || { echo "::error::RED leg exit 1 but no FAILED verdict on stderr"; exit 1; }
+          grep -q "no-direct-provider-sdk" red.err || { echo "::error::RED leg failed without naming the seeded violation"; exit 1; }
+          echo "RED/GREEN discriminating pair: PROVEN — opposite verdicts by real exit codes (0 / 1)."
+
+      - name: Citation gate — CITATION.cff must carry no placeholder identifiers
+        run: node scripts/check-release-citation.mjs
+
+      # ----------------------------------------------------------------------
+      # PUBLISH-AUTH GATE — the credential is proven HERE, not discovered at the tag.
+      #
+      # The publish job's pre-flight only WARNS when no credential is configured, and
+      # then lets `npm publish` fail with the registry's own error. That is honest but
+      # it is late: by then the tag exists, every other proof has run, and the failure
+      # lands at the least reversible moment of the release ceremony. This leg moves
+      # that discovery into the gate job, where a dry-run can see it days earlier.
+      #
+      # It PROVES rather than observes. A presence check ("is the secret set?") would
+      # still miss the exact trap this workflow's own header calls out — a classic
+      # token on a writes-2FA account is accepted by CI and rejected by the registry
+      # at publish time. `npm whoami` makes the registry itself answer, now.
+      #
+      # `!cancelled()` so this leg reports alongside the citation gate rather than
+      # being skipped by it — a dry-run should surface EVERY missing precondition in
+      # one run, not one per re-dispatch.
+      - name: Publish-auth gate — prove a usable publish credential exists BEFORE the tag
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TRUSTED_PUBLISHING_ACK: ${{ vars.NPM_TRUSTED_PUBLISHING_CONFIGURED }}
+        run: |
+          set -uo pipefail
+          # Measure and REPORT the toolchain unconditionally, before branching. The
+          # floor is only load-bearing for path (B) (OIDC), so it is only ENFORCED
+          # there -- but a dry-run with no credential configured must still show
+          # which npm the release would use, or the fix is unobservable exactly when
+          # someone is checking whether it landed.
+          npmv="$(npm --version)"
+          echo "publish-auth gate: npm CLI ${npmv} (Trusted-Publishing floor 11.5.1)"
+          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+            # Auth path (A). Make the registry adjudicate the token, not us.
+            if who="$(npm whoami --registry=https://registry.npmjs.org 2>&1)"; then
+              echo "publish-auth gate: PASS (proven) — the registry accepts NPM_TOKEN as '${who}'."
+              exit 0
+            fi
+            echo "::error::publish-auth gate: FAIL — NPM_TOKEN is set but the registry REJECTED it."
+            echo "registry said: ${who}"
+            echo "This is the trap this workflow's header names: a CLASSIC token on an account with"
+            echo "2FA set to 'auth and writes' is refused at publish time. Re-mint as a GRANULAR"
+            echo "automation token scoped to publish this package, or configure Trusted Publishing."
+            exit 1
+          fi
+          if [ "${TRUSTED_PUBLISHING_ACK:-}" = "true" ]; then
+            # Auth path (B). Two conditions, and the ACK is only one of them.
+            #
+            # The ACK is self-asserted: npm exposes no pre-publish query for a
+            # trusted-publisher entry, so nothing here can confirm it. What CAN be
+            # measured is the toolchain floor OIDC needs — npm >= 11.5.1. Without it
+            # the publish cannot use OIDC at all, so an ACK-only gate would go green
+            # while `npm publish` dies. That is the same hazard the token path was
+            # fixed for, on the other branch: a gate that reports on a precondition
+            # it never checked.
+            if [ "$(printf '%s\n%s\n' '11.5.1' "$npmv" | sort -V | head -1)" != "11.5.1" ]; then
+              echo "::error::publish-auth gate: FAIL — the ACK is set but npm ${npmv} is BELOW the"
+              echo "Trusted-Publishing floor of 11.5.1, so OIDC cannot be used and the publish would"
+              echo "fail regardless of the attestation. node-version:22 ships npm 10.9.x; install"
+              echo "npm@^11.5.1 in BOTH the gate and publish jobs. npm also requires node >= 22.14.0."
+              exit 1
+            fi
+            echo "publish-auth gate: PASS (attested + floor proven) — npm ${npmv} meets the OIDC"
+            echo "floor, and repository variable NPM_TRUSTED_PUBLISHING_CONFIGURED=true asserts a"
+            echo "trusted-publisher entry exists for this repository + workflow. The FLOOR is"
+            echo "measured; the ENTRY is still only attested — no pre-publish API can confirm it,"
+            echo "and if the attestation is wrong, publish fails with the registry's own OIDC error."
+            exit 0
+          fi
+          echo "::error::publish-auth gate: FAIL — no usable publish credential is configured."
+          echo "The tag would pass every other gate leg and then die at 'npm publish'."
+          echo "Provision ONE of:"
+          echo "  (A) a GRANULAR npm automation token scoped to publish this package, as the"
+          echo "      repository secret NPM_TOKEN — this leg will then prove it against the registry;"
+          echo "  (B) an npmjs Trusted Publishing entry for this repository + .github/workflows/release.yml,"
+          echo "      then set the repository variable NPM_TRUSTED_PUBLISHING_CONFIGURED=true."
+          exit 1
+
+      - name: Gate legs all green
+        shell: bash
+        run: echo "All release gate legs green at ${{ github.ref_name }}. ${{ steps.mode.outputs.dry_run == 'true' && 'DRY RUN — stopping before publish.' || 'Proceeding to publish.' }}"
+
+  # ----------------------------------------------------------------------------
+  # PUBLISH — runs ONLY on a real tag push with the gate green and dry_run false.
+  # Re-installs + re-builds from a clean tree (never trusts the gate job's
+  # artifacts), then npm publish --provenance --access public, then generates and
+  # attaches the evidence record of the release gate-run to the GitHub Release.
+  # ----------------------------------------------------------------------------
+  publish:
+    name: publish (provenance) + attach evidence record
+    needs: gate
+    if: ${{ github.event_name == 'push' && needs.gate.outputs.dry_run == 'false' }}
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write   # create/update the GitHub Release + upload the evidence asset
+      id-token: write    # npm provenance + Trusted Publishing (OIDC) — auth path (B)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      # Must match the gate job's floor. If the gate measures npm >= 11.5.1 and the
+      # publish job then runs the stock npm 10.9.x, the gate's verdict was about a
+      # toolchain that never ships — the gate would be measuring the wrong thing.
+      - name: Upgrade npm to the Trusted-Publishing floor (>=11.5.1)
+        run: npm install -g npm@^11.5.1
+
+      - name: Pre-flight — honest auth check (NPM_TOKEN present, else OIDC-only path)
+        shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            echo "auth path (A): NPM_TOKEN secret is present — publish will authenticate with it."
+          else
+            echo "::warning::NPM_TOKEN secret is ABSENT. Publish will rely on auth path (B): npmjs Trusted Publishing (OIDC) for blueprint-conformance/bce → .github/workflows/release.yml."
+            echo "::warning::If Trusted Publishing is not configured on npmjs.com for this repo+workflow, 'npm publish' below will fail loudly with the registry's own auth error. That is the honest fail-closed outcome — this workflow creates no fake credential."
+          fi
+
+      - name: Install (clean, lockfile-exact)
+        run: npm ci
+
+      - name: Build the distributable engine
+        run: npm run build
+
+      - name: npm publish --provenance --access public
+        shell: bash
+        env:
+          # Present only if the operator provisioned it (auth path A). Absent → npm
+          # falls through to the OIDC Trusted-Publishing path (B) enabled by the
+          # id-token:write permission on this job. If neither is usable, npm fails
+          # here with a clear auth error — never a silent success.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          npm publish --provenance --access public
+          echo "published $(node -p "require('./package.json').name")@$(node -p "require('./package.json').version") with provenance."
+
+      - name: Generate the evidence record of THIS release gate-run
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The release moment's own evidence: run the engine over its own tree
+          # and emit a chained, deterministic EvidenceRecord. This is the record
+          # attached to the Release — the release gate-run made re-derivable with
+          # `node tools/verify-chain.mjs`.
+          node dist/cli.js run \
+            --blueprint .blueprints/engine.blueprint.json \
+            --ct-repo . \
+            --emit \
+            --emit-evidence-out release-evidence-record.json \
+            --emit-wo-out release-remediation-work-orders.json \
+            --out release-compliance-report.json
+          echo "--- release evidence record ---"
+          cat release-evidence-record.json
+          # Prove the emitted record verifies with the zero-dep verifier before we attach it.
+          mkdir -p release-evidence-chain
+          cp release-evidence-record.json release-evidence-chain/record-001.json
+          node tools/verify-chain.mjs release-evidence-chain
+          echo "release evidence record verifies (zero-dep verifier)."
+
+      - name: Attach the evidence record to the GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ github.ref_name }}"
+          # Create the Release if the tag has none yet (idempotent), then upload the asset.
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --title "$tag" \
+              --notes "Automated release of $(node -p "require('./package.json').name")@${tag#v}. The attached release-evidence-record.json is the EvidenceRecord of this release's gate-run — re-derivable with \`node tools/verify-chain.mjs\`. Published with npm provenance."
+          fi
+          gh release upload "$tag" \
+            release-evidence-record.json \
+            release-compliance-report.json \
+            --clobber
+          echo "attached release-evidence-record.json + release-compliance-report.json to Release $tag"

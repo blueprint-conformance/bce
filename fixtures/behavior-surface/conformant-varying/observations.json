@@ -1,0 +1,5 @@
+[
+  { "id": "behavior:chat-completion:stim-alpha", "type": "behaviorObservation", "path": "9f1c2a44aab13e07|1", "line": 1 },
+  { "id": "behavior:chat-completion:stim-beta", "type": "behaviorObservation", "path": "b7e60d113c9d5f21|1", "line": 1 },
+  { "id": "behavior:chat-completion:stim-heldout-gamma", "type": "behaviorObservation", "path": "0d44e9c1f2ab8834|1", "line": 1 }
+]

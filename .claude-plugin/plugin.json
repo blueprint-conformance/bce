@@ -1,0 +1,11 @@
+{
+  "name": "blueprint",
+  "description": "Turn architectural rules into enforced merge contracts with the bce conformance engine, and tune Agent Skills against the enforceable skill-standard.",
+  "version": "0.2.0",
+  "author": { "name": "bce maintainers" },
+  "homepage": "https://github.com/blueprint-conformance/bce",
+  "repository": "https://github.com/blueprint-conformance/bce",
+  "license": "Apache-2.0",
+  "keywords": ["architecture", "conformance", "gate", "blueprint", "skills", "standard"],
+  "skills": ["./skills/bce", "./skills/skill-tuning"]
+}

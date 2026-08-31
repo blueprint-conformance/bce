@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="113" height="20" viewBox="0 0 113 20" role="img" aria-label="docs: zero-dep">
+  <title>docs: zero-dep</title>
+  <rect width="113" height="20" rx="3" fill="#30363D"/>
+  <path d="M44 0h66a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3h-66z" fill="#2E6E8E"/>
+  <g font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="500">
+    <text x="9" y="14" textLength="26" lengthAdjust="spacingAndGlyphs" fill="#C9D5E1">docs</text>
+    <text x="53" y="14" textLength="51" lengthAdjust="spacingAndGlyphs" fill="#FFFFFF">zero-dep</text>
+  </g>
+</svg>

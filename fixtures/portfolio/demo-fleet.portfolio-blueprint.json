@@ -1,0 +1,85 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "PortfolioBlueprint",
+  "metadata": {
+    "id": "demo-fleet-extension-governance",
+    "name": "Demo fleet — governed extension surface (portfolio)",
+    "version": "0.1.0",
+    "status": "approved",
+    "ownerRole": "platform-engineer",
+    "stewardRole": "blueprint-steward"
+  },
+  "intentRefs": [
+    "policy/gateway-choke-point",
+    "policy/permission-spine"
+  ],
+  "governance": {
+    "version": "1.0.0",
+    "skewGraceDays": 7,
+    "minMembers": 2
+  },
+  "members": [
+    {
+      "repo": "example-org/service-alpha",
+      "repoDir": "agent-host",
+      "checkContext": "blueprint-conformance-agent-host",
+      "enginePin": "0.3.0",
+      "pinEncoding": "workflow-literal",
+      "extractor": "ast"
+    },
+    {
+      "repo": "example-org/service-beta",
+      "repoDir": ".",
+      "checkContext": "blueprint-conformance",
+      "enginePin": "0.3.0",
+      "pinEncoding": "workflow-literal",
+      "extractor": "ast"
+    }
+  ],
+  "fleetConstraints": [
+    {
+      "id": "ext-must-be-recognizable",
+      "type": "requiredComponent",
+      "severity": "high",
+      "component": "pluginSurface",
+      "policyRef": "policy/plugin-arch"
+    },
+    {
+      "id": "ext-registers-through-governed-path",
+      "type": "requiredDependency",
+      "severity": "critical",
+      "component": "pluginSurface",
+      "policyRef": "policy/permission-spine"
+    },
+    {
+      "id": "no-direct-provider-sdk",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "openai",
+      "policyRef": "policy/gateway-choke-point"
+    },
+    {
+      "id": "no-direct-anthropic-sdk",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "@anthropic-ai/sdk",
+      "policyRef": "policy/gateway-choke-point"
+    }
+  ],
+  "extraction": {
+    "profile": "plugin-surface",
+    "paths": ["src/extensions/**/*.extension.ts"],
+    "guardSymbols": ["registerTool", "registerGuardedTool"],
+    "governedModules": ["@mariozechner/pi-coding-agent", "@example/agent-host-sdk"],
+    "forbiddenImports": ["openai", "@anthropic-ai/sdk", "@google/generative-ai"],
+    "minFiles": 1
+  },
+  "coverage": {
+    "unsupported": [
+      "dynamic import() with a computed specifier",
+      "generated code not present in the committed tree"
+    ]
+  }
+}

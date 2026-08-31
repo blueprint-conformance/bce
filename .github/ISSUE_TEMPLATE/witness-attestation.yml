@@ -1,0 +1,93 @@
+name: Witness attestation
+description: You ran the RED → fix → GREEN loop yourself. Tell us what you saw.
+title: "witness attestation: <your name or handle>"
+labels: ["witness-attestation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you — this is the one thing this project refuses to ask anyone to take on faith.
+
+        Run [`docs/launch/witness-kit.md`](../../docs/launch/witness-kit.md) first (setup is one
+        install and one build; the loop itself is under a minute, fully offline — no keys, no
+        accounts, no telemetry).
+
+        **A failed or mismatched run is a valuable attestation and we want it filed.** If the
+        commands did not do what the doc says, that is a defect in this project, not a mistake
+        on your part — please report it exactly as you saw it. Do not adjust anything to make
+        it look right.
+
+        The five fields below are the five things the kit asks you to state. Nothing else is
+        required, and you are welcome to answer in your own words.
+
+  - type: textarea
+    id: independence
+    attributes:
+      label: 1. Independence
+      description: >-
+        Confirm you ran this on a machine the project's authors do not control and have never
+        had access to, from a source copy you obtained yourself. Name the commit SHA
+        (`git rev-parse HEAD`) or, for an archive, its checksum.
+      placeholder: |
+        Ran on my own laptop; the authors have never had access to it.
+        Source: clone at commit <sha>   (or: archive sha256 <checksum>)
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-you-ran
+    attributes:
+      label: 2. What you ran
+      description: >-
+        The kit's commands, verbatim, with any deviations noted. Paste the terminal transcript
+        if you have one.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-you-saw
+    attributes:
+      label: 3. What you saw
+      description: >-
+        The clean tree gated green (exit 0); the drifted tree gated red (exit 1) with the
+        violation named at `src/greeting.plugin.ts#L16`; and after a fix YOU made, the same
+        tree gated green (exit 0). If any of that did not happen, say so plainly here — that
+        report is more useful to us than a clean one.
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: 4. Environment
+      description: Operating system and `node --version`.
+      placeholder: "macOS 15.3 (arm64), node v22.14.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: relationship
+    attributes:
+      label: 5. Relationship to the authors or the project
+      description: >-
+        So readers can weigh your independence for themselves. "None" is a complete answer;
+        so is "I know the author professionally". Both are fine — undisclosed is not.
+    validations:
+      required: true
+
+  - type: input
+    id: recording
+    attributes:
+      label: Terminal recording (optional)
+      description: Link to an asciinema cast, a gist, or an attached log, if you made one.
+
+  - type: checkboxes
+    id: quoting
+    attributes:
+      label: Quoting
+      options:
+        - label: >-
+            You may quote this attestation publicly (README, launch post, paper). Leave
+            unchecked and we will not quote you — filing it is still useful to us.
+          required: false

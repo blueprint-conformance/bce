@@ -1,0 +1,4 @@
+# The repository root ignores `.env` everywhere — correctly. This directory is the one place
+# that file has to be tracked: it is the seeded fixture that proves the S11a clause can go red,
+# and an untracked fixture proves nothing in CI. It carries no credential (see the file itself).
+!.env

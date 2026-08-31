@@ -1,0 +1,59 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "served-behavior",
+    "name": "Served Behavior — deployed output varies with input (anti-mock grading arm)",
+    "version": "0.1.0",
+    "status": "approved",
+    "ownerRole": "platform-engineer",
+    "stewardRole": "blueprint-steward"
+  },
+  "intentRefs": [
+    "policy/anti-mock-substance",
+    "policy/explicit-over-implicit"
+  ],
+  "scope": {
+    "repositories": ["agent-host"],
+    "paths": ["src/**/*.ts"],
+    "environments": ["staging", "production"]
+  },
+  "extraction": {
+    "profile": "plugin-surface",
+    "paths": ["src/**/*.ts"],
+    "guardSymbols": ["registerTool"],
+    "minFiles": 1
+  },
+  "architecture": {
+    "components": [
+      { "id": "servedRuntime", "type": "pluginSurface", "owner": "agent-host" }
+    ],
+    "relationships": [
+      {
+        "from": "servedRuntime",
+        "to": "chat-completion",
+        "type": "serves",
+        "allowed": true
+      }
+    ]
+  },
+  "constraints": [
+    {
+      "id": "served-output-varies-with-input",
+      "type": "behavioralInvariant",
+      "severity": "critical",
+      "behaviorRef": "chat-completion",
+      "policyRef": "policy/anti-mock-substance"
+    }
+  ],
+  "evidenceRequirements": [
+    {
+      "type": "runtimeProbe",
+      "required": true,
+      "onMissing": "block"
+    }
+  ],
+  "approvals": [
+    { "role": "blueprint-steward", "stage": "ratify" }
+  ]
+}

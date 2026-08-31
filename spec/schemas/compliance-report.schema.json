@@ -1,0 +1,129 @@
+{
+  "$id": "https://blueprint-conformance.github.io/bce/schemas/compliance-report.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "The deterministic conformance report `bce run` / `bce gate` emit (src/report.ts). score = max(0, 100 − Σ severity weight per violation) with weights {\"critical\":40,\"high\":20,\"medium\":10,\"low\":5,\"info\":0}; verdict is pass iff the violation set is EMPTY (zero-violations-pass — an info-only violation set scores 100 yet fails). Canonical serialization: sorted keys, 2-space indent, trailing newline. This schema describes the CURRENT engine version’s canonical output; per the widen-only policy, consumers reading reports from other engine versions SHOULD read tolerantly (unknown fields ignored).",
+  "properties": {
+    "blueprintRef": {
+      "description": "blueprint identity `<id>@<version>` (or the file basename for a parse-failed blueprint)",
+      "type": "string"
+    },
+    "coverage": {
+      "additionalProperties": false,
+      "properties": {
+        "extractor": {
+          "enum": [
+            "ast",
+            "line-scan"
+          ],
+          "type": "string"
+        },
+        "filesScanned": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unsupported": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "extractor",
+        "filesScanned",
+        "unsupported"
+      ],
+      "type": "object"
+    },
+    "ctRepoRevision": {
+      "description": "the target-repo revision the observed graph was extracted at (40-hex sha, or `unpinned`)",
+      "type": "string"
+    },
+    "evidenceRef": {
+      "description": "content-addressed pointer to the observed graph (`architecture-graph.json@sha256:<hex>`), or `n/a` on a fail-closed report that never scanned",
+      "type": "string"
+    },
+    "repo": {
+      "description": "OPTIONAL repo identity stamp (omit-not-empty: absent unless the producer passed one)",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "1"
+    },
+    "score": {
+      "maximum": 100,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "verdict": {
+      "enum": [
+        "pass",
+        "fail"
+      ],
+      "type": "string"
+    },
+    "violations": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "component": {
+            "type": "string"
+          },
+          "constraintId": {
+            "type": "string"
+          },
+          "evidenceRef": {
+            "type": "string"
+          },
+          "evidenceType": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "string"
+          },
+          "observed": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "constraintId",
+          "severity",
+          "component",
+          "evidenceType",
+          "evidenceRef",
+          "observed",
+          "expected"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "blueprintRef",
+    "ctRepoRevision",
+    "score",
+    "verdict",
+    "violations",
+    "evidenceRef",
+    "summary",
+    "coverage"
+  ],
+  "title": "ComplianceReport",
+  "type": "object"
+}

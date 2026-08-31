@@ -1,0 +1,401 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "bce-engine-architecture",
+    "name": "bce engine self-conformance \u2014 the engine's own architecture, gated by the engine",
+    "version": "0.1.0",
+    "status": "approved",
+    "ownerRole": "maintainer",
+    "stewardRole": "maintainer"
+  },
+  "intentRefs": [
+    "docs/self-hosting.md#the-architecture-this-blueprint-enforces"
+  ],
+  "scope": {
+    "repositories": [
+      "blueprint-conformance/bce"
+    ],
+    "paths": [
+      "src/**/*.ts"
+    ],
+    "environments": [
+      "ci"
+    ]
+  },
+  "architecture": {
+    "components": [
+      {
+        "id": "cli",
+        "type": "entrypoint",
+        "owner": "maintainers"
+      },
+      {
+        "id": "mcp",
+        "type": "entrypoint",
+        "owner": "maintainers"
+      },
+      {
+        "id": "schema",
+        "type": "pureModule",
+        "owner": "maintainers"
+      },
+      {
+        "id": "evaluator",
+        "type": "pureModule",
+        "owner": "maintainers"
+      },
+      {
+        "id": "extractor",
+        "type": "factsProducer",
+        "owner": "maintainers"
+      },
+      {
+        "id": "io-shell",
+        "type": "adapter",
+        "owner": "maintainers"
+      },
+      {
+        "id": "ts-morph",
+        "type": "externalDependency"
+      },
+      {
+        "id": "zod",
+        "type": "externalDependency"
+      }
+    ],
+    "relationships": [
+      {
+        "from": "cli",
+        "to": "evaluator",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "cli",
+        "to": "extractor",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "extractor",
+        "to": "ts-morph",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "evaluator",
+        "to": "ts-morph",
+        "type": "imports",
+        "allowed": false
+      },
+      {
+        "from": "schema",
+        "to": "zod",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "schema",
+        "to": "ts-morph",
+        "type": "imports",
+        "allowed": false
+      },
+      {
+        "from": "evaluator",
+        "to": "io-shell",
+        "type": "imports",
+        "allowed": false
+      }
+    ]
+  },
+  "constraints": [
+    {
+      "id": "only-extractors-may-import-ts-morph",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "ts-morph",
+      "scopePaths": [
+        "src/baseline.ts",
+        "src/cli.ts",
+        "src/corpus.ts",
+        "src/emit.ts",
+        "src/evidence-store.ts",
+        "src/extractor-registry.ts",
+        "src/gate.ts",
+        "src/graph.ts",
+        "src/index.ts",
+        "src/materializer.ts",
+        "src/mcp-server.ts",
+        "src/mode.ts",
+        "src/observations.ts",
+        "src/pin.ts",
+        "src/portfolio-collect.ts",
+        "src/portfolio-compile.ts",
+        "src/python-extractor.ts",
+        "src/recall-gate.ts",
+        "src/report.ts",
+        "src/safe-regex.ts",
+        "src/schema.ts",
+        "src/score.ts",
+        "src/teeth.ts",
+        "src/violation-format.ts",
+        "src/violation-rollup.ts"
+      ],
+      "policyRef": "policy/extraction-seam-isolation"
+    },
+    {
+      "id": "runtime-dep-allowlist-zod-and-ts-morph",
+      "type": "forbiddenPattern",
+      "severity": "critical",
+      "path": "src/**/*.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod['\"]|ts-morph['\"]|node:|\\.{1,2}/)",
+      "policyRef": "policy/runtime-dep-allowlist"
+    },
+    {
+      "id": "schema-imports-only-zod-and-safe-regex",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/schema.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod['\"]|\\./safe-regex\\.js['\"])",
+      "policyRef": "policy/schema-single-source-of-truth"
+    },
+    {
+      "id": "evaluator-pure--report-imports-only-crypto-and-relative",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/report.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!node:crypto['\"]|\\.{1,2}/)",
+      "policyRef": "policy/pure-evaluator"
+    },
+    {
+      "id": "evaluator-pure--score-imports-relative-only",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/score.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!\\.{1,2}/)",
+      "policyRef": "policy/pure-evaluator"
+    },
+    {
+      "id": "evaluator-pure--teeth-imports-relative-only",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/teeth.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!\\.{1,2}/)",
+      "policyRef": "policy/pure-evaluator"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--baseline",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/baseline.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--corpus",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/corpus.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--emit",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/emit.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--evidence-store",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/evidence-store.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--extractors",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/extractors.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--gate",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/gate.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--graph",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/graph.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--index",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/index.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--materializer",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/materializer.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--mode",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/mode.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--observations",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/observations.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--pin",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/pin.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--portfolio-collect",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/portfolio-collect.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--portfolio-compile",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/portfolio-compile.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--recall-gate",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/recall-gate.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--report",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/report.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--safe-regex",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/safe-regex.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--schema",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/schema.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--score",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/score.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--teeth",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/teeth.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--violation-format",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/violation-format.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--violation-rollup",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/violation-rollup.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--python-extractor",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/python-extractor.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--extractor-registry",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/extractor-registry.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    }
+  ],
+  "evidenceRequirements": [
+    {
+      "type": "staticAst",
+      "required": true,
+      "onMissing": "block"
+    }
+  ],
+  "approvals": [
+    {
+      "role": "maintainer",
+      "stage": "ratify"
+    }
+  ],
+  "extraction": {
+    "profile": "plugin-surface",
+    "paths": [
+      "src/**/*.ts"
+    ],
+    "minFiles": 26
+  }
+}

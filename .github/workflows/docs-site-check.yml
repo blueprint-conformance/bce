@@ -1,0 +1,168 @@
+name: docs-site-check
+
+# ==============================================================================
+# BUILD-ONLY. This workflow assembles the documentation site and checks it.
+# It NEVER publishes, and it cannot: publishing lives in publish-schemas.yml,
+# whose job stays hard-disabled until the public flip. Nothing here touches
+# that guard, requests Pages permissions, or uploads an artifact.
+#
+# Why it exists BEFORE anything is published:
+#
+# The site's information architecture is a map from source file to route. A map
+# is exactly the kind of thing that silently stops covering the tree — someone
+# adds docs/new-guide.md, nobody updates the map, and the file ships
+# un-navigable on flip day. That failure is invisible until the site is live,
+# and flip day is the one day nobody wants to be discovering it.
+#
+# So the map is checked on every pull request that touches a published source,
+# from now until the flip and after it. The build refuses an unmapped doc, a
+# link that points at a route it does not produce, and a fragment that names a
+# heading the target page does not carry.
+#
+# A gate that cannot go red is not a gate — this repository's own words — so the
+# self-test runs FIRST and plants a probe against each of those checks in turn,
+# requiring each to refuse. Only then is a pass worth anything.
+#
+# No install step: the build and its self-test are dependency-free (node
+# built-ins only), the same discipline as tools/verify-chain.mjs. The whole
+# check is a few seconds and cannot be broken by a registry outage.
+# ==============================================================================
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'spec/**'
+      - 'rfcs/**'
+      - 'prompts/**'
+      - 'integrations/**'
+      - 'llms.txt'
+      - 'README.md'
+      - 'scripts/build-docs-site.mjs'
+      - 'scripts/docs-site-selftest.mjs'
+      - 'scripts/gen-fleet-evidence.mjs'
+      - 'evidence/fleet/**'
+      - '.github/workflows/docs-site-check.yml'
+      - '.github/workflows/publish-schemas.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-only:
+    name: the docs site still assembles
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ----------------------------------------------------------------------
+      # NEGATIVE SELF-TEST — before the real build's verdict is trusted, prove
+      # every check it makes can still refuse. Each probe is planted in a copy
+      # of the tree and must produce exit 1 NAMING its own class, so a probe
+      # cannot pass by accidentally tripping some other check.
+      # ----------------------------------------------------------------------
+      - name: Self-test — every check must refuse its own probe
+        run: node scripts/docs-site-selftest.mjs
+
+      # The estate numbers on the landing page describe a PRIVATE repository, so no
+      # public reader can re-derive them. What CAN be enforced offline is that the
+      # prose never drifts from the record it cites, and that the record never loses
+      # the provenance and limits that make it honest. An uncited number on the page
+      # is a FAILURE here, not a warning: an uncited number is exactly the one that
+      # goes quietly false.
+      - name: Estate record — the page may not drift from what it cites
+        run: node scripts/gen-fleet-evidence.mjs --check
+
+      - name: Assemble the site (IA completeness + internal links, fail-closed)
+        run: node scripts/build-docs-site.mjs
+
+      # Independent of the build's own report: assert the artifact set on disk.
+      # The build grading itself is not evidence that it wrote anything.
+      - name: The expected file set is on disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          require() {
+            if [ ! -e "$1" ]; then
+              echo "::error::expected site file missing: $1"
+              missing=1
+            fi
+          }
+
+          require _site/index.html
+          require _site/assets/site.css
+          require _site/llms.txt
+          require _site/spec/index.html
+          require _site/spec/conformance-vectors/index.html
+          require _site/schemas/index.html
+          require _site/guides/index.html
+          require _site/guides/quickstart/index.html
+          require _site/guides/faq/index.html
+          require _site/agents/index.html
+          require _site/rfcs/index.html
+          require _site/paper/index.html
+
+          # Every schema in the tree is published, at the exact path its `$id`
+          # names, byte-for-byte. This is the pre-existing behaviour of
+          # publish-schemas.yml and it must survive every change to the site.
+          for f in spec/schemas/*.schema.json; do
+            b="$(basename "$f")"
+            require "_site/schemas/${b}"
+            if [ -e "_site/schemas/${b}" ] && ! cmp -s "$f" "_site/schemas/${b}"; then
+              echo "::error::published schema differs from the tree: ${b}"
+              missing=1
+            fi
+          done
+
+          tree_count="$(ls -1 spec/schemas/*.schema.json | wc -l | tr -d ' ')"
+          site_count="$(ls -1 _site/schemas/*.schema.json | wc -l | tr -d ' ')"
+          if [ "$tree_count" != "$site_count" ]; then
+            echo "::error::schema count mismatch — tree ${tree_count}, site ${site_count}"
+            missing=1
+          fi
+
+          # Every route the build produced is a real page, not an empty directory.
+          #
+          # assets/ and schemas/ hold FILES, not routes, so they carry no index.html —
+          # and neither do their subdirectories. The two exclusions used to name only
+          # the top directory, which was correct while both were flat; the moment
+          # assets/ grew assets/badges/ the check demanded an index.html for a
+          # directory of images. Pruning the two SUBTREES restores the original intent
+          # exactly: every route directory is still required to be a real page (verified
+          # by diffing the directory list before and after this change — the only entry
+          # that disappears is _site/assets/badges).
+          while IFS= read -r d; do
+            require "${d}/index.html"
+          done < <(find _site \( -path _site/assets -o -path _site/schemas \) -prune -o -type d ! -path _site -print)
+
+          if [ "$missing" -ne 0 ]; then
+            echo "docs-site-check: FAIL — the assembled site is missing expected files."
+            exit 1
+          fi
+
+          pages="$(find _site -name index.html | wc -l | tr -d ' ')"
+          echo "docs-site-check: PASS — ${pages} pages, ${site_count} schemas, no dangling internal link."
+
+      # A deploy guard that quietly changes is the one failure this whole
+      # workflow cannot survive: everything above would stay green while the
+      # site went live early. Assert the guard is still exactly where it was.
+      - name: The publish job is still dormant
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! grep -qE '^    if: false$' .github/workflows/publish-schemas.yml; then
+            echo "::error::publish-schemas.yml no longer carries the job-level 'if: false' guard."
+            echo "Activating Pages is a deliberate flip made together with enabling Pages on the"
+            echo "repository — it is not something this build-only check should ever see happen."
+            exit 1
+          fi
+          echo "publish-schemas.yml: the publish job is still guarded (if: false)."

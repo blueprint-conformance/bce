@@ -1,0 +1,114 @@
+name: launch-readiness-gate
+
+# ==============================================================================
+# The promises that come due at the public flip — enforced, not remembered.
+#
+# Several launch steps are "do this before/with the flip": clear the CITATION
+# placeholders, replace the README's placeholder links, activate the badge block,
+# reword CORPUS-MAP, flip the engine pin once 0.1.0 is on npm. Every one of them
+# currently depends on a human remembering, at the busiest moment of the whole
+# ceremony, in the right order, with nothing detecting a miss.
+#
+# The cost is asymmetric. A PRIVATE repo with placeholder links is a TODO. A
+# PUBLIC repo whose README still reads "_placeholder — added at release_" is the
+# first thing a launch-post reader sees, on the page meant to demonstrate rigour.
+# And R2 is worse than embarrassing: public while npm still serves the 0.0.0 stub
+# means every visitor's first command installs something that is not the engine.
+#
+# So this gate is INERT while the repository is private (it reports each promise
+# as pending and exits 0 — none of them are due) and grows teeth the instant the
+# repository is public. Nothing to schedule, nothing to remember.
+#
+# Visibility is GitHub's own value, passed in — never inferred.
+# ==============================================================================
+
+on:
+  # NO paths: filter, deliberately. A required status check that does not RUN on a
+  # given PR sits PERMANENTLY PENDING there -- not failed, pending, which no code
+  # change resolves. Filtering this gate would make it impossible to ever add to
+  # the required set (flip-checklist item 10), because every PR touching none of
+  # the filtered paths would be unmergeable forever.
+  #
+  # Measured on the sibling artifacts repository: a PR touching only a file none
+  # of the filters covered showed the unfiltered gate present and gating, and the
+  # filtered one absent entirely. (The filename is omitted deliberately -- it
+  # carries the steward org name, which this repository's leakage gate bans, and
+  # naming it here failed that gate.)
+  #
+  # The cost of running everywhere is a few file reads and one `npm view` -- this
+  # gate does no install and no build. That is worth paying to keep it requirable.
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Daily. The flip is a repo-settings change that fires no workflow at all, so
+    # polling is the only way this gate learns the repository went public.
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    name: launch promises (inert while private, blocking once public)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ----------------------------------------------------------------------
+      # NEGATIVE SELF-TEST — prove the teeth before trusting the pass.
+      #
+      # While the repository is private the real run below is inert and exits 0
+      # forever, so without this the gate could sit green for months and never
+      # once demonstrate it can refuse. Force the public branch against a tree
+      # with a PLANTED breakage and require a refusal.
+      #
+      # The plant is deliberate rather than relying on today's outstanding
+      # promises: after the launch those promises are all kept, and a self-test
+      # that assumed "forced-public is always red" would start failing exactly
+      # when the project succeeded.
+      # ----------------------------------------------------------------------
+      - name: Self-test — forced-public must REFUSE a planted breakage
+        shell: bash
+        run: |
+          set -uo pipefail
+          cp README.md /tmp/README.orig
+          printf '\n<!-- launch-readiness self-test: _placeholder_ -->\n' >> README.md
+          # errexit is ON in GitHub's default shell; a refusal is the measurement here.
+          set +e
+          LAUNCH_READINESS_FORCE_PUBLIC=1 node scripts/launch-readiness-check.mjs > /tmp/planted.log 2>&1
+          rc=$?
+          set -e
+          cp /tmp/README.orig README.md   # always restore
+          if [ "$rc" -ne 1 ]; then
+            echo "::error::self-test FAILED — forced-public exited ${rc} with a planted placeholder, expected 1."
+            echo "A gate that cannot refuse a broken tree cannot vouch for a whole one."
+            sed -n '1,40p' /tmp/planted.log
+            exit 1
+          fi
+          grep -q 'readme/placeholder-links' /tmp/planted.log || {
+            echo "::error::self-test refused, but not for the planted reason — the check may be failing on something else."
+            sed -n '1,40p' /tmp/planted.log; exit 1; }
+          echo "self-test: PASS — forced-public refused the planted placeholder (exit 1), naming it."
+          grep -q '_placeholder_ -->' README.md && { echo "::error::self-test restore failed"; exit 1; }
+          echo "self-test: restore verified."
+
+      # Per-detector negative control. The self-test above plants ONE breakage and
+      # proves ONE detector. The other eight are regexes over prose, and a typo'd
+      # regex does not throw — it silently matches nothing and its promise reports
+      # READY forever. This proves each detector individually: strip the real claim
+      # (promise must go quiet), plant it back (promise must fire).
+      - name: Self-test — every detector, individually
+        run: node scripts/launch-readiness-selftest.mjs
+
+      - name: Check the launch promises against this repository's real visibility
+        env:
+          # GitHub's own value for THIS repository, not an inference.
+          REPO_IS_PRIVATE: ${{ github.event.repository.private }}
+        run: node scripts/launch-readiness-check.mjs

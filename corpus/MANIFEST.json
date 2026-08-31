@@ -1,0 +1,484 @@
+{
+  "manifestVersion": 1,
+  "suite": "suite-v2",
+  "claim": "Protocol reproduction: running the measured-recall protocol over this corpus reproduces recall 1.0 with zero false positives on any machine. This suite is a genericized reproduction of the frozen paper corpus, not a byte-identical copy \u2014 see CORPUS-MAP.md.",
+  "counts": {
+    "defects": 34,
+    "originalBaseline": 9,
+    "paperFrozenCorpus": 25,
+    "expansion": 25,
+    "distinctSeededFixtures": 32,
+    "cleanFixtures": 13,
+    "reportsInRecallRun": 45
+  },
+  "blueprints": [
+    {
+      "ref": "luna-chat-extension@0.1.0",
+      "file": "fixtures/luna-chat-extension.blueprint.json",
+      "profile": "plugin-surface"
+    },
+    {
+      "ref": "egress-reader@0.1.0",
+      "file": "fixtures/egress-reader.blueprint.json",
+      "profile": "plugin-surface"
+    },
+    {
+      "ref": "route-guard@0.1.0",
+      "file": "fixtures/route-guard.blueprint.json",
+      "profile": "next-route-handler"
+    },
+    {
+      "ref": "served-behavior@0.1.0",
+      "file": "fixtures/served-behavior.blueprint.json",
+      "profile": "plugin-surface"
+    },
+    {
+      "ref": "python-service@0.1.0",
+      "file": "fixtures/python-service.blueprint.json",
+      "profile": "python-import-surface"
+    }
+  ],
+  "defects": [
+    {
+      "id": "ext-direct-openai-import",
+      "set": "paper-baseline",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-forbidden-import",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the plugin imports the openai SDK directly instead of routing through the gateway"
+    },
+    {
+      "id": "ext-reexport-openai",
+      "set": "paper-baseline",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-reexport",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the plugin re-exports the openai SDK (export \u2026 from) \u2014 a provider reach via re-export"
+    },
+    {
+      "id": "ext-dynamic-import-openai",
+      "set": "paper-baseline",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-dynamic-import",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the plugin reaches openai via a dynamic import() \u2014 the async-import bypass"
+    },
+    {
+      "id": "ext-ungoverned-registration",
+      "set": "paper-baseline",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-no-register",
+      "constraintId": "ext-registers-through-governed-path",
+      "constraintType": "requiredDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the plugin does not register through the governed registerTool path"
+    },
+    {
+      "id": "ext-shadowed-harness-decoy",
+      "set": "paper-baseline",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-shadow-harness",
+      "constraintId": "ext-registers-through-governed-path",
+      "constraintType": "requiredDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the plugin registers via a same-name decoy that shadows the harness parameter (ungoverned)"
+    },
+    {
+      "id": "ext-decoy-registration",
+      "set": "paper-baseline",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-decoy-register",
+      "constraintId": "ext-registers-through-governed-path",
+      "constraintType": "requiredDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the plugin registers via a decoy object .registerTool (not the governed harness)"
+    },
+    {
+      "id": "ext-ungoverned-egress-provider",
+      "set": "paper-baseline",
+      "blueprintRef": "egress-reader@0.1.0",
+      "fixture": "fixtures/egress-surface/drift-egress-provider-houseidiom",
+      "constraintId": "reader-egress-governed-only",
+      "constraintType": "forbiddenEgress",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the reader egresses to an ungoverned provider host via the house-idiom ||-chain default, bypassing the gateway"
+    },
+    {
+      "id": "ext-ungoverned-egress-optbag",
+      "set": "paper-baseline",
+      "blueprintRef": "egress-reader@0.1.0",
+      "fixture": "fixtures/egress-surface/drift-egress-optbag",
+      "constraintId": "reader-egress-governed-only",
+      "constraintType": "forbiddenEgress",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the reader egresses to an ungoverned provider host via the http(s).request options-bag {hostname} form"
+    },
+    {
+      "id": "ext-ungoverned-egress-undici-client",
+      "set": "paper-baseline",
+      "blueprintRef": "egress-reader@0.1.0",
+      "fixture": "fixtures/egress-surface/drift-egress-undici-client",
+      "constraintId": "reader-egress-governed-only",
+      "constraintType": "forbiddenEgress",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the reader egresses to an ungoverned provider host via a new undici.Client(literal-url) dispatcher constructor"
+    },
+    {
+      "id": "rg-missing-tenant-guard",
+      "set": "expansion",
+      "blueprintRef": "route-guard@0.1.0",
+      "fixture": "fixtures/route-surface/drift-missing-guard",
+      "constraintId": "d6-tenant-guard",
+      "constraintType": "requiredDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "tenant route POST validates+queries with NO tenant-guard call \u2014 missing function-level access control (CWE-306)"
+    },
+    {
+      "id": "rg-unguarded-new-route",
+      "set": "expansion",
+      "blueprintRef": "route-guard@0.1.0",
+      "fixture": "fixtures/route-surface/drift-unguarded-new-route",
+      "constraintId": "d6-tenant-guard",
+      "constraintType": "requiredDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "a NEW parallel route ships GET+POST with zero guard calls beside guarded neighbors \u2014 the incident-observed fleet shape"
+    },
+    {
+      "id": "rg-decoy-guard-object",
+      "set": "expansion",
+      "blueprintRef": "route-guard@0.1.0",
+      "fixture": "fixtures/route-surface/drift-decoy-guard",
+      "constraintId": "d6-tenant-guard",
+      "constraintType": "requiredDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "handler calls auth.requireTenantAccess (same-name property-access decoy, not the bare imported guard)"
+    },
+    {
+      "id": "rg-legacy-route-path",
+      "set": "expansion",
+      "blueprintRef": "route-guard@0.1.0",
+      "fixture": "fixtures/route-surface/drift-legacy-route",
+      "constraintId": "no-legacy-route-path",
+      "constraintType": "forbiddenPath",
+      "expectedSeverity": "high",
+      "expectedFixtureVerdict": "fail",
+      "description": "a guarded route placed under the forbidden src/app/api/legacy/** path (forbiddenPath arm, first corpus exercise)"
+    },
+    {
+      "id": "rg-shadow-provisioner-file",
+      "set": "expansion",
+      "blueprintRef": "route-guard@0.1.0",
+      "fixture": "fixtures/route-surface/drift-shadow-provisioner",
+      "constraintId": "no-parallel-provisioner-file",
+      "constraintType": "forbiddenFile",
+      "expectedSeverity": "high",
+      "expectedFixtureVerdict": "fail",
+      "description": "a parallel *-provisioner.ts authored as a named-export class (0 components) \u2014 caught via coverage.scannedFiles only"
+    },
+    {
+      "id": "rg-mocked-metric-pattern",
+      "set": "expansion",
+      "blueprintRef": "route-guard@0.1.0",
+      "fixture": "fixtures/route-surface/drift-mock-metric",
+      "constraintId": "no-mocked-metrics",
+      "constraintType": "forbiddenPattern",
+      "expectedSeverity": "high",
+      "expectedFixtureVerdict": "fail",
+      "description": "a guarded route returns a mocked Math.random() metric \u2014 caught via coverage.patternScan at the exact file#line"
+    },
+    {
+      "id": "ext-unrecognizable-factory",
+      "set": "expansion",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-unrecognized-factory",
+      "constraintId": "ext-must-be-recognizable",
+      "constraintType": "requiredComponent",
+      "expectedSeverity": "high",
+      "expectedFixtureVerdict": "fail",
+      "description": "file with a non-name-recognized factory extracts 0 pluginSurface components \u2014 the requiredComponent arm fires"
+    },
+    {
+      "id": "ext-unrecognizable-forbidden-import",
+      "set": "expansion",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-unrecognized-factory",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the forbidden openai import is caught via the file: pseudo-component even without a recognized factory"
+    },
+    {
+      "id": "ext-unrecognizable-zero-targets",
+      "set": "expansion",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-unrecognized-factory",
+      "constraintId": "ext-registers-through-governed-path",
+      "constraintType": "requiredDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "requiredDependency over ZERO target components is NOT vacuously satisfied \u2014 the fail-closed zero-targets arm"
+    },
+    {
+      "id": "bhv-constant-function",
+      "set": "expansion",
+      "blueprintRef": "served-behavior@0.1.0",
+      "fixture": "fixtures/behavior-surface/drift-constant-output",
+      "constraintId": "served-output-varies-with-input",
+      "constraintType": "behavioralInvariant",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "all recorded observations share ONE outputHash across distinct+held-out stimuli \u2014 the mock/constant-function signature"
+    },
+    {
+      "id": "bhv-oracle-violation",
+      "set": "expansion",
+      "blueprintRef": "served-behavior@0.1.0",
+      "fixture": "fixtures/behavior-surface/drift-oracle-violation",
+      "constraintId": "served-output-varies-with-input",
+      "constraintType": "behavioralInvariant",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "one recorded observation violated its property oracle (oracleSatisfied=0) with distinct hashes \u2014 the oracle branch, isolated"
+    },
+    {
+      "id": "ext-require-openai",
+      "set": "expansion",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-require",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the plugin reaches openai via CommonJS require() \u2014 the require-form bypass"
+    },
+    {
+      "id": "ext-require-template-openai",
+      "set": "expansion",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-require-template",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the plugin reaches openai via require(`openai`) \u2014 the template-literal require specifier"
+    },
+    {
+      "id": "ext-dynamic-template-openai",
+      "set": "expansion",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-dynamic-template",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the plugin reaches openai via import(`openai`) \u2014 the template-literal dynamic-import specifier"
+    },
+    {
+      "id": "ext-stray-register",
+      "set": "expansion",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-stray-register",
+      "constraintId": "ext-registers-through-governed-path",
+      "constraintType": "requiredDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the factory body never registers; a stray registration sits OUTSIDE it (not credited \u2014 fail-closed)"
+    },
+    {
+      "id": "ext-ungoverned-registry-import",
+      "set": "expansion",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-ungoverned-import",
+      "constraintId": "ext-registers-through-governed-path",
+      "constraintType": "requiredDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "bare registerTool imported from an UNGOVERNED module \u2014 ungoverned provenance is not credited"
+    },
+    {
+      "id": "py-direct-openai-import",
+      "set": "expansion",
+      "blueprintRef": "python-service@0.1.0",
+      "fixture": "fixtures/python-surface/drift-forbidden-import",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the python service imports the openai SDK directly instead of routing through the gateway client"
+    },
+    {
+      "id": "py-committed-secrets-module",
+      "set": "expansion",
+      "blueprintRef": "python-service@0.1.0",
+      "fixture": "fixtures/python-surface/drift-secrets-file",
+      "constraintId": "no-committed-secrets-module",
+      "constraintType": "forbiddenFile",
+      "expectedSeverity": "high",
+      "expectedFixtureVerdict": "fail",
+      "description": "a secrets.py module is committed on the scanned surface (forbiddenFile over scannedFiles)"
+    },
+    {
+      "id": "py-hardcoded-provider-key",
+      "set": "expansion",
+      "blueprintRef": "python-service@0.1.0",
+      "fixture": "fixtures/python-surface/drift-hardcoded-key",
+      "constraintId": "no-hardcoded-provider-key",
+      "constraintType": "forbiddenPattern",
+      "expectedSeverity": "high",
+      "expectedFixtureVerdict": "fail",
+      "description": "a provider API key literal is hardcoded in source (forbiddenPattern over patternScan)"
+    },
+    {
+      "id": "ext-import-equals-openai",
+      "set": "expansion",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-import-equals",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the plugin reaches the openai SDK via import-equals-require (import X = require(...))"
+    },
+    {
+      "id": "ext-subpath-openai-import",
+      "set": "expansion",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "fixture": "fixtures/extension-surface/drift-subpath-import",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the plugin imports a provider SUBPATH ('openai/uploads') \u2014 the prefix-match bypass"
+    },
+    {
+      "id": "ext-ungoverned-egress-new-url",
+      "set": "expansion",
+      "blueprintRef": "egress-reader@0.1.0",
+      "fixture": "fixtures/egress-surface/drift-egress-new-url",
+      "constraintId": "reader-egress-governed-only",
+      "constraintType": "forbiddenEgress",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the ungoverned provider host is baked into new URL(...) reached via a same-file const hop"
+    },
+    {
+      "id": "ext-ungoverned-egress-globalthis",
+      "set": "expansion",
+      "blueprintRef": "egress-reader@0.1.0",
+      "fixture": "fixtures/egress-surface/drift-egress-globalthis",
+      "constraintId": "reader-egress-governed-only",
+      "constraintType": "forbiddenEgress",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the ungoverned provider is reached via the fully-qualified globalThis.fetch(...) form"
+    },
+    {
+      "id": "py-aliased-openai-import",
+      "set": "expansion",
+      "blueprintRef": "python-service@0.1.0",
+      "fixture": "fixtures/python-surface/drift-aliased-import",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the python service imports the provider SDK under an alias (import openai as oa)"
+    },
+    {
+      "id": "py-paren-from-import",
+      "set": "expansion",
+      "blueprintRef": "python-service@0.1.0",
+      "fixture": "fixtures/python-surface/drift-paren-from-import",
+      "constraintId": "no-direct-provider-sdk",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "the provider import hides in a parenthesized multi-line from-import"
+    }
+  ],
+  "cleanFixtures": [
+    {
+      "fixture": "fixtures/extension-surface/conformant",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/extension-surface/conformant-comment",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/extension-surface/conformant-curried",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/extension-surface/conformant-typeimport",
+      "blueprintRef": "luna-chat-extension@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/egress-surface/conformant-houseidiom",
+      "blueprintRef": "egress-reader@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/egress-surface/advisory-egress-crossmodule",
+      "blueprintRef": "egress-reader@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/egress-surface/advisory-egress-envonly",
+      "blueprintRef": "egress-reader@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/egress-surface/unresolvable-env",
+      "blueprintRef": "egress-reader@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/route-surface/conformant-guarded",
+      "blueprintRef": "route-guard@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/route-surface/conformant-mixed-verbs",
+      "blueprintRef": "route-guard@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/route-surface/conformant-nested-segments",
+      "blueprintRef": "route-guard@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/behavior-surface/conformant-varying",
+      "blueprintRef": "served-behavior@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/python-surface/conformant",
+      "blueprintRef": "python-service@0.1.0",
+      "expectedVerdict": "pass"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+name: banned-phrase-gate
+
+# Positioning-honesty ratchet: the project never describes itself with
+# self-aggrandizing claims. This gate greps the tree for the banned phrase
+# list and fails on any hit. The list may TIGHTEN (add phrases), never
+# silently relax. The gate file itself is excluded (it must name the
+# phrases to ban them).
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  banned-phrases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      # Negative control. A `grep -F` list is exactly the kind of check that keeps
+      # reporting "clean (9 patterns, 0 hits)" long after a typo, a stray quote or
+      # an exclusion has made an entry unmatchable — the output is identical either
+      # way. Nothing had ever demonstrated this gate catching a phrase.
+      #
+      # Probes are assembled from fragments so this self-test does not need its own
+      # exclusion. That matters: the gate already excludes its own file because it
+      # must name the phrases to ban them, and an excluded file is a file that is
+      # never scanned. Adding a second exclusion would widen that hole rather than
+      # test it.
+      - name: Self-test — every phrase must catch its own probe
+        shell: bash
+        run: bash scripts/banned-phrase-selftest.sh
+
+      - name: Sweep tree for banned positioning phrases
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATTERNS=(
+            'Angular for AI'
+            'the definitive'
+            'the standard for'
+            'industry standard'
+            "world's first"
+            'first-ever'
+            'the first and only'
+            'best-in-class'
+            'revolutionary'
+          )
+          fail=0
+          for p in "${PATTERNS[@]}"; do
+            hits=$(grep -rniF --binary-files=without-match \
+              --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist \
+              --exclude='banned-phrase-gate.yml' \
+              -- "$p" . || true)
+            if [ -n "$hits" ]; then
+              echo "::error::Banned phrase '$p' found:"
+              echo "$hits"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] && echo "banned-phrase-gate: clean (${#PATTERNS[@]} patterns, 0 hits)."
+          exit "$fail"

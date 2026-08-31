@@ -1,0 +1,28 @@
+$ bce validate --blueprint blueprint/no-direct-http-client.blueprint.json
+blueprint VALID: no-direct-http-client@0.1.0 (1 constraint(s))
+$ echo $?
+0
+
+$ bce teeth --blueprint blueprint/no-direct-http-client.blueprint.json --ct-repo clean --no-pin --extractor ast
+TeethReport: no-direct-http-client@0.1.0 -> evaluator-refutable — EVALUATOR-REFUTABLE: 0/1 constraint(s) have extractor-real teeth; 1 refutable by the evaluator alone (synthetic-evidence mutations — NOT evidence of real teeth; substance proof = a mutation corpus); 0 trivially-green, 0 indeterminate
+::warning::blueprint no-direct-http-client@0.1.0 has NO extractor-real teeth — 1 constraint(s) are evaluator-refutable only (synthetic-evidence mutations; NOT evidence of real teeth). Substance proof = a mutation corpus.
+$ echo $?
+0
+
+$ bce gate --repo clean --blueprint-dir blueprint --extractor ast
+  ✓ no-direct-http-client@0.1.0 — score 100 (pass)
+bce gate [enforced]: 1/1 blueprint(s) evaluated, 0 failing.
+$ echo $?
+0
+
+$ bce gate --repo drift --blueprint-dir blueprint --extractor ast --all
+::error::blueprint no-direct-http-client@0.1.0 FAILED — score 60: 1 NEW violation(s). 1 constraint(s) evaluated; 1 violation(s); score 60
+::error::  no-direct-http-client (critical): 1 violation(s)
+::error::    - [no-direct-http-client/critical] extension:greeting.plugin
+        observed: forbidden edge extension:greeting.plugin -> axios is present
+        expected: no axios edge
+        at:       src/greeting.plugin.ts#L16
+      fix: change the code to satisfy 'no-direct-http-client'  |  amend: if the rule is wrong, edit/remove 'no-direct-http-client' in the blueprint via PR
+bce gate [enforced]: 1/1 blueprint(s) evaluated, 1 failing.
+$ echo $?
+1

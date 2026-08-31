@@ -1,0 +1,204 @@
+name: self-gate
+
+# Self-hosting v0 — Lane B: the HEAD engine gates its OWN tree.
+#
+# Build the engine from this very commit, then run its `gate` verb over the
+# repo's authored blueprints (`.blueprints/`) and its `teeth` verb over the
+# engine self-blueprint. Fail-closed everywhere: a red gate, a toothless
+# blueprint, a failed build, or a broken sync test fails the workflow — there
+# is no continue-on-error and no skip flag on any step.
+#
+# Lane A (the last PUBLISHED engine at an exact version pin gating the tree,
+# independent of the code under review) is DORMANT until 0.1.0 publishes — the
+# bootstrap-0 exception, recorded honestly in docs/self-hosting.md. Its step
+# below is if-guarded on `.engine-pin.json` marking the pin PUBLISHED *and* the
+# pinned version actually resolving on npm; until both hold it prints an honest
+# "Lane A dormant" notice and does not run the pinned gate (describe only
+# machinery that runs). It flips live the moment 0.1.0 is published and
+# `.engine-pin.json` `"published"` is set true (docs/pin-ceremony.md); making it
+# a REQUIRED branch-protection check is the accompanying operator action.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lane-b-self-gate:
+    name: lane-b-self-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (clean, lockfile-exact)
+        run: npm ci
+
+      - name: Build the HEAD engine
+        run: npm run build
+
+      # Negative control. Everything below asserts the engine gates its own tree —
+      # the project's central claim — and none of it had ever been observed
+      # REFUSING here. The corpus measures recall on seeded fixtures and
+      # release.yml discriminates on a toy quickstart tree; neither shows the
+      # self-blueprint refusing the self-repository, which is the sentence a
+      # reader is actually asked to believe.
+      #
+      # Runs first, in throwaway copies, so a gate that can no longer refuse is
+      # caught before its green verdict is used. The repository is never mutated.
+      - name: Self-test — gate, teeth and sync must each refuse a planted violation
+        run: node scripts/self-gate-selftest.mjs
+
+      - name: Validate the self-blueprint (strict schema + safe-pattern compile)
+        run: node dist/cli.js validate --blueprint .blueprints/engine.blueprint.json
+
+      # The second authored blueprint: the skill-standard, gating this repository's own `skills/`
+      # tree against the standard it publishes. Validated separately so a broken pattern is a
+      # legible refusal here rather than a surprise inside the gate step below.
+      - name: Validate the skill-standard blueprint (strict schema + safe-pattern compile)
+        run: node dist/cli.js validate --blueprint .blueprints/skill-standard.blueprint.json
+
+      # SELF-USE PROOF: the repo gates itself THROUGH its own published adoption
+      # surface — the THIN composite action (uses: ./). engine=local rebuilds the
+      # HEAD engine inside the action, then runs the same fail-closed `bce gate`.
+      # comment=false because self-gate also runs on push (no PR context); the
+      # ::error annotations + the fail-closed exit are unaffected by that. A red
+      # verdict fails the action step → fails this job, identical to the direct
+      # invocation it replaces. This is the dogfood: our own required check is our
+      # own action.
+      - name: Gate — the repo gates its own tree THROUGH the bce action (fail-closed)
+        uses: ./
+        with:
+          engine: local
+          repo: "."
+          repo-name: blueprint-conformance/bce
+          comment: "false"
+
+      - name: Teeth — non-vacuity proof over the self-blueprint (toothless = exit 2)
+        run: node dist/cli.js teeth --blueprint .blueprints/engine.blueprint.json --ct-repo . --out teeth-report.json
+
+      # Non-vacuity for the skill-standard too. Read this verdict knowing what it does NOT say:
+      # against this (clean) tree most of the standard's clauses are content patterns, so the probe
+      # can only flip them with synthetic evidence and honestly reports `evaluator-refutable` — the
+      # EVALUATOR can refute them, which is not the same as the constraint biting real extractor
+      # evidence. The substance proof is the seeded corpus in examples/skill-standard/, where the
+      # same blueprint reports 13/13 extractor-real; that run is asserted per-clause in
+      # tests/skill-standard.test.ts below. This step's job is narrower and still worth having:
+      # a TOOTHLESS skill-standard is exit 2 and fails the build.
+      - name: Teeth — non-vacuity proof over the skill-standard (toothless = exit 2)
+        run: node dist/cli.js teeth --blueprint .blueprints/skill-standard.blueprint.json --ct-repo . --out teeth-skill-standard.json
+
+      - name: Self-blueprint sync test (new src file without blueprint coverage fails here)
+        run: npx vitest run tests/self-blueprint.test.ts
+
+      # The skill-standard's other half: the required-half checks no blueprint clause can express,
+      # the per-clause RED proof against the seeded corpus, and the template/dogfood sync.
+      - name: Skill-standard test (required half + per-clause RED proof + template sync)
+        run: npx vitest run tests/skill-standard.test.ts
+
+      - name: Evidence chain — zero-dep verifier over the committed example chain
+        run: node tools/verify-chain.mjs evidence/example-chain
+
+      - name: Evidence verifier regression (intact / tamper / excise / engine-agreement)
+        run: npx vitest run tests/verify-chain-tool.test.ts
+
+      - name: Surface the teeth report in the run log
+        run: cat teeth-report.json
+
+  # Lane A — the last PUBLISHED engine at an EXACT pin gates this tree,
+  # independent of the code under review. DORMANT until 0.1.0 publishes: the
+  # step is if-guarded on `.engine-pin.json` marking the pin published AND the
+  # pinned version resolving on npm. While dormant it prints an honest notice and
+  # runs no pinned gate. It activates automatically when `"published": true` and
+  # `bce-engine@<pin>` exists on the registry (docs/pin-ceremony.md). This job is
+  # not a required check until the operator adds it as one at the flip.
+  lane-a-pinned-gate:
+    name: lane-a-pinned-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve the Lane-A pin and decide dormant vs live
+        id: pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          pinfile=".engine-pin.json"
+          if [ ! -f "$pinfile" ]; then
+            echo "::error::${pinfile} is missing — the Lane-A pin contract is required (docs/pin-ceremony.md)"
+            exit 1
+          fi
+          pkg="$(node -p "require('./.engine-pin.json').package")"
+          pin="$(node -p "require('./.engine-pin.json').pin")"
+          published="$(node -p "String(require('./.engine-pin.json').published === true)")"
+          rng="$(node -p "String(require('./.engine-pin.json').range === true)")"
+          # Fail-closed: the pin MUST be exact — a range is forbidden (the caret-0.x incident).
+          if [ "$rng" = "true" ]; then
+            echo "::error::.engine-pin.json declares range:true — Lane A must install an EXACT version, never a range (docs/pin-ceremony.md)"
+            exit 1
+          fi
+          case "$pin" in
+            *^*|*~*|*x*|*'*'*|*'>'*|*'<'*|*'||'*|latest)
+              echo "::error::.engine-pin.json pin '${pin}' is not an exact x.y.z version — ranges/tags are refused"
+              exit 1 ;;
+          esac
+          echo "pkg=$pkg"   >> "$GITHUB_OUTPUT"
+          echo "pin=$pin"   >> "$GITHUB_OUTPUT"
+          live="false"
+          if [ "$published" = "true" ]; then
+            # `published:true` is an ASSERTION that the pinned artifact is on the public registry.
+            # If it does not resolve, that assertion is FALSE and the pin contract contradicts
+            # itself. This MUST fail closed, not warn: a warning leaves this job GREEN while the
+            # Lane-A step below is `if:`-skipped, so the trust anchor — the one gate that is
+            # deliberately independent of the code under review — would report success having
+            # graded nothing. That is the precise failure this lane exists to prevent, and the
+            # header of this workflow already promises "no continue-on-error and no skip flag".
+            #
+            # Live-reachable, not hypothetical: docs/pin-ceremony.md flips `published:true` in the
+            # SAME PR that first publishes 0.1.0. If that publish leg fails (npm auth is
+            # operator-provisioned and can be absent) the flip still lands, and before this change
+            # Lane A went permanently, silently green.
+            #
+            # The legitimate dormant case is `published:false` — the honest bootstrap-0 exception —
+            # and it stays GREEN below, unchanged.
+            if npm view "${pkg}@${pin}" version >/dev/null 2>&1; then
+              live="true"
+            else
+              echo "::error::.engine-pin.json marks ${pkg}@${pin} published:true but it does NOT resolve on the public registry. The pin contract is self-contradictory, and Lane A would skip while this job reported success. Either publish ${pkg}@${pin}, or set \"published\": false until it is live (docs/pin-ceremony.md)."
+              exit 1
+            fi
+          fi
+          echo "live=$live" >> "$GITHUB_OUTPUT"
+          if [ "$live" = "true" ]; then
+            echo "→ Lane A LIVE: installing ${pkg}@${pin} to gate this tree independently."
+          else
+            echo "→ Lane A DORMANT (bootstrap-0 exception): ${pkg}@${pin} published=${published}. Lane B is the only lane until 0.1.0 publishes. See docs/self-hosting.md."
+          fi
+
+      - name: Lane A — the PINNED published engine gates this tree (exact pin, no range)
+        if: ${{ steps.pin.outputs.live == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pkg="${{ steps.pin.outputs.pkg }}"
+          pin="${{ steps.pin.outputs.pin }}"
+          # Install the EXACT published engine into an isolated dir — Lane A rebuilds
+          # NOTHING from the branch, so a defective engine change in this PR cannot
+          # influence the verdict. Fail-closed straight through: a red gate is exit 1.
+          workdir="$(mktemp -d)"
+          ( cd "$workdir" && npm init -y >/dev/null 2>&1 && npm install "${pkg}@${pin}" --no-audit --no-fund )
+          BCE="node ${workdir}/node_modules/${pkg}/dist/cli.js"
+          echo "Lane A engine: ${pkg}@${pin} (installed from the public registry, isolated from this tree)"
+          $BCE gate --repo . --repo-name blueprint-conformance/bce

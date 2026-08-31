@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="209" height="20" viewBox="0 0 209 20" role="img" aria-label="any agent: CLI · Action · MCP">
+  <title>any agent: CLI · Action · MCP</title>
+  <rect width="209" height="20" rx="3" fill="#30363D"/>
+  <path d="M76 0h130a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3h-130z" fill="#5C4E8E"/>
+  <g font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="500">
+    <text x="9" y="14" textLength="58" lengthAdjust="spacingAndGlyphs" fill="#C9D5E1">any agent</text>
+    <text x="85" y="14" textLength="115" lengthAdjust="spacingAndGlyphs" fill="#FFFFFF">CLI · Action · MCP</text>
+  </g>
+</svg>

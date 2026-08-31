@@ -1,0 +1,378 @@
+{
+  "$id": "https://blueprint-conformance.github.io/bce/schemas/engineering-blueprint.schema.json",
+  "$ref": "#/definitions/EngineeringBlueprint",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "EngineeringBlueprint": {
+      "additionalProperties": false,
+      "properties": {
+        "apiVersion": {
+          "const": "blueprint-conformance/v1alpha1",
+          "type": "string"
+        },
+        "approvals": {
+          "items": {
+            "additionalProperties": true,
+            "properties": {
+              "role": {
+                "type": "string"
+              },
+              "stage": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "role",
+              "stage"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "architecture": {
+          "additionalProperties": true,
+          "properties": {
+            "components": {
+              "items": {
+                "additionalProperties": true,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "owner": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "relationships": {
+              "items": {
+                "additionalProperties": true,
+                "properties": {
+                  "allowed": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to",
+                  "type",
+                  "allowed"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "components",
+            "relationships"
+          ],
+          "type": "object"
+        },
+        "constraints": {
+          "items": {
+            "additionalProperties": true,
+            "properties": {
+              "behaviorRef": {
+                "type": "string"
+              },
+              "component": {
+                "type": "string"
+              },
+              "egressCallees": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "evidenceType": {
+                "type": "string"
+              },
+              "forbiddenEgressHosts": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "from": {
+                "type": "string"
+              },
+              "governedHosts": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metric": {
+                "type": "string"
+              },
+              "minimum": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              },
+              "pattern": {
+                "type": "string"
+              },
+              "policyRef": {
+                "type": "string"
+              },
+              "scopePaths": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "enum": [
+                  "info",
+                  "low",
+                  "medium",
+                  "high",
+                  "critical"
+                ],
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "forbiddenDependency",
+                  "requiredDependency",
+                  "requiredComponent",
+                  "forbiddenPath",
+                  "forbiddenFile",
+                  "forbiddenEgress",
+                  "requiredEvidence",
+                  "minimumMetric",
+                  "customPolicy",
+                  "behavioralInvariant",
+                  "forbiddenPattern"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "severity"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "evidenceRequirements": {
+          "items": {
+            "additionalProperties": true,
+            "properties": {
+              "freshnessSeconds": {
+                "type": "integer"
+              },
+              "minimumCoverage": {
+                "type": "number"
+              },
+              "onMissing": {
+                "enum": [
+                  "unknown",
+                  "block",
+                  "warn"
+                ],
+                "type": "string"
+              },
+              "producerPolicy": {
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "required"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "evolution": {
+          "additionalProperties": {},
+          "type": "object"
+        },
+        "extraction": {
+          "additionalProperties": false,
+          "properties": {
+            "forbiddenEgressHosts": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "forbiddenImports": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "governedModules": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "guardSymbols": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "minFiles": {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            "paths": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "profile": {
+              "enum": [
+                "next-route-handler",
+                "plugin-surface",
+                "python-import-surface"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "profile"
+          ],
+          "type": "object"
+        },
+        "intentRefs": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "kind": {
+          "const": "EngineeringBlueprint",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "properties": {
+            "id": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "ownerRole": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "draft",
+                "proposed",
+                "approved",
+                "deprecated",
+                "retired"
+              ],
+              "type": "string"
+            },
+            "stewardRole": {
+              "type": "string"
+            },
+            "version": {
+              "pattern": "^\\d+\\.\\d+\\.\\d+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "version",
+            "status"
+          ],
+          "type": "object"
+        },
+        "minEngineVersion": {
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "properties": {
+            "environments": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "paths": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "repositories": {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "repositories"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "intentRefs",
+        "scope",
+        "architecture",
+        "constraints",
+        "evidenceRequirements",
+        "approvals"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "The authored per-repository blueprint artifact (apiVersion blueprint-conformance/v1alpha1). Mechanically derived from the normative Zod schema in src/schema.ts. STRUCTURAL floor only: Zod refinements (e.g. forbiddenPattern constraints MUST declare a compiling, non-catastrophic regex `pattern`) are enforced by the engine but not expressible here — where the two diverge, the engine schema is normative (spec/SPEC.md).",
+  "title": "EngineeringBlueprint"
+}

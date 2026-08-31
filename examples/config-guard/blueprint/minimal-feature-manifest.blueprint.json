@@ -1,0 +1,65 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "minimal-feature-manifest",
+    "name": "Minimal feature manifest \u2014 the day-one feature set is a governed allowlist that can never silently widen",
+    "version": "0.1.0",
+    "status": "approved",
+    "ownerRole": "platform-engineer",
+    "stewardRole": "blueprint-steward"
+  },
+  "intentRefs": [
+    "policy/minimal-day-one-feature-set"
+  ],
+  "scope": {
+    "repositories": [
+      "config-guard"
+    ],
+    "paths": [
+      "config/feature-manifest.json",
+      "docs/FEATURE-POLICY.md"
+    ]
+  },
+  "architecture": {
+    "components": [],
+    "relationships": []
+  },
+  "extraction": {
+    "profile": "plugin-surface",
+    "paths": [
+      "config/feature-manifest.json",
+      "docs/FEATURE-POLICY.md"
+    ],
+    "minFiles": 2
+  },
+  "constraints": [
+    {
+      "id": "no-feature-beyond-the-day-one-trio",
+      "type": "forbiddenPattern",
+      "severity": "critical",
+      "path": "config/feature-manifest.json",
+      "pattern": "^\\s*\"(?!(?:core|reports|search)[\"/])[^\"]+\"\\s*,?\\s*$"
+    },
+    {
+      "id": "no-inline-widening-of-the-empty-arrays",
+      "type": "forbiddenPattern",
+      "severity": "critical",
+      "path": "config/feature-manifest.json",
+      "pattern": "\"enabled(Features|Integrations|AdminTools)\"\\s*:\\s*\\[\\s*\"|\"betaFlags\"\\s*:\\s*\\[\\s*\""
+    }
+  ],
+  "evidenceRequirements": [
+    {
+      "type": "staticAst",
+      "required": true,
+      "onMissing": "block"
+    }
+  ],
+  "approvals": [
+    {
+      "role": "blueprint-steward",
+      "stage": "ratify"
+    }
+  ]
+}

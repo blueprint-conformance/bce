@@ -1,0 +1,137 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "approvals": [
+    {
+      "role": "blueprint-steward",
+      "stage": "ratify"
+    }
+  ],
+  "architecture": {
+    "components": [],
+    "relationships": []
+  },
+  "constraints": [
+    {
+      "id": "S1-frontmatter-key-portability",
+      "pattern": "^(user_invocable|allowed_tools|disable_model_invocation|argument_hint|when-to-use|user-invokable):",
+      "severity": "high",
+      "type": "forbiddenPattern",
+      "path": "skills/**/SKILL.md"
+    },
+    {
+      "id": "S2-name-shape",
+      "pattern": "^name:(?![ \\t]*[a-z0-9][a-z0-9-]{0,63}[ \\t]*$).*\\S",
+      "severity": "high",
+      "type": "forbiddenPattern",
+      "path": "skills/**/SKILL.md"
+    },
+    {
+      "id": "S3-description-placeholder",
+      "pattern": "^description:[ \\t]*(TODO|TBD|FIXME|\\.\\.\\.)[ \\t]*$",
+      "severity": "high",
+      "type": "forbiddenPattern",
+      "path": "skills/**/SKILL.md"
+    },
+    {
+      "id": "S4-description-budget",
+      "pattern": "^description:[ \\t]*.{1025,}",
+      "severity": "medium",
+      "type": "forbiddenPattern",
+      "path": "skills/**/SKILL.md"
+    },
+    {
+      "id": "S5-description-voice",
+      "pattern": "^description:[ \\t]*(This skill|A skill (that|for)|Helps? (you|the user))\\b",
+      "severity": "low",
+      "type": "forbiddenPattern",
+      "path": "skills/**/SKILL.md"
+    },
+    {
+      "id": "S6-no-model-pin",
+      "pattern": "^model:[ \\t]*claude-[0-9a-z.\\-]+",
+      "severity": "medium",
+      "type": "forbiddenPattern",
+      "path": "skills/**/SKILL.md"
+    },
+    {
+      "id": "S7-no-credential-material",
+      "pattern": "(sk-ant-[A-Za-z0-9_\\-]{10,}|ghp_[A-Za-z0-9]{30,}|gho_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)",
+      "severity": "critical",
+      "type": "forbiddenPattern",
+      "path": "skills/**"
+    },
+    {
+      "id": "S8-no-author-machine-paths",
+      "pattern": "(/Users/[A-Za-z]|/home/[A-Za-z]|[A-Za-z]:\\\\Users)",
+      "severity": "high",
+      "type": "forbiddenPattern",
+      "path": "skills/**/SKILL.md"
+    },
+    {
+      "id": "S9-no-harness-imitation",
+      "pattern": "(<system-reminder>|ignore (all )?previous instructions)",
+      "severity": "critical",
+      "type": "forbiddenPattern",
+      "path": "skills/**"
+    },
+    {
+      "id": "S10-no-placeholder-body",
+      "pattern": "(lorem ipsum|REPLACE_ME|YOUR_API_KEY_HERE|INSERT_[A-Z_]+)",
+      "severity": "low",
+      "type": "forbiddenPattern",
+      "path": "skills/**/SKILL.md"
+    },
+    {
+      "id": "S11a-no-dotenv-in-a-skill-tree",
+      "path": "skills/**/.env*",
+      "severity": "critical",
+      "type": "forbiddenFile"
+    },
+    {
+      "id": "S11b-no-pem-in-a-skill-tree",
+      "path": "skills/**/*.pem",
+      "severity": "critical",
+      "type": "forbiddenFile"
+    },
+    {
+      "id": "S11c-no-ssh-key-in-a-skill-tree",
+      "path": "skills/**/id_rsa*",
+      "severity": "critical",
+      "type": "forbiddenFile"
+    }
+  ],
+  "evidenceRequirements": [
+    {
+      "onMissing": "block",
+      "required": true,
+      "type": "staticAst"
+    }
+  ],
+  "extraction": {
+    "minFiles": 2,
+    "paths": [
+      "skills/**"
+    ],
+    "profile": "plugin-surface"
+  },
+  "intentRefs": [
+    "spec/skill-standard/SKILL-STANDARD.md"
+  ],
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "skill-standard",
+    "name": "Agent Skill standard — the enforceable shape of a skills/ tree",
+    "status": "proposed",
+    "version": "0.1.0",
+    "ownerRole": "maintainer",
+    "stewardRole": "maintainer"
+  },
+  "scope": {
+    "paths": [
+      "skills/**"
+    ],
+    "repositories": [
+      "blueprint-conformance/bce"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "$comment": "The Lane-A engine pin — the EXACT published bce-engine version that gates this tree independently of the code under review. See docs/pin-ceremony.md and docs/self-hosting.md §'Lane A / Lane B'. Bumping this pin is a PR gated by the OLD pin (a trust-anchor ratchet), never an in-line edit.",
+  "package": "bce-engine",
+  "pin": "0.1.0",
+  "range": false,
+  "rangeRationale": "EXACT pin only — never ^0.1.0, ~0.1.0, or @latest. Lane A must be independent of the code under review, so it installs a fixed published artifact. A range would let a later publish silently change the grader every contributor is measured against, reintroducing the trusting-trust hole Lane A exists to close. The caret-0.x incident is the recorded reason: on a 0.x line `^0.6.0` is equivalent to `~0.6.0` and EXCLUDES 0.7.0, so a caret pin does not even receive a minor bump — it ships dead-green.",
+  "published": false,
+  "publishedNote": "false until bce-engine@0.1.0 is actually published to the public npm registry. While false, Lane A is DORMANT (self-gate.yml if-guards the lane-a step on this being true AND the pinned version resolving on npm), and Lane B (HEAD gating its own tree) is the only lane — the bootstrap-0 exception, recorded honestly in docs/self-hosting.md. The operator flips this to true in the same PR that first publishes 0.1.0; that flip activates the REQUIRED Lane-A check.",
+  "bumpCeremony": "docs/pin-ceremony.md",
+  "trustAnchor": "The pinned engine is the PUBLISHED artifact from the public registry, so a defective change to the engine in a PR under review cannot influence the Lane-A verdict — Lane A rebuilds nothing from the branch."
+}

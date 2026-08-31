@@ -1,0 +1,83 @@
+name: publish-schemas
+
+# DORMANT BY DESIGN — activates at public flip when org Pages exists.
+#
+# The spec pack's JSON Schemas (spec/schemas/*.schema.json) declare
+#   $id: https://blueprint-conformance.github.io/bce/schemas/<name>.schema.json
+# Those URLs are served by the organization's GitHub Pages site, which does not
+# exist until the repository's public flip enables it. Per the house discipline of
+# describing only machinery that runs, this workflow ships in the tree but its job
+# is hard-disabled (`if: false`) so it can never claim a publish that cannot
+# happen. Flipping it live is a deliberate one-line change (remove the `if: false`)
+# made together with enabling Pages on the repository — nothing else here needs to
+# change at that point.
+#
+# The payload this job deploys is the documentation site AND the schemas — one
+# surface, assembled by scripts/build-docs-site.mjs. The schemas keep their
+# paths exactly (/schemas/<name>.schema.json, matching each `$id`); the site is
+# rendered around them. The name `publish-schemas` is kept deliberately: it is
+# what docs/launch/public-flip-checklist.md, ROADMAP.md and AGENTS.md already
+# name, and a rename on the way to a flip is a way to lose a checklist item.
+#
+# The assembly step is safe to run and to gate at any time — it only ever writes
+# a local `_site/` directory. Only the two steps after it publish, and they are
+# gated by the same `if: false` as the rest of the job.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'spec/schemas/**'
+      - '.github/workflows/publish-schemas.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: publish-schemas
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # activates at public flip when org Pages exists — until then the $id base
+    # (https://blueprint-conformance.github.io/bce/schemas/) intentionally does not
+    # resolve and this job is intentionally disabled. See spec/SPEC.md §14.1.
+    if: false
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Assembles the same `_site/` this job has always deployed: every schema
+      # copied byte-for-byte to /schemas/<name>.schema.json — the exact path its
+      # `$id` names — plus the rendered documentation around them. The schemas
+      # root index is still generated from the actual file set, never from a
+      # hand-maintained list; it now lives at /schemas/ because / is the
+      # documentation landing page.
+      #
+      # The build is dependency-free (node built-ins only) and fail-closed: it
+      # refuses an unmapped doc, a link pointing at a route it does not produce,
+      # or a fragment naming a heading the target page does not carry. The same
+      # script runs build-only on every relevant pull request
+      # (.github/workflows/docs-site-check.yml), so drift is caught long before
+      # anything reaches this job.
+      - name: Assemble the Pages payload (docs site + schemas under /schemas/)
+        run: node scripts/build-docs-site.mjs
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

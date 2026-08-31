@@ -1,0 +1,188 @@
+name: bce — blueprint conformance gate
+description: >-
+  Fail-closed blueprint conformance gate for a repository. Runs `bce gate` over
+  the repo's committed .blueprints/, emits ::error annotations on drift, and (on
+  a pull_request) posts one sticky PR comment wrapping a machine-parseable JSON
+  island for agent-authored self-correction. THIN by construction — this action
+  invokes the engine and passes its output through; it interprets NOTHING.
+author: bce maintainers
+
+# ------------------------------------------------------------------------------
+# THIN-SURFACE CONTRACT (SPEC §7, COUNCIL-SYNTHESIS item #19)
+#
+# This action contains ZERO conformance logic. Every verdict, every ::error
+# annotation, every exit-code decision, and every byte of the machine report is
+# produced by `bce gate` itself. The action:
+#   1. makes the engine available (build the checked-out source, OR `npx` a
+#      pinned published release — the caller's choice),
+#   2. runs `bce gate` with `--report-json` (the gate prints its own ::error /
+#      ::warning annotations to the workflow log AND writes the machine report),
+#   3. on a pull_request, upserts ONE sticky comment that embeds the engine's
+#      OWN human-readable stdout and the report JSON VERBATIM — no parsing.
+#
+# Fail-closed passes straight through: `bce gate` exits 1 on a red verdict, and
+# because the run step does not swallow that exit, the JOB fails. There is no
+# skip input, no continue-on-error, no advisory flag — advisory is a COMMITTED
+# `.bce-mode.json` MODE the engine reads on its own (never a surface here).
+# ------------------------------------------------------------------------------
+
+inputs:
+  engine:
+    description: >-
+      How to obtain the engine: `local` builds the checked-out source (npm ci +
+      npm run build; use when this action runs INSIDE the bce repo or a fork),
+      or a published spec `bce-engine@<exact-version>` run via npx (the adoption
+      path for a consuming repo). Ranges are refused by convention — pin exactly
+      (the caret-0.x incident: `^0.6.0` excludes 0.7.0).
+    required: false
+    default: local
+  repo:
+    description: Repository directory to gate (passed through to `bce gate --repo`).
+    required: false
+    default: "."
+  blueprint-dir:
+    description: >-
+      Blueprint discovery directory (passed through to `--blueprint-dir`).
+      Defaults to the engine's own default (`<repo>/.blueprints`).
+    required: false
+    default: ""
+  changed:
+    description: >-
+      Comma-separated repo-relative changed files to scope the run
+      (passed through to `--changed`). Empty = full sweep.
+    required: false
+    default: ""
+  extractor:
+    description: Extractor kind, `ast` or `line-scan` (passed through to `--extractor`).
+    required: false
+    default: ast
+  repo-name:
+    description: >-
+      `<org>/<repo>` identity stamp (passed through to `--repo-name`); arms the
+      WARN-only scope.repositories identity check. Empty = unstamped.
+    required: false
+    default: ""
+  all:
+    description: >-
+      `true` prints every violation (passed through as `--all`); default groups
+      per-constraint (the anti-resentment output, SPEC §8).
+    required: false
+    default: "false"
+  report-path:
+    description: Path the machine-parseable gate report is written to (`--report-json`).
+    required: false
+    default: bce-report.json
+  comment:
+    description: >-
+      `true` (default) upserts a sticky PR comment on pull_request events. Set
+      `false` to suppress the comment (annotations + the fail-closed exit are
+      unaffected). No effect on non-PR events.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+
+    # Engine acquisition — the ONE branch in this action, and it is acquisition
+    # only (never verdict logic). `local` builds the checked-out source; a pinned
+    # spec runs the published release via npx. Either way `BCE` names the command
+    # the run step invokes; nothing downstream cares which arm produced it.
+    - name: Make the engine available
+      id: engine
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "${{ inputs.engine }}" = "local" ]; then
+          echo "→ building the checked-out engine (npm ci + npm run build)"
+          npm ci
+          npm run build
+          echo "bce=node $GITHUB_ACTION_PATH/dist/cli.js" >> "$GITHUB_OUTPUT"
+        else
+          case "${{ inputs.engine }}" in
+            bce-engine@*) : ;;
+            *)
+              echo "::error::engine input must be 'local' or an EXACT 'bce-engine@<version>' pin (ranges are refused — the caret-0.x incident)"
+              exit 1
+              ;;
+          esac
+          echo "→ using published engine via npx: ${{ inputs.engine }}"
+          echo "bce=npx --yes ${{ inputs.engine }}" >> "$GITHUB_OUTPUT"
+        fi
+
+    # Run the gate. The engine prints its OWN ::error / ::warning annotations to
+    # the workflow log (they surface inline on the PR diff) and writes the
+    # machine report. We capture the engine's human-readable stdout VERBATIM for
+    # the sticky comment. A red verdict is `bce gate` exit 1 → this step fails →
+    # the job fails: fail-closed, straight through, no interpretation here.
+    - name: Run bce gate (fail-closed)
+      id: gate
+      shell: bash
+      run: |
+        set -uo pipefail
+        BCE="${{ steps.engine.outputs.bce }}"
+        args=( gate --repo "${{ inputs.repo }}" --extractor "${{ inputs.extractor }}" --report-json "${{ inputs.report-path }}" )
+        [ -n "${{ inputs.blueprint-dir }}" ] && args+=( --blueprint-dir "${{ inputs.blueprint-dir }}" )
+        [ -n "${{ inputs.changed }}" ]       && args+=( --changed "${{ inputs.changed }}" )
+        [ -n "${{ inputs.repo-name }}" ]     && args+=( --repo-name "${{ inputs.repo-name }}" )
+        [ "${{ inputs.all }}" = "true" ]     && args+=( --all )
+        # stdout → both the log and a file (the engine's own human summary,
+        # embedded verbatim in the comment); stderr → the log (annotations).
+        set +e
+        $BCE "${args[@]}" > gate-stdout.txt
+        rc=$?
+        set -e
+        cat gate-stdout.txt
+        echo "rc=$rc" >> "$GITHUB_OUTPUT"
+        exit "$rc"
+
+    # Sticky PR comment. Runs even when the gate failed (if:always) so an
+    # agent-authored PR always gets the machine island to self-correct from —
+    # but the job's overall conclusion is still the gate's fail-closed exit.
+    # THIN: this embeds the engine's OWN stdout + the report JSON byte-for-byte.
+    # It parses NEITHER. The only decision is find-existing-comment-by-marker
+    # (upsert plumbing, not conformance logic).
+    - name: Upsert sticky PR comment (JSON island)
+      if: ${{ always() && github.event_name == 'pull_request' && inputs.comment == 'true' }}
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const marker = '<!-- bce-sticky-comment -->';
+          // Engine's OWN human-readable summary (verbatim). If the gate crashed
+          // before writing it, say so honestly — never fabricate a verdict.
+          let human = '';
+          try { human = fs.readFileSync('gate-stdout.txt', 'utf8'); } catch { human = '(no gate summary captured)'; }
+          // The machine report, embedded byte-for-byte inside the island. If it
+          // is missing (gate could not even produce a report), the island is an
+          // explicit absence marker — not an invented pass.
+          let island = '';
+          const reportPath = ${{ toJSON(inputs.report-path) }};
+          try { island = fs.readFileSync(reportPath, 'utf8'); }
+          catch { island = JSON.stringify({ error: 'bce gate produced no machine report', reportPath }, null, 0) + '\n'; }
+          const body =
+            `${marker}\n` +
+            `## bce — blueprint conformance gate\n\n` +
+            '```\n' + human.trim() + '\n```\n\n' +
+            `<details><summary>machine-parseable report (agent contract)</summary>\n\n` +
+            `<!--bce-report-->\n` +
+            '```json\n' + island.trim() + '\n```\n' +
+            `<!--/bce-report-->\n\n` +
+            `</details>\n`;
+          const { owner, repo } = context.repo;
+          const issue_number = context.payload.pull_request.number;
+          const existing = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+          const mine = existing.find(c => c.body && c.body.includes(marker));
+          if (mine) {
+            await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+          } else {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+          }
+
+branding:
+  icon: check-circle
+  color: green

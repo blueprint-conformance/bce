@@ -1,0 +1,40 @@
+# CITATION.cff — citation metadata for bce, the blueprint conformance engine.
+#
+# The arXiv id and DOI below are EXPLICIT placeholders until the paper is posted
+# and the artifact archive is deposited. This is deliberate and fail-closed:
+# scripts/check-release-citation.mjs (a release.yml gate step) exits non-zero
+# while either placeholder token remains, so a tag can never publish with
+# placeholder citation metadata. Strict CFF validators will likewise flag the
+# placeholder DOI until it is replaced — that red is the honest state.
+cff-version: 1.2.0
+message: "If you use bce, please cite it using the metadata in this file."
+title: "bce — the blueprint conformance engine"
+type: software
+license: Apache-2.0
+repository-code: "https://github.com/blueprint-conformance/bce"
+abstract: >-
+  bce is a fail-closed architecture-conformance gate for AI-built systems: author
+  a blueprint (the durable architectural contract for a repository) and measure
+  the code against it — a deterministic conformance score, a fail-closed merge
+  gate, and hash-chained evidence records that anyone can re-derive offline.
+authors:
+  - name: "Blueprint Conformance contributors"
+keywords:
+  - architecture conformance
+  - engineering blueprint
+  - fail-closed gate
+  - evidence
+  - typescript
+preferred-citation:
+  type: article
+  title: "Blueprints with Teeth (paper title, venue, and identifiers finalized at release)"
+  authors:
+    - name: "Blueprint Conformance contributors"
+  doi: "DOI-PENDING"
+  identifiers:
+    - type: other
+      value: "arXiv:ARXIV-ID-PENDING"
+      description: "arXiv identifier — placeholder until the preprint is posted"
+    - type: other
+      value: "DOI-PENDING"
+      description: "Artifact-archive DOI — placeholder until the archive is deposited"

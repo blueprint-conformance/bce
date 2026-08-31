@@ -1,0 +1,154 @@
+{
+  "$id": "https://blueprint-conformance.github.io/bce/schemas/architecture-graph.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "The observed architecture graph `bce scan` persists (src/graph.ts): components + real call/dependency edges extracted from source, plus the mandatory coverage honesty envelope (every extractor MUST declare what it cannot see). Deterministic-by-construction: provenance is a content revision, never wall-clock; all arrays sorted before serialization.",
+  "properties": {
+    "components": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "line": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "path",
+          "line"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "coverage": {
+      "additionalProperties": false,
+      "properties": {
+        "extractor": {
+          "enum": [
+            "ast",
+            "line-scan"
+          ],
+          "type": "string"
+        },
+        "filesScanned": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "patternScan": {
+          "additionalProperties": false,
+          "description": "OPTIONAL (widen-only addition): the deterministic content-pattern scan a forbiddenPattern constraint evaluates; absent when no forbiddenPattern constraint is declared",
+          "properties": {
+            "hits": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "pattern": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "pattern",
+                  "file",
+                  "line"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "patterns": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "patterns",
+            "hits"
+          ],
+          "type": "object"
+        },
+        "scannedFiles": {
+          "description": "OPTIONAL (widen-only addition): the raw sorted scanned-file set a forbiddenFile constraint iterates; absent on older graphs",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "unsupported": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "extractor",
+        "filesScanned",
+        "unsupported"
+      ],
+      "type": "object"
+    },
+    "ctRepoRevision": {
+      "type": "string"
+    },
+    "guardEdges": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "evidenceRef": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "type",
+          "evidenceRef"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": "1"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "ctRepoRevision",
+    "components",
+    "guardEdges",
+    "coverage"
+  ],
+  "title": "ArchitectureGraph",
+  "type": "object"
+}

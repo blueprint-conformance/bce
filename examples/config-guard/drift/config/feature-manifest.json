@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "_comment": "Day-one feature manifest: a new workspace ships STRICTLY the core, reports, and search features. Widening is an explicit reviewed change to this file, never a default.",
+  "enabledFeatures": [
+    "core",
+    "core/settings",
+    "reports",
+    "reports/export",
+    "search",
+    "admin-console"
+  ],
+  "enabledIntegrations": [],
+  "enabledAdminTools": [],
+  "betaFlags": []
+}

@@ -1,0 +1,44 @@
+{
+  "$comment": "Measured record of an external production estate that runs this engine as a required merge gate. Written by scripts/gen-fleet-evidence.mjs --refresh, which requires read access to a PRIVATE repository. Public readers CANNOT re-derive these numbers; see docs/fleet-dogfooding.md for what that does and does not license this project to claim.",
+  "recordVersion": 1,
+  "measuredAt": "2026-08-31",
+  "provenance": {
+    "sourceVisibility": "private",
+    "independentlyVerifiable": false,
+    "derivedBy": "scripts/gen-fleet-evidence.mjs --refresh",
+    "method": "GitHub search API for merge counts; per-merge-commit check-runs API for gate presence",
+    "gateFiguresDerivedBy": "MANUAL, and named as such because --refresh does NOT re-derive them: it rewrites merges/measuredAt/window.end and inherits every gate.* field unchanged. blueprintsAuthored = count of entries in the estate's blueprint-enforcement ledger; consumerRepositories = count of estate repositories carrying a required blueprint-conformance status context. Both re-derive from .claude/config/blueprint-enforcement-ledger.json on the estate's default branch (entries[] length; distinct keys of requiredChecks whose contexts include a blueprint context). Until --refresh derives them, these two numbers can go stale while the record around them refreshes -- which is exactly what happened between 2026-08-23 and 2026-08-27."
+  },
+  "window": {
+    "start": "2026-07-19",
+    "startReason": "date the conformance gate workflow first landed on the estate's default branch",
+    "end": "2026-08-31"
+  },
+  "merges": {
+    "total": 1946,
+    "agentAuthored": 1921,
+    "humanAuthored": 25,
+    "agentSharePct": 98.7
+  },
+  "gate": {
+    "enginePin": "0.17.0",
+    "pinIsExact": true,
+    "requiredCheck": true,
+    "pathFiltered": false,
+    "runsOnMergeGroup": true,
+    "consumerRepositories": 5,
+    "blueprintsAuthored": 75
+  },
+  "gatePresenceSample": {
+    "sampledAt": "2026-08-27",
+    "sampled": 40,
+    "checkRunPresent": 37,
+    "checkRunAbsent": 3,
+    "note": "Absent cases are not evidence the gate was skipped: in a merge queue the checks execute against the merge-group commit, and this sample reads the final merge commit. The gap is reported rather than resolved, because resolving it would require a claim this measurement cannot support. NOTE ON DATE: this sample carries its own sampledAt because --refresh does not re-derive it -- the merge counts above were re-measured on measuredAt while this sample was not. A re-derivation on 2026-08-31 over the then-most-recent 40 merges returned 22 present / 18 absent; it is deliberately NOT written here, because the same note that forbids reading absence as a skip forbids reading a changed absence rate as a regression. The estate now lands part of its traffic by administrative merge, which bypasses required checks by design, and this sample cannot separate that from a queue artifact."
+  },
+  "honestLimits": [
+    "The estate is operated by this project's authors. These numbers are self-measurement, not independent confirmation.",
+    "A merge passing the gate means no authored blueprint whose scope intersected the change scored non-pass. Most merges touch no blueprint scope and pass trivially; this record does not claim otherwise.",
+    "The count is of merges that occurred while the gate was a required check. It is not a count of defects caught."
+  ]
+}

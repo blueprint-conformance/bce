@@ -1,0 +1,315 @@
+{
+  "$id": "https://blueprint-conformance.github.io/bce/schemas/portfolio-blueprint.schema.json",
+  "$ref": "#/definitions/PortfolioBlueprint",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "PortfolioBlueprint": {
+      "additionalProperties": false,
+      "properties": {
+        "apiVersion": {
+          "const": "blueprint-conformance/v1alpha1",
+          "type": "string"
+        },
+        "coverage": {
+          "additionalProperties": false,
+          "properties": {
+            "unsupported": {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "unsupported"
+          ],
+          "type": "object"
+        },
+        "extraction": {
+          "additionalProperties": false,
+          "properties": {
+            "forbiddenEgressHosts": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "forbiddenImports": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "governedModules": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "guardSymbols": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "minFiles": {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            "paths": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "profile": {
+              "enum": [
+                "next-route-handler",
+                "plugin-surface",
+                "python-import-surface"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "profile"
+          ],
+          "type": "object"
+        },
+        "fleetConstraints": {
+          "items": {
+            "additionalProperties": true,
+            "properties": {
+              "behaviorRef": {
+                "type": "string"
+              },
+              "component": {
+                "type": "string"
+              },
+              "egressCallees": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "evidenceType": {
+                "type": "string"
+              },
+              "forbiddenEgressHosts": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "from": {
+                "type": "string"
+              },
+              "governedHosts": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metric": {
+                "type": "string"
+              },
+              "minimum": {
+                "type": "number"
+              },
+              "path": {
+                "type": "string"
+              },
+              "pattern": {
+                "type": "string"
+              },
+              "policyRef": {
+                "type": "string"
+              },
+              "scopePaths": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "enum": [
+                  "info",
+                  "low",
+                  "medium",
+                  "high",
+                  "critical"
+                ],
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "forbiddenDependency",
+                  "requiredDependency",
+                  "requiredComponent",
+                  "forbiddenPath",
+                  "forbiddenFile",
+                  "forbiddenEgress",
+                  "requiredEvidence",
+                  "minimumMetric",
+                  "customPolicy",
+                  "behavioralInvariant",
+                  "forbiddenPattern"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "severity"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "governance": {
+          "additionalProperties": false,
+          "properties": {
+            "minMembers": {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            "skewGraceDays": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "version": {
+              "pattern": "^\\d+\\.\\d+\\.\\d+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "version",
+            "skewGraceDays",
+            "minMembers"
+          ],
+          "type": "object"
+        },
+        "intentRefs": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "kind": {
+          "const": "PortfolioBlueprint",
+          "type": "string"
+        },
+        "members": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "checkContext": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "enginePin": {
+                "pattern": "^\\d+\\.\\d+\\.\\d+$",
+                "type": "string"
+              },
+              "extractor": {
+                "enum": [
+                  "ast",
+                  "line-scan"
+                ],
+                "type": "string"
+              },
+              "pinEncoding": {
+                "enum": [
+                  "workflow-literal",
+                  "lockfile"
+                ],
+                "type": "string"
+              },
+              "repo": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "repoDir": {
+                "default": ".",
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "repo",
+              "checkContext",
+              "enginePin",
+              "pinEncoding",
+              "extractor"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "properties": {
+            "id": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "ownerRole": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "draft",
+                "proposed",
+                "approved",
+                "deprecated",
+                "retired"
+              ],
+              "type": "string"
+            },
+            "stewardRole": {
+              "type": "string"
+            },
+            "version": {
+              "pattern": "^\\d+\\.\\d+\\.\\d+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "version",
+            "status"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "intentRefs",
+        "governance",
+        "members",
+        "fleetConstraints",
+        "extraction",
+        "coverage"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "The authored fleet-level blueprint artifact (apiVersion blueprint-conformance/v1alpha1), lowered by `bce portfolio compile` into per-member EngineeringBlueprint overlays. Mechanically derived from the normative Zod schema in src/schema.ts.",
+  "title": "PortfolioBlueprint"
+}

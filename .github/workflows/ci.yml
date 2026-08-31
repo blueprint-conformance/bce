@@ -1,0 +1,229 @@
+name: ci
+
+# The re-validation exit gate: every proof this repository claims is RE-EXECUTED
+# here, in this tree, on every push — citation of an upstream proof document is
+# never accepted as the proof. Fail-closed throughout: no continue-on-error, no
+# skip flags, no cached verdicts.
+#
+#   1. clean lockfile-exact install
+#   2. build the distributable engine (tsup + declaration emit)
+#   3. typecheck the full source tree (tsc --noEmit)
+#   4. FULL vitest suite (every test file, no filter)
+#   5. the measured-recall corpus run, re-executed as its own named step
+#      (recall arithmetic + the real-engine e2e proof over the seeded corpus)
+#   6. the offline RED/GREEN discriminating pair: the BUILT dist CLI runs the
+#      `gate` verb over two fixture trees against the same blueprint and must
+#      produce OPPOSITE verdicts by real process exit codes — GREEN (exit 0)
+#      on the conformant tree, RED (exit 1, with the violation named) on the
+#      drifted one. A gate that cannot go red is not a gate.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-prove:
+    name: build-test-prove
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (clean, lockfile-exact)
+        run: npm ci
+
+      - name: Build the distributable engine
+        run: npm run build
+
+      - name: Typecheck (tsc --noEmit, full tree)
+        run: npm run typecheck
+
+      - name: Full vitest suite (no filter)
+        run: npm test
+
+      # The README's shields are generated from ground truth, and this is what makes
+      # that true rather than merely intended. It re-derives every badge value from
+      # the tree — test count from the runner's own enumeration, licence from
+      # package.json cross-checked against LICENSE, Node floor from .nvmrc
+      # cross-checked against every workflow pin — and fails if a committed badge or
+      # its README alt text disagrees.
+      #
+      # Runs AFTER the suite, in this job, because it needs the installed devDeps to
+      # enumerate tests and they are already on disk here.
+      #
+      # WHY IT EXISTS AT ALL: the generator shipped without this step, and a badge
+      # went stale on main within one merge. The branch that added the badges was cut
+      # before a sibling PR added 7 tests; each side was internally consistent, the
+      # combined state was not, and nothing was watching. A number nobody re-derives
+      # is a number that is true on the day it is written and drifts quietly after —
+      # the exact failure the generator was written to prevent, which it cannot
+      # prevent while nothing runs it.
+      - name: README shields still match ground truth
+        run: node scripts/gen-badges.mjs --check
+
+      # The plugin and marketplace manifests are the public install path — the two
+      # files a stranger's `/plugin marketplace add blueprint-conformance/bce` reads.
+      # Nothing else in this tree imports them, builds them, or tests them, so they
+      # rot in exactly the way `skills/bce/SKILL.md` would without its contract test:
+      # silently, with only an installer finding out.
+      #
+      # WHAT THIS CATCHES, measured against the CLI rather than assumed:
+      #   - a `skills[]` entry that no longer resolves is a HARD error here
+      #     ("Path not found … The runtime loader will report this as a load
+      #     failure"), so renaming or moving skills/bce reddens this build instead
+      #     of shipping a plugin whose skill never loads;
+      #   - `--strict` additionally fails on unrecognized fields and missing
+      #     metadata, which the RUNTIME tolerates. A marketplace listing should not:
+      #     a typo'd key is silently ignored at load time, which is precisely the
+      #     class that survives review.
+      #
+      # One invocation covers BOTH manifests: the marketplace entry's `source: "./"`
+      # makes the validator traverse into the root plugin.json and report its
+      # findings as `plugins[0] plugin.json → <field>`.
+      #
+      # The CLI version is pinned deliberately — this step gates OUR manifests, not
+      # the CLI's release cadence; bumping the pin is how we re-measure against a new
+      # schema. It needs no credentials and makes no network call beyond the install.
+      - name: Plugin + marketplace manifests still validate (strict)
+        run: npx --yes @anthropic-ai/claude-code@2.1.236 plugin validate . --strict
+
+      - name: Measured-recall corpus run (recall gate arithmetic + real-engine e2e proof)
+        run: npx vitest run tests/recall-gate.test.ts tests/recall-e2e-proof.test.ts
+
+      # The conformance-vectors self-runner, re-executed as its own named step:
+      # every vector in spec/conformance-vectors/vectors.json is run against the
+      # reference engine via the REAL CLI (real child processes, real exit codes)
+      # and must produce its stated verdict + exit code. This is the executable
+      # artifact an external implementation ports to measure itself against the
+      # same data. (Also covered inside the full vitest suite above — this named
+      # step exists so a vector regression is legible at a glance.)
+      - name: Conformance-vectors self-runner (every vector, real exit codes)
+        run: npx tsx scripts/run-conformance-vectors.ts
+
+      - name: Offline RED/GREEN discriminating pair (built dist CLI, real exit codes)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # One blueprint, two trees, opposite verdicts. The blueprint dir holds
+          # ONLY the plugin-surface blueprint so the gate's full-sweep mode
+          # evaluates exactly the discriminating contract.
+          BPD="$(mktemp -d)"
+          cp fixtures/luna-chat-extension.blueprint.json "$BPD/"
+
+          echo "--- GREEN leg: conformant tree must PASS (exit 0) ---"
+          set +e
+          node dist/cli.js gate \
+            --repo fixtures/extension-surface/conformant \
+            --blueprint-dir "$BPD" \
+            --extractor ast > green.out 2> green.err
+          rc_green=$?
+          set -e
+          cat green.out green.err
+          if [ "$rc_green" -ne 0 ]; then
+            echo "::error::GREEN leg exited ${rc_green} (expected 0) — the conformant tree did not pass"
+            exit 1
+          fi
+          if ! grep -q "score 100 (pass)" green.out; then
+            echo "::error::GREEN leg exit 0 but the pass marker is missing from stdout"
+            exit 1
+          fi
+
+          echo "--- RED leg: drifted tree must FAIL (exit exactly 1, violation named) ---"
+          set +e
+          node dist/cli.js gate \
+            --repo fixtures/extension-surface/drift-forbidden-import \
+            --blueprint-dir "$BPD" \
+            --extractor ast > red.out 2> red.err
+          rc_red=$?
+          set -e
+          cat red.out red.err
+          if [ "$rc_red" -ne 1 ]; then
+            echo "::error::RED leg exited ${rc_red} (expected exactly 1) — the drifted tree did not fail as a gate verdict"
+            exit 1
+          fi
+          if ! grep -q "FAILED" red.err; then
+            echo "::error::RED leg exit 1 but no FAILED verdict on stderr — a config error is not a gate verdict"
+            exit 1
+          fi
+          if ! grep -q "no-direct-provider-sdk" red.err; then
+            echo "::error::RED leg failed without naming the seeded violation (no-direct-provider-sdk)"
+            exit 1
+          fi
+
+          echo "RED/GREEN discriminating pair: PROVEN — opposite verdicts by real exit codes (0 / 1)."
+
+      - name: Python RED/GREEN discriminating pair (python-import-surface profile)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Same discipline as the TS pair above: one blueprint, two trees, opposite
+          # verdicts by real exit codes — proving the python-import-surface profile
+          # end-to-end through the BUILT dist CLI, not a unit-test mock.
+          BPD="$(mktemp -d)"
+          cp fixtures/python-service.blueprint.json "$BPD/"
+
+          echo "--- GREEN leg: conformant python tree must PASS (exit 0) ---"
+          set +e
+          node dist/cli.js gate \
+            --repo fixtures/python-surface/conformant \
+            --blueprint-dir "$BPD" \
+            --extractor ast > py-green.out 2> py-green.err
+          rc_green=$?
+          set -e
+          cat py-green.out py-green.err
+          if [ "$rc_green" -ne 0 ]; then
+            echo "::error::Python GREEN leg exited ${rc_green} (expected 0)"
+            exit 1
+          fi
+          if ! grep -q "score 100 (pass)" py-green.out; then
+            echo "::error::Python GREEN leg exit 0 but the pass marker is missing from stdout"
+            exit 1
+          fi
+
+          echo "--- RED leg: drifted python tree must FAIL (exit exactly 1, violation named) ---"
+          set +e
+          node dist/cli.js gate \
+            --repo fixtures/python-surface/drift-forbidden-import \
+            --blueprint-dir "$BPD" \
+            --extractor ast > py-red.out 2> py-red.err
+          rc_red=$?
+          set -e
+          cat py-red.out py-red.err
+          if [ "$rc_red" -ne 1 ]; then
+            echo "::error::Python RED leg exited ${rc_red} (expected exactly 1)"
+            exit 1
+          fi
+          if ! grep -q "FAILED" py-red.err; then
+            echo "::error::Python RED leg exit 1 but no FAILED verdict on stderr"
+            exit 1
+          fi
+          if ! grep -q "no-direct-provider-sdk" py-red.err; then
+            echo "::error::Python RED leg failed without naming the seeded violation (no-direct-provider-sdk)"
+            exit 1
+          fi
+
+          echo "Python RED/GREEN discriminating pair: PROVEN — opposite verdicts by real exit codes (0 / 1)."
+
+      # SELF-USE PROOF (WO-03): the repo gates its OWN tree THROUGH the THIN
+      # composite action it ships (uses: ./). This proves the adoption surface
+      # end-to-end — engine=local rebuilds the HEAD engine inside the action and
+      # runs the same fail-closed `bce gate --repo .`. A red verdict is the
+      # action step's exit 1 → this job fails, identical to a direct invocation.
+      # comment=false: ci.yml also runs on push (no PR context) and the JSON
+      # island is proven separately in tests/gate-report-json.test.ts.
+      - name: Self-use — the repo gates its own tree THROUGH the bce action (fail-closed)
+        uses: ./
+        with:
+          engine: local
+          repo: "."
+          repo-name: blueprint-conformance/bce
+          comment: "false"

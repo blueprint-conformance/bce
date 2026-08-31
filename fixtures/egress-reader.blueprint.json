@@ -1,0 +1,57 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "egress-reader",
+    "name": "Egress Reader — governed-gateway-only surface",
+    "version": "0.1.0",
+    "status": "approved",
+    "ownerRole": "platform-engineer",
+    "stewardRole": "blueprint-steward"
+  },
+  "intentRefs": [
+    "policy/gateway-choke-point",
+    "policy/capability-transparency"
+  ],
+  "scope": {
+    "repositories": ["agent-host"],
+    "paths": ["src/**/*.ts"],
+    "environments": ["staging", "production"]
+  },
+  "extraction": {
+    "profile": "plugin-surface",
+    "paths": ["src/**/*.ts"],
+    "guardSymbols": ["registerTool"],
+    "minFiles": 1
+  },
+  "architecture": {
+    "components": [
+      { "id": "reader", "type": "pluginSurface", "owner": "contributor" },
+      { "id": "governedGateway", "type": "governedDependency", "owner": "api-gateway" }
+    ],
+    "relationships": [
+      { "from": "reader", "to": "governedGateway", "type": "egress", "allowed": true }
+    ]
+  },
+  "constraints": [
+    {
+      "id": "reader-egress-governed-only",
+      "type": "forbiddenEgress",
+      "severity": "critical",
+      "from": "*",
+      "governedHosts": ["localhost", "127.0.0.1", "staging.example.com", "internal.example.com", "api-gateway"],
+      "egressCallees": ["fetch"],
+      "policyRef": "policy/gateway-choke-point"
+    }
+  ],
+  "evidenceRequirements": [
+    {
+      "type": "staticAst",
+      "required": true,
+      "onMissing": "block"
+    }
+  ],
+  "approvals": [
+    { "role": "blueprint-steward", "stage": "ratify" }
+  ]
+}

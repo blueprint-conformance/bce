@@ -1,0 +1,5 @@
+[
+  { "id": "behavior:chat-completion:stim-alpha", "type": "behaviorObservation", "path": "deadc0defeed4242|1", "line": 1 },
+  { "id": "behavior:chat-completion:stim-beta", "type": "behaviorObservation", "path": "deadc0defeed4242|1", "line": 1 },
+  { "id": "behavior:chat-completion:stim-heldout-gamma", "type": "behaviorObservation", "path": "deadc0defeed4242|1", "line": 1 }
+]

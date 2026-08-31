@@ -1,0 +1,15 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "bce",
+  "description": "Blueprint conformance — the bce engine, the /blueprint plugin, and the skill-standard it enforces",
+  "owner": { "name": "bce maintainers", "url": "https://github.com/blueprint-conformance" },
+  "plugins": [
+    {
+      "name": "blueprint",
+      "source": "./",
+      "description": "Author, validate, run, teeth, and gate EngineeringBlueprints; tune Agent Skills against the enforceable skill-standard.",
+      "category": "development",
+      "tags": ["architecture", "conformance", "skills"]
+    }
+  ]
+}

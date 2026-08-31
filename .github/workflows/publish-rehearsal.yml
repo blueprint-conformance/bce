@@ -1,0 +1,138 @@
+name: publish-rehearsal
+
+# ==============================================================================
+# Rehearse the publish job's steps so the launch tag is not their FIRST execution.
+#
+# release.yml's `publish` job is `push`-only (`github.event_name == 'push'`) and
+# `needs: gate`. It has therefore NEVER run -- not once -- while every gate leg
+# around it has run dozens of times. The first execution of those steps would be
+# the real v0.1.0 tag: the least reversible moment in the whole ceremony, and the
+# worst possible place to discover a typo, a missing permission, or a build that
+# packs the wrong files.
+#
+# This workflow runs the same steps with `npm publish --dry-run`, which packs and
+# ENUMERATES the tarball and then uploads nothing.
+#
+# WHY A SEPARATE FILE, not a job inside release.yml:
+#   release.yml's run can never be GREEN while the gate's citation-gate and
+#   publish-auth legs are red -- and both are red for operator-wall reasons (real
+#   arXiv/DOI identifiers; an npmjs credential). A rehearsal job inside release.yml
+#   would inherit that red and could never produce a clean, readable proof. Here it
+#   stands alone and is green or red on its own merits.
+#
+# TWO-DEPLOYER PARITY: this file and release.yml's `publish` job
+# are twins. A change to one MUST be mirrored in the other, or the rehearsal stops
+# rehearsing what actually ships. The steps below are copied deliberately, in the
+# same order, with exactly one difference: `--dry-run`.
+#
+# CANNOT PUBLISH, structurally:
+#   * `on:` is workflow_dispatch ONLY -- no push, no tags. It cannot fire on a tag.
+#   * the job additionally guards on `github.event_name == 'workflow_dispatch'`.
+#   * `--dry-run` is hardcoded, never interpolated from an input.
+#   * no NODE_AUTH_TOKEN is wired in, so it holds no publish credential at all.
+#
+# WHAT THIS DOES NOT REHEARSE (named honestly, not silently skipped):
+#   * the real upload to the registry (that is the point of --dry-run);
+#   * registry-side auth -- covered by release.yml's publish-auth gate instead;
+#   * `gh release create` / `gh release upload`, which need a real tag to attach to.
+# ==============================================================================
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-rehearsal-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  rehearse:
+    name: rehearse publish (--dry-run — packs, enumerates, uploads nothing)
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Exercise the provenance/OIDC code path rather than skipping it, so the
+      # rehearsal fails here if the permission shape is wrong -- not at the tag.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      # Mirrors release.yml. node-version:22 ships npm 10.9.x; Trusted Publishing
+      # needs >= 11.5.1. The rehearsal must run the same toolchain the publish does
+      # or it is rehearsing a different program.
+      - name: Upgrade npm to the Trusted-Publishing floor (>=11.5.1)
+        run: npm install -g npm@^11.5.1
+
+      - name: Report the toolchain actually under rehearsal
+        shell: bash
+        run: |
+          echo "node $(node --version) / npm $(npm --version)"
+
+      - name: Install (clean, lockfile-exact)
+        run: npm ci
+
+      - name: Build the distributable engine
+        run: npm run build
+
+      - name: Rehearse the publish (--dry-run — enumerates the tarball, uploads nothing)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # --dry-run is hardcoded. There is no input, variable, or secret that can
+          # turn this into a real publish.
+          npm publish --dry-run --provenance --access public 2>&1 | tee /tmp/publish-dry-run.txt
+          echo "--- rehearsal summary ---"
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          echo "would publish ${name}@${version}"
+
+      - name: Assert the rehearsal actually packed something
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A rehearsal that silently packed nothing would be worse than no rehearsal:
+          # it would report green while proving the opposite of what it claims.
+          if ! grep -qE 'total files:[[:space:]]*[0-9]+' /tmp/publish-dry-run.txt; then
+            echo "::error::rehearsal produced no tarball enumeration — 'total files:' absent from the npm output."
+            exit 1
+          fi
+          files="$(grep -oE 'total files:[[:space:]]*[0-9]+' /tmp/publish-dry-run.txt | grep -oE '[0-9]+' | tail -1)"
+          echo "tarball enumerated: ${files} files"
+          if [ "$files" -lt 100 ]; then
+            echo "::error::only ${files} files packed — expected ~189 (dist, src, fixtures, integrations)."
+            echo "A sharp drop means the build did not run or package.json 'files' changed."
+            exit 1
+          fi
+
+      - name: Rehearse the evidence record (same commands the publish job runs)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node dist/cli.js run \
+            --blueprint .blueprints/engine.blueprint.json \
+            --ct-repo . \
+            --emit \
+            --emit-evidence-out release-evidence-record.json \
+            --emit-wo-out release-remediation-work-orders.json \
+            --out release-compliance-report.json
+          echo "--- rehearsed evidence record ---"
+          cat release-evidence-record.json
+          mkdir -p release-evidence-chain
+          cp release-evidence-record.json release-evidence-chain/record-001.json
+          node tools/verify-chain.mjs release-evidence-chain
+          echo "rehearsed evidence record verifies (zero-dep verifier)."
+
+      - name: Rehearsal complete
+        shell: bash
+        run: |
+          echo "publish-rehearsal: PASS — the publish job's steps executed end to end."
+          echo "Nothing was uploaded; the real tag is no longer their first execution."

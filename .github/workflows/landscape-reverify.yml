@@ -1,0 +1,107 @@
+name: landscape-reverify
+
+# The launch-month (and every-month-after) landscape re-verify nudge.
+#
+# docs/comparison.md opens with a dated baseline HTML comment ("Landscape
+# baseline: authored YYYY-MM-DD ..."). That date is the contract: the page's
+# claims about other tools are only as fresh as the last verify pass. This
+# workflow checks the baseline age on a monthly schedule (and on demand) and,
+# when the baseline is older than 60 days, opens — or updates, deduplicated by
+# exact title — a tracking issue listing the tools on the page plus the
+# re-verify checklist.
+#
+# This workflow NEVER blocks anything: it runs on schedule/dispatch only (no
+# push/pull_request trigger), it is not a required check, and a fresh baseline
+# is a green no-op. Pure gh + bash — no external actions beyond checkout, no
+# third-party dependencies.
+
+on:
+  schedule:
+    # Monthly, 3rd day 06:17 UTC (off the top-of-hour spike).
+    - cron: "17 6 3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-baseline-age:
+    name: check-baseline-age
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check docs/comparison.md baseline age (60-day budget)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          PAGE="docs/comparison.md"
+          ISSUE_TITLE="Landscape re-verify due"
+          MAX_AGE_DAYS=60
+
+          # --- 1. Extract the dated baseline from the header HTML comment. ---
+          # The contract is the comment's "authored YYYY-MM-DD" phrase; a page
+          # without it has broken the contract and this job fails LOUD (a
+          # scheduled job failing blocks nothing — it just shows red here).
+          baseline_date="$(grep -oE 'authored [0-9]{4}-[0-9]{2}-[0-9]{2}' "$PAGE" | head -n1 | awk '{print $2}' || true)"
+          if [ -z "$baseline_date" ]; then
+            echo "::error file=${PAGE}::no 'authored YYYY-MM-DD' baseline date found in the header comment — the dated-baseline contract is broken"
+            exit 1
+          fi
+
+          baseline_epoch="$(date -u -d "$baseline_date" +%s)"
+          now_epoch="$(date -u +%s)"
+          age_days=$(( (now_epoch - baseline_epoch) / 86400 ))
+          echo "baseline authored ${baseline_date} — ${age_days} day(s) old (budget: ${MAX_AGE_DAYS})"
+
+          if [ "$age_days" -le "$MAX_AGE_DAYS" ]; then
+            echo "baseline is fresh — nothing to do."
+            exit 0
+          fi
+
+          # --- 2. Stale: assemble the issue body. ---
+          # Tools = the page's H2 headings; checklist = the re-verify steps the
+          # header comment prescribes, quoted verbatim so the issue carries the
+          # contract text, not a paraphrase that can drift.
+          tools="$(grep -E '^## ' "$PAGE" | sed 's/^## /- /')"
+          header_comment="$(awk '/^<!--/{f=1} f{print} /-->/{exit}' "$PAGE")"
+
+          body_file="$(mktemp)"
+          {
+            echo "The dated landscape baseline in \`${PAGE}\` was authored **${baseline_date}** — **${age_days} days ago**, past the ${MAX_AGE_DAYS}-day re-verify budget."
+            echo
+            echo "## Re-verify checklist"
+            echo
+            echo "- [ ] Web pass over each listed project's published documentation — confirm the \"What it is\" / \"Use it instead when\" / \"Where bce differs\" text is still accurate"
+            echo "- [ ] Search for new AI-agent architecture-conformance tools that belong on the page"
+            echo "- [ ] If a direct competitor launched first, swap the README top-section for \`docs/launch/README-contested-variant.md\` per the launch plan"
+            echo "- [ ] Update the \`authored YYYY-MM-DD\` date in the header comment of \`${PAGE}\` to the re-verify date"
+            echo
+            echo "## Tools currently on the page"
+            echo
+            echo "${tools}"
+            echo
+            echo "## The baseline contract (verbatim from the page header)"
+            echo
+            echo '```'
+            echo "${header_comment}"
+            echo '```'
+            echo
+            echo "_Filed automatically by the \`landscape-reverify\` workflow (monthly schedule + manual dispatch). It never blocks CI — it only nudges._"
+          } > "$body_file"
+
+          # --- 3. Open or update, deduplicated by exact title. ---
+          existing="$(gh issue list --state open --json number,title \
+            --jq ".[] | select(.title == \"${ISSUE_TITLE}\") | .number" | head -n1)"
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file "$body_file"
+            echo "updated existing issue #${existing}"
+          else
+            gh issue create --title "$ISSUE_TITLE" --body-file "$body_file"
+            echo "opened new issue: ${ISSUE_TITLE}"
+          fi

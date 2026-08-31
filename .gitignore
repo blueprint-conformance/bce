@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Assembled documentation site (scripts/build-docs-site.mjs) — a build artifact,
+# regenerated from the tree on every run and deployed only by publish-schemas.yml
+_site/
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# bce gate runtime artifacts (the Action / a local --report-json run write these)
+bce-report.json
+gate-stdout.txt
+
+# bce CLI default output files (a `run`/`teeth`/`scan`/`--emit` invocation with no
+# --out writes these to the CWD — e.g. running the examples/quickstart in place)
+teeth-report.json
+teeth-skill-standard.json
+compliance-report.json
+architecture-graph.json
+evidence-record.json
+remediation-work-orders.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment — never commit secrets
+.env
+.env.*
+
+# OS / editor noise
+.DS_Store
+Thumbs.db

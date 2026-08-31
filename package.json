@@ -1,0 +1,64 @@
+{
+  "name": "bce-engine",
+  "version": "0.1.0",
+  "description": "bce — the blueprint conformance engine. Author an EngineeringBlueprint (the durable architectural contract for a repository) and gate code against it: a deterministic conformance score, fail-closed verdicts, and re-derivable evidence. Extraction is TypeScript/JavaScript today (ts-morph AST primary, line-scan fallback, behind one RepositoryFacts interface); the blueprint graph model is language-neutral.",
+  "license": "Apache-2.0",
+  "author": "bce maintainers",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blueprint-conformance/bce.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "bce": "./dist/cli.js",
+    "bce-mcp": "./dist/mcp-server.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "rimraf dist tsconfig.tsbuildinfo && tsup && tsc --emitDeclarationOnly",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "generate:schemas": "tsx scripts/generate-schemas.ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "ts-morph": "^23.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "ajv": "^8.20.0",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "5.6.2",
+    "vitest": "^4.1.0",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "files": [
+    "dist",
+    "src",
+    "fixtures",
+    "integrations",
+    "skills",
+    "NOTICE"
+  ],
+  "overrides": {
+    "esbuild": "0.27.3",
+    "rollup": "4.62.2"
+  }
+}

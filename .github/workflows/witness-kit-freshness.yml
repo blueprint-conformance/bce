@@ -1,0 +1,122 @@
+name: witness-kit-freshness
+
+# ==============================================================================
+# Keep docs/launch/witness-kit.md true.
+#
+# The kit is the one page this project asks a STRANGER to run before trusting a
+# green verdict. Until this workflow existed, nothing had ever executed it:
+# ci.yml's single job never touches examples/quickstart, and a code search for
+# "attestation" returned zero. The kit's commands and their Expected blocks were
+# maintained by hand against an engine that keeps moving.
+#
+# The cost of drift is paid by the one person whose independence makes the
+# attestation worth anything. A witness who hits a mismatch has exactly one
+# honest conclusion available: "this project's own instructions do not work."
+# There is no recovering that first impression, and no way to ask them again.
+#
+# Direction of repair is FIXED: if this reds, the DOC is corrected to match the
+# engine -- never the engine bent to match the doc. The engine's behaviour is
+# what the corpus and the self-gate measure; the doc only describes it.
+#
+# A gate that cannot go red is not a gate -- this repository's own words -- so
+# the negative self-test below is not optional decoration. It plants a known
+# drift, requires the replay to REFUSE it, restores, and requires a pass. Both
+# directions, every run.
+# ==============================================================================
+
+on:
+  pull_request:
+    paths:
+      - 'docs/launch/witness-kit.md'
+      - 'examples/quickstart/**'
+      - 'scripts/witness-kit-replay.mjs'
+      - '.github/workflows/witness-kit-freshness.yml'
+      - 'src/**'          # the engine's output IS the fixture — a CLI change can drift the doc
+      - 'package.json'
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 6 * * 1'   # Monday morning: catch drift before a witness does
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  freshness:
+    name: witness kit still matches the engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (clean, lockfile-exact)
+        run: npm ci
+
+      - name: Build the distributable engine
+        run: npm run build
+
+      # ----------------------------------------------------------------------
+      # NEGATIVE SELF-TEST — prove the gate can REFUSE before trusting its pass.
+      # Plant a drift the doc does not contain (a score the engine never emits),
+      # require exit 1, then restore and require exit 0. If a future change makes
+      # the replay unable to fail, this step catches it here rather than letting
+      # a permanently-green gate vouch for a stale kit.
+      # ----------------------------------------------------------------------
+      - name: Self-test — the replay must REFUSE a planted drift
+        shell: bash
+        run: |
+          set -uo pipefail
+          cp docs/launch/witness-kit.md /tmp/witness-kit.orig
+          # The engine emits "score 60" for the drifted tree. Claim 61 in the doc.
+          sed -i 's/score 60: 1 NEW violation(s)/score 61: 1 NEW violation(s)/' docs/launch/witness-kit.md
+          if ! grep -q 'score 61: 1 NEW' docs/launch/witness-kit.md; then
+            echo "::error::self-test could not plant its drift — the doc's wording changed."
+            echo "Update this self-test to plant a drift that the current doc actually contains."
+            cp /tmp/witness-kit.orig docs/launch/witness-kit.md
+            exit 1
+          fi
+          # GitHub's default shell is `bash --noprofile --norc -e -o pipefail`, and
+          # `set -uo pipefail` above does NOT clear that -e. Without disabling it here
+          # the planted-drift run aborts the step the instant it exits 1 -- which is the
+          # EXPECTED outcome -- and `rc=$?` never executes. The self-test would then fail
+          # precisely when it is working. Non-zero is the measurement, so errexit is off
+          # for exactly this one command.
+          set +e
+          node scripts/witness-kit-replay.mjs > /tmp/planted.log 2>&1
+          rc=$?
+          set -e
+          cp /tmp/witness-kit.orig docs/launch/witness-kit.md   # always restore
+          if [ "$rc" -ne 1 ]; then
+            echo "::error::self-test FAILED — replay exited ${rc} on a planted drift, expected 1."
+            echo "A replay that cannot refuse a wrong doc cannot vouch for a right one."
+            sed -n '1,60p' /tmp/planted.log
+            exit 1
+          fi
+          echo "self-test: PASS — the replay refused the planted drift (exit 1)."
+          # Prove the restore worked, so the real run below is meaningful.
+          if grep -q 'score 61: 1 NEW' docs/launch/witness-kit.md; then
+            echo "::error::self-test restore failed — the doc still carries the planted drift."
+            exit 1
+          fi
+
+      # Per-command negative control. The self-test above plants ONE mutation and
+      # proves command 2's comparison. This mutates each command's expectation in
+      # turn and requires the replay to fail NAMING that command — an unexercised
+      # comparison is one nobody has watched fail.
+      - name: Self-test — every command comparison, individually
+        run: node scripts/witness-kit-selftest.mjs
+
+      - name: Replay the witness kit against the built engine
+        run: node scripts/witness-kit-replay.mjs
+
+      - name: The kit is still true
+        shell: bash
+        run: |
+          echo "witness-kit-freshness: PASS — every command in docs/launch/witness-kit.md"
+          echo "produces exactly what the doc says it produces, on this commit."

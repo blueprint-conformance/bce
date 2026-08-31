@@ -1,0 +1,23 @@
+<!--
+  Blueprint-conformance house rules — paste this block into your repo's AGENTS.md.
+  This repo carries an authored blueprint (see .blueprints/). Treat the gate as the done-check.
+-->
+
+## Blueprint conformance
+
+This repository is gated by an authored **EngineeringBlueprint** (`.blueprints/`). The blueprint is
+the durable architectural contract for the repo; the gate is how any change proves it still holds.
+
+1. **Run the gate before reporting a task complete.** Run `bce gate` (or call the `run_gate` tool if
+   the `bce-mcp` MCP server is available). Do not report a change as done until the gate is green — a
+   passing build or test suite is necessary but not sufficient.
+2. **On a red gate, fix the code — do not silently edit the blueprint.** The red output names the
+   violated constraint and the file that breaks it. Change the code to conform. Editing the blueprint
+   to clear the red changes the contract rather than satisfying it; that is a deliberate, separately
+   reviewed change, never a quiet workaround.
+3. **Baseline changes require review.** `.blueprints/baseline.json` records pre-existing accepted
+   violations and only ever shrinks. Never append to the baseline unprompted — accepting a new
+   violation is a reviewed human decision.
+
+The gate is **fail-closed**: no skip flags exist. If it cannot honestly grade (malformed blueprint,
+partial scan), it errors — treat an error as a red, not a pass.

@@ -1,0 +1,23 @@
+<!--
+  Blueprint-conformance house rules — paste this block into your repo's CLAUDE.md.
+  This repo carries an authored blueprint (see .blueprints/). Treat the gate as the done-check.
+-->
+
+## Blueprint conformance
+
+This repository is gated by an authored **EngineeringBlueprint** (`.blueprints/`). The blueprint is
+the durable architectural contract; the gate is how a change proves it still holds.
+
+1. **Run the gate before you claim a change is done.** Run `bce gate` (or call the `run_gate` MCP
+   tool if the `bce-mcp` server is connected). A change is not finished until the gate is green — a
+   green typecheck or test run is necessary but not sufficient.
+2. **When the gate goes red, fix the code — never silently edit the blueprint.** The red names the
+   constraint and the offending file. The default response is to change the code so it conforms.
+   Editing the blueprint to make the red disappear changes the contract instead of meeting it; do
+   that only as a deliberate, separately-reviewed decision, never as a quiet workaround.
+3. **Baseline changes require review.** `.blueprints/baseline.json` records pre-existing accepted
+   violations and only ever shrinks. Never add a violation to the baseline on your own initiative —
+   accepting a new violation is a reviewed human decision.
+
+The gate is **fail-closed**: there are no skip flags. If the gate cannot honestly grade (a malformed
+blueprint, a partial scan), it errors — treat that as a red, not a pass.

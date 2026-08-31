@@ -1,0 +1,7 @@
+{
+  "name": "orders-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A small TypeScript service — the scaffold-then-gate first win.",
+  "type": "module"
+}
