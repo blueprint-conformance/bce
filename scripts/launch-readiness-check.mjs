@@ -90,7 +90,19 @@ promise(
 // so a public repo carrying them means the flip ran ahead of the tag.
 // ---------------------------------------------------------------------------
 const cff = read('CITATION.cff');
-const cffLeft = ['ARXIV-ID-PENDING', 'DOI-PENDING'].filter((t) => cff.includes(t));
+// Both the ORIGINAL placeholder spellings and the ship-blocker token family.
+// Without the second term this promise reported READY on a CITATION.cff that
+// still carried an unreplaced ship-blocker token — a detector that only knows
+// the spelling it was born with goes quiet the moment the placeholder is
+// renamed, which is the silent-pass this whole gate exists to prevent.
+//
+// The marker is ASSEMBLED, never written literally: check-ship-blockers.mjs
+// scans every tracked file, so spelling it here would make this detector flag
+// ITSELF. Exempting the file was the alternative and it is worse — an exemption
+// is a hole big enough to hide a real placeholder in.
+const SHIP_MARKER = ['_DO', 'NOT', 'SHIP'].join('_');
+const cffLeft = ['ARXIV-ID-PENDING', 'DOI-PENDING'].filter((t) => cff.includes(t))
+  .concat(cff.includes(SHIP_MARKER) ? [`a *${SHIP_MARKER} ship-blocker token`] : []);
 promise(
   'citation/placeholders',
   cffLeft.length === 0,
@@ -102,7 +114,10 @@ promise(
 // README — the page a launch-post reader lands on.
 // ---------------------------------------------------------------------------
 const readme = read('README.md');
-const phLines = readme.split('\n').map((l, i) => [i + 1, l]).filter(([, l]) => /_placeholder/.test(l));
+// `_placeholder` (the original marker) OR a ship-blocker token — see the
+// CITATION note above for why one spelling is not enough.
+const phLines = readme.split('\n').map((l, i) => [i + 1, l])
+  .filter(([, l]) => /_placeholder/.test(l) || l.includes(SHIP_MARKER));
 promise(
   'readme/placeholder-links',
   phLines.length === 0,

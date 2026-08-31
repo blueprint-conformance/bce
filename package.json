@@ -53,9 +53,7 @@
     "dist",
     "src",
     "fixtures",
-    "integrations",
-    "skills",
-    "NOTICE"
+    "integrations"
   ],
   "overrides": {
     "esbuild": "0.27.3",

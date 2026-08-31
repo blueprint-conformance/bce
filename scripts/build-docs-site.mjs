@@ -169,10 +169,18 @@ function trustMd() {
   // false — so that day the build goes red (exit 1) until this entry is
   // rewritten to match the record.
   const cff = readSource('CITATION.cff');
-  for (const token of ['ARXIV-ID-PENDING', 'DOI-PENDING']) {
-    if (!cff.includes(token)) {
+  // Two pending-token generations exist: the original '-PENDING' spelling and the
+  // ship-blocker '_DO_NOT_SHIP' spelling (assembled from parts so this file cannot
+  // trip the tracked-file blocker scan). Either spelling means "still pending";
+  // NEITHER present means the identifiers are real and this copy must be rewritten.
+  const SM = ['_DO', 'NOT', 'SHIP'].join('_');
+  for (const [label, spellings] of [
+    ['arXiv-id', ['ARXIV-ID-PENDING', `ARXIV_ID_PENDING${SM}`]],
+    ['DOI', ['DOI-PENDING', `DOI_PENDING${SM}`]],
+  ]) {
+    if (!spellings.some((token) => cff.includes(token))) {
       problem(
-        `trust page: the citation entry claims CITATION.cff still carries the ${token} ` +
+        `trust page: the citation entry claims CITATION.cff still carries a pending ${label} ` +
         'placeholder, and it does not — the citation state has moved; rewrite the trust ' +
         "page's citation entry to say what the record now says.",
       );
@@ -194,10 +202,11 @@ today. The records are the substance — this page only points at them.
   procedure for adding a row — including a run that contradicts the
   documentation — is [docs/launch/witness-kit.md](docs/launch/witness-kit.md).
 - **Citation metadata: pending, and ship-blocked.**
-  [CITATION.cff](CITATION.cff) carries explicit \`ARXIV-ID-PENDING\` and
-  \`DOI-PENDING\` tokens, and
+  [CITATION.cff](CITATION.cff) carries explicit ship-blocking placeholder
+  tokens for the arXiv identifier and the artifact-archive DOI, and
   [scripts/check-release-citation.mjs](scripts/check-release-citation.mjs)
-  refuses to cut a release tag while either token survives.
+  refuses to cut a release tag while either placeholder survives — in either
+  of its historical spellings.
 `;
 }
 

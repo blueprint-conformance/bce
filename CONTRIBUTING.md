@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for your interest in **bce, the blueprint conformance engine**. This repository is in a
-pre-release, private phase; external contributions open with the initial public release. This guide is
+public release. External contributions are open — issues and pull requests are welcome. This guide is
 in force now for the maintainer and the AI agents that operate under the maintainer's account, and is
 the guide external contributors will follow at release.
 

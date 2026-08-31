@@ -112,3 +112,27 @@ jobs:
           # GitHub's own value for THIS repository, not an inference.
           REPO_IS_PRIVATE: ${{ github.event.repository.private }}
         run: node scripts/launch-readiness-check.mjs
+
+      # ---------------------------------------------------------------------
+      # Ship-blockers. UNCONDITIONAL — unlike the promises above, this does NOT
+      # go inert while the repository is private.
+      #
+      # That is deliberate and it is the point. The post-publish flip is staged
+      # as one reviewed commit carrying ship-blocker tokens where the arXiv id and
+      # DOI will go, so THAT BRANCH IS RED BY CONSTRUCTION and turns green at
+      # exactly the moment the real identifiers are filled in. The gate is what
+      # makes "we'll remember to replace them" unnecessary.
+      #
+      # (This comment deliberately does NOT spell the token literally: the guard
+      # scans every tracked file, and exempting a workflow would open a hole big
+      # enough to hide a real placeholder in.)
+      #
+      # Ordered LAST so the promise output above is visible in the log even on a
+      # run this step fails — a gate that hides the diagnosis it was reached
+      # through costs more than it saves.
+      # ---------------------------------------------------------------------
+      - name: Self-test — the ship-blocker guard must be able to REFUSE
+        run: node scripts/check-ship-blockers.selftest.mjs
+
+      - name: No unreplaced launch placeholders may ship
+        run: node scripts/check-ship-blockers.mjs .
