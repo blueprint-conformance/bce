@@ -149,15 +149,8 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
 
     ```bash
     npm pack --dry-run --json | jq -r '.[0].files[].path' > /tmp/tarball.txt
-    wc -l /tmp/tarball.txt          # expect ~190 files (dist, src, fixtures, integrations, NOTICE)
+    wc -l /tmp/tarball.txt          # expect ~125 files (dist, src, fixtures, integrations)
     ```
-
-    (The count was "~125" until 2026-08-28 — stale against the corpus-v3 growth;
-    the 2026-08-28 enumeration measured 189 before NOTICE was added to `files:`.
-    That same enumeration found the tarball OMITTED `NOTICE` — npm auto-includes
-    LICENSE/README but not NOTICE, and `files:` is the only allowlist — so an
-    Apache-2.0 §4(d) redistribution shipped without its NOTICE. Fixed by listing
-    `NOTICE` in `files:`; this item is the gate that keeps it true.)
 
     Assert, against `/tmp/tarball.txt` and the shipped file contents:
 

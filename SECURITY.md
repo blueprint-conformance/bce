@@ -12,4 +12,4 @@ We aim to acknowledge reports within 7 days. Please include a minimal
 reproduction where possible. We appreciate coordinated disclosure and will
 credit reporters unless anonymity is requested.
 
-This policy will be expanded before the initial public release.
+This policy applies to the released v0.1.0 line and to `main`.

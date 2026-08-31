@@ -30,11 +30,11 @@ preferred-citation:
   title: "Blueprints with Teeth (paper title, venue, and identifiers finalized at release)"
   authors:
     - name: "Blueprint Conformance contributors"
-  doi: "DOI-PENDING"
+  doi: "DOI_PENDING_DO_NOT_SHIP"
   identifiers:
     - type: other
-      value: "arXiv:ARXIV-ID-PENDING"
+      value: "arXiv:ARXIV_ID_PENDING_DO_NOT_SHIP"
       description: "arXiv identifier — placeholder until the preprint is posted"
     - type: other
-      value: "DOI-PENDING"
+      value: "DOI_PENDING_DO_NOT_SHIP"
       description: "Artifact-archive DOI — placeholder until the archive is deposited"

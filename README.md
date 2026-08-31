@@ -23,11 +23,8 @@ second on a developer laptop.*
 </p>
 -->
 
-<!-- badge-placeholder: activate at public flip — self-gate + ci badges
 [![self-gate](https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg)](https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml)
 [![ci](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg)](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml)
-[![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
--->
 
 <p align="center">
   <img src="assets/badges/tests.svg" alt="tests: 736">
@@ -113,10 +110,6 @@ covers four starting shapes — empty repo, plain JS, TypeScript, monorepo — e
 the speed claim at the top of this page comes from: the test parses the number out of this
 README and refuses to pass if any shape misses it, so the page cannot claim a figure the loop
 does not actually meet.
-
-**Status: pre-release.** This repository is private while the v1 seed is
-prepared. Nothing here is stable yet — names, schemas, and commands may
-change before the initial public tag.
 
 ## What is measured, not asserted
 
@@ -212,9 +205,9 @@ jobs:
 ```
 
 Blueprints live in `.blueprints/*.blueprint.json` by default (`blueprint-dir` to
-override). Note the published-engine line requires `bce-engine@0.1.0` to actually be
-on npm — until the release tag lands, npm serves a `0.0.0` placeholder, so use the
-`local` default before then.
+override). The published-engine line installs `bce-engine@0.1.0` from npm; the `local`
+default builds the engine from this checkout instead. Either works — use the
+published engine unless you are changing the engine itself.
 
 ## Docs and spec
 
@@ -236,11 +229,15 @@ on npm — until the release tag lands, npm serves a `0.0.0` placeholder, so use
 - **Citing this work**: [CITATION.cff](CITATION.cff)
 - **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
 
+**Status: v0.1.0 — first public release.** The blueprint schema
+(`blueprint-conformance/v1alpha1`) is versioned and the report contract is
+stable; both follow the compatibility policy in `docs/report-contract.md`.
+
 ## Links
 
-- Paper: _placeholder — added at release_
-- Artifacts / evidence chain: _placeholder — added at release_
-- Specification (`blueprint-conformance/v1alpha1`): _placeholder — schemas published via the project's GitHub Pages at release_
+- Paper: https://arxiv.org/abs/ARXIV_ID_PENDING_DO_NOT_SHIP
+- Artifacts / evidence chain (`bce-paper-artifacts`): https://doi.org/DOI_PENDING_DO_NOT_SHIP
+- Specification (`blueprint-conformance/v1alpha1`): https://blueprint-conformance.github.io/bce/schemas/
 
 ## License
 

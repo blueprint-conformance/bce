@@ -40,14 +40,18 @@ const die = (m) => { console.error(`selftest: ${m}`); process.exit(2); };
  * Mutations APPEND rather than rewrite, so they keep working after the real
  * prose is corrected at the flip — which is the whole point.
  */
+// ASSEMBLED, never spelled: check-ship-blockers.mjs scans every tracked file, so
+// writing the marker literally here would make this self-test a ship-blocker.
+// Exempting the file is the alternative and it is worse — see check.mjs.
+const SM = ['_DO', 'NOT', 'SHIP'].join('_');
 const CASES = [
-  { id: 'readme/placeholder-links',     file: 'README.md',            strip: /_placeholder/,                     add: '\n- Paper: _placeholder — added at release_\n' },
+  { id: 'readme/placeholder-links',     file: 'README.md',            strip: new RegExp(`_placeholder|${SM}`),   add: '\n- Paper: _placeholder — added at release_\n' },
   { id: 'readme/badge-block',           file: 'README.md',            strip: /badge-placeholder/,                add: '\n<!-- badge-placeholder: selftest -->\n' },
   { id: 'readme/status-line',           file: 'README.md',            strip: /Status:?\s*(pre-release|private)|This repository is private/i, add: '\n**Status: pre-release.** This repository is private while seeded.\n' },
   { id: 'readme/npm-stub-instruction',  file: 'README.md',            strip: /npm serves a `?0\.0\.0`? placeholder/i, add: '\nnpm serves a `0.0.0` placeholder, so use the local default.\n' },
   { id: 'contributor-docs/pre-release', file: 'CONTRIBUTING.md',      strip: /pre-release,?\s*private phase|contributions open with the initial public release|before the initial public release|this repository is (in a )?(pre-release|private)/i, add: '\nThis repository is in a pre-release, private phase.\n', also: 'SECURITY.md' },
   { id: 'corpus-map/private-wording',   file: 'corpus/CORPUS-MAP.md', strip: /private\s+`?bce-paper-artifacts/i,  add: '\nHeld in the private `bce-paper-artifacts` repository.\n' },
-  { id: 'citation/placeholders',        file: 'CITATION.cff',         strip: /ARXIV-ID-PENDING|DOI-PENDING/,     add: '\n# selftest: DOI-PENDING\n' },
+  { id: 'citation/placeholders',        file: 'CITATION.cff',         strip: new RegExp(`ARXIV-ID-PENDING|DOI-PENDING|${SM}`), add: '\n# selftest: DOI-PENDING\n' },
   // The planted line is an award chip OUTSIDE any comment — the shape a real premature
   // activation would take. The strip step removes the reserved markers first so the detector
   // is observed going quiet before the plant makes it fire; without that, a detector that

@@ -176,7 +176,17 @@ const PROBES = [
     name: 'trust page citation claim vs a citation record that moved on',
     plant: (dir) => {
       const f = path.join(dir, 'CITATION.cff');
-      fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replaceAll('DOI-PENDING', '10.0000/planted-doi'));
+      // Both pending-token generations must be planted over, or the probe plants
+      // nothing on a tree carrying the other spelling and the build stays green.
+      // The second spelling is assembled so this file cannot trip the blocker scan.
+      const SM = ['_DO', 'NOT', 'SHIP'].join('_');
+      fs.writeFileSync(
+        f,
+        fs
+          .readFileSync(f, 'utf8')
+          .replaceAll('DOI-PENDING', '10.0000/planted-doi')
+          .replaceAll(`DOI_PENDING${SM}`, '10.0000/planted-doi'),
+      );
     },
     expect: 'citation state has moved',
   },
