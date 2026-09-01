@@ -57,7 +57,7 @@ For any agent that can run shell commands, the exact published dependency puts t
 project's PATH. `bce onboard` can preserve and extend the appropriate context file automatically:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.0
+npm install --save-dev --save-exact bce-engine@0.1.1
 npx --no-install bce demo
 ```
 
