@@ -78,6 +78,7 @@ import type { ArchitectureGraph, ObservedComponent } from './graph.js';
 import { loadObservations, observationBinding } from './observations.js';
 import { doctorRepository } from './lifecycle.js';
 import { ratifyBlueprint, amendBlueprint, PolicyHistoryError, type ReviewInput, type PolicyHistoryEntry } from './policy-history.js';
+import { createEvidenceBundle, verifyEvidenceBundle, type EvidenceBundle } from './evidence-bundle.js';
 
 interface Args {
   _: string[];
@@ -428,6 +429,17 @@ function main(): void {
     process.exit(report.exitCode);
   }
 
+  if (cmd === 'verify-bundle') {
+    const bundlePath = args.bundle as string;
+    if (!bundlePath || !fs.existsSync(bundlePath)) die(`--bundle not found: ${bundlePath}`, 2);
+    let bundle: EvidenceBundle;
+    try { bundle = JSON.parse(fs.readFileSync(bundlePath, 'utf8')) as EvidenceBundle; }
+    catch (e) { die(`bundle is not valid JSON: ${(e as Error).message}`, 2); }
+    const result = verifyEvidenceBundle(bundle);
+    process.stdout.write(stableStringify(result));
+    process.exit(result.valid ? 0 : 2);
+  }
+
   if (cmd === 'adopt') {
     // Safe proposal generator: installs advisory posture + a DRAFT contract + least-privilege CI
     // and agent instructions. It never approves/ratifies policy and never overwrites a file.
@@ -744,6 +756,14 @@ function main(): void {
     const report = evaluate(bp, graph, cfg.profile);
     const out = (args.out as string) || 'compliance-report.json';
     fs.writeFileSync(out, stableStringify(report));
+    if (typeof args['emit-bundle'] === 'string') {
+      const bundle = createEvidenceBundle({
+        blueprint: bp, graph, report, engineVersion: resolveEngineVersion(),
+        command: 'bce run', extractionProfile: cfg.profile,
+      });
+      fs.writeFileSync(args['emit-bundle'] as string, stableStringify(bundle));
+      process.stdout.write(`emitted self-contained integrity bundle -> ${args['emit-bundle'] as string} (origin authenticity not established)\n`);
+    }
     process.stdout.write(
       `ComplianceReport: ${report.blueprintRef} @ ${report.ctRepoRevision} -> score ${report.score} (${report.verdict}), ` +
         `${report.violations.length} violation(s). ${report.summary}\n`,

@@ -143,7 +143,7 @@ describe('bce-mcp — handshake + tool surface', () => {
     expect((init!.result!.capabilities as { tools: unknown }).tools).toBeDefined();
   });
 
-  it('tools/list returns EXACTLY the four THIN tools (no more, no fewer)', async () => {
+  it('tools/list exposes read-only self-management but no policy approval or weakening tools', async () => {
     const responses = await rpcRoundTrip([
       { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
       { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
@@ -151,7 +151,8 @@ describe('bce-mcp — handshake + tool surface', () => {
     const list = responses.get(2);
     const tools = (list!.result!.tools as Array<{ name: string; inputSchema: unknown }>);
     const names = tools.map((t) => t.name).sort();
-    expect(names).toEqual(['assess_teeth', 'get_report', 'run_gate', 'validate_blueprint']);
+    expect(names).toEqual(['assess_teeth', 'check_baseline', 'doctor_repository', 'get_report', 'run_gate', 'validate_blueprint']);
+    expect(names).not.toEqual(expect.arrayContaining(['adopt', 'ratify', 'amend', 'graduate', 'baseline']));
     // every tool declares an input schema (an agent needs it to call correctly)
     for (const t of tools) expect(t.inputSchema).toBeDefined();
   });

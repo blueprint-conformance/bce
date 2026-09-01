@@ -1,3 +1,17 @@
 # Until shared maintainership is reached (see GOVERNANCE.md), all paths are
 # owned by the steward's maintainer team.
 * @blueprint-conformance/maintainers
+
+# Explicit policy and distribution surfaces. Keep these lines even though `*` currently
+# resolves to the same team: they are machine-auditable and survive future ownership splits.
+/.blueprints/** @blueprint-conformance/maintainers
+/.bce-mode.json @blueprint-conformance/maintainers
+/.bce-adoption.json @blueprint-conformance/maintainers
+/.engine-pin.json @blueprint-conformance/maintainers
+/.github/workflows/** @blueprint-conformance/maintainers
+/CODEOWNERS @blueprint-conformance/maintainers
+/action.yml @blueprint-conformance/maintainers
+/package.json @blueprint-conformance/maintainers
+/spec/schemas/** @blueprint-conformance/maintainers
+/CITATION.cff @blueprint-conformance/maintainers
+/GOVERNANCE.md @blueprint-conformance/maintainers

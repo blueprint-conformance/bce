@@ -96,6 +96,10 @@ export { doctorRepository } from './lifecycle.js';
 export type { DoctorReport, DoctorCheck, DoctorCheckStatus } from './lifecycle.js';
 export { ratifyBlueprint, amendBlueprint, readPolicyHistory, semverGreater, PolicyHistoryError, POLICY_HISTORY_RELPATH } from './policy-history.js';
 export type { PolicyHistoryEntry, PolicyOperation, ReviewInput } from './policy-history.js';
+export { classifyPolicyChanges } from './policy-change.js';
+export type { PolicyChangeClass, FileChange, ClassifiedChange, PolicyChangeReport } from './policy-change.js';
+export { createEvidenceBundle, verifyEvidenceBundle } from './evidence-bundle.js';
+export type { EvidenceBundle, EvidenceBundleVerification } from './evidence-bundle.js';
 
 export {
   assessBaselineMaintenance,
