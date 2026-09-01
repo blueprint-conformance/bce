@@ -156,7 +156,16 @@ missing, and both are deliberately unfinished in the open:
   be misread. The loop takes about a minute, offline, with no keys and no accounts —
   [docs/launch/witness-kit.md](docs/launch/witness-kit.md) is the entire procedure, and a run
   that contradicts the doc is recorded too, because a witnessed contradiction is worth more than
-  another confirmation.
+  another confirmation. An
+  [open independent-beta request](https://github.com/blueprint-conformance/bce/issues/9) asks an
+  uncoached OSS user to run the full external-repository journey and report every point of
+  friction.
+- **External Action execution exists, but is not independent.** A creator-maintained
+  [public consumer repository](https://github.com/odinlabs-ai/bce-action-witness) installed BCE
+  from immutable commit `5d8a3d9`, merged its generated Action through
+  [PR #1](https://github.com/odinlabs-ai/bce-action-witness/pull/1), and records clean GREEN,
+  planted-drift detection, and corrected GREEN runs. This proves the Action crosses repository
+  boundaries; it does not prove that an unfamiliar user can adopt BCE without help.
 - **Citation metadata is software-only.** [CITATION.cff](CITATION.cff) does not invent a paper,
   arXiv identifier, or DOI. [`scripts/check-release-citation.mjs`](scripts/check-release-citation.mjs)
   refuses provisional placeholder identifiers; a preferred paper citation is added only after a

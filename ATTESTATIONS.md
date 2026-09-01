@@ -26,16 +26,23 @@ exist somewhere; a ledger that says **0** cannot be misread.
 | the engine's RED/GREEN pair discriminates on real exit codes | `release.yml` gate leg, re-executed at every tag |
 | measured recall against a seeded-defect corpus | `ci.yml` corpus/recall gate |
 | the engine gates its own repository | `self-gate.yml` (Lane B) |
+| the generated Action executes in a separate public consumer repository | [`odinlabs-ai/bce-action-witness`](https://github.com/odinlabs-ai/bce-action-witness): [clean GREEN](https://github.com/odinlabs-ai/bce-action-witness/actions/runs/33496925176), [planted-drift report](https://github.com/odinlabs-ai/bce-action-witness/actions/runs/33497018340), [corrected GREEN](https://github.com/odinlabs-ai/bce-action-witness/actions/runs/33497122787) |
 
 **Not established** — none of the above is independent. Every one of those runs on
 infrastructure the authors control, from code the authors wrote. That is exactly the gap a
 witness closes, and it is why CI passing is not a substitute for this file having a row in it.
+The external consumer is deliberately listed as mechanism evidence, not as an attestation: its
+repository and execution were created by the project author.
 
 ## How to add a row
 
 Run [`docs/launch/witness-kit.md`](docs/launch/witness-kit.md), then open a
 [witness attestation issue](../../issues/new?template=witness-attestation.yml). A maintainer
 adds the row below and updates the count above.
+
+For the larger onboarding journey—installation, blueprint authoring, generated Action, and a
+planted violation in a repository you control—see the
+[independent-beta request](https://github.com/blueprint-conformance/bce/issues/9).
 
 **A failed or mismatched run counts and will be recorded.** If the commands did not do what the
 doc says, that is a defect here, not a mistake by you — and a recorded contradiction is worth
