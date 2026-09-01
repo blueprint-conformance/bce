@@ -52,6 +52,16 @@ describe('determinism + re-derivability proof', () => {
   const REVISION = 'proof-rev-1';
   const SURFACE = 'drift-forbidden-import';
 
+  it('serializes repeated references deterministically but still refuses true cycles', () => {
+    const shared = { z: 1, a: 2 };
+    expect(stableStringify({ right: shared, left: shared })).toBe(
+      '{\n  "left": {\n    "a": 2,\n    "z": 1\n  },\n  "right": {\n    "a": 2,\n    "z": 1\n  }\n}\n',
+    );
+    const cyclic: { self?: unknown } = {};
+    cyclic.self = cyclic;
+    expect(() => stableStringify(cyclic)).toThrow('cannot serialize a cycle');
+  });
+
   it('ComplianceReport is BYTE-IDENTICAL across two independent computations', () => {
     const a = buildReport(SURFACE, REVISION);
     const b = buildReport(SURFACE, REVISION);

@@ -13,15 +13,16 @@ author: bce maintainers
 # This action contains ZERO conformance logic. Every verdict, every ::error
 # annotation, every exit-code decision, and every byte of the machine report is
 # produced by `bce gate` itself. The action:
-#   1. makes the engine available (build the checked-out source, OR `npx` a
+#   1. makes the engine available (build the immutable Action source, OR `npx` a
 #      pinned published release — the caller's choice),
 #   2. runs `bce gate` with `--report-json` (the gate prints its own ::error /
 #      ::warning annotations to the workflow log AND writes the machine report),
 #   3. on a pull_request, upserts ONE sticky comment that embeds the engine's
 #      OWN human-readable stdout and the report JSON VERBATIM — no parsing.
 #
-# Fail-closed passes straight through: `bce gate` exits 1 on a red verdict, and
-# because the run step does not swallow that exit, the JOB fails. There is no
+# Fail-closed passes straight through: `bce gate` exits 1 on a graded violation
+# and 2 on a refusal, and because the run step does not swallow either exit, the
+# JOB fails. There is no
 # skip input, no continue-on-error, no advisory flag — advisory is a COMMITTED
 # `.bce-mode.json` MODE the engine reads on its own (never a surface here).
 # ------------------------------------------------------------------------------
@@ -29,10 +30,9 @@ author: bce maintainers
 inputs:
   engine:
     description: >-
-      How to obtain the engine: `local` builds the checked-out source (npm ci +
-      npm run build; use when this action runs INSIDE the bce repo or a fork),
-      or a published spec `bce-engine@<exact-version>` run via npx (the adoption
-      path for a consuming repo). Ranges are refused by convention — pin exactly
+      How to obtain the engine: `local` builds this immutable Action checkout
+      (`$GITHUB_ACTION_PATH`; usable by a consumer before an npm release), or a
+      published spec `bce-engine@<exact-version>` run via npx. Ranges are refused — pin exactly
       (the caret-0.x incident: `^0.6.0` excludes 0.7.0).
     required: false
     default: local
@@ -89,7 +89,7 @@ runs:
         node-version: "22"
 
     # Engine acquisition — the ONE branch in this action, and it is acquisition
-    # only (never verdict logic). `local` builds the checked-out source; a pinned
+    # only (never verdict logic). `local` builds the Action checkout; a pinned
     # spec runs the published release via npx. Either way `BCE` names the command
     # the run step invokes; nothing downstream cares which arm produced it.
     - name: Make the engine available
@@ -98,19 +98,16 @@ runs:
       run: |
         set -euo pipefail
         if [ "${{ inputs.engine }}" = "local" ]; then
-          echo "→ building the checked-out engine (npm ci + npm run build)"
+          echo "→ building the immutable Action engine (npm ci + npm run build)"
           cd "$GITHUB_ACTION_PATH"
           npm ci
           npm run build
           echo "bce=node $GITHUB_ACTION_PATH/dist/cli.js" >> "$GITHUB_OUTPUT"
         else
-          case "${{ inputs.engine }}" in
-            bce-engine@*) : ;;
-            *)
-              echo "::error::engine input must be 'local' or an EXACT 'bce-engine@<version>' pin (ranges are refused — the caret-0.x incident)"
-              exit 1
-              ;;
-          esac
+          if [[ ! "${{ inputs.engine }}" =~ ^bce-engine@[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::engine input must be 'local' or an EXACT 'bce-engine@<version>' pin (ranges, tags, and prereleases are refused)"
+            exit 1
+          fi
           echo "→ using published engine via npx: ${{ inputs.engine }}"
           echo "bce=npx --yes --package ${{ inputs.engine }} bce" >> "$GITHUB_OUTPUT"
         fi
@@ -118,8 +115,8 @@ runs:
     # Run the gate. The engine prints its OWN ::error / ::warning annotations to
     # the workflow log (they surface inline on the PR diff) and writes the
     # machine report. We capture the engine's human-readable stdout VERBATIM for
-    # the sticky comment. A red verdict is `bce gate` exit 1 → this step fails →
-    # the job fails: fail-closed, straight through, no interpretation here.
+    # the sticky comment. A graded red exits 1 and a refusal exits 2; either
+    # fails this step and the job: fail-closed, straight through, no interpretation here.
     - name: Run bce gate (fail-closed)
       id: gate
       shell: bash

@@ -144,6 +144,9 @@ jobs:
       - name: Full vitest suite (no filter)
         run: npm test
 
+      - name: Fresh-consumer full-stack onboarding proof
+        run: npm run test:onboarding
+
       - name: Corpus / measured-recall run (recall arithmetic + real-engine e2e proof)
         run: npx vitest run tests/recall-gate.test.ts tests/recall-e2e-proof.test.ts
 

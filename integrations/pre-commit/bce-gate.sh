@@ -49,9 +49,10 @@ fi
 # ── GIT MODE (the actual pre-commit path): gate the staged tree ─────────────────────────────────
 GIT_TOP="$(git rev-parse --show-toplevel)"
 
-STAGED="$(git -C "$GIT_TOP" diff --cached --name-only --diff-filter=ACMR)"
+STAGED="$(git -C "$GIT_TOP" diff --cached --name-only --diff-filter=ACMRD)"
 if [ -z "$STAGED" ]; then
-  # Nothing staged (e.g. a deletion-only or empty commit) — nothing to gate.
+  # Nothing staged — nothing to gate. Deletions are included above because
+  # removing a required component or the last blueprint must be graded.
   exit 0
 fi
 

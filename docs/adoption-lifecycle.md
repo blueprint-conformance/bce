@@ -3,7 +3,9 @@
 The shortest safe path from “new repository” to a self-correcting BCE gate is:
 
 1. `bce doctor --repo .` diagnoses prerequisites without writing.
-2. Author a falsifiable draft, then `bce adopt --repo . --blueprint draft.json --engine bce-engine@X.Y.Z`.
+2. Author a falsifiable draft, then use [`bce onboard`](onboarding.md) for the complete policy, CI,
+   agent-context, and MCP proposal. The lower-level `bce adopt` command remains available for
+   policy-only adoption with an exact published `bce-engine@X.Y.Z` pin.
    Adoption is advisory and proposal-only; generated CI has read-only permissions.
 3. Fix scope and teeth findings. `bce teeth ... --require-extractor-real` requires a real extractor
    mutation. Evaluator-only policy needs a committed, exact-reference reviewed waiver.

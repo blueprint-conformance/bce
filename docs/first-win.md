@@ -61,10 +61,10 @@ node /path/to/bce/dist/cli.js …     # wherever a walkthrough says `bce`
 `0.0.0` reservation stub, so Lane A and the published-package journey remain dormant until an
 immutable release is published and clean-room verified.
 
-A second consequence of the same fact: `package.json`'s `files` array ships
-`dist`, `src`, `fixtures`, `integrations` — **not** `examples`. The first-win fixtures therefore
-come from a checkout even after publish. The same is already true of the quickstart; see
-[`self-hosting.md`](self-hosting.md) for how the Lane-A pin and the published artifact relate.
+The candidate package includes `examples/` and the complete onboarding assets, and the black-box
+consumer proof verifies them. These walkthroughs still use a checkout until the first functional
+npm release exists; see [`self-hosting.md`](self-hosting.md) for how the Lane-A pin and the
+published artifact relate.
 
 Both of those statements are asserted against the repository's own state by the matrix test, so a
 publish cannot silently leave this page stale.

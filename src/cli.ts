@@ -126,6 +126,18 @@ function readBlueprint(p: string) {
   }
 }
 
+function writableRepoTarget(repoDir: string, rel: string, label: string): string {
+  if (!rel || path.isAbsolute(rel)) die(`${label} must be a repository-relative path`, 2);
+  const root = fs.realpathSync(repoDir);
+  const target = path.resolve(root, rel);
+  if (target === root || !target.startsWith(`${root}${path.sep}`)) die(`${label} escapes --repo: ${rel}`, 2);
+  if (fs.existsSync(target)) {
+    const real = fs.realpathSync(target);
+    if (!real.startsWith(`${root}${path.sep}`)) die(`${label} resolves outside --repo: ${rel}`, 2);
+  }
+  return target;
+}
+
 function policyReview(args: Args): ReviewInput {
   const reviewer = typeof args.reviewer === 'string' ? args.reviewer : '';
   const rationale = typeof args.rationale === 'string' ? args.rationale : '';
@@ -386,7 +398,40 @@ function buildGraph(
 
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
-  const cmd = args._[0];
+  // Help is a read-only short circuit. In particular, `bce gate --help` must
+  // never run a gate and `bce baseline --help` must never write policy.
+  const helpRequested = args.help !== undefined || args._.includes('-h') || args._[0] === 'help';
+  const cmd = helpRequested ? undefined : args._[0];
+  const versionRequested = args.version !== undefined || args._.includes('-v');
+  if (versionRequested) {
+    process.stdout.write(`${resolveEngineVersion()}\n`);
+    return;
+  }
+  const allowedByCommand: Record<string, readonly string[]> = {
+    demo: [],
+    doctor: ['repo', 'blueprint-dir', 'out'],
+    'verify-bundle': ['bundle'],
+    upgrade: ['check', 'repo', 'blueprint-dir', 'candidate-engine', 'out'],
+    adopt: ['repo', 'blueprint', 'engine'],
+    onboard: ['repo', 'blueprint', 'engine', 'harness', 'agent-file', 'mcp-config'],
+    ratify: ['repo', 'blueprint', 'human-reviewer', 'reviewer', 'rationale', 'recorded-at', 'reviewed-waiver'],
+    amend: ['repo', 'blueprint', 'replacement', 'compatibility', 'accept-weakening', 'human-reviewer', 'reviewer', 'rationale', 'recorded-at', 'reviewed-waiver'],
+    validate: ['blueprint'],
+    author: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'min-files', 'repo', 'out'],
+    init: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'min-files', 'repo', 'out'],
+    scan: ['ct-repo', 'blueprint', 'ref', 'extractor', 'no-pin', 'out'],
+    run: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'out', 'observations', 'emit-bundle', 'emit', 'prev-hash', 'emit-evidence-out', 'emit-wo-out'],
+    teeth: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'require-extractor-real', 'reviewed-waiver', 'out'],
+    gate: ['repo', 'ct-repo', 'blueprint-dir', 'changed', 'extractor', 'repo-name', 'all', 'report-json'],
+    baseline: ['repo', 'ct-repo', 'blueprint-dir', 'changed', 'extractor', 'repo-name', 'dry-run', 'check', 'out', 'patch-out'],
+    graduate: ['repo', 'ct-repo', 'downgrade', 'rationale'],
+    portfolio: args._[1] === 'compile' ? ['portfolio', 'out-dir'] : ['registry', 'reports-dir'],
+  };
+  if (cmd && allowedByCommand[cmd]) {
+    const allowed = new Set([...allowedByCommand[cmd], 'help', 'version']);
+    const unknown = Object.keys(args).filter((key) => key !== '_' && !allowed.has(key));
+    if (unknown.length > 0) die(`unknown option for bce ${cmd}: --${unknown[0]}`, 1);
+  }
   const extractorKind = (args.extractor === 'line-scan' ? 'line-scan' : 'ast') as 'ast' | 'line-scan';
   const noPin = args['no-pin'] === true || args['no-pin'] === 'true';
 
@@ -450,7 +495,7 @@ function main(): void {
     process.exit(result.exitCode);
   }
 
-  if (cmd === 'adopt') {
+  if (cmd === 'adopt' || cmd === 'onboard') {
     // Safe proposal generator: installs advisory posture + a DRAFT contract + least-privilege CI
     // and agent instructions. It never approves/ratifies policy and never overwrites a file.
     const repoDir = (args.repo as string) || '.';
@@ -463,14 +508,39 @@ function main(): void {
       die(`blueprint id must be lowercase kebab-case for adoption`, 2);
     }
     const engine = typeof args.engine === 'string' ? (args.engine as string) : '';
-    if (!/^bce-engine@\d+\.\d+\.\d+$/.test(engine)) {
-      die(`--engine must be an exact published pin such as bce-engine@1.2.3; ranges/latest are refused`, 2);
+    const packageEngine = /^bce-engine@\d+\.\d+\.\d+$/.test(engine);
+    const actionEngine = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[0-9a-f]{40}$/.test(engine);
+    if (!packageEngine && !actionEngine) {
+      die(`--engine must be an exact published pin (bce-engine@1.2.3) or immutable Action ref (owner/repo@40-char-sha); ranges/tags/latest are refused`, 2);
+    }
+    const harness = typeof args.harness === 'string' ? args.harness : 'agents';
+    if (!['agents', 'claude', 'cursor', 'codex'].includes(harness)) die(`--harness must be agents|claude|cursor|codex`, 2);
+    const defaultAgentFile = harness === 'claude' ? 'CLAUDE.md' : harness === 'cursor' ? '.cursorrules' : 'AGENTS.md';
+    const agentRel = cmd === 'onboard'
+      ? (typeof args['agent-file'] === 'string' ? args['agent-file'] : defaultAgentFile)
+      : 'AGENTS.bce.md';
+    const agentTarget = writableRepoTarget(repoDir, agentRel, '--agent-file');
+    const defaultMcpRel = harness === 'cursor' ? '.cursor/mcp.json' : harness === 'codex' ? '' : '.mcp.json';
+    const mcpRel = cmd === 'onboard'
+      ? (typeof args['mcp-config'] === 'string' ? args['mcp-config'] : defaultMcpRel)
+      : '';
+    const mcpTarget = mcpRel ? writableRepoTarget(repoDir, mcpRel, '--mcp-config') : undefined;
+    let mcpConfig: Record<string, unknown> | undefined;
+    if (mcpTarget) {
+      mcpConfig = {};
+      if (fs.existsSync(mcpTarget)) {
+        try { mcpConfig = JSON.parse(fs.readFileSync(mcpTarget, 'utf8')) as Record<string, unknown>; }
+        catch (e) { die(`--mcp-config is not valid JSON: ${(e as Error).message}`, 2); }
+      }
+      const servers = mcpConfig.mcpServers && typeof mcpConfig.mcpServers === 'object'
+        ? mcpConfig.mcpServers as Record<string, unknown> : {};
+      if (servers.bce !== undefined) die(`--mcp-config already defines mcpServers.bce`, 2);
+      mcpConfig.mcpServers = { ...servers, bce: { command: 'npx', args: ['--no-install', 'bce-mcp'] } };
     }
     const targets = {
       blueprint: path.join(repoDir, '.blueprints', `${sourceBlueprint.metadata.id}.blueprint.json`),
       mode: path.join(repoDir, MODE_CONFIG_BASENAME),
       workflow: path.join(repoDir, '.github', 'workflows', 'blueprint-conformance.yml'),
-      agents: path.join(repoDir, 'AGENTS.bce.md'),
       manifest: path.join(repoDir, '.bce-adoption.json'),
     };
     const occupied = Object.values(targets).filter((p) => fs.existsSync(p));
@@ -479,11 +549,22 @@ function main(): void {
     fs.mkdirSync(path.dirname(targets.workflow), { recursive: true });
     fs.writeFileSync(targets.blueprint, stableStringify(sourceBlueprint));
     writeModeConfig(repoDir, 'advisory');
-    fs.writeFileSync(targets.workflow,
-      `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-node@v4\n        with:\n          node-version: "22"\n      - run: npx --yes --package ${engine} bce gate --repo . --report-json bce-report.json\n`);
-    fs.writeFileSync(targets.agents,
-      `# BCE done-check\n\nRun \`bce gate --repo .\` before declaring work complete. Fix code on violations. ` +
-      `Blueprint, baseline, mode, workflow, waiver, and engine-pin changes are policy changes and require human-owner review.\n`);
+    fs.writeFileSync(targets.workflow, packageEngine
+      ? `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n      - uses: actions/setup-node@v4\n        with:\n          node-version: "22"\n      - run: npx --yes --package ${engine} bce gate --repo . --report-json bce-report.json\n`
+      : `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n      - uses: ${engine}\n        with:\n          engine: local\n          repo: .\n          comment: "false"\n`);
+    const contextMarker = '<!-- bce-agent-context -->';
+    const context = `${contextMarker}\n# BCE done-check\n\nRun \`npx --no-install bce gate --repo .\` (or MCP \`run_gate\`) before declaring work complete. ` +
+      `Fix code on violations. Treat exit 1 and 2 as red. Blueprint, baseline, mode, workflow, waiver, and engine-pin changes are policy changes and require human-owner review.\n`;
+    fs.mkdirSync(path.dirname(agentTarget), { recursive: true });
+    if (!fs.existsSync(agentTarget)) fs.writeFileSync(agentTarget, context);
+    else if (!fs.readFileSync(agentTarget, 'utf8').includes(contextMarker)) fs.appendFileSync(agentTarget, `\n${context}`);
+    if (mcpTarget) {
+      fs.mkdirSync(path.dirname(mcpTarget), { recursive: true });
+      fs.writeFileSync(mcpTarget, stableStringify(mcpConfig));
+    }
+    const generatedFiles = [...Object.values(targets), agentTarget, ...(mcpTarget ? [mcpTarget] : [])]
+      .filter((p, i, all) => p !== targets.manifest && all.indexOf(p) === i)
+      .map((p) => path.relative(repoDir, p)).sort();
     fs.writeFileSync(targets.manifest, stableStringify({
       schemaVersion: '1',
       state: 'proposed',
@@ -491,9 +572,17 @@ function main(): void {
       blueprintRef: `${sourceBlueprint.metadata.id}@${sourceBlueprint.metadata.version}`,
       mode: 'advisory',
       ratified: false,
-      generatedFiles: Object.values(targets).filter((p) => p !== targets.manifest).map((p) => path.relative(repoDir, p)).sort(),
+      harness,
+      generatedFiles,
     }));
-    process.stdout.write(`bce adopt: PROPOSED advisory adoption with draft ${sourceBlueprint.metadata.id}; human ratification still required\n`);
+    process.stdout.write(`bce ${cmd}: PROPOSED advisory adoption with draft ${sourceBlueprint.metadata.id}; human ratification still required\n`);
+    if (cmd === 'onboard') {
+      process.stdout.write(`agent context: ${path.relative(repoDir, agentTarget)}\n`);
+      process.stdout.write(mcpTarget
+        ? `MCP config: ${path.relative(repoDir, mcpTarget)} (doctor_repository, check_baseline, validate_blueprint, run_gate, assess_teeth, get_report)\n`
+        : `Codex MCP: run 'codex mcp add bce -- npx --no-install bce-mcp' once for this user profile\n`);
+      process.stdout.write(`next: run 'npx --no-install bce doctor --repo .' and review/commit the proposal; ratification remains attended\n`);
+    }
     return;
   }
 
@@ -650,6 +739,7 @@ function main(): void {
       die(`author bug — the generated draft failed schema validation (nothing written): ${(e as Error).message}`, 1);
     }
     const out = (args.out as string) || `${id}.blueprint.json`;
+    fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
     fs.writeFileSync(out, serializeBlueprintCanonical(bp));
     // round-trip proof: re-read the WRITTEN artifact through the strict parser (dies on any drift).
     readBlueprint(out);
@@ -1281,14 +1371,17 @@ function main(): void {
       `bce — Blueprint Compliance Engine\n\n` +
       `  bce demo  Package-only offline RED/GREEN proof (no repository or configuration required)\n` +
       `  bce doctor [--repo <dir>] [--blueprint-dir <dir>] [--out <json>]  Read-only lifecycle readiness audit\n` +
-      `  bce adopt --repo <dir> --blueprint <draft.json> --engine bce-engine@<exact>  Propose advisory files; never ratifies\n` +
+      `  bce adopt --repo <dir> --blueprint <draft.json> --engine bce-engine@<exact>  Minimal advisory proposal; never ratifies\n` +
+      `  bce onboard --repo <dir> --blueprint <draft.json> --engine <package|owner/repo@40-char-sha>\n` +
+      `       [--harness agents|claude|cursor|codex] [--agent-file <repo-relative>] [--mcp-config <repo-relative>]\n` +
+      `       Full-stack proposal: policy + immutable CI + preserved agent context + MCP wiring.\n` +
       `  bce ratify --repo <dir> --blueprint <path> --human-reviewer --reviewer <id> --rationale <text> --recorded-at <UTC>\n` +
       `  bce amend --repo <dir> --blueprint <current> --replacement <next> --compatibility <kind> [--accept-weakening] <review flags>\n` +
       `  bce upgrade --check --repo <dir> --candidate-engine X.Y.Z [--out <json>]  Read-only compatibility preflight\n` +
       `  bce verify-bundle --bundle <json>  Re-hash and re-evaluate; reports integrity, never origin authenticity\n` +
       `  bce author --id <id> --intent-ref <ref> --constraint "<type>:<arg>[:<severity>]"\n` +
       `       [--repository <org/repo>] [--repo <dir>] [--scope-paths <glob,glob>]\n` +
-      `       [--extraction-profile next-route-handler|plugin-surface] [--guard-symbol <sym>]\n` +
+      `       [--extraction-profile next-route-handler|plugin-surface|python-import-surface] [--guard-symbol <sym>]\n` +
       `       [--min-files <n>] [--name <name>] [--owner-role <r>] [--steward-role <r>] [--out <path>]\n` +
       `       (alias: bce init) Scaffold a schema-VALID draft blueprint (status draft, 0.1.0) —\n` +
       `       interactive-free, self-validating; with --repo, refuses (exit 2) a scope matching 0 files.\n` +

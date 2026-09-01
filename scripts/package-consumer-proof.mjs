@@ -8,9 +8,11 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const scratch = mkdtempSync(join(tmpdir(), 'bce-package-proof-'));
 
 execFileSync('npm', ['run', 'build'], { cwd: root, stdio: 'inherit' });
-const packed = JSON.parse(
-  execFileSync('npm', ['pack', '--json', '--pack-destination', scratch], { cwd: root, encoding: 'utf8' }),
-);
+const packOutput = execFileSync('npm', ['pack', '--json', '--pack-destination', scratch], { cwd: root, encoding: 'utf8' });
+// Git/npm lifecycle output may precede npm's JSON when `prepare` builds the
+// package. Parse the final JSON document, not the build log.
+const jsonStart = packOutput.lastIndexOf('\n[');
+const packed = JSON.parse(packOutput.slice(jsonStart >= 0 ? jsonStart + 1 : 0));
 const tarball = join(scratch, packed[0].filename);
 execFileSync('npm', ['init', '-y'], { cwd: scratch, stdio: 'ignore' });
 execFileSync('npm', ['install', '--ignore-scripts', tarball], { cwd: scratch, stdio: 'inherit' });
@@ -28,5 +30,20 @@ for (const marker of [
 
 const installed = JSON.parse(readFileSync(join(scratch, 'node_modules', 'bce-engine', 'package.json'), 'utf8'));
 if (installed.engines?.node !== '>=22') throw new Error('packed package does not enforce Node >=22');
+for (const rel of [
+  'skills/bce/SKILL.md',
+  '.claude-plugin/plugin.json',
+  'integrations/README.md',
+  'docs/onboarding.md',
+  'prompts/blueprint-author.md',
+  'spec/schemas/engineering-blueprint.schema.json',
+  'examples/quickstart/README.md',
+  'evidence/example-chain/README.md',
+  'tools/verify-chain.mjs',
+  'action.yml',
+  'llms.txt',
+]) {
+  readFileSync(join(scratch, 'node_modules', 'bce-engine', rel));
+}
 process.stdout.write(output);
 process.stdout.write(`packed consumer proof: PASS (${packed[0].filename})\n`);

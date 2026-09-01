@@ -36,20 +36,22 @@ may reach the network, which file shapes may exist, which symbol is the invarian
 
 ## The lifecycle
 
-Get the CLI from a checkout — this is the working path today:
+Install an exact reviewed Git commit in the target project — this is the shortest working
+pre-release path today:
 
 ```bash
-git clone https://github.com/blueprint-conformance/bce
-cd bce && npm ci && npm run build
-# then run `node /path/to/bce/dist/cli.js` everywhere this page says `bce`
+npm install --save-dev \
+  "git+https://github.com/blueprint-conformance/bce.git#<reviewed-40-character-commit-sha>"
+npx --no-install bce demo
 ```
 
 **Do not reach for `npm install -g bce-engine` yet.** The npm name is currently a `0.0.0`
 reservation stub, and its `bce` binary exits 0 on every command — which means the done-check this
 skill teaches would report green unconditionally, on a repository it never even read. A gate that
 cannot go red is exactly what this tool exists to catch, so shipping one by accident is the worst
-possible first impression. After `0.1.0` publishes, `npm install -g bce-engine` becomes the short
-path; until then, verify what you installed can actually fail before you trust a green from it.
+possible first impression. The exact Git dependency builds through `prepare` and exposes local
+`bce` and `bce-mcp` bins. After `0.1.0` publishes, an exact registry pin becomes the short path;
+until then, verify what you installed can actually fail before you trust a green from it.
 
 ### 1. AUTHOR — derive the contract from the real tree
 
@@ -58,7 +60,6 @@ pick the extraction profile that matches its shape, and choose constraints that 
 intent. Then run the CLI with those decisions as flags.
 
 ```bash
-mkdir -p .blueprints            # author writes the file, it does not create the directory
 bce author \
   --id parameterized-queries-only \
   --intent-ref policy/no-string-built-sql \
@@ -67,7 +68,7 @@ bce author \
   --scope-paths "src/**/*.ts" \
   --min-files 1 \
   --repo . \
-  --out .blueprints/parameterized-queries-only.blueprint.json
+  --out parameterized-queries-only.blueprint.json
 ```
 
 `--intent-ref`, `--constraint`, `--repository` and `--guard-symbol` are repeatable. `bce init` is an
@@ -83,10 +84,11 @@ one of `info` `low` `medium` `high` `critical` (default `high`), and the types a
 | `forbiddenFile` | a glob over raw scanned files | a file shape that must not exist at all |
 | `forbiddenPattern` | a regex, matched per line | a literal in the source — a hardcoded host, a mock left in |
 | `forbiddenEgress` | `host,host` (blocklist) or `governed=host,host` (allowlist) | a surface reaching the network off-contract |
-| `requiredEvidence` | an evidence type | a claim shipping without the evidence it needs |
-| `minimumMetric` | `<metric>=<number>` | a measured floor |
-| `customPolicy` | a policy reference | an externally-defined policy hook |
 | `behavioralInvariant` | a behaviour reference | a runtime observation, not a static shape |
+
+`requiredEvidence`, `minimumMetric`, and `customPolicy` are reserved schema types in v0.1. They can
+be authored for forward compatibility but are explicitly skipped by the grader, so do not use one
+as the enforcing constraint in a first blueprint.
 
 Three extraction profiles ship today: `next-route-handler`, `plugin-surface`, and
 `python-import-surface`. `plugin-surface` requires `--scope-paths`; it has no default globs.
@@ -103,12 +105,30 @@ eats it before the engine sees it.
 ### 2. VALIDATE — the floor is one constraint
 
 ```bash
-bce validate --blueprint .blueprints/parameterized-queries-only.blueprint.json
+bce validate --blueprint parameterized-queries-only.blueprint.json
 ```
 
 The schema demands at least one constraint and at least one intent reference. A blueprint that
 enforces nothing is rejected by construction, and that is deliberate: if you cannot name one
 enforceable constraint, the intent is not understood yet. Go back to the intent, not to the schema.
+
+### 2b. ONBOARD — compose the repository surfaces without ratifying
+
+For a new adoption, keep the authored file outside `.blueprints/` and let `bce onboard` install the
+proposal. It creates advisory mode, immutable CI, the adoption manifest, agent context, and MCP
+configuration while preserving existing context and unrelated MCP servers:
+
+```bash
+bce onboard \
+  --repo . \
+  --blueprint parameterized-queries-only.blueprint.json \
+  --engine blueprint-conformance/bce@<reviewed-40-character-commit-sha> \
+  --harness agents
+```
+
+Harnesses are `agents`, `claude`, `cursor`, and `codex`. The first three generate project MCP JSON;
+Codex prints its supported `codex mcp add` command instead of mutating user-global configuration.
+Onboarding never approves the draft. `ratify` remains an attended human-review ceremony.
 
 ### 3. RUN — score one blueprint against one tree
 
@@ -188,17 +208,10 @@ machine-parseable result — a pure output side channel, byte-identical verdict 
 which is what an agent loop or a CI comment should parse rather than re-deriving the verdict from
 stdout.
 
-Exit codes, and they are not what you would guess: **0** green, **1** red, **2** *no portfolio*.
-That 1 is doing more work than it looks — it covers both a graded red and a fail-closed refusal
-where the engine could not honestly grade (a malformed blueprint, or a scan that came back below
-the profile's file floor). Such a refusal always blocks: it cannot be baselined, because there is
-no violation identity to accept.
-
-Exit **2** from `gate` means one specific thing — **zero blueprints were discovered** under the
-blueprint directory. It is deliberately a different code from a graded red, so that "your
-architecture drifted" and "you have no architecture declared" can never be confused by anything
-parsing the exit status. It is the anti-shelfware floor: a repository that gates nothing has proven
-nothing, and deleting the blueprint directory must not read as success.
+Exit codes are canonical: **0** green, **1** graded violation, **2** fail-closed refusal. A refusal
+means BCE could not honestly grade: no blueprints, zero applicable selections, identity/scope
+mismatch, malformed input, an unsupported constraint/extractor combination, or another structural
+cause. It is deliberately distinct from a graded red, and it can never be baselined.
 
 Treat 1 and 2 both as red. Never treat either as a pass.
 
@@ -239,9 +252,9 @@ wedge a merge queue rather than fail it:
 
 For an agent working inside a gated repository, the loop is: make the change, run `bce gate`, and on
 a red read the named constraint and `file#L<line>`, fix the code, re-gate. Drop-in house-rules
-snippets for common assistants ship in `integrations/`, and an MCP server (`bce-mcp`) exposes
-`validate_blueprint`, `run_gate`, `assess_teeth`, and `get_report` as logic-free tools over the same
-engine.
+snippets for common assistants ship in `integrations/`, and an MCP server (`bce-mcp`) exposes six
+read-only tools: `doctor_repository`, `check_baseline`, `validate_blueprint`, `run_gate`,
+`assess_teeth`, and `get_report`. Policy approval and weakening operations are deliberately absent.
 
 ## The honesty invariants
 

@@ -11,21 +11,18 @@ configuration files — never by an invisible CI-line override. That is what kee
 honest. The two config files are `.bce-mode.json` (advisory mode) and `.blueprints/baseline.json`
 (the shrink-only baseline).
 
-## The ladder
+## The two adoption controls
 
-Four rungs, each a committed, visible step. You do not have to climb all four in one day — the point
-is that every rung is enforcing *something* and none of them hides a red.
+Mode and baseline are independent, committed controls. Mode decides whether a graded violation
+blocks; an optional baseline decides which already-recorded violations are non-blocking. Graduation
+changes mode and does not require an empty baseline.
 
 ```
-advisory  ──►  baseline  ──►  graduate  ──►  enforced
-(nothing        (only NEW      (one-way,      (everything
- blocks,         drift          recorded       blocks;
- verdict is      blocks;        flip to        the wall
- loud)           debt shown     enforced)      is empty)
-                 + counted)
+mode:      advisory  ── graduate ──►  enforced
+baseline:  absent   ◄──────────────►  present (existing debt only)
 ```
 
-### Rung 1 — advisory: turn it on, block nothing yet
+### Advisory mode: turn it on, block graded violations later
 
 Author a blueprint (or have an agent draft one — see [`agent-loop.md`](agent-loop.md)) and drop it in
 `.blueprints/`. Then commit an advisory-mode marker so a red verdict is printed loudly but does not
@@ -41,7 +38,7 @@ report `mode: "advisory"` — and exits `0` regardless of the verdict. You see e
 exists without turning the tree red on anyone. This is the first-look rung: it changes the *whole*
 gate's exit code to 0; it never hides or softens the verdict.
 
-### Rung 2 — baseline: block new drift, show the debt
+### Baseline overlay: block new drift, show the debt
 
 When you are ready to start *failing on new drift* — but not yet ready to fix all the pre-existing
 violations — record the current violations into a baseline and switch out of advisory:
@@ -57,7 +54,7 @@ With a baseline present the gate stays **fully enforcing** and partitions every 
 - **BASELINED** (in the file) → reported, counted, and stamped `graded fail; all N BASELINED —
   non-blocking`. Never hidden, never mistakable for a graded green.
 
-The baseline **only ever shrinks**. A re-run auto-removes violations you have since fixed and refuses
+An existing baseline **cannot grow in place**. A re-run auto-removes violations you have since fixed and refuses
 to *add* any that were not already in it. To accept a genuinely new violation you must delete the file
 and re-create it — and that deletion is a line in a pull request. There is no in-place "add this one"
 affordance, precisely because that affordance would be the bypass. Baselined violations are identified
@@ -68,7 +65,7 @@ identity, and fails.
 > Why a baseline is not a `# noqa`-for-the-whole-repo — the full mechanics — is in
 > [`faq.md` §"Why is `baseline` not a bypass?"](faq.md#why-is-baseline-not-a-bypass).
 
-### Rung 3 — graduate: the one-way flip to enforced
+### Graduate: the recorded flip to enforced
 
 `bce graduate` records the advisory→enforced transition in-repo and flips the config. It is
 **one-way**: going back to advisory requires an explicit `--rationale`, recorded in the tree, so the
@@ -78,11 +75,11 @@ posture is always a governed, visible fact rather than a quiet CI edit.
 bce graduate                 # advisory → enforced, recorded
 ```
 
-### Rung 4 — enforced: the wall is empty
+### Enforced mode: new drift blocks
 
-As you fix the baselined debt, the baseline shrinks. The day it is empty you delete it, and the gate
-enforces everything again — the same fail-closed gate a greenfield repo gets. The gate's teeth grow
-back over time *by construction*.
+Enforced mode can coexist with a nonempty baseline: new violations block while recorded debt remains
+visible and non-blocking. As that debt is fixed, the baseline shrinks; when empty, delete it and the
+gate enforces everything.
 
 ## The honest brownfield story
 

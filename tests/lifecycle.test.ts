@@ -10,9 +10,29 @@ const ROOT = path.join(__dirname, '..');
 const CLI = path.join(ROOT, 'src', 'cli.ts');
 
 function cli(args: string[], cwd = ROOT) {
-  const r = spawnSync(process.execPath, ['--import', 'tsx', CLI, ...args], { cwd, encoding: 'utf8' });
+  const loader = path.join(ROOT, 'node_modules', 'tsx', 'dist', 'loader.mjs');
+  const r = spawnSync(process.execPath, ['--import', loader, CLI, ...args], { cwd, encoding: 'utf8' });
   return { status: r.status ?? 1, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
 }
+
+describe('CLI discovery is read-only', () => {
+  it('short-circuits subcommand help and version before a mutating command runs', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-help-'));
+    fs.mkdirSync(path.join(dir, '.blueprints'));
+    const before = fs.readdirSync(path.join(dir, '.blueprints'));
+    const help = cli(['baseline', '--help'], dir);
+    expect(help.status, help.out).toBe(0);
+    expect(help.out).toContain('bce — Blueprint Compliance Engine');
+    expect(fs.readdirSync(path.join(dir, '.blueprints'))).toEqual(before);
+    const version = cli(['gate', '--version'], dir);
+    expect(version.status, version.out).toBe(0);
+    expect(version.out.trim()).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(fs.readdirSync(path.join(dir, '.blueprints'))).toEqual(before);
+    const unknown = cli(['author', '--harness', 'nonsense'], dir);
+    expect(unknown.status).toBe(1);
+    expect(unknown.out).toContain('unknown option for bce author: --harness');
+  });
+});
 
 describe('doctor — read-only lifecycle readiness', () => {
   it('audits this candidate without structural refusal and exposes typed checks', () => {
@@ -76,6 +96,53 @@ describe('adopt — safe proposal, never ratification', () => {
     const draft = path.join(dir, 'draft.json');
     fs.writeFileSync(draft, JSON.stringify(raw));
     expect(cli(['adopt', '--repo', dir, '--blueprint', draft, '--engine', 'bce-engine@latest']).status).toBe(2);
+  });
+});
+
+describe('onboard — full repository wiring', () => {
+  it('wires an immutable pre-release Action, existing agent context, and MCP without overwriting', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-onboard-'));
+    fs.writeFileSync(path.join(dir, 'AGENTS.md'), '# Existing rules\n');
+    fs.writeFileSync(path.join(dir, '.mcp.json'), JSON.stringify({ mcpServers: { existing: { command: 'existing' } } }));
+    const draftPath = path.join(dir, 'draft.json');
+    const source = JSON.parse(fs.readFileSync(path.join(ROOT, 'fixtures', 'luna-chat-extension.blueprint.json'), 'utf8'));
+    source.metadata.status = 'draft';
+    fs.writeFileSync(draftPath, JSON.stringify(source));
+    const sha = 'a'.repeat(40);
+    const result = cli(['onboard', '--repo', dir, '--blueprint', draftPath,
+      '--engine', `blueprint-conformance/bce@${sha}`, '--harness', 'agents']);
+    expect(result.status, result.out).toBe(0);
+    const workflow = fs.readFileSync(path.join(dir, '.github/workflows/blueprint-conformance.yml'), 'utf8');
+    expect(workflow).toContain(`uses: blueprint-conformance/bce@${sha}`);
+    expect(workflow).toContain('engine: local');
+    expect(workflow).toContain('fetch-depth: 0');
+    const context = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+    expect(context).toContain('# Existing rules');
+    expect(context).toContain('<!-- bce-agent-context -->');
+    const mcp = JSON.parse(fs.readFileSync(path.join(dir, '.mcp.json'), 'utf8'));
+    expect(mcp.mcpServers.existing).toEqual({ command: 'existing' });
+    expect(mcp.mcpServers.bce).toEqual({ command: 'npx', args: ['--no-install', 'bce-mcp'] });
+    expect(JSON.parse(fs.readFileSync(path.join(dir, '.bce-adoption.json'), 'utf8'))).toMatchObject({
+      state: 'proposed', ratified: false, harness: 'agents', engine: `blueprint-conformance/bce@${sha}`,
+    });
+  });
+
+  it('uses the supported Codex registration command and refuses unsafe output paths', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-onboard-codex-'));
+    const draftPath = path.join(dir, 'draft.json');
+    const source = JSON.parse(fs.readFileSync(path.join(ROOT, 'fixtures', 'luna-chat-extension.blueprint.json'), 'utf8'));
+    source.metadata.status = 'draft';
+    fs.writeFileSync(draftPath, JSON.stringify(source));
+    const base = ['onboard', '--repo', dir, '--blueprint', draftPath,
+      '--engine', `blueprint-conformance/bce@${'b'.repeat(40)}`, '--harness', 'codex'];
+    const escaped = cli([...base, '--agent-file', '../AGENTS.md']);
+    expect(escaped.status).toBe(2);
+    expect(escaped.out).toContain('escapes --repo');
+    expect(fs.existsSync(path.join(dir, '.bce-adoption.json'))).toBe(false);
+    const ok = cli(base);
+    expect(ok.status, ok.out).toBe(0);
+    expect(ok.out).toContain('codex mcp add bce -- npx --no-install bce-mcp');
+    expect(fs.existsSync(path.join(dir, '.mcp.json'))).toBe(false);
   });
 });
 

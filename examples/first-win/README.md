@@ -40,10 +40,9 @@ non-functional `0.0.0` reservation stub. [`.engine-pin.json`](../../.engine-pin.
 
  1. **There is no published-package proof yet.** It must be added as a clean-room post-publish
     check before this section can advertise an npm command.
-2. **`examples/` is not in the published tarball.** `package.json`'s `files` array ships
-   `dist`, `src`, `fixtures`, `integrations` — not `examples`. So even with the package
-   published, these fixtures come from a checkout of this repository, not from an installed
-   package.
+2. **The candidate package now includes `examples/` and the full onboarding assets.** The
+   black-box consumer proof checks those files in the tarball. These walkthrough commands still
+   use a checkout until the first functional npm release is published and independently verified.
 
 Both statements are checked against the repository's own state by the matrix test, so they cannot
 quietly go stale after a publish.

@@ -53,6 +53,8 @@ can — and that a green verdict therefore means something.
   Cursor, or any MCP client as the done-check.
 - **Understand the adoption levers** — advisory mode and shrink-only baselines — in
   [`faq.md`](faq.md).
+- **Wire the complete stack** — exact commit install, contract, agent context, MCP, immutable CI,
+  lifecycle, and evidence — in [`onboarding.md`](onboarding.md).
 
 ## Recommended next step
 
