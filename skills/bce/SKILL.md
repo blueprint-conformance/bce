@@ -39,7 +39,7 @@ may reach the network, which file shapes may exist, which symbol is the invarian
 Install the exact provenance-backed public release in the target project:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.2
+npm install --save-dev --save-exact bce-engine@0.1.3
 npx --no-install bce demo
 ```
 

@@ -59,8 +59,18 @@ fewer files than this is a scoping mistake, not a clean tree.
 
 ### 2. Copy the blueprint and aim it at the tree
 
-From a bce checkout, copy `spec/skill-standard/skill-standard.blueprint.json` into the target
-repository's `.blueprints/`, then edit exactly three things:
+Resolve the installed package root, then copy the shipped standard into the target repository.
+The npm path is the normal external-consumer path; use `BCE_PACKAGE_ROOT=.` only while working in
+a bce source checkout:
+
+```bash
+BCE_PACKAGE_ROOT=node_modules/bce-engine
+mkdir -p .blueprints
+cp "$BCE_PACKAGE_ROOT/spec/skill-standard/skill-standard.blueprint.json" \
+  .blueprints/skill-standard.blueprint.json
+```
+
+Then edit exactly three things:
 
 - `scope.repositories` → the target repository, as `org/repo`.
 - `scope.paths` and `extraction.paths` → where the skills actually live. `skills/**` for a plugin
@@ -139,10 +149,13 @@ not a failure.
 The substance proof is the seeded corpus that ships with the standard:
 
 ```bash
-bce run --blueprint spec/skill-standard/skill-standard.blueprint.json \
-  --ct-repo examples/skill-standard/drift --no-pin --extractor ast --out /tmp/drift.json
-bce run --blueprint spec/skill-standard/skill-standard.blueprint.json \
-  --ct-repo examples/skill-standard/clean --no-pin --extractor ast --out /tmp/clean.json
+BCE_PACKAGE_ROOT=node_modules/bce-engine
+bce run --blueprint "$BCE_PACKAGE_ROOT/spec/skill-standard/skill-standard.blueprint.json" \
+  --ct-repo "$BCE_PACKAGE_ROOT/examples/skill-standard/drift" \
+  --no-pin --extractor ast --out /tmp/drift.json
+bce run --blueprint "$BCE_PACKAGE_ROOT/spec/skill-standard/skill-standard.blueprint.json" \
+  --ct-repo "$BCE_PACKAGE_ROOT/examples/skill-standard/clean" \
+  --no-pin --extractor ast --out /tmp/clean.json
 ```
 
 `drift/` reddens every clause; `clean/` scores 100. Against `drift/`, `bce teeth` reports 13/13

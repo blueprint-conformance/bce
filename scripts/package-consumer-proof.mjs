@@ -30,6 +30,7 @@ for (const marker of [
 
 const installed = JSON.parse(readFileSync(join(scratch, 'node_modules', 'bce-engine', 'package.json'), 'utf8'));
 if (installed.engines?.node !== '>=22') throw new Error('packed package does not enforce Node >=22');
+const installedRoot = join(scratch, 'node_modules', 'bce-engine');
 for (const rel of [
   'skills/bce/SKILL.md',
   '.claude-plugin/plugin.json',
@@ -37,13 +38,48 @@ for (const rel of [
   'docs/onboarding.md',
   'prompts/blueprint-author.md',
   'spec/schemas/engineering-blueprint.schema.json',
+  'spec/skill-standard/SKILL-STANDARD.md',
+  'spec/skill-standard/skill-standard.blueprint.json',
   'examples/quickstart/README.md',
   'evidence/example-chain/README.md',
   'tools/verify-chain.mjs',
   'action.yml',
   'llms.txt',
 ]) {
-  readFileSync(join(scratch, 'node_modules', 'bce-engine', rel));
+  readFileSync(join(installedRoot, rel));
+}
+
+// Release-facing instructions are part of the package interface. Every exact
+// engine/Action/provenance pin they teach must describe THIS tarball, never the
+// previously published patch. Historical Lane-A ceremony docs are deliberately
+// outside this set because they describe the last admitted engine.
+for (const rel of [
+  'README.md',
+  'docs/agent-loop.md',
+  'docs/first-win.md',
+  'docs/onboarding.md',
+  'docs/quickstart.md',
+  'examples/first-win/README.md',
+  'examples/quickstart/README.md',
+  'skills/README.md',
+  'skills/bce/SKILL.md',
+  'llms.txt',
+]) {
+  const text = readFileSync(join(installedRoot, rel), 'utf8');
+  for (const pattern of [
+    /bce-engine@(\d+\.\d+\.\d+)/g,
+    /bce-engine\/v\/(\d+\.\d+\.\d+)/g,
+    /blueprint-conformance\/bce@v(\d+\.\d+\.\d+)/g,
+    /Status: v(\d+\.\d+\.\d+) released/g,
+  ]) {
+    for (const match of text.matchAll(pattern)) {
+      if (match[1] !== installed.version) {
+        throw new Error(
+          `packed release guidance is stale in ${rel}: ${match[0]} describes ${match[1]}, tarball is ${installed.version}`,
+        );
+      }
+    }
+  }
 }
 process.stdout.write(output);
 process.stdout.write(`packed consumer proof: PASS (${packed[0].filename})\n`);

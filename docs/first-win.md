@@ -52,7 +52,7 @@ The walkthroughs are written with `bce` as the command. Install the exact releas
 shipped examples to a writable directory:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.2
+npm install --save-dev --save-exact bce-engine@0.1.3
 cp -R node_modules/bce-engine/examples/first-win ./bce-first-win
 npx --no-install bce …
 ```

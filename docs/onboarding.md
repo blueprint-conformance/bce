@@ -24,7 +24,7 @@ Node 22 or newer is required. Install the exact published version as a developme
 both `bce` and `bce-mcp` become local project binaries:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.2
+npm install --save-dev --save-exact bce-engine@0.1.3
 npx --no-install bce demo
 ```
 
@@ -42,7 +42,7 @@ npx --no-install bce author \
   --intent-ref architecture/network-boundary \
   --constraint 'forbiddenDependency:axios:critical' \
   --extraction-profile plugin-surface \
-  --scope-paths 'src/**/*.{js,jsx,ts,tsx}' \
+  --scope-paths 'src/**/*.js,src/**/*.jsx,src/**/*.ts,src/**/*.tsx' \
   --min-files 1 \
   --repo . \
   --out bce-draft.json
@@ -63,7 +63,7 @@ existing instructions, and configures MCP where the harness has a project JSON f
 npx --no-install bce onboard \
   --repo . \
   --blueprint bce-draft.json \
-  --engine blueprint-conformance/bce@v0.1.2 \
+  --engine blueprint-conformance/bce@v0.1.3 \
   --harness agents
 ```
 
@@ -80,8 +80,8 @@ Override paths with `--agent-file` or `--mcp-config`. Paths are confined to the 
 existing context and unrelated MCP servers are preserved. The command refuses to overwrite existing
 policy files or an existing MCP server named `bce`.
 
-The generated Action uses the immutable `v0.1.2` Action source and can build that source locally.
-Pass `--engine bce-engine@0.1.2` instead when you want the generated workflow to install the exact
+The generated Action uses the immutable `v0.1.3` Action source and can build that source locally.
+Pass `--engine bce-engine@0.1.3` instead when you want the generated workflow to install the exact
 published package independently.
 
 ## 4. Diagnose, prove RED, and go GREEN
