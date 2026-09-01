@@ -25,7 +25,7 @@ This is an internal regression measurement, not an independent performance bench
 [![ci](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg)](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml)
 
 <p align="center">
-  <img src="assets/badges/tests.svg" alt="tests: 736">
+  <img src="assets/badges/tests.svg" alt="tests: 743">
   <img src="assets/badges/license.svg" alt="license: Apache-2.0">
   <img src="assets/badges/docs.svg" alt="docs: zero-dep">
   <img src="assets/badges/node.svg" alt="node: >=22">
@@ -153,10 +153,10 @@ missing, and both are deliberately unfinished in the open:
   [docs/launch/witness-kit.md](docs/launch/witness-kit.md) is the entire procedure, and a run
   that contradicts the doc is recorded too, because a witnessed contradiction is worth more than
   another confirmation.
-- **Citation metadata: pending, and ship-blocked.** [CITATION.cff](CITATION.cff) carries explicit
-  `ARXIV-ID-PENDING` and `DOI-PENDING` tokens instead of a provisional identifier, and
-  [`scripts/check-release-citation.mjs`](scripts/check-release-citation.mjs) refuses to cut a
-  release tag while either token survives. The citation metadata cannot quietly go out half-true.
+- **Citation metadata is software-only.** [CITATION.cff](CITATION.cff) does not invent a paper,
+  arXiv identifier, or DOI. [`scripts/check-release-citation.mjs`](scripts/check-release-citation.mjs)
+  refuses provisional placeholder identifiers; a preferred paper citation is added only after a
+  real manuscript and archival record exist.
 
 If the engine turns out to be useful to you, star the repository — it is the one signal here that
 its authors cannot manufacture.

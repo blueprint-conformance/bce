@@ -164,25 +164,22 @@ function trustMd() {
   }
   const count = Number(m[1]);
 
-  // Citation state: asserted, because this copy is only true while BOTH
-  // placeholder tokens survive. The day one is replaced, the claim below is
-  // false — so that day the build goes red (exit 1) until this entry is
-  // rewritten to match the record.
+  // Citation state: placeholders are forbidden. Absent paper identifiers are honest for a
+  // software release; provisional identifiers are not.
   const cff = readSource('CITATION.cff');
   // Two pending-token generations exist: the original '-PENDING' spelling and the
-  // ship-blocker '_DO_NOT_SHIP' spelling (assembled from parts so this file cannot
+  // ship-blocker marker-family spelling (assembled from parts so this file cannot
   // trip the tracked-file blocker scan). Either spelling means "still pending";
-  // NEITHER present means the identifiers are real and this copy must be rewritten.
+  // Either present means the public metadata is provisional and must be refused.
   const SM = ['_DO', 'NOT', 'SHIP'].join('_');
   for (const [label, spellings] of [
     ['arXiv-id', ['ARXIV-ID-PENDING', `ARXIV_ID_PENDING${SM}`]],
     ['DOI', ['DOI-PENDING', `DOI_PENDING${SM}`]],
   ]) {
-    if (!spellings.some((token) => cff.includes(token))) {
+    if (spellings.some((token) => cff.includes(token))) {
       problem(
-        `trust page: the citation entry claims CITATION.cff still carries a pending ${label} ` +
-        'placeholder, and it does not — the citation state has moved; rewrite the trust ' +
-        "page's citation entry to say what the record now says.",
+        `trust page: CITATION.cff carries a pending ${label} placeholder; remove provisional ` +
+        'metadata and add identifiers only after real records exist.',
       );
     }
   }
@@ -201,12 +198,11 @@ today. The records are the substance — this page only points at them.
   witness ledger, published at its honest count. The one-minute, offline
   procedure for adding a row — including a run that contradicts the
   documentation — is [docs/launch/witness-kit.md](docs/launch/witness-kit.md).
-- **Citation metadata: pending, and ship-blocked.**
-  [CITATION.cff](CITATION.cff) carries explicit ship-blocking placeholder
-  tokens for the arXiv identifier and the artifact-archive DOI, and
+- **Citation metadata is software-only.** [CITATION.cff](CITATION.cff) carries
+  no provisional paper, arXiv, or DOI identifier. A preferred paper citation
+  is added only after a real manuscript and archival record exist;
   [scripts/check-release-citation.mjs](scripts/check-release-citation.mjs)
-  refuses to cut a release tag while either placeholder survives — in either
-  of its historical spellings.
+  refuses placeholder identifiers.
 `;
 }
 

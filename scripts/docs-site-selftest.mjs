@@ -145,8 +145,7 @@ const PROBES = [
   // describe, not restated beside them. Three probes prove the tether has
   // teeth in both directions: the count moves WITH the ledger, an unreadable
   // ledger is refused rather than guessed at, and a citation record that has
-  // moved on turns the page's "pending, and ship-blocked" claim into a red
-  // build instead of a stale page.
+  // gains a provisional identifier and turns the build red instead of publishing it.
   {
     name: 'trust page derives the witness count from the ledger',
     plant: (dir) => {
@@ -173,22 +172,12 @@ const PROBES = [
     expect: 'derives its witness count',
   },
   {
-    name: 'trust page citation claim vs a citation record that moved on',
+    name: 'trust page refuses provisional citation identifiers',
     plant: (dir) => {
       const f = path.join(dir, 'CITATION.cff');
-      // Both pending-token generations must be planted over, or the probe plants
-      // nothing on a tree carrying the other spelling and the build stays green.
-      // The second spelling is assembled so this file cannot trip the blocker scan.
-      const SM = ['_DO', 'NOT', 'SHIP'].join('_');
-      fs.writeFileSync(
-        f,
-        fs
-          .readFileSync(f, 'utf8')
-          .replaceAll('DOI-PENDING', '10.0000/planted-doi')
-          .replaceAll(`DOI_PENDING${SM}`, '10.0000/planted-doi'),
-      );
+      fs.appendFileSync(f, '\n# planted provisional metadata: DOI-PENDING\n');
     },
-    expect: 'citation state has moved',
+    expect: 'pending DOI placeholder',
   },
   {
     // A literal NUL byte anywhere in the build script makes grep classify it

@@ -21,7 +21,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const cffPath = path.join(repoRoot, 'CITATION.cff');
 
 // Two pending-token generations exist: the original '-PENDING' spelling and the
-// ship-blocker '_DO_NOT_SHIP' spelling introduced by the flip staging. The gate
+// ship-blocker marker-family spelling introduced by the flip staging. The gate
 // refuses EITHER — renaming a placeholder must never disarm the release gate
 // (the silent-pass class the flip PR's own selftest hunts). The second spelling
 // is assembled from parts so this file cannot trip the tracked-file blocker scan.
