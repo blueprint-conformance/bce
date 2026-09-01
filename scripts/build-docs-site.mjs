@@ -98,6 +98,7 @@ const PAGES = [
 
   { route: 'guides', kind: 'section-index', section: 'Guides', nav: 'Guides' },
   { route: 'guides/adopt-existing-repo', source: 'docs/adopt-existing-repo.md', section: 'Guides' },
+  { route: 'guides/adoption-lifecycle', source: 'docs/adoption-lifecycle.md', section: 'Guides' },
   { route: 'guides/agent-loop', source: 'docs/agent-loop.md', section: 'Guides' },
   { route: 'guides/self-hosting', source: 'docs/self-hosting.md', section: 'Guides' },
   { route: 'guides/agent-estate', source: 'docs/fleet-dogfooding.md', section: 'Guides' },
@@ -107,6 +108,7 @@ const PAGES = [
   { route: 'guides/extending-extractors', source: 'docs/extending-extractors.md', section: 'Guides' },
   { route: 'guides/pin-ceremony', source: 'docs/pin-ceremony.md', section: 'Guides' },
   { route: 'guides/comparison', source: 'docs/comparison.md', section: 'Guides' },
+  { route: 'guides/governance-enforcement', source: 'docs/governance-enforcement.md', section: 'Guides' },
 
   { route: 'agents', kind: 'section-index', section: 'For Agents', nav: 'For Agents' },
   // `title` overrides the source's own H1 for NAVIGATION only — the page still
