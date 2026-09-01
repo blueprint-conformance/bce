@@ -20,8 +20,8 @@ and the live registry/blueprints ever disagree, so the index can be consumed as 
 ## Relationship to the paper corpus
 
 The research paper's recall measurements were produced against a **byte-frozen** corpus that is
-preserved, unmodified, in the public `bce-paper-artifacts` repository, archived with a
-citable DOI (https://doi.org/DOI_PENDING_DO_NOT_SHIP). That frozen corpus was authored inside a
+preserved, unmodified; available from the steward on request (a public `bce-paper-artifacts`
+repository, archived with a citable DOI, is planned to follow). That frozen corpus was authored inside a
 private engineering estate and therefore carries internal identifiers that cannot be published;
 see `EXCLUSIONS.md` there for what was withheld and why.
 
