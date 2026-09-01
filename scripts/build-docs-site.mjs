@@ -7,7 +7,7 @@
  * them — specification, guides, agent material, RFCs.
  *
  * This is the SAME payload `.github/workflows/publish-schemas.yml` deploys.
- * That workflow's deploy job stays hard-disabled until the public flip; this
+ * That workflow's deploy job was hard-disabled until the public flip and is now active; this
  * script only ever writes a local directory, so it is safe to run — and to
  * gate in CI — long before anything is published. Running it proves the site
  * still assembles; it does not publish, and cannot.

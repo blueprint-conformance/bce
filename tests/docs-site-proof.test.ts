@@ -100,21 +100,24 @@ describe('docs-site build (always-on, unfiltered by CI paths)', () => {
   });
 });
 
-describe('the flip-gated deploy dormancy is intact', () => {
+describe('the post-flip deploy activation is intact', () => {
   const wfDir = path.join(repoRoot, '.github', 'workflows');
   const publishWf = readFileSync(path.join(wfDir, 'publish-schemas.yml'), 'utf8');
   const checkWf = readFileSync(path.join(wfDir, 'docs-site-check.yml'), 'utf8');
 
-  it('publish-schemas.yml still carries the job-level if: false and both deploy steps', () => {
-    // The guard is a 4-space-indented job-level key — exactly as authored.
-    expect(publishWf).toMatch(/^    if: false$/m);
+  it('publish-schemas.yml carries no job-level if: false and still has both deploy steps', () => {
+    // Before the flip this asserted the guard was PRESENT: publishing could not be
+    // activated by accident while the $id base could not resolve. The flip happened
+    // and Pages is enabled, so the assertion inverts rather than disappears — the
+    // property worth holding is now that nobody silently re-dormants the publisher
+    // and strands every schema $id at 404. The guard is a 4-space-indented job-level
+    // key, so this matches the authored shape exactly and ignores prose mentions.
+    expect(publishWf).not.toMatch(/^    if: false$/m);
     expect(publishWf).toContain('uses: actions/upload-pages-artifact@v3');
     expect(publishWf).toContain('uses: actions/deploy-pages@v4');
-    // And it sits BEFORE the job's first step, so the whole job is dormant.
-    const guardAt = publishWf.indexOf('    if: false');
+    // The deploy steps still belong to a real job with a steps block.
     const stepsAt = publishWf.indexOf('    steps:');
-    expect(guardAt).toBeGreaterThan(-1);
-    expect(stepsAt).toBeGreaterThan(guardAt);
+    expect(stepsAt).toBeGreaterThan(-1);
   });
 
   it('docs-site-check.yml remains build-only — no deploy machinery, no Pages permissions', () => {

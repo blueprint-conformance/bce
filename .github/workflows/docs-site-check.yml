@@ -2,9 +2,9 @@ name: docs-site-check
 
 # ==============================================================================
 # BUILD-ONLY. This workflow assembles the documentation site and checks it.
-# It NEVER publishes, and it cannot: publishing lives in publish-schemas.yml,
-# whose job stays hard-disabled until the public flip. Nothing here touches
-# that guard, requests Pages permissions, or uploads an artifact.
+# It NEVER publishes, and it cannot: publishing lives in publish-schemas.yml.
+# That job was hard-disabled until the public flip and is now active; nothing
+# here deploys, requests Pages permissions, or uploads an artifact regardless.
 #
 # Why it exists BEFORE anything is published:
 #
@@ -153,16 +153,19 @@ jobs:
           echo "docs-site-check: PASS — ${pages} pages, ${site_count} schemas, no dangling internal link."
 
       # A deploy guard that quietly changes is the one failure this whole
-      # workflow cannot survive: everything above would stay green while the
-      # site went live early. Assert the guard is still exactly where it was.
-      - name: The publish job is still dormant
+      # workflow cannot survive. Before the flip that meant asserting the
+      # `if: false` guard was still present, so the site could not go live early.
+      # The flip has happened and Pages is enabled, so the assertion INVERTS
+      # rather than disappears: the property worth holding now is that nobody
+      # silently re-dormants the publisher and strands every schema `$id` at 404.
+      - name: The publish job is active
         shell: bash
         run: |
           set -euo pipefail
-          if ! grep -qE '^    if: false$' .github/workflows/publish-schemas.yml; then
-            echo "::error::publish-schemas.yml no longer carries the job-level 'if: false' guard."
-            echo "Activating Pages is a deliberate flip made together with enabling Pages on the"
-            echo "repository — it is not something this build-only check should ever see happen."
+          if grep -qE '^    if: false$' .github/workflows/publish-schemas.yml; then
+            echo "::error::publish-schemas.yml has regained the job-level 'if: false' guard."
+            echo "Pages is enabled and every schema \$id resolves through that job. Re-dormanting"
+            echo "it would 404 the published \$id base without changing a single schema file."
             exit 1
           fi
-          echo "publish-schemas.yml: the publish job is still guarded (if: false)."
+          echo "publish-schemas.yml: the publish job is active (no job-level if: false)."

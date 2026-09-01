@@ -571,11 +571,11 @@ verdict, never the tool's own honesty.
 Every published schema declares
 **`$id: https://blueprint-conformance.github.io/bce/schemas/<name>.schema.json`** (JSON
 Schema draft-07). These URLs are served by the organization's GitHub Pages site and therefore
-**resolve only after the repository's public flip activates that site**. Until then the `$id`s
-are stable identifiers that do not yet dereference — a documented, expected state, not an
-error. The publishing workflow (`.github/workflows/publish-schemas.yml`) exists in the tree
-but is **dormant by design** (disabled with an explicit comment) until the flip: this
-repository describes only machinery that runs.
+**resolve once the repository's public flip activated that site**. Before the flip the `$id`s
+were stable identifiers that did not yet dereference — a documented, expected state, not an
+error. The publishing workflow (`.github/workflows/publish-schemas.yml`) shipped in the tree
+**dormant by design** (disabled with an explicit comment) until the flip, and has been active
+since it: this repository describes only machinery that runs.
 
 ### 14.2 Generation and parity
 
