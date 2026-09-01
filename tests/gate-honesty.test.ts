@@ -4,8 +4,7 @@
  * Proves: (a) `report.repo` is an OMIT-NOT-EMPTY additive passthrough — ABSENT unless the caller
  * provides one, so every pre-B2 report is byte-identical (the widen-only proof at the byte level);
  * (b) gate-mode revision honesty — a git tree reports its real HEAD sha, a non-git tree keeps the
- * historical 'unpinned' label; (c) the repo-identity check is WARN-only, never a failure
- * (`scope.repositories` was display-only in 0.2.x — failing would be a behavior change).
+ * historical 'unpinned' label; (c) a supplied repo identity is fail-closed against the blueprint.
  */
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
@@ -83,14 +82,14 @@ describe('runGate — revision honesty', () => {
   });
 });
 
-describe('runGate — repo-identity (WARN-only, never a failure)', () => {
-  it('mismatched --repo-name → WARN naming both identities, gate still passes', () => {
+describe('runGate — repo identity is applicability', () => {
+  it('mismatched --repo-name → REFUSAL naming both identities', () => {
     const dir = arrangeRepo('conformant');
     const r = runGate(dir, path.join(dir, '.blueprints'), null, 'ast', 'example-org/some-other-repo');
-    expect(r.failed).toBe(false); // WARN-only — scope.repositories was display-only in 0.2.x
-    expect(r.warnings).toBeDefined();
-    expect(r.warnings![0]).toContain('example-org/some-other-repo');
-    expect(r.warnings![0]).toContain('agent-host'); // the blueprint's declared scope
+    expect(r.failed).toBe(true);
+    expect(r.refusals).toBeDefined();
+    expect(r.refusals![0]).toContain('example-org/some-other-repo');
+    expect(r.refusals![0]).toContain('agent-host');
     // and the repo tag is stamped on the report regardless of the mismatch (an honest fact).
     expect(r.reports[0].repo).toBe('example-org/some-other-repo');
   });

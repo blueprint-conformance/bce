@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "status": "design-not-run",
+  "researchQuestion": "Does BCE improve architecture-conformance outcomes for coding agents without unacceptable cost or collateral edits?",
+  "repositories": { "minimum": 6, "selection": "frozen before assignment", "taskTypes": ["repair", "feature", "refactor"] },
+  "modelFamilies": { "minimum": 2, "versionsFrozen": true },
+  "arms": ["agent-no-extra-gate", "agent-existing-lint-and-tests", "agent-plus-bce"],
+  "assignment": "blocked randomization by repository, task type, and model family",
+  "blinding": "outcome annotators blinded to arm",
+  "primaryOutcome": "independently adjudicated conformance success",
+  "secondaryOutcomes": ["task success", "collateral edits", "wall time", "tokens", "estimated cost", "agent iterations"],
+  "analysis": "intention-to-treat with repository-clustered uncertainty",
+  "results": null
+}

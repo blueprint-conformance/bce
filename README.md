@@ -8,10 +8,8 @@
 
 **[Author a contract, catch a real violation, and go green on your own repo — in under 10 seconds.](tests/first-win-matrix.test.ts)**
 
-*Measured on every push: 3.3–3.8 s per starting shape on a standard CI runner, and under a
-second on a developer laptop.*
-
-*Every number on this page is re-derived by a check. Nothing here is typed by hand.*
+*The repository test suite times four local fixture journeys and enforces the ten-second ceiling.
+This is an internal regression measurement, not an independent performance benchmark.*
 
 <!-- award-slot: RESERVED, and deliberately inert.
      A chip goes live ONLY when the thing is actually won, in a PR that links the award —
@@ -27,7 +25,7 @@ second on a developer laptop.*
 [![ci](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg)](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml)
 
 <p align="center">
-  <img src="assets/badges/tests.svg" alt="tests: 736">
+  <img src="assets/badges/tests.svg" alt="tests: 767">
   <img src="assets/badges/license.svg" alt="license: Apache-2.0">
   <img src="assets/badges/docs.svg" alt="docs: zero-dep">
   <img src="assets/badges/node.svg" alt="node: >=22">
@@ -88,16 +86,22 @@ without turning a check red. Regenerate them with
 
 ## Try it
 
-About a minute, fully offline:
+The current honest path is a source checkout; no functional npm release exists yet:
 
 ```bash
-npm install -g bce-engine          # provides the `bce` command
-cd examples/quickstart             # the two trees above ship in this repository
-bce gate --repo drift --blueprint-dir blueprint --extractor ast --all
+git clone https://github.com/blueprint-conformance/bce.git
+cd bce
+npm ci && npm run build
+cd examples/quickstart
+node ../../dist/cli.js gate --repo drift --blueprint-dir blueprint --extractor ast --all
 ```
 
-Working from a checkout rather than the published package? Substitute
-`node /path/to/bce/dist/cli.js` for `bce`, after `npm ci && npm run build` at the repo root.
+Do not install `bce-engine` from npm for this walkthrough: the registry name currently resolves to
+a non-functional `0.0.0` reservation stub. See [STATUS.md](STATUS.md).
+
+After building—or after installing a locally packed tarball—`bce demo` runs an offline packaged
+GREEN/RED discrimination proof with no repository setup. `npm run test:package` builds a tarball,
+installs it into a clean temporary consumer, and executes that command through the installed bin.
 The full walkthrough — RED, the fix, GREEN, and what each verdict means — is
 [docs/quickstart.md](docs/quickstart.md) · [examples/quickstart](examples/quickstart). A second
 worked example, on a config surface rather than code, is
@@ -113,22 +117,18 @@ does not actually meet.
 
 ## What is measured, not asserted
 
-- **Measured recall** — the engine is graded against a seeded-defect corpus (34 planted
-  architecture defects; the paper's frozen measurement is over the first 25 — see `counts` in
-  corpus/MANIFEST.json); the recall run is a CI leg, not a claim.
+- **Seeded-corpus regression** — the engine is graded against 34 author-designed planted
+  architecture defects. This measures regression performance on known fixtures; it is not
+  external validity, conventional recall, or evidence of benefit to agentic systems.
   [corpus/CORPUS-MAP.md](corpus/CORPUS-MAP.md)
 - **Self-hosting** — bce gates its own tree on every push with the same fail-closed verdict its
   users get. [docs/self-hosting.md](docs/self-hosting.md)
 <!-- fleet-record:begin -->
-- **An agent-authored estate** — the engine is a required merge gate on a production estate where
-  **1921** of **1946** merges were written by agents rather than people (**98.7%**), across 5
-  repositories. Those numbers come from a private repository and are therefore self-measurement,
-  not independent confirmation; the record carries its own limits and CI refuses any drift between
-  it and this page. [docs/fleet-dogfooding.md](docs/fleet-dogfooding.md)
+<!-- Private fleet telemetry is intentionally excluded from public capability claims. -->
 <!-- fleet-record:end -->
 - **RED/GREEN discrimination** — CI proves, offline, that one blueprint yields opposite verdicts
   on a conformant vs a seeded-drift tree, by real exit codes.
-- **Re-derivable evidence** — every gate run emits hash-chained evidence records;
+- **Optional integrity records** — `bce run --emit` emits hash-chained records;
   [tools/verify-chain.mjs](tools/verify-chain.mjs) verifies a chain with zero dependencies and
   no bce install required. [docs/evidence-format.md](docs/evidence-format.md)
 - **This page** — the terminal block and the animation are recorded from a live engine run, and
@@ -153,10 +153,10 @@ missing, and both are deliberately unfinished in the open:
   [docs/launch/witness-kit.md](docs/launch/witness-kit.md) is the entire procedure, and a run
   that contradicts the doc is recorded too, because a witnessed contradiction is worth more than
   another confirmation.
-- **Citation metadata: pending, and ship-blocked.** [CITATION.cff](CITATION.cff) carries explicit
-  `ARXIV-ID-PENDING` and `DOI-PENDING` tokens instead of a provisional identifier, and
-  [`scripts/check-release-citation.mjs`](scripts/check-release-citation.mjs) refuses to cut a
-  release tag while either token survives. The citation metadata cannot quietly go out half-true.
+- **Citation metadata is software-only.** [CITATION.cff](CITATION.cff) does not invent a paper,
+  arXiv identifier, or DOI. [`scripts/check-release-citation.mjs`](scripts/check-release-citation.mjs)
+  refuses provisional placeholder identifiers; a preferred paper citation is added only after a
+  real manuscript and archival record exist.
 
 If the engine turns out to be useful to you, star the repository — it is the one signal here that
 its authors cannot manufacture.
@@ -181,6 +181,10 @@ the repository's contract, not of whoever invoked it. Details:
 
 ## Use it in your repo
 
+There is no released Action tag or functional npm package yet. For evaluation, pin the Action to a
+reviewed commit SHA and use its `local` engine mode. Do not copy a `@v0.1.0` or
+`bce-engine@0.1.0` example until [STATUS.md](STATUS.md) records that those artifacts were verified.
+
 The action ships no consumer example, so here is the whole thing:
 
 ```yaml
@@ -193,21 +197,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }        # the gate diffs against the merge base
-      - uses: blueprint-conformance/bce@v0.1.0
+      - uses: blueprint-conformance/bce@<reviewed-commit-sha>
         with:
           repo: .
-          # engine: local            # the DEFAULT. Builds the engine from the action's
-          #                          # own checkout (npm ci + npm run build in
-          #                          # $GITHUB_ACTION_PATH) — correct, but pays an
-          #                          # install+build on every run.
-          engine: bce-engine@0.1.0   # faster: run the published engine via npx.
-          #                          # EXACT pins only; ranges are refused by design.
+          engine: local
 ```
 
 Blueprints live in `.blueprints/*.blueprint.json` by default (`blueprint-dir` to
-override). The published-engine line installs `bce-engine@0.1.0` from npm; the `local`
-default builds the engine from this checkout instead. Either works — use the
-published engine unless you are changing the engine itself.
+override). Local mode builds from the Action checkout at `$GITHUB_ACTION_PATH`.
 
 ## Docs and spec
 
@@ -229,15 +226,14 @@ published engine unless you are changing the engine itself.
 - **Citing this work**: [CITATION.cff](CITATION.cff)
 - **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-**Status: v0.1.0 — first public release.** The blueprint schema
-(`blueprint-conformance/v1alpha1`) is versioned and the report contract is
-stable; both follow the compatibility policy in `docs/report-contract.md`.
+**Status: unreleased development snapshot.** The source declares version `0.1.0`, but no matching
+functional npm package, immutable release tag, GitHub Release, or independent witness has been
+verified. The schema is `blueprint-conformance/v1alpha1`; compatibility is still pre-release.
 
 ## Links
 
-- Paper: https://arxiv.org/abs/ARXIV_ID_PENDING_DO_NOT_SHIP
-- Artifacts / evidence chain (`bce-paper-artifacts`): https://doi.org/DOI_PENDING_DO_NOT_SHIP
-- Specification (`blueprint-conformance/v1alpha1`): https://blueprint-conformance.github.io/bce/schemas/
+- Current capability and claim ledger: [STATUS.md](STATUS.md)
+- Specification (`blueprint-conformance/v1alpha1`): [spec/SPEC.md](spec/SPEC.md)
 
 ## License
 

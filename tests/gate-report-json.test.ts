@@ -68,6 +68,8 @@ describe('gate --report-json — the machine agent/CI/Action contract', () => {
     const doc = JSON.parse(readFileSync(out, 'utf8'));
     expect(doc.schemaVersion).toBe('1');
     expect(doc.gateFailed).toBe(false);
+    expect(doc.outcome).toBe('pass');
+    expect(doc.refusals).toEqual([]);
     expect(doc.exitCode).toBe(0);
     expect(doc.mode).toBe('enforced');
     expect(Array.isArray(doc.reports)).toBe(true);
@@ -84,6 +86,7 @@ describe('gate --report-json — the machine agent/CI/Action contract', () => {
     expect(existsSync(out)).toBe(true);
     const doc = JSON.parse(readFileSync(out, 'utf8'));
     expect(doc.gateFailed).toBe(true);
+    expect(doc.outcome).toBe('violation');
     expect(doc.exitCode).toBe(1);
     expect(doc.blockingBlueprints).toBe(1);
     expect(doc.reports[0].verdict).toBe('fail');
@@ -104,6 +107,42 @@ describe('gate --report-json — the machine agent/CI/Action contract', () => {
     expect(green.gateFailed).toBe(false);
     expect(red.gateFailed).toBe(true);
     expect(green.exitCode).not.toBe(red.exitCode);
+  });
+
+  it('REFUSAL: zero discovered blueprints is exit 2 in both process and machine report', () => {
+    const emptyBlueprintDir = join(tmp, 'empty-blueprints');
+    mkdirSync(emptyBlueprintDir);
+    const out = join(tmp, 'refusal.json');
+    const r = runCli([
+      'gate', '--repo', CONFORMANT, '--blueprint-dir', emptyBlueprintDir,
+      '--extractor', 'ast', '--report-json', out,
+    ]);
+    expect(r.code).toBe(2);
+    const doc = JSON.parse(readFileSync(out, 'utf8'));
+    expect(doc.gateFailed).toBe(true);
+    expect(doc.outcome).toBe('refusal');
+    expect(doc.exitCode).toBe(2);
+    expect(doc.exitCode).toBe(r.code);
+    expect(doc.blueprintsDiscovered).toBe(0);
+    expect(doc.refusals.join(' ')).toContain('0 blueprint(s) discovered');
+  });
+
+  it('REFUSAL is never softened by advisory mode', () => {
+    const emptyBlueprintDir = join(tmp, 'empty-advisory-blueprints');
+    const repo = join(tmp, 'advisory-repo');
+    mkdirSync(emptyBlueprintDir);
+    mkdirSync(repo);
+    writeFileSync(join(repo, '.bce-mode.json'), JSON.stringify({ mode: 'advisory' }));
+    const out = join(tmp, 'advisory-refusal.json');
+    const r = runCli([
+      'gate', '--repo', repo, '--blueprint-dir', emptyBlueprintDir,
+      '--extractor', 'ast', '--report-json', out,
+    ]);
+    expect(r.code).toBe(2);
+    const doc = JSON.parse(readFileSync(out, 'utf8'));
+    expect(doc.mode).toBe('advisory');
+    expect(doc.outcome).toBe('refusal');
+    expect(doc.exitCode).toBe(2);
   });
 
   it('PURE SIDE-CHANNEL: stdout + exit code are byte-identical with and without the flag', () => {

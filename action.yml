@@ -99,6 +99,7 @@ runs:
         set -euo pipefail
         if [ "${{ inputs.engine }}" = "local" ]; then
           echo "→ building the checked-out engine (npm ci + npm run build)"
+          cd "$GITHUB_ACTION_PATH"
           npm ci
           npm run build
           echo "bce=node $GITHUB_ACTION_PATH/dist/cli.js" >> "$GITHUB_OUTPUT"
@@ -111,7 +112,7 @@ runs:
               ;;
           esac
           echo "→ using published engine via npx: ${{ inputs.engine }}"
-          echo "bce=npx --yes ${{ inputs.engine }}" >> "$GITHUB_OUTPUT"
+          echo "bce=npx --yes --package ${{ inputs.engine }} bce" >> "$GITHUB_OUTPUT"
         fi
 
     # Run the gate. The engine prints its OWN ::error / ::warning annotations to

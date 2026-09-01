@@ -8,8 +8,8 @@
     "paperFrozenCorpus": 25,
     "expansion": 25,
     "distinctSeededFixtures": 32,
-    "cleanFixtures": 13,
-    "reportsInRecallRun": 45
+    "cleanFixtures": 10,
+    "reportsInRecallRun": 42
   },
   "blueprints": [
     {
@@ -161,7 +161,7 @@
       "description": "a NEW parallel route ships GET+POST with zero guard calls beside guarded neighbors \u2014 the incident-observed fleet shape"
     },
     {
-      "id": "rg-decoy-guard-object",
+      "id": "rg-decoy-guard-local",
       "set": "expansion",
       "blueprintRef": "route-guard@0.1.0",
       "fixture": "fixtures/route-surface/drift-decoy-guard",
@@ -437,21 +437,6 @@
     },
     {
       "fixture": "fixtures/egress-surface/conformant-houseidiom",
-      "blueprintRef": "egress-reader@0.1.0",
-      "expectedVerdict": "pass"
-    },
-    {
-      "fixture": "fixtures/egress-surface/advisory-egress-crossmodule",
-      "blueprintRef": "egress-reader@0.1.0",
-      "expectedVerdict": "pass"
-    },
-    {
-      "fixture": "fixtures/egress-surface/advisory-egress-envonly",
-      "blueprintRef": "egress-reader@0.1.0",
-      "expectedVerdict": "pass"
-    },
-    {
-      "fixture": "fixtures/egress-surface/unresolvable-env",
       "blueprintRef": "egress-reader@0.1.0",
       "expectedVerdict": "pass"
     },

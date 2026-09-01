@@ -169,7 +169,7 @@ export const SEEDED_CORPUS: readonly SeededDefect[] = Object.freeze([
     expectedSeverity: 'critical',
   },
   {
-    id: 'rg-decoy-guard-object',
+    id: 'rg-decoy-guard-local',
     blueprintRef: 'route-guard@0.1.0',
     fixture: 'route-surface/drift-decoy-guard',
     constraintId: 'd6-tenant-guard',

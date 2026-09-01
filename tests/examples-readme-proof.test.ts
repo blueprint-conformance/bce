@@ -20,7 +20,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -69,6 +69,46 @@ describe('quickstart README — the guaranteed path is proven, command by comman
     expect(r.code).toBe(0);
     expect(r.out).toContain('-> evaluator-refutable');
     assertReadmeCarriesTeethLine(join(QUICKSTART, 'README.md'), r.out);
+  });
+
+  it('enforcement readiness refuses evaluator-only teeth when strict proof is required', () => {
+    const r = runCli([
+      'teeth', '--blueprint', BP, '--ct-repo', join(QUICKSTART, 'clean'), '--no-pin',
+      '--extractor', 'ast', '--require-extractor-real',
+    ]);
+    expect(r.code).toBe(2);
+    expect(r.out).toContain('enforcement readiness requires extractor-real teeth');
+  });
+
+  it('accepts evaluator-only readiness only through an exact committed reviewed waiver', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'bce-teeth-waiver-'));
+    cpSync(join(QUICKSTART, 'clean', 'src'), join(repo, 'src'), { recursive: true });
+    const waiverDir = join(repo, '.blueprints');
+    const out = join(repo, 'teeth.json');
+    try {
+      // Deliberately create the governed review record inside the target repository.
+      mkdirSync(waiverDir, { recursive: true });
+      writeFileSync(join(waiverDir, 'teeth-waivers.json'), JSON.stringify({
+        schemaVersion: '1',
+        waivers: [{
+          blueprintRef: 'no-direct-http-client@0.1.0',
+          decision: 'accept-evaluator-refutable',
+          reviewer: 'policy-owner@example.test',
+          rationale: 'Seeded RED/GREEN mutation proof is reviewed for this development contract.',
+          evidenceRef: 'corpus:no-direct-http-client-red-green',
+        }],
+      }));
+      const r = runCli([
+        'teeth', '--blueprint', BP, '--ct-repo', repo, '--no-pin', '--extractor', 'ast',
+        '--require-extractor-real', '--reviewed-waiver', '--out', out,
+      ]);
+      expect(r.code).toBe(0);
+      expect(JSON.parse(readFileSync(out, 'utf8')).readiness).toMatchObject({
+        status: 'waived', proof: 'reviewed-evaluator-waiver',
+      });
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
   });
 
   it('step 2: gate on the clean tree passes with 1/1 evaluated, 0 failing', () => {

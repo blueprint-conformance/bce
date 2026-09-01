@@ -118,19 +118,24 @@
       "to": "ts-morph",
       "scopePaths": [
         "src/baseline.ts",
+        "src/benchmark.ts",
         "src/cli.ts",
         "src/corpus.ts",
         "src/emit.ts",
+        "src/evidence-bundle.ts",
         "src/evidence-store.ts",
         "src/extractor-registry.ts",
         "src/gate.ts",
         "src/graph.ts",
         "src/index.ts",
+        "src/lifecycle.ts",
         "src/materializer.ts",
         "src/mcp-server.ts",
         "src/mode.ts",
         "src/observations.ts",
         "src/pin.ts",
+        "src/policy-change.ts",
+        "src/policy-history.ts",
         "src/portfolio-collect.ts",
         "src/portfolio-compile.ts",
         "src/python-extractor.ts",
@@ -139,6 +144,7 @@
         "src/safe-regex.ts",
         "src/schema.ts",
         "src/score.ts",
+        "src/teeth-waiver.ts",
         "src/teeth.ts",
         "src/violation-format.ts",
         "src/violation-rollup.ts"
@@ -184,6 +190,54 @@
       "path": "src/teeth.ts",
       "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!\\.{1,2}/)",
       "policyRef": "policy/pure-evaluator"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--benchmark",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/benchmark.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--evidence-bundle",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/evidence-bundle.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--lifecycle",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/lifecycle.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--policy-change",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/policy-change.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--policy-history",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/policy-history.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--teeth-waiver",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/teeth-waiver.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
     },
     {
       "id": "only-cli-may-call-process-exit--baseline",
@@ -396,6 +450,6 @@
     "paths": [
       "src/**/*.ts"
     ],
-    "minFiles": 26
+    "minFiles": 32
   }
 }

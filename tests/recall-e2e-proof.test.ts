@@ -28,7 +28,7 @@ import { resolveExtraction } from '../src/extractors.js';
 import { makeExtractor } from '../src/extractor-registry.js';
 import { evaluate } from '../src/report.js';
 import { SEEDED_CORPUS, caughtDefect } from '../src/corpus.js';
-import { loadObservations } from '../src/observations.js';
+import { loadObservations, observationBinding } from '../src/observations.js';
 import { measureRecall, gateVerdict, DEFAULT_THRESHOLDS, type SeededRun } from '../src/recall-gate.js';
 
 const FIXROOT = path.join(__dirname, '..', 'fixtures');
@@ -73,7 +73,16 @@ function realRunForFixture(fixture: string, blueprintRef: string): SeededRun {
   const graph = makeExtractor('ast', entry.cfg).extract(dir, fixture);
   const obsPath = path.join(dir, 'observations.json');
   if (fs.existsSync(obsPath)) {
-    const obs = loadObservations(obsPath);
+    const behavioral = entry.bp.constraints.find((c) => c.type === 'behavioralInvariant');
+    if (!behavioral?.probeDefinitionHash || !behavioral.stimulusSetHash || !behavioral.environmentId) {
+      throw new Error(`behavioral fixture blueprint lacks observation binding expectations`);
+    }
+    const obs = loadObservations(obsPath, {
+      ...observationBinding(dir, graph),
+      probeDefinitionHash: behavioral.probeDefinitionHash,
+      stimulusSetHash: behavioral.stimulusSetHash,
+      environmentId: behavioral.environmentId,
+    });
     graph.components = [...graph.components, ...obs].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   }
   const report = evaluate(entry.bp, graph, entry.cfg.profile);
@@ -109,12 +118,8 @@ const CLEAN_FIXTURES: ReadonlyArray<{ fixture: string; blueprintRef: string }> =
   { fixture: 'conformant-comment', blueprintRef: 'luna-chat-extension@0.1.0' },
   { fixture: 'conformant-curried', blueprintRef: 'luna-chat-extension@0.1.0' },
   { fixture: 'conformant-typeimport', blueprintRef: 'luna-chat-extension@0.1.0' },
-  // egress surface (promoted): the advisory fp controls + env-only reader — fail-OPEN advisory
-  // disclosures surface in coverage.unsupported, which measureRecall correctly ignores.
+  // egress surface: only a provably governed destination is a clean allowlist control.
   { fixture: 'egress-surface/conformant-houseidiom', blueprintRef: 'egress-reader@0.1.0' },
-  { fixture: 'egress-surface/advisory-egress-crossmodule', blueprintRef: 'egress-reader@0.1.0' },
-  { fixture: 'egress-surface/advisory-egress-envonly', blueprintRef: 'egress-reader@0.1.0' },
-  { fixture: 'egress-surface/unresolvable-env', blueprintRef: 'egress-reader@0.1.0' },
   // route surface (new) — the denominator for every route-surface constraint
   { fixture: 'route-surface/conformant-guarded', blueprintRef: 'route-guard@0.1.0' },
   { fixture: 'route-surface/conformant-mixed-verbs', blueprintRef: 'route-guard@0.1.0' },

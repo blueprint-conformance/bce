@@ -143,7 +143,7 @@ describe('bce-mcp — handshake + tool surface', () => {
     expect((init!.result!.capabilities as { tools: unknown }).tools).toBeDefined();
   });
 
-  it('tools/list returns EXACTLY the four THIN tools (no more, no fewer)', async () => {
+  it('tools/list exposes read-only self-management but no policy approval or weakening tools', async () => {
     const responses = await rpcRoundTrip([
       { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
       { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
@@ -151,7 +151,8 @@ describe('bce-mcp — handshake + tool surface', () => {
     const list = responses.get(2);
     const tools = (list!.result!.tools as Array<{ name: string; inputSchema: unknown }>);
     const names = tools.map((t) => t.name).sort();
-    expect(names).toEqual(['assess_teeth', 'get_report', 'run_gate', 'validate_blueprint']);
+    expect(names).toEqual(['assess_teeth', 'check_baseline', 'doctor_repository', 'get_report', 'run_gate', 'validate_blueprint']);
+    expect(names).not.toEqual(expect.arrayContaining(['adopt', 'ratify', 'amend', 'graduate', 'baseline']));
     // every tool declares an input schema (an agent needs it to call correctly)
     for (const t of tools) expect(t.inputSchema).toBeDefined();
   });
@@ -235,6 +236,7 @@ describe('bce-mcp — run_gate is byte-identical to `bce gate --report-json`', (
     const doc = toolStructured(result);
     expect(doc.schemaVersion).toBe('1');
     expect(doc.gateFailed).toBe(false);
+    expect(doc.outcome).toBe('pass');
     expect(doc.exitCode).toBe(0);
     expect((doc.reports as Array<{ verdict: string }>)[0].verdict).toBe('pass');
     // and the CLI over the SAME tree really exits 0
@@ -248,6 +250,7 @@ describe('bce-mcp — run_gate is byte-identical to `bce gate --report-json`', (
     expect(result.isError).toBe(false);
     const doc = toolStructured(result);
     expect(doc.gateFailed).toBe(true);
+    expect(doc.outcome).toBe('violation');
     expect(doc.exitCode).toBe(1);
     const reports = doc.reports as Array<{ verdict: string; violations: Array<{ constraintId: string }> }>;
     expect(reports[0].verdict).toBe('fail');
@@ -265,6 +268,28 @@ describe('bce-mcp — run_gate is byte-identical to `bce gate --report-json`', (
     expect(green.gateFailed).toBe(false);
     expect(red.gateFailed).toBe(true);
     expect(green.exitCode).not.toBe(red.exitCode);
+  });
+
+  it('REFUSAL: zero blueprints returns exit 2 and matches the CLI machine contract', async () => {
+    const emptyBp = join(tmp, 'mcp-empty-blueprints');
+    mkdirSync(emptyBp);
+    const mcpDoc = toolStructured(await callTool('run_gate', {
+      repoDir: CONFORMANT,
+      blueprintDir: emptyBp,
+      extractor: 'ast',
+    }));
+    expect(mcpDoc.gateFailed).toBe(true);
+    expect(mcpDoc.outcome).toBe('refusal');
+    expect(mcpDoc.exitCode).toBe(2);
+    expect((mcpDoc.refusals as string[]).join(' ')).toContain('0 blueprint(s) discovered');
+
+    const cliOut = join(tmp, 'cli-refusal.json');
+    const cli = runCli([
+      'gate', '--repo', CONFORMANT, '--blueprint-dir', emptyBp,
+      '--extractor', 'ast', '--report-json', cliOut,
+    ]);
+    expect(cli.code).toBe(2);
+    expect(mcpDoc).toEqual(JSON.parse(readFileSync(cliOut, 'utf8')));
   });
 
   it('FAIL-CLOSED: a missing repoDir is an isError result, never a silent pass', async () => {

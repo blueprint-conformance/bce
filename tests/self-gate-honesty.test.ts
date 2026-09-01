@@ -139,13 +139,14 @@ describe('(b) zero-blueprints = FAIL — an empty gate is not a vacuous green', 
     expect(r.stdout).not.toContain('score 100');
   });
 
-  it('DISCOVERY, not selection: blueprints present but none in scope still exits 0', () => {
+  it('blueprints present but none selected exits 2 (no policy was evaluated)', () => {
     // The discriminating sibling. A change intersecting no blueprint's scope was correctly graded
     // against everything that applied to it — that is a legitimate green and MUST NOT be swept up
     // by the anti-shelfware floor. If this ever goes red, the floor is testing the wrong thing.
     const dir = arrangeRepo({ source: 'conformant' });
     const r = runCli(['gate', '--repo', dir, '--changed', 'README.md'], dir);
-    expect(r.status).toBe(0);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('0 of 1 discovered blueprint(s) selected');
     expect(r.stderr).not.toContain('gates nothing has proven nothing');
   });
 });
@@ -154,7 +155,7 @@ describe('(c) empty-scan = FAIL — below the scan floor is a score-0 fail-close
   it('a blueprint whose globs match no source → score-0 fail, exit 1 (never a silent 100)', () => {
     const dir = arrangeRepo({ source: 'none' }); // blueprint present, but NO src tree to scan
     const r = runCli(['gate', '--repo', dir], dir);
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(2);
     expect(r.stderr).toContain('FAILED');
     // the cause is legible: the fail-closed scan floor, not a graded red.
     expect(r.stderr.toLowerCase()).toMatch(/fail-closed|scanned 0|expected >=/);

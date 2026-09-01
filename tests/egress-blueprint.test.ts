@@ -292,15 +292,16 @@ describe('bce run — green/red/honest-unresolved discrimination on the egress s
     expect(evViolations[0]?.observed).toContain('api.openai.com');
   });
 
-  it('3. UNRESOLVABLE (fetch(process.env.TARGET), no literal fallback) → verdict pass, ZERO violations, honestly disclosed in coverage.unsupported', () => {
+  it('3. UNRESOLVABLE (fetch(process.env.TARGET), no literal fallback) → fail closed with a located violation', () => {
     const g = new AstExtractor(cfg).extract(surface('unresolvable-env'), 'rev-unresolvable');
     const egressEdges = g.guardEdges.filter((e) => e.type === 'egress');
     expect(egressEdges).toHaveLength(0);
     expect(g.coverage.unsupported.some((u) => u.includes('unresolvable host'))).toBe(true);
 
     const r = evaluate(blueprint, g, 'plugin-surface');
-    expect(r.verdict).toBe('pass');
-    expect(r.violations).toHaveLength(0);
+    expect(r.verdict).toBe('fail');
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0]?.evidenceRef).toMatch(/reader\.ts#L\d+/);
     expect(r.coverage.unsupported.some((u) => u.includes('unresolvable host'))).toBe(true);
   });
 
@@ -537,27 +538,28 @@ describe('b3/Class A — extractor emits a RED egress edge for the options-bag +
   });
 });
 
-describe('b3/Class B — a detected-but-unresolvable egress call is ITEMIZED (advisory, never silent, never a false BLOCK)', () => {
-  it('advisory-egress-envonly (fetch(`${process.env.LLM_HOST}/v1`)) → PASS, ZERO violations, itemized with location', () => {
+describe('governed-host allowlist — detected-but-unresolvable egress FAILS CLOSED', () => {
+  it('env-only destination → FAIL with a located violation', () => {
     const g = new AstExtractor(cfg).extract(surface('advisory-egress-envonly'), 'rev-env');
     expect(g.guardEdges.filter((e) => e.type === 'egress')).toHaveLength(0);
     const r = evaluate(blueprint, g, 'plugin-surface');
-    expect(r.verdict).toBe('pass');
-    expect(r.violations).toHaveLength(0);
+    expect(r.verdict).toBe('fail');
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0]?.evidenceRef).toMatch(/reader\.ts#L\d+/);
     // the honesty fix: a LOCATED, per-call advisory line (not just the opaque aggregate count).
     const items = g.coverage.unsupported.filter((u) => /detected egress call `fetch` at .+#L\d+/.test(u));
     expect(items).toHaveLength(1);
-    expect(items[0]).toContain('disclosed as advisory, not blocked');
+    expect(items[0]).toContain('allowlists fail closed');
     // AND it is preserved through evaluate() into the report coverage.
     expect(r.coverage.unsupported.some((u) => /detected egress call `fetch` at/.test(u))).toBe(true);
   });
 
-  it('advisory-egress-crossmodule (imported const host) → PASS, ZERO violations, itemized with location', () => {
+  it('cross-module destination → FAIL with a located violation', () => {
     const g = new AstExtractor(cfg).extract(surface('advisory-egress-crossmodule'), 'rev-xmod');
     expect(g.guardEdges.filter((e) => e.type === 'egress')).toHaveLength(0);
     const r = evaluate(blueprint, g, 'plugin-surface');
-    expect(r.verdict).toBe('pass');
-    expect(r.violations).toHaveLength(0);
+    expect(r.verdict).toBe('fail');
+    expect(r.violations).toHaveLength(1);
     expect(g.coverage.unsupported.some((u) => /detected egress call `fetch` at .+reader\.ts#L\d+/.test(u))).toBe(true);
   });
 
@@ -568,18 +570,20 @@ describe('b3/Class B — a detected-but-unresolvable egress call is ITEMIZED (ad
   });
 });
 
-describe('b3/ratchet — a call that RESOLVED a host (house idiom) is NOT itemized as Class B (existing verdicts unchanged)', () => {
+describe('resolved governed hosts remain green', () => {
   it('conformant-houseidiom: resolved localhost → NO Class B item added (only the pre-existing aggregate count)', () => {
     const g = new AstExtractor(cfg).extract(surface('conformant-houseidiom'), 'rev-c');
-    // it resolved a host (localhost) → one egress edge → NOT a Class B "detected-but-unresolved" item.
+    // It resolved only a committed governed host, with no unknown alternative.
     expect(g.guardEdges.filter((e) => e.type === 'egress')).toHaveLength(1);
     expect(g.coverage.unsupported.some((u) => /^detected egress call/.test(u))).toBe(false);
   });
 
-  it('drift-egress-provider-houseidiom: resolved api.openai.com → NO Class B item added', () => {
+  it('drift-egress-provider-houseidiom: ungoverned host plus unknown alternatives stays one actionable RED', () => {
     const g = new AstExtractor(cfg).extract(surface('drift-egress-provider-houseidiom'), 'rev-d');
     expect(g.guardEdges.filter((e) => e.type === 'egress')).toHaveLength(1);
-    expect(g.coverage.unsupported.some((u) => /^detected egress call/.test(u))).toBe(false);
+    expect(g.coverage.unsupported.some((u) => /^detected egress call/.test(u))).toBe(true);
+    const r = evaluate(blueprint, g, 'plugin-surface');
+    expect(r.violations.filter((v) => v.constraintId === 'reader-egress-governed-only')).toHaveLength(1);
   });
 });
 

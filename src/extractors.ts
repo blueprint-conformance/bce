@@ -50,6 +50,7 @@ const DEFAULT_GUARD_SYMBOLS = [
   'requireTenantWriteAccess',
   'requireTenantAdminAccess',
 ] as const;
+const DEFAULT_ROUTE_GOVERNED_MODULES = ['@/lib/auth-middleware', '@/lib/tenant-guards'] as const;
 
 /**
  * The ontology-write-authority surface — the walking-skeleton scope. Repo-relative
@@ -151,7 +152,7 @@ export function resolveExtraction(
       // union even in the default profile, so a CT blueprint that forbids a module is honored.
       forbiddenImports: [...new Set(constraintForbidden)].sort(),
       forbiddenEgressHosts: [...new Set(constraintEgressHosts)].sort(),
-      governedModules: [],
+      governedModules: DEFAULT_ROUTE_GOVERNED_MODULES,
       minFiles: MIN_EXPECTED_ROUTE_FILES,
       egressEnabled,
       governedHosts,
@@ -216,22 +217,44 @@ export function resolveExtraction(
  * behavior byte-for-byte.
  */
 export function resolveFiles(repoDir: string, patterns: readonly string[]): string[] {
+  const repoRoot = fs.realpathSync(repoDir);
+  const repoPath = path.resolve(repoDir);
   const out = new Set<string>();
+  const containedPath = (candidate: string): string => {
+    const real = fs.realpathSync(candidate);
+    if (real !== repoRoot && !real.startsWith(`${repoRoot}${path.sep}`)) {
+      throw new Error(`fail-closed: extraction path escapes repository root: ${candidate}`);
+    }
+    // Preserve the caller's absolute spelling (not fs.realpath's platform alias,
+    // e.g. macOS /var -> /private/var) so repository-relative evidence remains stable.
+    return path.resolve(candidate);
+  };
   for (const pattern of patterns) {
+    const normalized = pattern.replace(/\\/g, '/');
+    if (
+      normalized.startsWith('/') ||
+      /^[A-Za-z]:\//.test(normalized) ||
+      normalized.split('/').includes('..')
+    ) {
+      throw new Error(`fail-closed: extraction path must be repository-relative without '..': ${pattern}`);
+    }
     if (!/[*?]/.test(pattern)) {
       // exact path (historical behavior)
       const abs = path.join(repoDir, pattern);
-      if (fs.existsSync(abs) && fs.statSync(abs).isFile()) out.add(abs);
+      if (fs.existsSync(abs) && fs.statSync(abs).isFile()) out.add(containedPath(abs));
       continue;
     }
     // glob: walk from the longest non-glob prefix dir, match the rest as a regex
     const firstGlob = pattern.search(/[*?]/);
     const prefix = pattern.slice(0, firstGlob);
-    const baseDir = path.join(repoDir, path.dirname(prefix.endsWith('/') ? prefix : `${prefix}x`));
+    const prefixDir = prefix.endsWith('/') ? prefix.slice(0, -1) : path.dirname(prefix);
+    const baseDir = path.join(repoDir, prefixDir);
+    if (fs.existsSync(baseDir)) containedPath(baseDir);
     const re = globToRegExp(pattern);
     for (const abs of walkFiles(baseDir)) {
-      const rel = path.relative(repoDir, abs).split(path.sep).join('/');
-      if (re.test(rel)) out.add(abs);
+      const contained = containedPath(abs);
+      const rel = path.relative(repoPath, contained).split(path.sep).join('/');
+      if (re.test(rel)) out.add(contained);
     }
   }
   return [...out].sort();
@@ -694,8 +717,8 @@ export class AstExtractor implements RepositoryFactsExtractor {
     //     undici constructor) but could NOT resolve to any host literal (env-only, cross-module,
     //     reassignable, hop>bound). 0.5.0 folded these into the opaque aggregate count with no
     //     location; b3 itemizes each with its `path#Lnn` + callee so the advisory is auditable —
-    //     an accurate "we saw a network call we could not resolve to a host", NEVER a silent pass
-    //     and NEVER a false BLOCK (fail-OPEN honestly).
+    //     an accurate "we saw a network call we could not resolve to a host". Governed-host
+    //     allowlists consume these items as fail-closed violations.
     const egressCoverage: { unresolved: number; items: Array<{ callee: string; ref: string }> } = {
       unresolved: 0,
       items: [],
@@ -737,8 +760,8 @@ export class AstExtractor implements RepositoryFactsExtractor {
       if (egressCoverage.unresolved > 0) {
         unsupported.push(`${egressCoverage.unresolved} egress call(s) had an unresolvable host and were skipped`);
       }
-      // b3/coverage-envelope Class B — the itemized, LOCATED advisory for each detected egress call
-      // whose host resolved to NOTHING (the honesty fix: an opaque count becomes an auditable list).
+      // Itemized, LOCATED unresolved calls. In governed-host allowlist mode the evaluator treats
+      // these as violations: a fallback literal does not prove an env/imported alternative is safe.
       // Sorted (by ref then callee) so the graph serializes deterministically. Fail-OPEN: these are
       // disclosures, never violations — a detected-but-unresolvable call is never a false RED.
       const sortedItems = [...egressCoverage.items].sort((a, b) => {
@@ -749,7 +772,7 @@ export class AstExtractor implements RepositoryFactsExtractor {
       for (const it of sortedItems) {
         unsupported.push(
           `detected egress call \`${it.callee}\` at ${it.ref} — host could not be resolved to a literal ` +
-            '(env-only, cross-module, reassignable, or beyond the const-hop bound); disclosed as advisory, not blocked (fails OPEN)',
+            '(env-only, cross-module, reassignable, or beyond the const-hop bound); governed-host allowlists fail closed on this uncertainty',
         );
       }
     }
@@ -762,6 +785,9 @@ export class AstExtractor implements RepositoryFactsExtractor {
         extractor: 'ast',
         filesScanned: files.length,
         unsupported,
+        ...(egressCoverage.items.length > 0
+          ? { unresolvedEgress: [...egressCoverage.items].sort((a, b) => `${a.ref}\0${a.callee}`.localeCompare(`${b.ref}\0${b.callee}`)) }
+          : {}),
         // 0.8.0 (widen-only): the RAW scanned-file set (repo-relative, sorted, deterministic) so a
         // `forbiddenFile` constraint can match a forbidden basename regardless of export shape.
         scannedFiles: toRelSorted(repoDir, files),
@@ -799,7 +825,14 @@ export class AstExtractor implements RepositoryFactsExtractor {
         // SECURITY-CRITICAL: only a BARE IDENTIFIER callee counts (reject obj.method()).
         if (expr.getKind() !== SyntaxKind.Identifier) continue;
         const calleeName = expr.getText().trim();
-        if (guardSet.has(calleeName)) {
+        // A matching spelling is not proof of a governed guard. Credit only symbols whose
+        // declaration resolves to an import from a blueprint-declared governed module. Local
+        // no-op functions and same-name imports from arbitrary modules therefore fail closed.
+        if (
+          guardSet.has(calleeName) &&
+          this.cfg.governedModules.length > 0 &&
+          this.identifierResolvesToGovernedImport(expr, this.cfg.governedModules)
+        ) {
           guardEdges.push({ from: id, to: calleeName, type: 'guards', evidenceRef: `${relPath}#L${call.getStartLineNumber()}` });
         }
       }
@@ -849,7 +882,7 @@ export class AstExtractor implements RepositoryFactsExtractor {
 
     // Emit edges for a resolved (hosts, unresolvable) result + update the honesty coverage — shared
     // by the CallExpression pass (fetch/axios/got/http.request) and the NewExpression pass (undici
-    // Client/Pool/Agent constructors) below, so both share the SAME fail-OPEN edge/coverage contract.
+    // Client/Pool/Agent constructors) below, so both share the SAME uncertainty contract.
     const record = (
       hosts: Set<string>,
       unresolvable: boolean,
@@ -867,13 +900,10 @@ export class AstExtractor implements RepositoryFactsExtractor {
       // resolved some hosts (e.g. a `||`-chain where one operand resolves and another doesn't) —
       // the resolved hosts are still real edges; `unresolvable` on its own is the coverage signal.
       if (unresolvable) coverage.unresolved++;
-      // b3/coverage-envelope Class B — ITEMIZE only a call that resolved to NOTHING (`hosts.size===0`
-      // AND unresolvable): a detected egress callee whose host is env-only/cross-module/reassignable/
-      // beyond-bound. A call that DID resolve a host (the house-idiom conformant/drift shape, whose
-      // `||`-chain also carries an unresolvable `opts`/env operand) is NOT itemized — it already
-      // produced an edge and is not a "we saw a call we couldn't resolve" case. This keeps the
-      // conformant/drift surfaces byte-identical (their aggregate count is unchanged, no item added).
-      if (hosts.size === 0 && unresolvable) {
+      // Itemize EVERY unresolved branch, including a fallback chain that also yielded a literal.
+      // At runtime an earlier env/imported operand may win, so the fallback cannot justify an
+      // allowlist pass. Blocklist mode remains detection-based and does not consume this field.
+      if (unresolvable) {
         coverage.items.push({ callee: calleeLabel, ref: `${relPath}#L${line}` });
       }
     };
@@ -909,7 +939,7 @@ export class AstExtractor implements RepositoryFactsExtractor {
     // constructor identifier is a known undici dispatcher (or a blueprint-declared `egressCallees`
     // entry naming one) and resolve its first argument to the host. Fail-OPEN + itemized identically
     // to the call pass (an `Agent({...})` options-bag or an env-built URL resolves to nothing →
-    // Class B advisory, never a false edge).
+    // unresolved item; governed-host allowlists fail closed without fabricating an edge).
     for (const ne of source.getDescendantsOfKind(SyntaxKind.NewExpression) as NewExpression[]) {
       const ctorExpr = ne.getExpression();
       const ctorText = ctorExpr.getText().trim();
@@ -1247,8 +1277,9 @@ export class AstExtractor implements RepositoryFactsExtractor {
 
   /**
    * True iff a bare identifier callee resolves to an import FROM ONE OF THE GOVERNED MODULES.
-   * Merely resolving to *an* import is NOT enough (finding #3: `registerTool` imported from an
-   * ungoverned local module must not be credited). Fail-closed on any resolution failure.
+   * Used by both route guards and plugin registrations. Merely resolving to *an* import is NOT
+   * enough: a same-name local declaration or import from an ungoverned module must not be
+   * credited. Fail-closed on any resolution failure.
    */
   private identifierResolvesToGovernedImport(
     expr: { getSymbol?: () => unknown },

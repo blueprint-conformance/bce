@@ -312,6 +312,23 @@ export function evaluate(
             expected: `egress only to a governed host (${governedHosts.join('|')}) or via the gateway`,
           });
         }
+        for (const unresolved of graph.coverage.unresolvedEgress ?? []) {
+          const file = unresolved.ref.split('#L')[0] ?? unresolved.ref;
+          const component = `file:${file}`;
+          // A resolved ungoverned edge already proves this component red. Keep one
+          // actionable violation per component/constraint instead of double-penalizing
+          // the same call surface for both a known-bad and unknown alternative.
+          if (violations.some((v) => v.constraintId === c.id && v.component === component)) continue;
+          violations.push({
+            constraintId: c.id,
+            severity: c.severity,
+            component,
+            evidenceType: 'staticAst',
+            evidenceRef: unresolved.ref,
+            observed: `egress destination for ${unresolved.callee} could not be resolved`,
+            expected: `provable egress only to a governed host (${governedHosts.join('|')}) or via the gateway`,
+          });
+        }
       } else {
         // BLOCKLIST mode — `c.to` (the historical single-host field) UNIONED with
         // `c.forbiddenEgressHosts` (the array field), so a constraint may use either shape.

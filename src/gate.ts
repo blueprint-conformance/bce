@@ -35,24 +35,24 @@ export interface GateResult {
   reports: ComplianceReport[];
   failed: boolean;
   /**
-   * ADDITIVE (OPTIONAL): advisory WARN lines (repo-identity mismatch — see
-   * `runGate`). Absent on the pre-B2 path; NEVER a failure cause.
+   * Structural reasons the gate could not honestly grade. Refusals are never
+   * softened by advisory mode or a baseline and map to process exit 2 on every
+   * interface. Omitted when the run was fully gradeable.
+   */
+  refusals?: string[];
+  /**
+   * Non-blocking diagnostic warnings. Repository identity mismatches are refusals.
    */
   warnings?: string[];
   /**
-   * ADDITIVE (FIX-B, OPTIONAL — omit-when-0, mirroring `warnings?`): the count of RUN-ONLY
-   * (behaviorObservation-class, e.g. behavioralInvariant) constraints the gate SKIPPED because
-   * static gate mode has no served-runtime observations to grade them against. Each skip also
-   * lands an explicit line in `warnings` — never a silent skip (widen-only ratchet). The
-   * authoritative grader for these remains `bce run --observations` (report.ts fail-close intact).
+   * Count of RUN-ONLY constraints the static gate could not grade. Every such constraint creates
+   * a refusal, so this counter can never coexist with an honest pass.
    */
   runOnlySkipped?: number;
   /**
    * ADDITIVE (FIX-E a, OPTIONAL — omit-when-0, mirroring `warnings?`): the count of constraint
-   * entries DROPPED at parse time because their `type` is unknown to THIS pinned engine (a newer
-   * blueprint gating an older engine). Each skip also lands an explicit line in `warnings` naming
-   * the id + type + the upgrade path — never a silent skip, never a whole-file parse-reject of
-   * the constraints this engine DOES know (see schema.ts parseBlueprintTolerant).
+   * entries DROPPED at parse time because their `type` is unknown to THIS pinned engine. Every
+   * such entry creates a refusal; known constraints may still be evaluated for useful diagnostics.
    */
   unknownConstraintsSkipped?: number;
 }
@@ -228,15 +228,15 @@ export function runGate(
   /**
    * ADDITIVE (OPTIONAL): the repo identity the caller believes it is gating
    * (e.g. `example-org/service-alpha`). When provided it is stamped as `report.repo` on every
-   * emitted report AND checked against each selected blueprint's `scope.repositories` — a
-   * mismatch is a WARN line, NOT a failure: `scope.repositories` was display-only in 0.2.x, so
-   * failing on it would be a behavior change on existing consumers (widen-only; honestly noted).
+   * emitted report AND checked against each selected blueprint's `scope.repositories`. A mismatch
+   * is a refusal because a report attributed to the wrong repository cannot prove applicability.
    */
   repoName?: string,
 ): GateResult {
   const files = discoverBlueprints(blueprintDir);
   const reports: ComplianceReport[] = [];
   const warnings: string[] = [];
+  const refusals: string[] = [];
   let selected = 0;
   // FIX-B / FIX-E skip counters — every skip below is ALSO an explicit warnings line; the counters
   // surface omit-when-0 on the GateResult (mirroring `warnings?`) so a consumer can assert
@@ -250,6 +250,12 @@ export function runGate(
   const repoTag = repoName !== undefined ? { repo: repoName } : {};
   // FIX-E b: this engine's own version, resolved ONCE per gate run (one engine, one fact).
   const engineVersion = resolveEngineVersion();
+
+  if (files.length === 0) {
+    refusals.push(
+      `fail-closed: 0 blueprint(s) discovered under ${blueprintDir} — a repository that gates nothing has proven nothing`,
+    );
+  }
 
   for (const bpPath of files) {
     let bp: EngineeringBlueprint;
@@ -306,45 +312,48 @@ export function runGate(
     }
     if (!blueprintTouchesChanges(repoDir, bp, changed)) continue;
     selected += 1;
-    // FIX-E a: every unknown-type constraint dropped by the tolerant parse is an EXPLICIT advisory
-    // on the selected blueprint — counted, never silent (widen-only ratchet).
+    // Unknown types may be omitted from diagnostic evaluation, but never from the gate outcome.
+    // The current engine cannot prove the whole blueprint, so this is a structural refusal.
     for (const s of unknownSkipped) {
-      warnings.push(
-        `unknown constraint type '${s.type}' (id ${s.id}) skipped — engine ${engineVersion} does not know it; upgrade the gate pin`,
+      const reason =
+        `unknown constraint type '${s.type}' (id ${s.id}) is not gradeable by engine ${engineVersion}; ` +
+        `upgrade the gate pin`;
+      warnings.push(reason);
+      refusals.push(
+        `${bp.metadata.id}@${bp.metadata.version}: ${reason}`,
       );
     }
     unknownSkippedTotal += unknownSkipped.length;
-    // repo-identity validation (WARN-only — see the repoName param doc above).
+    // Repository identity is part of applicability, not display metadata.
     if (repoName !== undefined && !bp.scope.repositories.includes(repoName)) {
-      warnings.push(
+      refusals.push(
         `blueprint ${bp.metadata.id} declares scope.repositories [${bp.scope.repositories.join(', ')}] ` +
-          `but the gate is running as '${repoName}' — advisory only (scope.repositories was display-only in 0.2.x)`,
+          `but the gate is running as '${repoName}'`,
       );
     }
-    // FIX-B: partition by evidence class. behaviorObservation-class constraints (behavioralInvariant)
-    // are graded ONLY by `bce run --observations` (report.ts keeps its full fail-close there); a
-    // static gate run has no observations, so each is a FIRST-CLASS explicit skip — never a silent
-    // pass, never a structural RED for evidence gate mode cannot have (widen-only ratchet).
+    // Runtime constraints require bound observations. A static-only gate cannot prove them and
+    // therefore refuses, while still evaluating any static subset for useful diagnostics.
     const staticConstraints = bp.constraints.filter((c) => constraintEvidenceClass(c.type) === 'staticAst');
     const runOnly = bp.constraints.filter((c) => constraintEvidenceClass(c.type) === 'behaviorObservation');
     for (const c of runOnly) {
-      warnings.push(
-        `run-only constraint skipped in gate mode: ${c.id} (${c.type}) — graded only by bce run --observations`,
+      const reason =
+        `run-only constraint ${c.id} (${c.type}) is not gradeable in static gate mode; ` +
+        `use bce run --observations with revision-bound runtime evidence`;
+      warnings.push(reason);
+      refusals.push(
+        `${bp.metadata.id}@${bp.metadata.version}: ${reason}`,
       );
     }
     runOnlySkippedTotal += runOnly.length;
     if (staticConstraints.length === 0) {
-      // ALL-BEHAVIORAL blueprint in gate mode: nothing is statically gradeable. NOT the
-      // `__no-enforcing-constraints__` hard-violation (the blueprint DOES enforce — at run time),
-      // and NOT a vacuous unexplained green: the report is an explicit-skip pass whose summary +
-      // coverage.unsupported name every skipped constraint, so a reader can never mistake it for
-      // a graded pass. No extractor runs (there is no static surface to scan or fail-close on).
+      // ALL-BEHAVIORAL blueprint: emit a refusal-shaped diagnostic report. `refusals` is the
+      // canonical outcome; score 0/fail prevents older report-only consumers from seeing green.
       reports.push({
         schemaVersion: '1',
         blueprintRef: `${bp.metadata.id}@${bp.metadata.version}`,
         ctRepoRevision: revision,
-        score: 100,
-        verdict: 'pass',
+        score: 0,
+        verdict: 'fail',
         violations: [],
         evidenceRef: 'n/a',
         summary:
@@ -353,7 +362,7 @@ export function runGate(
           (unknownSkipped.length > 0
             ? `; ${unknownSkipped.length} unknown constraint type(s) skipped (upgrade the gate pin)`
             : '') +
-          ` — NOT a graded pass`,
+          ` — gate REFUSED`,
         coverage: {
           extractor: extractorKind,
           filesScanned: 0,
@@ -366,9 +375,9 @@ export function runGate(
       continue;
     }
     const cfg = resolveExtraction(bp.extraction, bp.constraints);
-    // refuse line-scan for a governed-modules plugin-surface blueprint (see cli.ts) — fail the gate
+    // refuse line-scan for any governed-modules blueprint (see cli.ts) — fail the gate
     // LOUD with guidance rather than false-reject a conformant PR on the fallback extractor.
-    if (extractorKind === 'line-scan' && cfg.profile === 'plugin-surface' && cfg.governedModules.length > 0) {
+    if (extractorKind === 'line-scan' && cfg.governedModules.length > 0) {
       reports.push({
         schemaVersion: '1', blueprintRef: `${bp.metadata.id}@${bp.metadata.version}`, ctRepoRevision: revision,
         score: 0, verdict: 'fail', violations: [], evidenceRef: 'n/a',
@@ -405,7 +414,24 @@ export function runGate(
       });
       continue;
     }
-    const graph = makeExtractor(extractorKind, cfg).extract(repoDir, revision);
+    let graph;
+    try {
+      graph = makeExtractor(extractorKind, cfg).extract(repoDir, revision);
+    } catch (e) {
+      reports.push({
+        schemaVersion: '1',
+        blueprintRef: `${bp.metadata.id}@${bp.metadata.version}`,
+        ctRepoRevision: revision,
+        score: 0,
+        verdict: 'fail',
+        violations: [],
+        evidenceRef: 'n/a',
+        summary: `extractor refused: ${(e as Error).message}`,
+        coverage: { extractor: extractorKind, filesScanned: 0, unsupported: [(e as Error).message] },
+        ...repoTag,
+      });
+      continue;
+    }
     // fail-closed on an empty/partial scan (a stale glob would else score 100).
     if (graph.coverage.filesScanned < cfg.minFiles) {
       reports.push({
@@ -437,12 +463,19 @@ export function runGate(
     reports.push(report);
   }
 
-  const failed = reports.some((r) => r.verdict !== 'pass');
+  if (files.length > 0 && selected === 0) {
+    refusals.push(
+      `fail-closed: 0 of ${files.length} discovered blueprint(s) selected for the supplied change set — no conformance policy was evaluated`,
+    );
+  }
+
+  const failed = refusals.length > 0 || reports.some((r) => r.verdict !== 'pass');
   return {
     blueprintsDiscovered: files.length,
     blueprintsSelected: selected,
     reports,
     failed,
+    ...(refusals.length > 0 ? { refusals } : {}),
     // omit-not-empty: absent unless something was actually warned (pre-B2 shape preserved).
     ...(warnings.length > 0 ? { warnings } : {}),
     // omit-when-0 (FIX-B / FIX-E a): the skip counters mirror the `warnings?` additive precedent —
@@ -471,7 +504,11 @@ export interface GateReportDoc {
   newViolationsTotal: number;
   baselinedViolationsTotal: number;
   gateFailed: boolean;
-  exitCode: 0 | 1;
+  /** Canonical three-state gate outcome. */
+  outcome: 'pass' | 'violation' | 'refusal';
+  /** Structural refusal reasons. Empty on pass/violation. */
+  refusals: string[];
+  exitCode: 0 | 1 | 2;
   warnings: string[];
   reports: ComplianceReport[];
 }
@@ -504,7 +541,20 @@ export function assembleGateReportDoc(args: {
   baselinedViolationsTotal: number;
   gateFailed: boolean;
 }): GateReportDoc {
-  const { resolvedMode, baseline, result, blockingBlueprints, newViolationsTotal, baselinedViolationsTotal, gateFailed } = args;
+  const { resolvedMode, baseline, result, blockingBlueprints, newViolationsTotal, baselinedViolationsTotal } = args;
+  const reportRefusals = result.reports
+    .filter((r) => r.verdict !== 'pass' && r.violations.length === 0)
+    .map((r) => r.summary);
+  const refusals = [...new Set([...(result.refusals ?? []), ...reportRefusals])];
+  const gateFailed = args.gateFailed || refusals.length > 0;
+  const outcome: GateReportDoc['outcome'] = refusals.length > 0
+    ? 'refusal'
+    : gateFailed
+      ? 'violation'
+      : 'pass';
+  const exitCode: GateReportDoc['exitCode'] = outcome === 'refusal'
+    ? 2
+    : exitCodeForGate(gateFailed, resolvedMode.mode);
   return {
     schemaVersion: '1',
     mode: resolvedMode.mode,
@@ -516,7 +566,9 @@ export function assembleGateReportDoc(args: {
     newViolationsTotal,
     baselinedViolationsTotal,
     gateFailed,
-    exitCode: exitCodeForGate(gateFailed, resolvedMode.mode),
+    outcome,
+    refusals,
+    exitCode,
     warnings: result.warnings ?? [],
     reports: result.reports,
   };
@@ -543,8 +595,8 @@ export function assembleGateReportDoc(args: {
  * @param blueprintDir  the authored-blueprint directory (default `<repoDir>/.blueprints`).
  * @param changed       repo-relative changed-file scope, or null for a full sweep.
  * @param extractorKind 'ast' (faithful, default) or 'line-scan' (no symbol table).
- * @param repoName      optional repo identity → stamps `report.repo` + arms the WARN-only
- *                      `scope.repositories` identity check (absent → byte-identical legacy shape).
+ * @param repoName      optional repo identity → stamps `report.repo` and fail-closed checks
+ *                      `scope.repositories` (absent leaves identity unverified).
  */
 export function computeGateReport(
   repoDir: string,
@@ -591,7 +643,8 @@ export function computeGateReport(
   const blockingBlueprints = result.reports.filter(blocks).length;
   // advisory ungates the exit entirely → the composition is: refusal always blocks → baseline
   // narrows the graded reds → advisory zeroes. `gateFailed` is the REAL build-gate signal.
-  const gateFailed = baseline !== null ? blockingBlueprints > 0 : result.failed;
+  const gateFailed = (result.refusals?.length ?? 0) > 0 ||
+    (baseline !== null ? blockingBlueprints > 0 : result.failed);
 
   const doc = assembleGateReportDoc({
     resolvedMode,

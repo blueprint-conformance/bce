@@ -26,11 +26,18 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluate } from '../src/report.js';
 import { parseBlueprint, type EngineeringBlueprint } from '../src/schema.js';
+import { resolveExtraction } from '../src/extractors.js';
+import { makeExtractor } from '../src/extractor-registry.js';
+import { observationBinding, sha256Canonical } from '../src/observations.js';
 import type { ArchitectureGraph, ObservedComponent } from '../src/graph.js';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const CLI = join(HERE, '..', 'src', 'cli.ts');
 const dirs: string[] = [];
+const PROBE = { kind: 'test', behaviorRef: 'my-flow' };
+const STIMULI = ['stimA', 'stimB'];
+const PROBE_HASH = sha256Canonical(PROBE);
+const STIMULUS_HASH = sha256Canonical(STIMULI);
 afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
 
 function bp(): EngineeringBlueprint {
@@ -41,7 +48,7 @@ function bp(): EngineeringBlueprint {
     intentRefs: ['intent:flow-varies-with-input'],
     scope: { repositories: ['repo'], paths: ['src/**'] },
     architecture: { components: [], relationships: [] },
-    constraints: [{ id: 'c-flow', type: 'behavioralInvariant', severity: 'critical', behaviorRef: 'my-flow' }],
+    constraints: [{ id: 'c-flow', type: 'behavioralInvariant', severity: 'critical', behaviorRef: 'my-flow', probeDefinitionHash: PROBE_HASH, stimulusSetHash: STIMULUS_HASH, environmentId: 'test-node22' }],
     evidenceRequirements: [{ type: 'runtimeProbe', required: true, onMissing: 'block' }],
     approvals: [{ role: 'blueprint-steward', stage: 'ratify' }],
   });
@@ -102,6 +109,27 @@ describe('--observations fail-closed validation (CLI)', () => {
     return { repo: root, bpPath };
   }
 
+  function envelope(repo: string, nodes: unknown[]): unknown {
+    const blueprint = parseBlueprint({
+      ...bp(),
+      extraction: { profile: 'plugin-surface', paths: ['src/**'], guardSymbols: ['on'], governedModules: [], forbiddenImports: [], minFiles: 1 },
+    });
+    const graph = makeExtractor('ast', resolveExtraction(blueprint.extraction, blueprint.constraints)).extract(repo, 'unpinned');
+    return {
+      schemaVersion: '1',
+      binding: {
+        ...observationBinding(repo, graph),
+        probeDefinitionHash: PROBE_HASH,
+        stimulusSetHash: STIMULUS_HASH,
+        environmentId: 'test-node22',
+      },
+      probeDefinition: PROBE,
+      stimuli: STIMULI,
+      collector: { name: 'test-collector', version: '1.0.0' },
+      observations: nodes,
+    };
+  }
+
   it('a bare --observations (no path) dies LOUD, never a silent skip', () => {
     const { repo, bpPath } = scratchRepoAndBlueprint();
     const { code, err } = runCli(['run', '--blueprint', bpPath, '--ct-repo', repo, '--no-pin', '--extractor', 'ast', '--observations']);
@@ -113,7 +141,7 @@ describe('--observations fail-closed validation (CLI)', () => {
     const { repo, bpPath } = scratchRepoAndBlueprint();
     const obsPath = join(repo, 'obs.json');
     // path missing the "|<0|1>" oracle segment → must be rejected
-    writeFileSync(obsPath, JSON.stringify([{ id: 'behavior:my-flow:x', type: 'behaviorObservation', path: 'nohash', line: 1 }]));
+    writeFileSync(obsPath, JSON.stringify(envelope(repo, [{ id: 'behavior:my-flow:x', type: 'behaviorObservation', path: 'nohash', line: 1 }])));
     const { code, err } = runCli(['run', '--blueprint', bpPath, '--ct-repo', repo, '--no-pin', '--extractor', 'ast', '--observations', obsPath]);
     expect(code).not.toBe(0);
     expect(err).toMatch(/path must be exactly/);
@@ -122,9 +150,32 @@ describe('--observations fail-closed validation (CLI)', () => {
   it('a non-array observations file is REJECTED', () => {
     const { repo, bpPath } = scratchRepoAndBlueprint();
     const obsPath = join(repo, 'obs.json');
-    writeFileSync(obsPath, JSON.stringify({ not: 'an array' }));
+    const malformed = envelope(repo, []) as { observations: unknown };
+    malformed.observations = { not: 'an array' };
+    writeFileSync(obsPath, JSON.stringify(malformed));
     const { code, err } = runCli(['run', '--blueprint', bpPath, '--ct-repo', repo, '--no-pin', '--extractor', 'ast', '--observations', obsPath]);
     expect(code).not.toBe(0);
-    expect(err).toMatch(/must be a JSON array/);
+    expect(err).toMatch(/observations must be a JSON array/);
+  });
+
+  it('REFUSES observations replayed against changed source', () => {
+    const { repo, bpPath } = scratchRepoAndBlueprint();
+    const obsPath = join(repo, 'obs.json');
+    writeFileSync(obsPath, JSON.stringify(envelope(repo, [obs('stimA', 'a', true), obs('stimB', 'b', true)])));
+    writeFileSync(join(repo, 'src', 'a.ts'), 'export const a = 2;\n');
+    const { code, err } = runCli(['run', '--blueprint', bpPath, '--ct-repo', repo, '--no-pin', '--extractor', 'ast', '--observations', obsPath]);
+    expect(code).not.toBe(0);
+    expect(err).toMatch(/binding mismatch for sourceTreeHash|binding mismatch for artifactHash/);
+  });
+
+  it('REFUSES probe or stimulus tampering', () => {
+    const { repo, bpPath } = scratchRepoAndBlueprint();
+    const obsPath = join(repo, 'obs.json');
+    const tampered = envelope(repo, [obs('stimA', 'a', true), obs('stimB', 'b', true)]) as { probeDefinition: unknown };
+    tampered.probeDefinition = { kind: 'tampered' };
+    writeFileSync(obsPath, JSON.stringify(tampered));
+    const { code, err } = runCli(['run', '--blueprint', bpPath, '--ct-repo', repo, '--no-pin', '--extractor', 'ast', '--observations', obsPath]);
+    expect(code).not.toBe(0);
+    expect(err).toMatch(/probeDefinition does not match/);
   });
 });

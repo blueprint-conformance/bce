@@ -16,8 +16,8 @@
 #      BCE_BLUEPRINT_DIR overrides it.
 #
 # Environment overrides (all optional; every one is honored in both modes):
-#   BCE_BIN            Command used to invoke the CLI. Default: "npx bce" (works when bce-engine
-#                      is a devDependency). May contain arguments, e.g.
+#   BCE_BIN            Command used to invoke the CLI. Default: the project-local bce binary
+#                      (requires bce-engine as a dependency). May contain arguments, e.g.
 #                      BCE_BIN="node --import tsx /path/to/bce/src/cli.ts"
 #   BCE_REPO_DIR       DIRECT MODE: gate this directory as-is (full sweep) and skip the git
 #                      staged-tree materialization entirely. This is how the hook's own test
@@ -32,7 +32,7 @@
 
 set -eu
 
-BCE_BIN="${BCE_BIN:-npx bce}"
+BCE_BIN="${BCE_BIN:-node_modules/.bin/bce}"
 BCE_EXTRACTOR="${BCE_EXTRACTOR:-ast}"
 
 # ── DIRECT MODE: BCE_REPO_DIR set → gate that tree as-is (full sweep), no git required ─────────

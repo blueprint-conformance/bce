@@ -56,7 +56,8 @@ agent picks it up alongside everything else the repo already tells it.
 For any agent that can run shell commands, the wiring is just the snippet plus the gate on PATH:
 
 ```bash
-npm install -g bce-engine
+cd /path/to/bce && npm ci && npm run build
+# invoke /path/to/bce/dist/cli.js from the agent instructions
 # then append the matching snippet to CLAUDE.md / .cursorrules / AGENTS.md
 ```
 

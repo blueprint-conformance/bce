@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1",
+  "purpose": "harness-development-only",
+  "eligibleForPerformanceClaims": false,
+  "cases": [
+    { "id": "packaged-conformant", "path": "fixtures/extension-surface/conformant" },
+    { "id": "packaged-forbidden-import", "path": "fixtures/extension-surface/drift-forbidden-import" }
+  ]
+}

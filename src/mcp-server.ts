@@ -22,7 +22,9 @@
  * the caller never receives a green-looking result it did not fail-close on. A tool that cannot
  * honestly answer returns an error, never a fabricated pass.
  *
- * Tools (EXACTLY these four — a THIN mirror of the CLI verbs):
+ * Tools (read-only, safe autonomous surface — a THIN mirror of engine APIs):
+ *   doctor_repository   → doctorRepository    (adoption/readiness diagnosis)
+ *   check_baseline      → assessBaselineMaintenance (shrink/new-debt diagnosis)
  *   validate_blueprint  → parseBlueprint      (schema-validate an authored blueprint)
  *   run_gate            → computeGateReport    (the machine gate doc — identical to `gate --report-json`)
  *   assess_teeth        → assessTeeth          (the toothlessness/refutability grade)
@@ -38,6 +40,10 @@ import {
   makeExtractor,
   resolveTreeRevision,
   stableStringify,
+  doctorRepository,
+  runGate,
+  readBaseline,
+  assessBaselineMaintenance,
 } from './index.js';
 
 // ── JSON-RPC 2.0 framing (newline-delimited, per MCP stdio transport spec) ──────────────────────
@@ -172,9 +178,35 @@ function readJsonFile(p: string): unknown {
   }
 }
 
-// ── The four tools — each a literal shell over one exported engine call ──────────────────────────
+// Safe autonomous tools are read-only. Policy approval/mutation verbs are intentionally absent.
 
 const TOOL_DEFINITIONS = [
+  {
+    name: 'doctor_repository',
+    description: 'Read-only adoption/readiness audit. Returns typed ready, needs-action, or refusal checks; mutates nothing.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoDir: { type: 'string', description: 'Repository tree to inspect.' },
+        blueprintDir: { type: 'string', description: 'Optional blueprint directory.' },
+      },
+      required: ['repoDir'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'check_baseline',
+    description: 'Read-only baseline maintenance check. Identifies removable debt and unaccepted new violations without changing policy.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoDir: { type: 'string', description: 'Repository tree to inspect.' },
+        blueprintDir: { type: 'string', description: 'Optional blueprint directory.' },
+      },
+      required: ['repoDir'],
+      additionalProperties: false,
+    },
+  },
   {
     name: 'validate_blueprint',
     description:
@@ -219,7 +251,7 @@ const TOOL_DEFINITIONS = [
         },
         repoName: {
           type: 'string',
-          description: 'Optional repo identity (stamps report.repo + the WARN-only scope check).',
+          description: 'Optional repo identity (stamps report.repo + fail-closed scope check).',
         },
       },
       required: ['repoDir'],
@@ -291,6 +323,17 @@ function callTool(name: string, rawArgs: unknown): Record<string, unknown> {
   const args = (rawArgs && typeof rawArgs === 'object' ? rawArgs : {}) as Record<string, unknown>;
   try {
     switch (name) {
+      case 'doctor_repository': {
+        const repoDir = requireString(args, 'repoDir');
+        const blueprintDir = optionalString(args, 'blueprintDir') ?? path.join(repoDir, '.blueprints');
+        return toolResult(doctorRepository(repoDir, blueprintDir));
+      }
+      case 'check_baseline': {
+        const repoDir = requireString(args, 'repoDir');
+        const blueprintDir = optionalString(args, 'blueprintDir') ?? path.join(repoDir, '.blueprints');
+        const gate = runGate(repoDir, blueprintDir, null, 'ast');
+        return toolResult(assessBaselineMaintenance(gate.reports, readBaseline(repoDir), gate.refusals ?? []));
+      }
       case 'validate_blueprint': {
         const p = requireString(args, 'blueprintPath');
         const raw = readJsonFile(p); // fail-closed read

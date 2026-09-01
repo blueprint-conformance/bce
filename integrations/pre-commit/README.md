@@ -50,7 +50,7 @@ repos:
 
 | Variable | Effect | Default |
 |----------|--------|---------|
-| `BCE_BIN` | Command used to invoke the CLI (may contain arguments) | `npx bce` |
+| `BCE_BIN` | Command used to invoke the CLI (may contain arguments) | `node_modules/.bin/bce` |
 | `BCE_REPO_DIR` | **Direct mode**: gate this directory as-is (full sweep), skipping the git staged-tree step — usable outside a git repo | unset |
 | `BCE_BLUEPRINT_DIR` | Blueprint discovery directory (`--blueprint-dir`) | engine default (`<repo>/.blueprints`) |
 | `BCE_EXTRACTOR` | Extractor kind, `ast` or `line-scan` | `ast` |

@@ -194,6 +194,12 @@ export const ConstraintSchema = z
      * a behavioralInvariant that names no observation set can never pass).
      */
     behaviorRef: z.string().optional(),
+    /** sha256 of the canonical runtime probe definition accepted for this invariant. */
+    probeDefinitionHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    /** sha256 of the canonical ordered stimulus set accepted for this invariant. */
+    stimulusSetHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    /** stable environment identity from which accepted observations must originate. */
+    environmentId: z.string().min(1).optional(),
     /**
      * (forbiddenPattern — 0.9.0) the content regex this constraint forbids, evaluated PER-LINE
      * over the raw scanned-file set (`coverage.patternScan` — see graph.ts). REQUIRED (and must
@@ -272,10 +278,29 @@ export const BlueprintMetadataSchema = z
   .passthrough();
 export type BlueprintMetadata = z.infer<typeof BlueprintMetadataSchema>;
 
+/**
+ * Blueprint scan paths are always repository-relative. Reject traversal at the
+ * schema boundary so a reviewed contract cannot make files outside the target
+ * repository contribute evidence. The extractor repeats the containment check
+ * after realpath resolution as defense in depth against symlinks.
+ */
+const RepoRelativePathPatternSchema = z.string().min(1).superRefine((value, ctx) => {
+  const normalized = value.replace(/\\/g, '/');
+  if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'path must be repository-relative' });
+  }
+  if (normalized.split('/').includes('..')) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "path must not contain '..' traversal" });
+  }
+  if (normalized.includes('\0')) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'path must not contain NUL' });
+  }
+});
+
 export const BlueprintScopeSchema = z
   .object({
     repositories: z.array(z.string()).min(1),
-    paths: z.array(z.string()).optional(),
+    paths: z.array(RepoRelativePathPatternSchema).optional(),
     environments: z.array(z.string()).optional(),
   })
   .passthrough();
@@ -303,7 +328,7 @@ export type BlueprintArchitecture = z.infer<typeof BlueprintArchitectureSchema>;
  *
  *  - `profile: 'next-route-handler'` — the original: exported HTTP-verb functions in
  *    Next.js `route.ts` files are components; `guardSymbols` called (bare identifier) in a
- *    handler body are `guards` edges.
+ *    handler body are `guards` edges only when their imports resolve to `governedModules`.
  *  - `profile: 'plugin-surface'` — an agent-host ExtensionFactory surface: an exported
  *    extension factory (or a `pi.registerTool({...})` call) is a component; symbols in
  *    `requiredSymbols` called in the factory body are `provides` edges; `forbiddenImports`
@@ -329,7 +354,7 @@ export const BlueprintExtractionSchema = z
      * (only valid with the next-route-handler profile). For plugin-surface, REQUIRED.
      * Simple `**` / `*` globs (no brace expansion) — resolved deterministically, sorted.
      */
-    paths: z.array(z.string()).optional(),
+    paths: z.array(RepoRelativePathPatternSchema).optional(),
     /**
      * symbols whose bare-identifier CALL inside a component body counts as a satisfied
      * `guards` (next-route-handler) or `provides` (plugin-surface) edge. Absent →
@@ -354,11 +379,10 @@ export const BlueprintExtractionSchema = z
      */
     forbiddenEgressHosts: z.array(z.string()).optional(),
     /**
-     * (plugin-surface) module specifiers that provide the GOVERNED registration helper. A
-     * BARE `registerTool(...)` call is credited as a `provides` edge ONLY when its symbol is
-     * imported from one of these modules. Absent/empty → a bare call is NEVER credited (only the
-     * explicit `<harness>.registerTool(...)` property-access form proves governance). This closes
-     * the "bare registerTool imported from any/ungoverned module falsely passes" hole.
+     * Module specifiers that provide GOVERNED helpers. A bare route guard or plugin registration
+     * call is credited ONLY when its symbol is imported from one of these modules. Absent/empty →
+     * a bare call is NEVER credited (plugin-surface may still prove governance through the explicit
+     * `<harness>.registerTool(...)` property-access form).
      */
     governedModules: z.array(z.string()).optional(),
     /**

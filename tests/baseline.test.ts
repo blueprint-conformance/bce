@@ -22,6 +22,8 @@ import {
   violationIdentity,
   readBaseline,
   planBaselineWrite,
+  assessBaselineMaintenance,
+  renderBaselineShrinkPatch,
   partitionAgainstBaseline,
   serializeBaseline,
   BaselineError,
@@ -148,6 +150,43 @@ describe('planBaselineWrite — FRESH creation grows once; a re-write can only S
     expect(plan.entries).toEqual(existing.entries);
     expect(plan.removed).toHaveLength(0);
     expect(plan.refused).toHaveLength(0);
+  });
+});
+
+describe('typed baseline maintenance and generated shrink patches', () => {
+  const entry = (constraintId: string, component: string) => ({
+    id: violationIdentity('bp@1.0.0', { constraintId, component }),
+    blueprintRef: 'bp@1.0.0',
+    constraintId,
+    component,
+    severity: 'high' as const,
+  });
+
+  it('distinguishes clean, shrink-needed, unaccepted-new, and refusal without prose parsing', () => {
+    const a = entry('c1', 'a');
+    const b = entry('c2', 'b');
+    const baseline: BaselineFile = { schemaVersion: '1', engine: '0.1.0', entries: [a, b] };
+    expect(assessBaselineMaintenance([report('bp@1.0.0', [viol('c1', 'a'), viol('c2', 'b')])], baseline).result)
+      .toMatchObject({ state: 'clean', exitCode: 0 });
+    expect(assessBaselineMaintenance([report('bp@1.0.0', [viol('c1', 'a')])], baseline).result)
+      .toMatchObject({ state: 'shrink-needed', removable: 1, exitCode: 1 });
+    expect(assessBaselineMaintenance([report('bp@1.0.0', [viol('c1', 'a'), viol('c3', 'c')])], baseline).result)
+      .toMatchObject({ state: 'unaccepted-new', unacceptedNew: 1, exitCode: 1 });
+    expect(assessBaselineMaintenance([], baseline, ['extractor refused']).result)
+      .toMatchObject({ state: 'refusal', exitCode: 2, refusalReasons: ['extractor refused'] });
+  });
+
+  it('renders only a subset target and refuses any debt-adding patch', () => {
+    const a = entry('c1', 'a');
+    const b = entry('c2', 'b');
+    const existing: BaselineFile = { schemaVersion: '1', engine: '0.1.0', entries: [a, b] };
+    const shrink = planBaselineWrite([report('bp@1.0.0', [viol('c1', 'a')])], existing);
+    const patch = renderBaselineShrinkPatch(existing, shrink);
+    expect(patch).toContain(`--- a/${BASELINE_RELPATH}`);
+    expect(patch).toContain(`+++ b/${BASELINE_RELPATH}`);
+    expect(shrink.entries.map((e) => e.id)).toEqual([a.id]);
+    expect(() => renderBaselineShrinkPatch(existing, { ...shrink, entries: [...shrink.entries, entry('c3', 'c')] }))
+      .toThrow(/target contains an identity absent/);
   });
 });
 
@@ -414,8 +453,32 @@ describe('E2E — baseline never suppresses a FAIL-CLOSED refusal (an empty scan
     expect(runCli(['baseline', '--repo', dir], dir).status).toBe(0);
     fs.rmSync(path.join(dir, 'src'), { recursive: true, force: true });
     const r = runCli(['gate', '--repo', dir], dir);
-    expect(r.status, 'a fail-closed refusal is never suppressed by a baseline').toBe(1);
+    expect(r.status, 'a fail-closed refusal is never suppressed by a baseline').toBe(2);
     expect(r.stderr).toContain('FAILED');
     expect(r.stderr.toLowerCase()).toMatch(/fail-closed|scanned 0|expected >=/);
+  });
+});
+
+describe('E2E — baseline --check is typed and patch generation is shrink-only', () => {
+  it('reports unaccepted-new → clean → shrink-needed with machine JSON and a removal patch', () => {
+    const dir = arrangeRepo('drift-forbidden-import');
+    const checkJson = path.join(dir, 'baseline-check.json');
+    const first = runCli(['baseline', '--repo', dir, '--check', '--out', checkJson], dir);
+    expect(first.status).toBe(1);
+    expect(JSON.parse(fs.readFileSync(checkJson, 'utf8'))).toMatchObject({ state: 'unaccepted-new', exitCode: 1 });
+
+    expect(runCli(['baseline', '--repo', dir], dir).status).toBe(0);
+    const clean = runCli(['baseline', '--repo', dir, '--check', '--out', checkJson], dir);
+    expect(clean.status).toBe(0);
+    expect(JSON.parse(fs.readFileSync(checkJson, 'utf8'))).toMatchObject({ state: 'clean', exitCode: 0 });
+
+    fs.rmSync(path.join(dir, 'src'), { recursive: true });
+    fs.cpSync(path.join(FIXROOT, 'extension-surface', 'conformant', 'src'), path.join(dir, 'src'), { recursive: true });
+    const patchOut = path.join(dir, 'baseline-shrink.patch');
+    const shrink = runCli(['baseline', '--repo', dir, '--check', '--out', checkJson, '--patch-out', patchOut], dir);
+    expect(shrink.status).toBe(1);
+    expect(JSON.parse(fs.readFileSync(checkJson, 'utf8'))).toMatchObject({ state: 'shrink-needed', removable: 1, exitCode: 1 });
+    expect(fs.readFileSync(patchOut, 'utf8')).toContain(`--- a/${BASELINE_RELPATH}`);
+    expect(readBaseline(dir)?.entries).toHaveLength(1); // check/patch generation did not mutate the baseline
   });
 });

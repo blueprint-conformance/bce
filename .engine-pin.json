@@ -4,8 +4,8 @@
   "pin": "0.1.0",
   "range": false,
   "rangeRationale": "EXACT pin only \u2014 never ^0.1.0, ~0.1.0, or @latest. Lane A must be independent of the code under review, so it installs a fixed published artifact. A range would let a later publish silently change the grader every contributor is measured against, reintroducing the trusting-trust hole Lane A exists to close. The caret-0.x incident is the recorded reason: on a 0.x line `^0.6.0` is equivalent to `~0.6.0` and EXCLUDES 0.7.0, so a caret pin does not even receive a minor bump \u2014 it ships dead-green.",
-  "published": true,
-  "publishedNote": "true as of the 0.1.0 publish to the public npm registry. Lane A is ACTIVE: self-gate.yml installs the pinned published engine and grades this tree with an artifact it did not build. Flipping this to true BEFORE `npm publish` succeeds would arm a REQUIRED check against a version npm cannot serve, wedging every PR \u2014 publish first, verify `npm view bce-engine version` returns 0.1.0, then land this.",
+  "published": false,
+  "publishedNote": "false until bce-engine@0.1.0 is verifiably live on the public npm registry. The registry currently exposes only a 0.0.0 reservation stub; Lane A remains dormant.",
   "bumpCeremony": "docs/pin-ceremony.md",
-  "trustAnchor": "The pinned engine is the PUBLISHED artifact from the public registry, so a defective change to the engine in a PR under review cannot influence the Lane-A verdict \u2014 Lane A rebuilds nothing from the branch."
+  "trustAnchor": "Planned: after publication, Lane A will use a fixed registry artifact independent of the code under review. This trust anchor does not exist yet."
 }

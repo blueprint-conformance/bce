@@ -43,6 +43,9 @@
       "type": "behavioralInvariant",
       "severity": "critical",
       "behaviorRef": "chat-completion",
+      "probeDefinitionHash": "2a4e40c28e28fbdec6b39931d3804e4c8f2fe2f8c8220a66eb81daa2d1cd60aa",
+      "stimulusSetHash": "ee1edf838824e4a09beeeea2964b7a3215baf7d6ea267af41f7908c6a630631e",
+      "environmentId": "fixture-node22",
       "policyRef": "policy/anti-mock-substance"
     }
   ],

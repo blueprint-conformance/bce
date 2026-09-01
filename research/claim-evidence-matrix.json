@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "1",
+  "claims": [
+    { "claim": "BCE deterministically detects its packaged seeded violations", "status": "product-test-supported", "evidence": "test suite and packaged consumer proof" },
+    { "claim": "BCE generalizes to held-out repositories", "status": "unestablished", "evidence": null },
+    { "claim": "BCE improves coding-agent outcomes", "status": "unestablished", "evidence": null },
+    { "claim": "BCE reduces cost or iteration count", "status": "unestablished", "evidence": null },
+    { "claim": "BCE governance is independently enforced on GitHub", "status": "unestablished", "evidence": null }
+  ]
+}
