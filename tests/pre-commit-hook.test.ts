@@ -17,7 +17,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -116,6 +116,16 @@ describe('pre-commit hook — GIT mode (gates the STAGED tree)', () => {
     writeFileSync(join(repo, rel), readFileSync(join(DRIFT, rel), 'utf8'));
     const r = runHook({}, repo);
     expect(r.code).toBe(0);
+  });
+
+  it('deleting the last staged blueprint is graded and refuses the commit', () => {
+    const repo = makeStagedRepo(CONFORMANT);
+    git(repo, '-c', 'user.name=bce-test', '-c', 'user.email=bce@example.invalid', 'commit', '-qm', 'initial');
+    rmSync(join(repo, '.blueprints', 'luna-chat-extension.blueprint.json'));
+    git(repo, 'add', '-A');
+    const r = runHook({}, repo);
+    expect(r.code).toBe(2);
+    expect(r.output).toContain('0 blueprint(s) discovered');
   });
 
   it('an empty index exits 0 WITHOUT invoking the engine (BCE_BIN is a guaranteed-failing command)', () => {

@@ -90,6 +90,7 @@ const PAGES = [
   { route: '', kind: 'landing', source: 'README.md', nav: 'Home', section: null },
 
   { route: 'guides/quickstart', source: 'docs/quickstart.md', nav: 'Quickstart', section: 'Guides' },
+  { route: 'guides/onboarding', source: 'docs/onboarding.md', section: 'Guides' },
   { route: 'guides/first-win', source: 'docs/first-win.md', section: 'Guides' },
 
   { route: 'spec', source: 'spec/SPEC.md', nav: 'Specification', section: 'Specification' },

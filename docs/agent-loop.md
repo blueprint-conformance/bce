@@ -53,12 +53,13 @@ agent picks it up alongside everything else the repo already tells it.
 
 ### Claude Code / Cursor / CLI harnesses
 
-For any agent that can run shell commands, the wiring is just the snippet plus the gate on PATH:
+For any agent that can run shell commands, an exact Git dependency puts the gate on the project's
+PATH. `bce onboard` can preserve and extend the appropriate context file automatically:
 
 ```bash
-cd /path/to/bce && npm ci && npm run build
-# invoke /path/to/bce/dist/cli.js from the agent instructions
-# then append the matching snippet to CLAUDE.md / .cursorrules / AGENTS.md
+npm install --save-dev \
+  "git+https://github.com/blueprint-conformance/bce.git#<reviewed-40-character-commit-sha>"
+npx --no-install bce demo
 ```
 
 The agent runs `bce gate` (whole-repo: `bce gate --repo . --extractor ast`) as its done-check, reads
@@ -66,11 +67,13 @@ the named `file#L<line>` on a red, fixes the code, and re-gates until green.
 
 ### Generic MCP
 
-For an agent that speaks MCP, the `bce-mcp` stdio server exposes the same engine as the CLI, as four
-logic-free tools:
+For an agent that speaks MCP, the `bce-mcp` stdio server exposes the same engine as the CLI as six
+read-only tools:
 
 | Tool | Does |
 |---|---|
+| `doctor_repository` | inventory the full installation and return typed readiness actions |
+| `check_baseline` | identify new debt and shrink opportunities without changing policy |
 | `validate_blueprint` | parse + schema-check a blueprint |
 | `run_gate` | the done-check — grade a repo, return verdict + violations |
 | `assess_teeth` | confirm a blueprint is not vacuous (a realistic change could redden it) |
@@ -80,6 +83,10 @@ Point your agent's MCP client at the `bce-mcp` bin (it ships in the same package
 snippets tell the agent to prefer `run_gate` as its done-check. The server is deliberately thin — it
 holds no logic of its own, so there is nothing in it to diverge from the CLI. See
 [`integrations/README.md`](../integrations/README.md) for the MCP details.
+
+The MCP surface cannot approve or weaken policy. `adopt`, `ratify`, `amend`, `graduate`, and baseline
+growth remain attended CLI/review acts. [`onboarding.md`](onboarding.md) shows the generated project
+configs and the Codex registration command.
 
 ## Having an agent draft the first blueprint (experimental)
 

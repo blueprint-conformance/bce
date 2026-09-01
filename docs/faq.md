@@ -10,8 +10,8 @@ drifts does not turn the build red on day one for debt nobody introduced today. 
 that this is a `# noqa`-for-the-whole-repo — a way to make the gate green by declaring the failures
 acceptable. It is not, and the mechanics are what make that true, not a promise.
 
-**A baseline only ever shrinks.** This is the load-bearing property, and it is enforced by the tool,
-not by convention:
+**An existing baseline cannot grow in place.** This is the load-bearing command property; repository
+review remains part of the security boundary because deleting and recreating the file can expand it:
 
 - The FIRST `bce baseline` (no file yet) records every current violation. This is the only moment the
   accepted set can grow, and it produces a **new file in your diff** — a reviewer sees exactly which

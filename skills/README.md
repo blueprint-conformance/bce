@@ -75,12 +75,18 @@ documentation.
 Copy the whole directory, not just `SKILL.md`: `skill-tuning` reads its `references/` on demand,
 and a skill whose references are missing fails by finding nothing rather than by reporting it.
 
-The skill drives the `bce` CLI, so the command has to be reachable. **Today that means a checkout**
-— `git clone https://github.com/blueprint-conformance/bce`, then `npm ci && npm run build`, and use
-`node /path/to/bce/dist/cli.js` wherever the skill says `bce`. `npm install -g bce-engine` is not
-yet the path: the npm name currently holds a `0.0.0` reservation stub whose binary exits 0 on every
-command, so it would hand you an unconditionally-green done-check. It becomes the short path once
-`0.1.0` publishes.
+The skill drives the `bce` CLI, so the command has to be reachable. Before npm publication, install
+an exact reviewed Git commit in the target project; its `prepare` script builds both package bins:
+
+```bash
+npm install --save-dev \
+  "git+https://github.com/blueprint-conformance/bce.git#<reviewed-40-character-commit-sha>"
+npx --no-install bce demo
+```
+
+Do not install the registry's `0.0.0` reservation stub. The Git-installed package also contains
+`skills/`, `prompts/`, integration snippets, schemas, and onboarding docs, so copying a plain skill
+from `node_modules/bce-engine/skills/` does not require a second checkout.
 
 ## Skill, snippet, or MCP server?
 
@@ -90,7 +96,7 @@ Three surfaces, three different jobs. They compose; they are not alternatives to
 |---|---|---|
 | **Agent Skill** (this directory) | On-demand lifecycle instructions — the full author → validate → run → teeth → gate path, loaded when the agent needs it | An agent is *creating* a contract, or adopting the gate on a repository for the first time |
 | **House-rules snippet** ([`integrations/`](../integrations/README.md)) | An always-loaded block of three standing rules for a repository that already has a blueprint | An agent is *working inside* a gated repository day to day |
-| **MCP server** (`bce-mcp`, ships with the package) | Four logic-free tools over the same engine: `validate_blueprint`, `run_gate`, `assess_teeth`, `get_report` | The agent speaks MCP and should call the gate rather than shell out |
+| **MCP server** (`bce-mcp`, ships with the package) | Six read-only tools: readiness + baseline diagnosis, validation, gate, teeth, and report reading | The agent speaks MCP and should call the gate rather than shell out |
 
 The snippet is the standing done-check; the skill is the thing that gets a contract to exist in the
 first place.
@@ -101,5 +107,7 @@ first place.
   minutes, no network beyond one install.
 - [`../docs/agent-loop.md`](../docs/agent-loop.md) — running the gate as an agent's done-check, per
   harness.
+- [`../docs/onboarding.md`](../docs/onboarding.md) — install and compose CLI, skill, context, MCP,
+  CI, lifecycle, and evidence as one stack.
 - [`../spec/SPEC.md`](../spec/SPEC.md) — the normative artifact model, taxonomy, scoring, and exit
   codes the skill's commands are grounded in.
