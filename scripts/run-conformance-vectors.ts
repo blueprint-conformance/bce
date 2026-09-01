@@ -187,6 +187,7 @@ export function executeVector(vector: ConformanceVector): VectorOutcome {
     '--ct-repo', treeAbs,
     '--extractor', vector.extractor,
     '--no-pin',
+    '--ref', vector.tree.replace(/^fixtures\//, ''),
     '--out', out,
   ];
   const obs = path.join(treeAbs, 'observations.json');

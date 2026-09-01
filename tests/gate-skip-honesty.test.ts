@@ -1,16 +1,15 @@
 /**
  * FIX-B + FIX-E — first-class, EXPLICIT gate-mode skips (the widen-only ratchet: an un-gradeable
- * constraint is NEVER silently satisfied AND never silently reddened for evidence the mode
- * structurally cannot have; every skip is an explicit advisory with a count).
+ * constraint is NEVER silently satisfied. Any ungradeable constraint produces a structural
+ * refusal (exit 2 at the CLI boundary), while gradeable statics still provide diagnostics.
  *
  * Proves:
  *  - FIX-B: a behavioralInvariant (run-only, behaviorObservation-class) constraint is SKIPPED in
- *    `bce gate` with an explicit warning + `runOnlySkipped` count — the statics grade exactly as
- *    today; an ALL-behavioral blueprint is an explicit-skip pass, never `__no-enforcing-constraints__`
- *    and never an unexplained green. (`bce run --observations` remains the authoritative grader —
+ *    `bce gate` with an explicit refusal + `runOnlySkipped` count; an ALL-behavioral blueprint is
+ *    a score-0 refusal, never an unexplained green. (`bce run --observations` remains the grader —
  *    report.ts's behavioralInvariant fail-close is untouched.)
  *  - FIX-E a: an unknown (newer-engine) constraint type is DROPPED per-constraint with an explicit
- *    warning + `unknownConstraintsSkipped` count — never a whole-file score-0 parse reject; an
+ *    refusal + `unknownConstraintsSkipped` count; known constraints still yield diagnostics; an
  *    ALL-unknown blueprint is a hard fail-closed parse failure; any OTHER malformation still throws.
  *  - FIX-E b: `minEngineVersion` above the running engine yields the CLEAR "upgrade the pinned
  *    engine" score-0 report (not a zod enum trace); equal/below grades normally.
@@ -87,20 +86,21 @@ describe('constraintEvidenceClass — the pure classifier (derived from type, no
 });
 
 describe('FIX-B — run-only constraint skip in gate mode', () => {
-  it('MIXED conformant: statics grade to PASS, behavioralInvariant is an explicit skip (runOnlySkipped=1), NOT a violation', () => {
+  it('MIXED conformant: statics diagnose PASS but the ungraded behavioralInvariant REFUSES the gate', () => {
     const dir = writeRepo(lunaVariant({ constraints: [...LUNA.constraints, BI] }), 'conformant');
     const r = gate(dir, [EXT]);
-    expect(r.failed).toBe(false);
+    expect(r.failed).toBe(true);
     expect(r.reports[0].verdict).toBe('pass');
     expect(r.runOnlySkipped).toBe(1);
     // the advisory is explicit, on BOTH surfaces: GateResult.warnings AND the report summary.
     expect(r.warnings).toBeDefined();
     expect(
       r.warnings!.some((w) =>
-        w.includes("run-only constraint skipped in gate mode: served-substance (behavioralInvariant)"),
+        w.includes("run-only constraint served-substance (behavioralInvariant) is not gradeable"),
       ),
     ).toBe(true);
     expect(r.reports[0].summary).toContain('1 run-only constraint(s) skipped in gate mode');
+    expect(r.refusals).toHaveLength(1);
     // never a violation — the skip is not a RED (report.ts's run-path fail-close is untouched).
     expect(r.reports[0].violations.map((v) => v.constraintId)).not.toContain('served-substance');
   });
@@ -115,43 +115,46 @@ describe('FIX-B — run-only constraint skip in gate mode', () => {
     expect(r.runOnlySkipped).toBe(1);
   });
 
-  it('ALL-BEHAVIORAL: explicit-skip PASS — never __no-enforcing-constraints__, never an unexplained green', () => {
+  it('ALL-BEHAVIORAL: score-0 REFUSAL — never __no-enforcing-constraints__, never green', () => {
     // no source at all: with zero static constraints there is no static surface to scan.
     const dir = writeRepo(lunaVariant({ constraints: [BI] }), 'none');
     const r = gate(dir);
-    expect(r.failed).toBe(false);
+    expect(r.failed).toBe(true);
     const report = r.reports[0];
-    expect(report.verdict).toBe('pass');
+    expect(report.verdict).toBe('fail');
+    expect(report.score).toBe(0);
     expect(report.violations).toHaveLength(0);
     // the pass is EXPLAINED — a reader cannot mistake it for a graded pass.
     expect(report.summary).toContain('0 static constraint(s) graded in gate mode');
     expect(report.summary).toContain('1 run-only constraint(s) skipped');
-    expect(report.summary).toContain('NOT a graded pass');
+    expect(report.summary).toContain('gate REFUSED');
     expect(report.coverage.unsupported.some((u) => u.includes("'served-substance'"))).toBe(true);
     // and it is NOT the fail-closed enforces-nothing marker (the blueprint DOES enforce — at run time).
     expect(stableStringify(report)).not.toContain('__no-enforcing-constraints__');
     expect(r.runOnlySkipped).toBe(1);
     expect(r.warnings).toBeDefined();
+    expect(r.refusals).toHaveLength(1);
   });
 });
 
 describe('FIX-E a — unknown constraint type: per-constraint drop, never whole-file parse-reject', () => {
   const threeStatics = () => LUNA.constraints.slice(0, 3).map((c) => structuredClone(c));
 
-  it('3 valid statics + 1 unknown: the 3 grade correctly (PASS, score 100) + unknownConstraintsSkipped=1 + advisory — NOT score 0', () => {
+  it('3 valid statics + 1 unknown: known statics diagnose PASS, but the unknown type REFUSES', () => {
     const dir = writeRepo(lunaVariant({ constraints: [...threeStatics(), UNKNOWN] }), 'conformant');
     const r = gate(dir);
-    expect(r.failed).toBe(false);
+    expect(r.failed).toBe(true);
     expect(r.reports[0].verdict).toBe('pass');
     expect(r.reports[0].score).toBe(100); // graded, NOT the score-0 parse-reject
     expect(r.reports[0].summary).not.toContain('failed to parse');
     expect(r.unknownConstraintsSkipped).toBe(1);
     expect(
       r.warnings!.some(
-        (w) => w.includes("unknown constraint type 'quantumInvariant' (id future-quantum) skipped") && w.includes('upgrade the gate pin'),
+        (w) => w.includes("unknown constraint type 'quantumInvariant' (id future-quantum) is not gradeable") && w.includes('upgrade the gate pin'),
       ),
     ).toBe(true);
     expect(r.reports[0].summary).toContain('1 unknown constraint type(s) skipped');
+    expect(r.refusals).toHaveLength(1);
   });
 
   it('3 valid statics + 1 unknown on a DRIFT tree: the statics still have teeth (real violation fires)', () => {

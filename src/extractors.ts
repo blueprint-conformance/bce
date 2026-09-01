@@ -50,6 +50,7 @@ const DEFAULT_GUARD_SYMBOLS = [
   'requireTenantWriteAccess',
   'requireTenantAdminAccess',
 ] as const;
+const DEFAULT_ROUTE_GOVERNED_MODULES = ['@/lib/auth-middleware', '@/lib/tenant-guards'] as const;
 
 /**
  * The ontology-write-authority surface — the walking-skeleton scope. Repo-relative
@@ -151,7 +152,7 @@ export function resolveExtraction(
       // union even in the default profile, so a CT blueprint that forbids a module is honored.
       forbiddenImports: [...new Set(constraintForbidden)].sort(),
       forbiddenEgressHosts: [...new Set(constraintEgressHosts)].sort(),
-      governedModules: [],
+      governedModules: DEFAULT_ROUTE_GOVERNED_MODULES,
       minFiles: MIN_EXPECTED_ROUTE_FILES,
       egressEnabled,
       governedHosts,

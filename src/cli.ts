@@ -71,7 +71,7 @@ import { compilePortfolio, serializeBlueprintCanonical, slugifyRepo } from './po
 import { collectPortfolio, PortfolioRegistrySchema } from './portfolio-collect.js';
 import { architectureScore } from './score.js';
 import type { ArchitectureGraph, ObservedComponent } from './graph.js';
-import { loadObservations } from './observations.js';
+import { loadObservations, observationBinding } from './observations.js';
 
 interface Args {
   _: string[];
@@ -528,19 +528,38 @@ function main(): void {
       die(`--observations requires a file path (bce run ... --observations <path>).`);
     }
     const graph = buildGraph(args['ct-repo'] as string, args.ref as string | undefined, extractorKind, noPin, cfg);
-    // 0.9.0 --observations: ingest a served-runtime probe's behaviorObservation nodes and MERGE them
+    // Ingest a provenance-bound served-runtime observation envelope and MERGE its nodes
     // into the observed graph's components AFTER the static extract, BEFORE evaluate. The
     // behavioralInvariant grader (report.ts) already reads these nodes FROM the graph; this is the
     // only missing produce→ingest seam. Absent flag → today's behavior (a behavioralInvariant then
     // finds <2 observations and fail-closes, exactly as now). Merged nodes are re-sorted into
-    // graph.components by id so the report stays deterministic. Observation nodes are NON-DETERMINISTIC
-    // runtime facts — they gate the verdict but the evidence hash never folds them in.
+    // graph.components by id so the report stays deterministic. The envelope is bound to the exact
+    // revision, scanned source bytes, extracted graph, probe, stimuli, and environment before merge.
     if (typeof args.observations === 'string' && args.observations) {
       // FIX 3 seam: the shared validator THROWS; the CLI preserves its historical fail-closed
       // surface by die()ing with the identical message + exit code (default 1, as before).
       let obs: ObservedComponent[];
       try {
-        obs = loadObservations(args.observations);
+        const behavioral = bp.constraints.filter((c) => c.type === 'behavioralInvariant');
+        if (behavioral.length === 0) throw new Error(`--observations supplied but blueprint has no behavioralInvariant constraint`);
+        const expectations = new Set(
+          behavioral.map((c) => `${c.probeDefinitionHash ?? ''}|${c.stimulusSetHash ?? ''}|${c.environmentId ?? ''}`),
+        );
+        const expectation = [...expectations][0];
+        if (expectations.size !== 1 || !expectation) {
+          throw new Error(`behavioralInvariant constraints must declare one shared probeDefinitionHash, stimulusSetHash, and environmentId`);
+        }
+        const parts = expectation.split('|');
+        if (parts.length !== 3 || parts.some((x) => !x)) {
+          throw new Error(`behavioralInvariant constraints must declare one shared probeDefinitionHash, stimulusSetHash, and environmentId`);
+        }
+        const [probeDefinitionHash, stimulusSetHash, environmentId] = parts as [string, string, string];
+        obs = loadObservations(args.observations, {
+          ...observationBinding(args['ct-repo'] as string, graph),
+          probeDefinitionHash,
+          stimulusSetHash,
+          environmentId,
+        });
       } catch (e) {
         die((e as Error).message);
       }

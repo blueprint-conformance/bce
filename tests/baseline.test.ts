@@ -414,7 +414,7 @@ describe('E2E — baseline never suppresses a FAIL-CLOSED refusal (an empty scan
     expect(runCli(['baseline', '--repo', dir], dir).status).toBe(0);
     fs.rmSync(path.join(dir, 'src'), { recursive: true, force: true });
     const r = runCli(['gate', '--repo', dir], dir);
-    expect(r.status, 'a fail-closed refusal is never suppressed by a baseline').toBe(1);
+    expect(r.status, 'a fail-closed refusal is never suppressed by a baseline').toBe(2);
     expect(r.stderr).toContain('FAILED');
     expect(r.stderr.toLowerCase()).toMatch(/fail-closed|scanned 0|expected >=/);
   });

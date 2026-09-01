@@ -1,5 +1,19 @@
-[
+{
+  "schemaVersion": "1",
+  "binding": {
+    "revision": "behavior-surface/drift-oracle-violation",
+    "sourceTreeHash": "d613f28741375a07d5775dadf92cdbf4415f055e5d7cd4bd34bbe9f656d1066d",
+    "artifactHash": "2d99a40dcdf5f9f09a632906ceea1b4ce7d7f8b7376393c84a389876376168aa",
+    "probeDefinitionHash": "2a4e40c28e28fbdec6b39931d3804e4c8f2fe2f8c8220a66eb81daa2d1cd60aa",
+    "stimulusSetHash": "ee1edf838824e4a09beeeea2964b7a3215baf7d6ea267af41f7908c6a630631e",
+    "environmentId": "fixture-node22"
+  },
+  "probeDefinition": { "kind": "fixture", "behaviorRef": "chat-completion", "command": "recorded-fixture" },
+  "stimuli": ["stim-alpha", "stim-beta", "stim-heldout-gamma"],
+  "collector": { "name": "bce-fixture-collector", "version": "1.0.0" },
+  "observations": [
   { "id": "behavior:chat-completion:stim-alpha", "type": "behaviorObservation", "path": "9f1c2a44aab13e07|1", "line": 1 },
   { "id": "behavior:chat-completion:stim-beta", "type": "behaviorObservation", "path": "b7e60d113c9d5f21|0", "line": 1 },
   { "id": "behavior:chat-completion:stim-heldout-gamma", "type": "behaviorObservation", "path": "0d44e9c1f2ab8834|1", "line": 1 }
-]
+  ]
+}

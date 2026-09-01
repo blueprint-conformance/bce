@@ -194,6 +194,12 @@ export const ConstraintSchema = z
      * a behavioralInvariant that names no observation set can never pass).
      */
     behaviorRef: z.string().optional(),
+    /** sha256 of the canonical runtime probe definition accepted for this invariant. */
+    probeDefinitionHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    /** sha256 of the canonical ordered stimulus set accepted for this invariant. */
+    stimulusSetHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    /** stable environment identity from which accepted observations must originate. */
+    environmentId: z.string().min(1).optional(),
     /**
      * (forbiddenPattern — 0.9.0) the content regex this constraint forbids, evaluated PER-LINE
      * over the raw scanned-file set (`coverage.patternScan` — see graph.ts). REQUIRED (and must

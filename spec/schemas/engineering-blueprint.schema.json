@@ -104,6 +104,10 @@
                 },
                 "type": "array"
               },
+              "environmentId": {
+                "minLength": 1,
+                "type": "string"
+              },
               "evidenceType": {
                 "type": "string"
               },
@@ -140,6 +144,10 @@
               "policyRef": {
                 "type": "string"
               },
+              "probeDefinitionHash": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
               "scopePaths": {
                 "items": {
                   "type": "string"
@@ -154,6 +162,10 @@
                   "high",
                   "critical"
                 ],
+                "type": "string"
+              },
+              "stimulusSetHash": {
+                "pattern": "^[0-9a-f]{64}$",
                 "type": "string"
               },
               "to": {

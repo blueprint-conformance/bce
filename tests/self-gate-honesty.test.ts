@@ -154,7 +154,7 @@ describe('(c) empty-scan = FAIL — below the scan floor is a score-0 fail-close
   it('a blueprint whose globs match no source → score-0 fail, exit 1 (never a silent 100)', () => {
     const dir = arrangeRepo({ source: 'none' }); // blueprint present, but NO src tree to scan
     const r = runCli(['gate', '--repo', dir], dir);
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(2);
     expect(r.stderr).toContain('FAILED');
     // the cause is legible: the fail-closed scan floor, not a graded red.
     expect(r.stderr.toLowerCase()).toMatch(/fail-closed|scanned 0|expected >=/);

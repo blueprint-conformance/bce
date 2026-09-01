@@ -161,7 +161,7 @@
       "description": "a NEW parallel route ships GET+POST with zero guard calls beside guarded neighbors \u2014 the incident-observed fleet shape"
     },
     {
-      "id": "rg-decoy-guard-object",
+      "id": "rg-decoy-guard-local",
       "set": "expansion",
       "blueprintRef": "route-guard@0.1.0",
       "fixture": "fixtures/route-surface/drift-decoy-guard",

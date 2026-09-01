@@ -46,19 +46,14 @@ export interface GateResult {
    */
   warnings?: string[];
   /**
-   * ADDITIVE (FIX-B, OPTIONAL — omit-when-0, mirroring `warnings?`): the count of RUN-ONLY
-   * (behaviorObservation-class, e.g. behavioralInvariant) constraints the gate SKIPPED because
-   * static gate mode has no served-runtime observations to grade them against. Each skip also
-   * lands an explicit line in `warnings` — never a silent skip (widen-only ratchet). The
-   * authoritative grader for these remains `bce run --observations` (report.ts fail-close intact).
+   * Count of RUN-ONLY constraints the static gate could not grade. Every such constraint creates
+   * a refusal, so this counter can never coexist with an honest pass.
    */
   runOnlySkipped?: number;
   /**
    * ADDITIVE (FIX-E a, OPTIONAL — omit-when-0, mirroring `warnings?`): the count of constraint
-   * entries DROPPED at parse time because their `type` is unknown to THIS pinned engine (a newer
-   * blueprint gating an older engine). Each skip also lands an explicit line in `warnings` naming
-   * the id + type + the upgrade path — never a silent skip, never a whole-file parse-reject of
-   * the constraints this engine DOES know (see schema.ts parseBlueprintTolerant).
+   * entries DROPPED at parse time because their `type` is unknown to THIS pinned engine. Every
+   * such entry creates a refusal; known constraints may still be evaluated for useful diagnostics.
    */
   unknownConstraintsSkipped?: number;
 }
@@ -319,11 +314,15 @@ export function runGate(
     }
     if (!blueprintTouchesChanges(repoDir, bp, changed)) continue;
     selected += 1;
-    // FIX-E a: every unknown-type constraint dropped by the tolerant parse is an EXPLICIT advisory
-    // on the selected blueprint — counted, never silent (widen-only ratchet).
+    // Unknown types may be omitted from diagnostic evaluation, but never from the gate outcome.
+    // The current engine cannot prove the whole blueprint, so this is a structural refusal.
     for (const s of unknownSkipped) {
-      warnings.push(
-        `unknown constraint type '${s.type}' (id ${s.id}) skipped — engine ${engineVersion} does not know it; upgrade the gate pin`,
+      const reason =
+        `unknown constraint type '${s.type}' (id ${s.id}) is not gradeable by engine ${engineVersion}; ` +
+        `upgrade the gate pin`;
+      warnings.push(reason);
+      refusals.push(
+        `${bp.metadata.id}@${bp.metadata.version}: ${reason}`,
       );
     }
     unknownSkippedTotal += unknownSkipped.length;
@@ -334,30 +333,29 @@ export function runGate(
           `but the gate is running as '${repoName}' — advisory only (scope.repositories was display-only in 0.2.x)`,
       );
     }
-    // FIX-B: partition by evidence class. behaviorObservation-class constraints (behavioralInvariant)
-    // are graded ONLY by `bce run --observations` (report.ts keeps its full fail-close there); a
-    // static gate run has no observations, so each is a FIRST-CLASS explicit skip — never a silent
-    // pass, never a structural RED for evidence gate mode cannot have (widen-only ratchet).
+    // Runtime constraints require bound observations. A static-only gate cannot prove them and
+    // therefore refuses, while still evaluating any static subset for useful diagnostics.
     const staticConstraints = bp.constraints.filter((c) => constraintEvidenceClass(c.type) === 'staticAst');
     const runOnly = bp.constraints.filter((c) => constraintEvidenceClass(c.type) === 'behaviorObservation');
     for (const c of runOnly) {
-      warnings.push(
-        `run-only constraint skipped in gate mode: ${c.id} (${c.type}) — graded only by bce run --observations`,
+      const reason =
+        `run-only constraint ${c.id} (${c.type}) is not gradeable in static gate mode; ` +
+        `use bce run --observations with revision-bound runtime evidence`;
+      warnings.push(reason);
+      refusals.push(
+        `${bp.metadata.id}@${bp.metadata.version}: ${reason}`,
       );
     }
     runOnlySkippedTotal += runOnly.length;
     if (staticConstraints.length === 0) {
-      // ALL-BEHAVIORAL blueprint in gate mode: nothing is statically gradeable. NOT the
-      // `__no-enforcing-constraints__` hard-violation (the blueprint DOES enforce — at run time),
-      // and NOT a vacuous unexplained green: the report is an explicit-skip pass whose summary +
-      // coverage.unsupported name every skipped constraint, so a reader can never mistake it for
-      // a graded pass. No extractor runs (there is no static surface to scan or fail-close on).
+      // ALL-BEHAVIORAL blueprint: emit a refusal-shaped diagnostic report. `refusals` is the
+      // canonical outcome; score 0/fail prevents older report-only consumers from seeing green.
       reports.push({
         schemaVersion: '1',
         blueprintRef: `${bp.metadata.id}@${bp.metadata.version}`,
         ctRepoRevision: revision,
-        score: 100,
-        verdict: 'pass',
+        score: 0,
+        verdict: 'fail',
         violations: [],
         evidenceRef: 'n/a',
         summary:
@@ -366,7 +364,7 @@ export function runGate(
           (unknownSkipped.length > 0
             ? `; ${unknownSkipped.length} unknown constraint type(s) skipped (upgrade the gate pin)`
             : '') +
-          ` — NOT a graded pass`,
+          ` — gate REFUSED`,
         coverage: {
           extractor: extractorKind,
           filesScanned: 0,
