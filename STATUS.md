@@ -11,7 +11,7 @@ source tree.
 | Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree and runs `bce demo` |
 | npm | Not released | The public name currently serves a non-functional `0.0.0` reservation stub |
 | Git tag / GitHub Release | Not released | No immutable `v0.1.0` artifact is claimed |
-| GitHub Action | Source evaluation only | Pin a reviewed commit SHA and use `engine: local`; there is no release tag |
+| GitHub Action | Working at an immutable source commit | A creator-maintained external repository installed and ran commit `5d8a3d9`; pin a reviewed commit SHA and use `engine: local` until a release tag exists |
 | GitLab template | Dormant | It deliberately exits 2 until an exact real release is supplied |
 
 ## What the engine currently proves
@@ -26,10 +26,18 @@ source tree.
   probe definition, stimulus set, collector, and environment before they can affect a verdict.
 - `bce run --emit` can emit hash-chained integrity records. Ordinary gate runs do not emit them,
   and a local hash chain is not authenticated provenance.
+- The generated GitHub Action runs outside this repository: the public
+  [`blueprint-conformance/bce-action-witness`](https://github.com/blueprint-conformance/bce-action-witness) consumer
+  produced a [clean GREEN](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497921200),
+  [reported planted drift](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497995578),
+  and returned to [GREEN after the fix](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33498058816).
+  The drift run was advisory, so its successful workflow conclusion is not evidence of enforced
+  blocking; its log is evidence that the generated Action found and reported the violation.
 
 ## What has not been established
 
-- No independent user witness has completed the adoption journey.
+- No independent user witness has completed the adoption journey. The external consumer above
+  is creator-maintained and therefore does not change the independent-witness count.
 - The author-designed seeded corpus is a regression suite, not a held-out benchmark.
 - No controlled study shows that BCE improves autonomous-agent outcomes, completion rate, cost,
   or escaped-defect rate relative to a baseline.
