@@ -11,7 +11,7 @@ Lane A exists to close a trusting-trust hole: a change that simultaneously break
 engine's ability to notice the break must not be able to self-grade green. That property only holds if
 the grader is **fixed** — a published artifact the PR under review cannot influence.
 
-- `bce-engine@0.1.1` — never `^0.1.1`, `~0.1.1`, or `@latest`. A range would let a *later* publish
+- `bce-engine@0.1.2` — never `^0.1.2`, `~0.1.2`, or `@latest`. A range would let a *later* publish
   silently change the gate every contributor is measured against, reintroducing the exact hole Lane A
   removes.
 - The **caret-0.x incident** is the recorded reason ranges are forbidden even when they look harmless:
