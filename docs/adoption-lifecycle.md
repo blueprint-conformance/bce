@@ -23,4 +23,3 @@ The shortest safe path from “new repository” to a self-correcting BCE gate i
 Exit semantics are uniform: 0 means the requested check passed, 1 means a gradeable violation or
 maintenance action exists, and 2 means BCE refused to claim a result. Never reinterpret refusal as
 success, and never fix a code violation by silently weakening policy.
-

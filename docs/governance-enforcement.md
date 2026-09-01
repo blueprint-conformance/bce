@@ -21,4 +21,3 @@ governed, an administrator must apply and verify these settings on the default b
 
 Until those settings are externally verified, CODEOWNERS and workflows are enforcement intent,
 not proof that the hosting platform enforces review. Evidence bundles must state that distinction.
-

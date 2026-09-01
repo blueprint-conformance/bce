@@ -33,4 +33,3 @@ governance. Repository configuration cannot prove that hosting-provider branch p
 The package tests, consumer-pack test, evidence-bundle verifier, and development corpus validate
 mechanics only. A release of empirical results must include the frozen manifests, corpus digests,
 raw judgments, environment lock, analysis output, and a claim-to-evidence matrix.
-

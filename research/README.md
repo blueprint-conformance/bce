@@ -12,4 +12,3 @@ The analysis API reports TP/FP/FN/TN, precision, recall, specificity, false viol
 opportunity, collateral violations, Wilson 95% intervals, and per-defect-class results. This is not
 evidence that BCE improves agents. That claim requires the not-yet-run multi-repository controlled
 study described in `study-preregistration.json`.
-
