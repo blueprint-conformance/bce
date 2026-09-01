@@ -20,10 +20,13 @@ and the live registry/blueprints ever disagree, so the index can be consumed as 
 ## Relationship to the paper corpus
 
 The research paper's recall measurements were produced against a **byte-frozen** corpus that is
-preserved, unmodified; available from the steward on request (a public `bce-paper-artifacts`
-repository, archived with a citable DOI, is planned to follow). That frozen corpus was authored inside a
-private engineering estate and therefore carries internal identifiers that cannot be published;
-see `EXCLUSIONS.md` there for what was withheld and why.
+preserved, unmodified, by the steward. Its public release — the `bce-paper-artifacts`
+repository, released alongside the preprint — ships the frozen corpus and
+fixture trees as declared excerpts/derivatives (every removal marked), together with recorded
+gate transcripts and a zero-dependency chain verifier; archival with a citable DOI is planned
+to follow. That frozen corpus was authored inside a private engineering estate and therefore
+carries internal identifiers that could not all be published; see `EXCLUSIONS.md` there for
+what was withheld and why.
 
 **suite-v2** is the *genericized reproduction* of that corpus — defect-map rows 1–25 below.
 The shipped corpus is **v3**: suite-v2 plus nine append-only defects (rows 26–34) that
