@@ -31,9 +31,11 @@
   },
   "scripts": {
     "build": "rimraf dist tsconfig.tsbuildinfo && tsup && tsc --emitDeclarationOnly",
+    "prepare": "npm run build",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:package": "node scripts/package-consumer-proof.mjs",
+    "test:onboarding": "node scripts/onboarding-consumer-proof.mjs",
     "research:readiness": "tsx scripts/research-readiness.ts",
     "research:study-readiness": "tsx scripts/research-readiness.ts --study",
     "test:watch": "vitest",
@@ -59,7 +61,17 @@
     "dist",
     "src",
     "fixtures",
-    "integrations"
+    "integrations",
+    "skills",
+    "prompts",
+    ".claude-plugin",
+    "docs",
+    "spec/schemas",
+    "examples",
+    "evidence/example-chain",
+    "tools/verify-chain.mjs",
+    "action.yml",
+    "llms.txt"
   ],
   "overrides": {
     "esbuild": "0.28.1",

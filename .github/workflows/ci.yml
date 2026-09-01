@@ -9,9 +9,11 @@ name: ci
 #   2. build the distributable engine (tsup + declaration emit)
 #   3. typecheck the full source tree (tsc --noEmit)
 #   4. FULL vitest suite (every test file, no filter)
-#   5. the measured-recall corpus run, re-executed as its own named step
+#   5. a black-box fresh consumer installs the packed artifact and an immutable
+#      Git dependency, then proves CLI + lifecycle + MCP + evidence end-to-end
+#   6. the measured-recall corpus run, re-executed as its own named step
 #      (recall arithmetic + the real-engine e2e proof over the seeded corpus)
-#   6. the offline RED/GREEN discriminating pair: the BUILT dist CLI runs the
+#   7. the offline RED/GREEN discriminating pair: the BUILT dist CLI runs the
 #      `gate` verb over two fixture trees against the same blueprint and must
 #      produce OPPOSITE verdicts by real process exit codes — GREEN (exit 0)
 #      on the conformant tree, RED (exit 1, with the violation named) on the
@@ -47,6 +49,9 @@ jobs:
 
       - name: Full vitest suite (no filter)
         run: npm test
+
+      - name: Fresh-consumer full-stack onboarding proof
+        run: npm run test:onboarding
 
       # The README's shields are generated from ground truth, and this is what makes
       # that true rather than merely intended. It re-derives every badge value from

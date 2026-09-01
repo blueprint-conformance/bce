@@ -546,18 +546,23 @@ evidence anchor), so identical runs yield identical proposals.
 | `bce scan` | graph written | usage error | fail-closed scan floor (files scanned < minimum) |
 | `bce run` | verdict `pass` | verdict `fail`; usage error; extractor capability refusal; invalid observations | fail-closed scan floor |
 | `bce teeth` | TOOTHED (≥ 1 constraint has extractor-real teeth) or EVALUATOR-REFUTABLE (refutable in principle only — synthetic-evidence mutations, explicitly NOT evidence of real teeth; surfaced as a warning, never a falsification) | usage error | TOOTHLESS (a green run proves nothing) |
-| `bce gate` (enforced — default) | every selected blueprint passes (a baselined-only red is a non-blocking pass, §9.3) | any NEW (un-baselined) violation; any fail-closed refusal; usage error; malformed `.bce-mode.json` / `.blueprints/baseline.json` | — |
-| `bce gate` (advisory mode, §9.2) | ALWAYS 0 — the full verdict is printed with a banner + report `mode:"advisory"`, but a red does not block | malformed `.bce-mode.json` / `.blueprints/baseline.json`; usage error (config errors still fail; the VERDICT never blocks) | — |
-| `bce baseline` (§9.3) | baseline written (fresh creation, or a shrink write — kept ∩ current, vanished auto-removed) | usage error; malformed existing baseline | — |
+| `bce gate` (enforced — default) | every selected blueprint passes (a baselined-only red is a non-blocking pass, §9.3) | any NEW (un-baselined) graded violation; usage/config error | structural or extractor refusal: the repository could not be honestly graded |
+| `bce gate` (advisory mode, §9.2) | pass, or a graded violation reported without blocking; the full verdict carries `mode:"advisory"` | usage/config error | structural or extractor refusal: advisory never turns an ungradeable run green |
+| `bce baseline` (§9.3) | baseline written; with `--check`, current baseline is clean | usage/malformed baseline; `--check` finds shrink-needed or unaccepted-new debt | `--check` observes a gate refusal, or a write cannot be safely completed |
 | `bce graduate` | advisory → enforced recorded + config flipped (or an idempotent no-op) | enforced → advisory without `--rationale`; usage error | — |
+| `bce doctor` | repository is ready | repository is gradeable but needs a lifecycle action | repository cannot yet be honestly graded |
+| `bce adopt` / `bce onboard` | advisory proposal written; still unratified | malformed input / usage error | unsafe path, overwrite, non-draft blueprint, or mutable/unsupported engine reference refused |
+| `bce ratify` / `bce amend` | attended policy ceremony recorded | malformed input / usage error | missing human-review evidence or unsafe policy transition refused |
+| `bce upgrade --check` | candidate is compatible | — | mutable/malformed candidate or incompatible engine floor refused |
+| `bce verify-bundle` | hashes and verdict reproduce | bundle malformed or integrity/reproduction check fails | — |
 | `bce portfolio compile` | overlays written | validation / usage error | — |
 | `bce portfolio collect` | rollup produced | refusal (missing/extra repo, member floor) or validation error | — |
 | *(unknown command)* | — | usage printed, non-zero | — |
 
 Normative shape: **0 = proven green**, **1 = red or user error**, **2 = fail-closed
 refusal** (the run could not honestly grade — which MUST be distinguishable from a graded
-red). Gate mode folds fail-closed refusals into score-0 `fail` reports (exit 1) so a single
-CI signal gates the build; the refusal cause MUST remain legible in the report summary.
+red). Gate preserves that distinction in both its process exit and machine report; exit `1` and
+exit `2` both block an enforced CI check.
 **Advisory mode (§9.2) is the sole exception to "1 = red"**: it exits 0 on a red VERDICT by
 design (the adoption posture), yet still exits 1 on a config/usage error — the mode ungates the
 verdict, never the tool's own honesty.

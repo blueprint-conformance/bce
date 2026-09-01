@@ -74,17 +74,24 @@ export const SEVERITY_WEIGHT: Record<Severity, number> = {
 
 /** Deterministic, sorted-key JSON serializer + trailing newline (byte-stable). */
 export function stableStringify(value: unknown): string {
-  const seen = new WeakSet();
+  // Track the active recursion path, not every object ever visited. Repeated
+  // references are valid JSON values (they serialize as repeated content);
+  // only an ancestor reference is a true cycle.
+  const ancestors = new WeakSet();
   const sort = (v: unknown): unknown => {
     if (v === null || typeof v !== 'object') return v;
-    if (seen.has(v as object)) throw new Error('cannot serialize a cycle');
-    seen.add(v as object);
-    if (Array.isArray(v)) return v.map(sort);
-    const out: Record<string, unknown> = {};
-    for (const k of Object.keys(v as Record<string, unknown>).sort()) {
-      out[k] = sort((v as Record<string, unknown>)[k]);
+    if (ancestors.has(v as object)) throw new Error('cannot serialize a cycle');
+    ancestors.add(v as object);
+    try {
+      if (Array.isArray(v)) return v.map(sort);
+      const out: Record<string, unknown> = {};
+      for (const k of Object.keys(v as Record<string, unknown>).sort()) {
+        out[k] = sort((v as Record<string, unknown>)[k]);
+      }
+      return out;
+    } finally {
+      ancestors.delete(v as object);
     }
-    return out;
   };
   return `${JSON.stringify(sort(value), null, 2)}\n`;
 }

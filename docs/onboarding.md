@@ -1,0 +1,179 @@
+# Onboard the complete BCE stack
+
+This is the single path from “I know nothing about BCE” to a repository where the contract, local
+agent loop, MCP tools, and pull-request gate agree. Every surface is a thin adapter over the same
+engine; you do not need every optional adapter to trust the verdict.
+
+## What each piece does
+
+| Piece | Required? | Job |
+|---|---:|---|
+| CLI + blueprint | yes | author and grade the architectural contract |
+| committed agent context | recommended | makes `bce gate` part of the agent's definition of done |
+| CI / GitHub Action | yes for merge enforcement | grades the committed tree on every pull request |
+| MCP server | optional | gives MCP-capable agents typed read-only diagnosis and gate tools |
+| Agent Skill / plugin | optional | teaches an agent how to author and adopt BCE, not just run it |
+| evidence bundle | optional | packages the blueprint, graph, report, hashes, and reproducibility check |
+
+The skill supplies judgment and workflow instructions. MCP supplies tools. Agent context supplies the
+standing rule. CI supplies enforcement. None of those duplicates conformance logic.
+
+## 1. Install an exact pre-release commit
+
+BCE has no functional npm release yet. Node 22 or newer is required. Install a reviewed 40-character
+Git commit as a development dependency; npm builds Git dependencies through the package's
+`prepare` script, so both `bce` and `bce-mcp` become local project binaries:
+
+```bash
+npm install --save-dev \
+  "git+https://github.com/blueprint-conformance/bce.git#<reviewed-40-character-commit-sha>"
+npx --no-install bce demo
+```
+
+`demo` must print one GREEN and one RED result. If it cannot go red, stop: you do not have a
+functional engine. After a verified npm release exists, the exact package pin replaces the Git URL;
+never use `latest` or a range for a merge gate.
+
+## 2. Author one falsifiable draft
+
+Start with one important rule over files that already exist. This example bans direct `axios`
+imports from TypeScript/JavaScript source:
+
+```bash
+npx --no-install bce author \
+  --id no-direct-http-client \
+  --intent-ref architecture/network-boundary \
+  --constraint 'forbiddenDependency:axios:critical' \
+  --extraction-profile plugin-surface \
+  --scope-paths 'src/**/*.{js,jsx,ts,tsx}' \
+  --min-files 1 \
+  --repo . \
+  --out bce-draft.json
+```
+
+The command refuses a scope that matches zero files. For other repository shapes, use
+[the four first-win examples](first-win.md). The draft stays outside `.blueprints/` until the
+onboarding command installs it as a governed proposal.
+
+## 3. Wire the repository
+
+`bce onboard` creates an advisory proposal, never an approved policy. It installs the draft under
+`.blueprints/`, writes the committed mode and adoption manifest, creates least-privilege CI at an
+immutable Action commit, adds BCE's done-check to the selected agent context without replacing
+existing instructions, and configures MCP where the harness has a project JSON format.
+
+```bash
+npx --no-install bce onboard \
+  --repo . \
+  --blueprint bce-draft.json \
+  --engine blueprint-conformance/bce@<reviewed-40-character-commit-sha> \
+  --harness agents
+```
+
+Harness choices:
+
+| `--harness` | Context file | MCP wiring |
+|---|---|---|
+| `agents` | `AGENTS.md` | `.mcp.json` |
+| `claude` | `CLAUDE.md` | `.mcp.json` |
+| `cursor` | `.cursorrules` | `.cursor/mcp.json` |
+| `codex` | `AGENTS.md` | prints the supported user-profile command: `codex mcp add bce -- npx --no-install bce-mcp` |
+
+Override paths with `--agent-file` or `--mcp-config`. Paths are confined to the repository;
+existing context and unrelated MCP servers are preserved. The command refuses to overwrite existing
+policy files or an existing MCP server named `bce`.
+
+The generated Action uses `engine: local`: the immutable Action commit builds its own engine, so
+this works before npm publication. Once a release is verified, `--engine bce-engine@X.Y.Z`
+generates an exact-package workflow instead.
+
+## 4. Diagnose, prove RED, and go GREEN
+
+```bash
+npx --no-install bce doctor --repo .
+npx --no-install bce teeth \
+  --blueprint .blueprints/no-direct-http-client.blueprint.json \
+  --ct-repo . --no-pin --extractor ast
+npx --no-install bce gate --repo . --all
+```
+
+While the generated mode is advisory, seed the forbidden import and verify the report is RED while
+the gate intentionally exits `0`; remove it and verify GREEN. Use `bce run` when you specifically
+need a local mutation test whose graded violation exits `1`. `--no-pin` is for proving working-tree
+edits; CI grades committed code. Exit `2` is a refusal in either posture, never a pass. After human
+ratification and `bce graduate`, the same new violation makes the enforced gate exit `1`.
+
+Brownfield repositories remain advisory while the first result is understood. If existing debt
+must be accepted, use `bce baseline --check` and the reviewed baseline ceremony. See
+[the adoption lifecycle](adoption-lifecycle.md).
+
+## 5. Verify the agent surfaces
+
+The MCP server exposes six read-only tools:
+
+- `doctor_repository` and `check_baseline` diagnose adoption and debt;
+- `validate_blueprint`, `run_gate`, and `assess_teeth` drive the correction loop;
+- `get_report` reads a report already produced by the engine.
+
+It deliberately cannot adopt, ratify, amend, graduate, or grow a baseline. Those are policy acts.
+Restart the harness after changing MCP configuration, then ask it to list BCE tools and call
+`doctor_repository`.
+
+For richer authoring guidance, install the Agent Skill:
+
+```text
+# Claude Code plugin marketplace
+/plugin marketplace add blueprint-conformance/bce
+/plugin install blueprint@bce
+```
+
+Or copy `node_modules/bce-engine/skills/bce` into the skill directory your agent supports. The
+package includes the skill, prompts, integration snippets, schemas, and onboarding docs; a Git
+install is not a CLI-only partial distribution.
+
+## 6. Review and ratify
+
+Review the generated diff, the planted RED/GREEN proof, and `.bce-adoption.json`. Ratification is
+attended and requires an identified human reviewer, substantive rationale, and explicit UTC time:
+
+```bash
+npx --no-install bce ratify \
+  --repo . \
+  --blueprint .blueprints/no-direct-http-client.blueprint.json \
+  --human-reviewer \
+  --reviewer '<reviewer identity>' \
+  --rationale '<what was reviewed and why this contract is correct>' \
+  --recorded-at 'YYYY-MM-DDTHH:MM:SSZ'
+```
+
+Do not automate that command through MCP. Keep advisory mode until the team is ready to graduate.
+
+## 7. Emit reproducible evidence
+
+```bash
+npx --no-install bce run \
+  --blueprint .blueprints/no-direct-http-client.blueprint.json \
+  --ct-repo . --no-pin --extractor ast \
+  --out compliance-report.json \
+  --emit-bundle bce-evidence-bundle.json
+npx --no-install bce verify-bundle --bundle bce-evidence-bundle.json
+```
+
+A valid bundle proves self-contained integrity and report reproduction. It does not prove who
+created the artifacts or independently witnessed the run.
+
+## If something is red
+
+| Symptom | Meaning / next move |
+|---|---|
+| `npx` tries to download a package named `bce` | the exact Git dependency did not build/install; check Node >=22 and that `node_modules/.bin/bce` exists |
+| doctor exits 1 | setup is gradeable but still needs an action; read the typed warning list |
+| doctor or gate exits 2 | BCE refused to claim a grade; fix discovery, scope, parser, extractor, or engine-floor cause |
+| gate is green but ignores an uncommitted fix | use `--no-pin` locally; the default pinned run grades `HEAD` |
+| MCP tools do not appear | restart the harness and verify `npx --no-install bce-mcp` exists |
+| CI never reports | remove workflow-level path filters and ensure the workflow event covers pull requests |
+| `evaluator-refutable` teeth | this is not extractor-real proof; seed a realistic mutation or obtain an explicit reviewed waiver |
+
+Run `npx --no-install bce doctor --repo .` whenever the installation feels ambiguous. It is the
+single read-only inventory of runtime, blueprints, scope, teeth, mode, baseline, ownership, CI,
+agent context, MCP packaging, and the full gate.

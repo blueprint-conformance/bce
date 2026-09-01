@@ -10,7 +10,7 @@ conformance logic. The index:
 | pre-commit hook | [`pre-commit/`](./pre-commit/) | `bce-gate.sh` gates the **staged tree** before every commit, exit-code passthrough. Executed by the test suite in both of its modes (see its README) |
 | Agent instructions | `CLAUDE.md.snippet`, `AGENTS.md.snippet`, `.cursorrules.snippet` | House-rules snippets teaching an agent the three rules below |
 | Agent Skill | [`../skills/README.md`](../skills/README.md) | The full author → validate → run → teeth → gate lifecycle as an on-demand skill, in the folder-per-skill Agent-Skills format. The snippets below are the standing done-check for a repo that already has a blueprint; the skill is what gets the contract to exist |
-| MCP server | `bce-mcp` bin (ships with the package) | Four logic-free stdio tools over the same engine API |
+| MCP server | `bce-mcp` bin (ships with the package) | Six read-only stdio tools over the same engine API |
 
 ## Agent-instruction snippets
 
@@ -41,6 +41,12 @@ agent picks it up alongside everything else the repo already tells it.
 
 ## The MCP tools (for an agent that speaks MCP)
 
-The `bce-mcp` stdio server exposes four logic-free tools over the same engine the CLI uses:
-`validate_blueprint`, `run_gate`, `assess_teeth`, `get_report`. Point your agent's MCP client at the
-`bce-mcp` bin; the snippets tell the agent to prefer `run_gate` as its done-check.
+The `bce-mcp` stdio server exposes six read-only tools over the same engine the CLI uses:
+`doctor_repository`, `check_baseline`, `validate_blueprint`, `run_gate`, `assess_teeth`, and
+`get_report`. Point your agent's MCP client at the `bce-mcp` bin; the snippets tell the agent to
+prefer `run_gate` as its done-check. Policy mutation/approval tools are deliberately absent.
+
+`bce onboard --harness agents|claude|cursor` merges the stdio command into the harness's project
+MCP JSON without deleting unrelated servers. Codex uses its supported user-profile command:
+`codex mcp add bce -- npx --no-install bce-mcp`. See the complete path in
+[`docs/onboarding.md`](../docs/onboarding.md).

@@ -332,7 +332,9 @@ function callTool(name: string, rawArgs: unknown): Record<string, unknown> {
         const repoDir = requireString(args, 'repoDir');
         const blueprintDir = optionalString(args, 'blueprintDir') ?? path.join(repoDir, '.blueprints');
         const gate = runGate(repoDir, blueprintDir, null, 'ast');
-        return toolResult(assessBaselineMaintenance(gate.reports, readBaseline(repoDir), gate.refusals ?? []));
+        // Diagnosis only: expose the typed maintenance result, not the write
+        // plan. MCP cannot create or grow policy and should not imply it can.
+        return toolResult(assessBaselineMaintenance(gate.reports, readBaseline(repoDir), gate.refusals ?? []).result);
       }
       case 'validate_blueprint': {
         const p = requireString(args, 'blueprintPath');

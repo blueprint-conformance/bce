@@ -25,14 +25,14 @@ This is an internal regression measurement, not an independent performance bench
 [![ci](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg)](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml)
 
 <p align="center">
-  <img src="assets/badges/tests.svg" alt="tests: 767">
+  <img src="assets/badges/tests.svg" alt="tests: 772">
   <img src="assets/badges/license.svg" alt="license: Apache-2.0">
   <img src="assets/badges/docs.svg" alt="docs: zero-dep">
   <img src="assets/badges/node.svg" alt="node: >=22">
   <img src="assets/badges/any-agent.svg" alt="any agent: CLI · Action · MCP">
 </p>
 
-**[See it](#see-it) · [Try it](#try-it) · [Learn](#what-is-measured-not-asserted) · [Gate your repo](#use-it-in-your-repo) · [Docs](#docs-and-spec) · [License](#license)**
+**[See it](#see-it) · [Try it](#try-it) · [Onboard the full stack](docs/onboarding.md) · [Learn](#what-is-measured-not-asserted) · [Docs](#docs-and-spec) · [License](#license)**
 
 Agents write code faster than anyone can review it. **bce** is the merge gate that keeps what
 they write true to your architecture. You author a **blueprint** — a small, versioned JSON
@@ -86,22 +86,22 @@ without turning a check red. Regenerate them with
 
 ## Try it
 
-The current honest path is a source checkout; no functional npm release exists yet:
+There is no functional npm release yet. The shortest honest pre-release path is an exact reviewed
+Git commit; npm builds the Git dependency and exposes both local bins:
 
 ```bash
-git clone https://github.com/blueprint-conformance/bce.git
-cd bce
-npm ci && npm run build
-cd examples/quickstart
-node ../../dist/cli.js gate --repo drift --blueprint-dir blueprint --extractor ast --all
+npm install --save-dev \
+  "git+https://github.com/blueprint-conformance/bce.git#<reviewed-40-character-commit-sha>"
+npx --no-install bce demo
 ```
 
 Do not install `bce-engine` from npm for this walkthrough: the registry name currently resolves to
 a non-functional `0.0.0` reservation stub. See [STATUS.md](STATUS.md).
 
-After building—or after installing a locally packed tarball—`bce demo` runs an offline packaged
-GREEN/RED discrimination proof with no repository setup. `npm run test:package` builds a tarball,
-installs it into a clean temporary consumer, and executes that command through the installed bin.
+`bce demo` runs an offline packaged GREEN/RED discrimination proof with no repository setup.
+`npm run test:onboarding` creates clean external consumers and proves the packed and immutable-Git
+install paths, both binaries, author/onboard, advisory RED, fix/GREEN, evidence verification, and all
+six MCP tools. CI and the release gate rerun that black-box journey.
 The full walkthrough — RED, the fix, GREEN, and what each verdict means — is
 [docs/quickstart.md](docs/quickstart.md) · [examples/quickstart](examples/quickstart). A second
 worked example, on a config surface rather than code, is
@@ -114,6 +114,10 @@ covers four starting shapes — empty repo, plain JS, TypeScript, monorepo — e
 the speed claim at the top of this page comes from: the test parses the number out of this
 README and refuses to pass if any shape misses it, so the page cannot claim a figure the loop
 does not actually meet.
+
+Want the complete repository wiring rather than only the CLI demonstration? The
+[full-stack onboarding](docs/onboarding.md) installs a draft contract, immutable CI, agent context,
+MCP, skills, lifecycle checks, and reproducible evidence without conflating those surfaces.
 
 ## What is measured, not asserted
 
@@ -181,11 +185,12 @@ the repository's contract, not of whoever invoked it. Details:
 
 ## Use it in your repo
 
-There is no released Action tag or functional npm package yet. For evaluation, pin the Action to a
-reviewed commit SHA and use its `local` engine mode. Do not copy a `@v0.1.0` or
-`bce-engine@0.1.0` example until [STATUS.md](STATUS.md) records that those artifacts were verified.
+There is no released Action tag or functional npm package yet. `bce onboard` generates this
+workflow from a reviewed commit SHA and wires agent context plus MCP at the same time. Do not copy a
+`@v0.1.0` or `bce-engine@0.1.0` example until [STATUS.md](STATUS.md) records that those artifacts
+were verified.
 
-The action ships no consumer example, so here is the whole thing:
+The generated workflow is equivalent to:
 
 ```yaml
 # .github/workflows/blueprint-conformance.yml
@@ -217,6 +222,7 @@ override). Local mode builds from the Action checkout at `$GITHUB_ACTION_PATH`.
 - **Agents**: the [MCP server](docs/agent-loop.md) and loop snippets in
   [integrations/](integrations) · the [Agent Skill](skills/README.md) carries the whole
   author → validate → run → teeth → gate lifecycle — copy `skills/bce` into `.claude/skills/`
+- **Complete onboarding**: [one ordered CLI → context → MCP → CI → lifecycle → evidence path](docs/onboarding.md)
 - **How it compares** to structural rule engines, policy engines, and spec-driven development
   tools: [docs/comparison.md](docs/comparison.md)
 - **Exit codes** and the machine-readable report:
