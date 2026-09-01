@@ -670,8 +670,7 @@ function main(): void {
       typeof changedArg === 'string' && changedArg.length > 0
         ? changedArg.split(',').map((s) => s.trim()).filter(Boolean)
         : null;
-    // ADDITIVE: --repo-name stamps report.repo + arms the WARN-only
-    // scope.repositories identity check. Absent → byte-identical 0.2.x behavior.
+    // --repo-name stamps report.repo and fail-closed checks scope.repositories.
     const repoName = typeof args['repo-name'] === 'string' ? (args['repo-name'] as string) : undefined;
     // Mode doctrine (SPEC §9): the ADOPTION POSTURE comes from a COMMITTED config file
     // (`.bce-mode.json`), never a CLI flag. ABSENT config → enforced (byte-identical legacy path).

@@ -41,8 +41,7 @@ export interface GateResult {
    */
   refusals?: string[];
   /**
-   * ADDITIVE (OPTIONAL): advisory WARN lines (repo-identity mismatch — see
-   * `runGate`). Absent on the pre-B2 path; NEVER a failure cause.
+   * Non-blocking diagnostic warnings. Repository identity mismatches are refusals.
    */
   warnings?: string[];
   /**
@@ -229,9 +228,8 @@ export function runGate(
   /**
    * ADDITIVE (OPTIONAL): the repo identity the caller believes it is gating
    * (e.g. `example-org/service-alpha`). When provided it is stamped as `report.repo` on every
-   * emitted report AND checked against each selected blueprint's `scope.repositories` — a
-   * mismatch is a WARN line, NOT a failure: `scope.repositories` was display-only in 0.2.x, so
-   * failing on it would be a behavior change on existing consumers (widen-only; honestly noted).
+   * emitted report AND checked against each selected blueprint's `scope.repositories`. A mismatch
+   * is a refusal because a report attributed to the wrong repository cannot prove applicability.
    */
   repoName?: string,
 ): GateResult {
@@ -326,11 +324,11 @@ export function runGate(
       );
     }
     unknownSkippedTotal += unknownSkipped.length;
-    // repo-identity validation (WARN-only — see the repoName param doc above).
+    // Repository identity is part of applicability, not display metadata.
     if (repoName !== undefined && !bp.scope.repositories.includes(repoName)) {
-      warnings.push(
+      refusals.push(
         `blueprint ${bp.metadata.id} declares scope.repositories [${bp.scope.repositories.join(', ')}] ` +
-          `but the gate is running as '${repoName}' — advisory only (scope.repositories was display-only in 0.2.x)`,
+          `but the gate is running as '${repoName}'`,
       );
     }
     // Runtime constraints require bound observations. A static-only gate cannot prove them and
@@ -465,6 +463,12 @@ export function runGate(
     reports.push(report);
   }
 
+  if (files.length > 0 && selected === 0) {
+    refusals.push(
+      `fail-closed: 0 of ${files.length} discovered blueprint(s) selected for the supplied change set — no conformance policy was evaluated`,
+    );
+  }
+
   const failed = refusals.length > 0 || reports.some((r) => r.verdict !== 'pass');
   return {
     blueprintsDiscovered: files.length,
@@ -591,8 +595,8 @@ export function assembleGateReportDoc(args: {
  * @param blueprintDir  the authored-blueprint directory (default `<repoDir>/.blueprints`).
  * @param changed       repo-relative changed-file scope, or null for a full sweep.
  * @param extractorKind 'ast' (faithful, default) or 'line-scan' (no symbol table).
- * @param repoName      optional repo identity → stamps `report.repo` + arms the WARN-only
- *                      `scope.repositories` identity check (absent → byte-identical legacy shape).
+ * @param repoName      optional repo identity → stamps `report.repo` and fail-closed checks
+ *                      `scope.repositories` (absent leaves identity unverified).
  */
 export function computeGateReport(
   repoDir: string,

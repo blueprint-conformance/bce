@@ -219,7 +219,7 @@ const TOOL_DEFINITIONS = [
         },
         repoName: {
           type: 'string',
-          description: 'Optional repo identity (stamps report.repo + the WARN-only scope check).',
+          description: 'Optional repo identity (stamps report.repo + fail-closed scope check).',
         },
       },
       required: ['repoDir'],

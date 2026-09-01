@@ -76,11 +76,12 @@ describe('runGate — green/red/skip', () => {
     expect(r.reports[0].violations.map((v) => v.constraintId)).toContain('ext-registers-through-governed-path');
   });
 
-  it('UNRELATED change → blueprint not selected, gate passes (0 evaluated)', () => {
+  it('UNRELATED change → zero selected is a structural refusal, never a vacuous pass', () => {
     const dir = arrangeRepo('drift-forbidden-import');
     const r = runGate(dir, path.join(dir, '.blueprints'), ['docs/README.md'], 'ast');
     expect(r.blueprintsSelected).toBe(0);
-    expect(r.failed).toBe(false);
+    expect(r.failed).toBe(true);
+    expect(r.refusals?.[0]).toContain('0 of 1');
   });
 
   it('FULL SWEEP (changed=null) on a drift repo → failed', () => {
