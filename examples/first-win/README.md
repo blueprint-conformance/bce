@@ -34,14 +34,12 @@ npm ci && npm run build
 node /path/to/bce/dist/cli.js …
 ```
 
-**From the published npm package** — `npx bce-engine …` or a global install — is available:
-[`.engine-pin.json`](../../.engine-pin.json) records `"published": true`, and Lane A pins this
-checkout against exactly the published `bce-engine@0.1.0`. Two things still worth stating
-plainly rather than discovering later:
+**From the published npm package** is not available yet. The registry name currently serves a
+non-functional `0.0.0` reservation stub. [`.engine-pin.json`](../../.engine-pin.json) records
+`"published": false`, and Lane A remains dormant. Two consequences are worth stating plainly:
 
-1. **The published-package proof lives in the release checklist, not here.** No standing CI leg
-   in this repository runs the `npx` path; the end-to-end smoke of the published package is the
-   post-publish step of the release checklist, and re-runs at every release tag.
+ 1. **There is no published-package proof yet.** It must be added as a clean-room post-publish
+    check before this section can advertise an npm command.
 2. **`examples/` is not in the published tarball.** `package.json`'s `files` array ships
    `dist`, `src`, `fixtures`, `integrations` — not `examples`. So even with the package
    published, these fixtures come from a checkout of this repository, not from an installed

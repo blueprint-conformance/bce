@@ -33,15 +33,16 @@ governed host — never a directly-imported HTTP client.** Routing egress throug
 what gives you one place for auth, budget, and logging; a plugin that reaches for `axios`
 itself quietly bypasses all three. The blueprint makes that rule enforceable.
 
-## 0. Install
+## 0. Build the development snapshot
 
 ```bash
-npm install -g bce-engine    # provides the `bce` command
+cd /path/to/bce
+npm ci && npm run build
+alias bce='node /path/to/bce/dist/cli.js'
 ```
 
-Every command below is `bce …`. If you are working from a checkout of this repository instead
-of the published package, the engine's built CLI is equivalent — substitute
-`node /path/to/bce/dist/cli.js` for `bce` (after `npm ci && npm run build` at the repo root).
+No functional npm release exists yet; the registry name currently serves a `0.0.0` reservation
+stub. Every command below uses the built checkout through the alias above.
 
 All commands are run from **this directory**:
 

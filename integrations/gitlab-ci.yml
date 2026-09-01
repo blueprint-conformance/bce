@@ -6,8 +6,9 @@
 # `bce gate` exit 1 → the job fails. There is no skip variable and no allow_failure here;
 # advisory is a COMMITTED `.bce-mode.json` mode the engine reads on its own.
 #
-# Paste this job into your .gitlab-ci.yml (or `include:` this file). Two edits to make:
-#   1. Pin the engine EXACTLY: replace 0.0.0 with the version you adopt. Ranges are refused
+# This template is intentionally DORMANT until a real engine release exists. After publication,
+# paste it into your .gitlab-ci.yml and make two edits:
+#   1. Replace VERSION_NOT_PUBLISHED with an exact verified release. Ranges are refused
 #      by convention — pin exactly (a caret range on a 0.x line silently excludes the next
 #      minor, so `^0.6.0` never picks up 0.7.0).
 #   2. Adjust `stage:` to match your pipeline.
@@ -33,7 +34,12 @@ bce-gate:
       set -eu
       # --package is required: the package ships two bins (bce, bce-mcp), so npx must be told
       # which one to run. Pin EXACTLY (see header).
-      BCE="npx --yes --package bce-engine@0.0.0 bce"
+      BCE_VERSION="VERSION_NOT_PUBLISHED"
+      if [ "$BCE_VERSION" = "VERSION_NOT_PUBLISHED" ]; then
+        echo "bce GitLab template is dormant: set BCE_VERSION only after verifying a real npm release"
+        exit 2
+      fi
+      BCE="npx --yes --package bce-engine@$BCE_VERSION bce"
       if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
         CHANGED="$(git diff --name-only "$CI_MERGE_REQUEST_DIFF_BASE_SHA" HEAD | tr '\n' ',')"
         echo "gating changed files: ${CHANGED:-<none>}"

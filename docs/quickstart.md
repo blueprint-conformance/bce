@@ -18,7 +18,8 @@ examples/quickstart/
 ```
 
 ```bash
-npm install -g bce-engine        # provides the `bce` command
+npm ci && npm run build          # from the bce source checkout
+alias bce='node /absolute/path/to/bce/dist/cli.js'
 cd examples/quickstart
 
 # 1. the contract parses and is not vacuous
@@ -35,8 +36,8 @@ bce gate --repo drift --blueprint-dir blueprint --extractor ast --all
 bce gate --repo drift --blueprint-dir blueprint --extractor ast
 ```
 
-Working from a checkout instead of the published package? Substitute
-`node /path/to/bce/dist/cli.js` for `bce` after `npm ci && npm run build` at the repo root.
+There is no functional published package yet. The npm name currently serves a `0.0.0`
+reservation stub; use the checkout command above and consult [`STATUS.md`](../STATUS.md).
 
 A gate that cannot go red is not a gate. This walkthrough proves, on your own machine, that this one
 can — and that a green verdict therefore means something.

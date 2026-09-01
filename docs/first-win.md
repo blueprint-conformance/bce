@@ -56,11 +56,10 @@ npm ci && npm run build
 node /path/to/bce/dist/cli.js …     # wherever a walkthrough says `bce`
 ```
 
-`npx bce-engine …` resolves against the published package:
-[`.engine-pin.json`](../.engine-pin.json) records `"published": true`, and Lane A pins this
-checkout against exactly the published `bce-engine@0.1.0`. The end-to-end proof of the
-published-package path is the post-publish smoke owned by the release checklist (re-run at
-every release tag), not a standing CI leg here — this page does not claim more than that.
+`npx bce-engine …` does not currently resolve to a functional engine:
+[`.engine-pin.json`](../.engine-pin.json) records `"published": false`. The public name is a
+`0.0.0` reservation stub, so Lane A and the published-package journey remain dormant until an
+immutable release is published and clean-room verified.
 
 A second consequence of the same fact: `package.json`'s `files` array ships
 `dist`, `src`, `fixtures`, `integrations` — **not** `examples`. The first-win fixtures therefore
