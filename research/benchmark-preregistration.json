@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "status": "preregistered-design-not-executed",
+  "frozenBeforeHeldoutAccess": false,
+  "primaryOutcome": "recall on independently annotated architecture violations",
+  "secondaryOutcomes": ["precision", "specificity", "false violations per supported opportunity", "collateral violations", "unsupported rate"],
+  "confidenceInterval": "Wilson 95%",
+  "unit": "independently seeded or naturally occurring case",
+  "minimumCasesPerDefectClass": 30,
+  "requiredAnnotators": 2,
+  "exclusions": ["corrupt archive", "license forbids analysis"],
+  "missingness": "report as unsupported; do not silently exclude",
+  "developmentDataMayEstimatePerformance": false
+}

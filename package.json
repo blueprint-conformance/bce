@@ -34,6 +34,8 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:package": "node scripts/package-consumer-proof.mjs",
+    "research:readiness": "tsx scripts/research-readiness.ts",
+    "research:study-readiness": "tsx scripts/research-readiness.ts --study",
     "test:watch": "vitest",
     "generate:schemas": "tsx scripts/generate-schemas.ts",
     "typecheck": "tsc --noEmit",

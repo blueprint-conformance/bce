@@ -100,6 +100,8 @@ export { classifyPolicyChanges } from './policy-change.js';
 export type { PolicyChangeClass, FileChange, ClassifiedChange, PolicyChangeReport } from './policy-change.js';
 export { createEvidenceBundle, verifyEvidenceBundle } from './evidence-bundle.js';
 export type { EvidenceBundle, EvidenceBundleVerification } from './evidence-bundle.js';
+export { validateJudgments, benchmarkMetrics, metricsByClass } from './benchmark.js';
+export type { BenchmarkOutcome, BenchmarkJudgment, BenchmarkMetrics, Interval } from './benchmark.js';
 
 export {
   assessBaselineMaintenance,
