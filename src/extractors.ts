@@ -716,8 +716,8 @@ export class AstExtractor implements RepositoryFactsExtractor {
     //     undici constructor) but could NOT resolve to any host literal (env-only, cross-module,
     //     reassignable, hop>bound). 0.5.0 folded these into the opaque aggregate count with no
     //     location; b3 itemizes each with its `path#Lnn` + callee so the advisory is auditable —
-    //     an accurate "we saw a network call we could not resolve to a host", NEVER a silent pass
-    //     and NEVER a false BLOCK (fail-OPEN honestly).
+    //     an accurate "we saw a network call we could not resolve to a host". Governed-host
+    //     allowlists consume these items as fail-closed violations.
     const egressCoverage: { unresolved: number; items: Array<{ callee: string; ref: string }> } = {
       unresolved: 0,
       items: [],
@@ -759,8 +759,8 @@ export class AstExtractor implements RepositoryFactsExtractor {
       if (egressCoverage.unresolved > 0) {
         unsupported.push(`${egressCoverage.unresolved} egress call(s) had an unresolvable host and were skipped`);
       }
-      // b3/coverage-envelope Class B — the itemized, LOCATED advisory for each detected egress call
-      // whose host resolved to NOTHING (the honesty fix: an opaque count becomes an auditable list).
+      // Itemized, LOCATED unresolved calls. In governed-host allowlist mode the evaluator treats
+      // these as violations: a fallback literal does not prove an env/imported alternative is safe.
       // Sorted (by ref then callee) so the graph serializes deterministically. Fail-OPEN: these are
       // disclosures, never violations — a detected-but-unresolvable call is never a false RED.
       const sortedItems = [...egressCoverage.items].sort((a, b) => {
@@ -771,7 +771,7 @@ export class AstExtractor implements RepositoryFactsExtractor {
       for (const it of sortedItems) {
         unsupported.push(
           `detected egress call \`${it.callee}\` at ${it.ref} — host could not be resolved to a literal ` +
-            '(env-only, cross-module, reassignable, or beyond the const-hop bound); disclosed as advisory, not blocked (fails OPEN)',
+            '(env-only, cross-module, reassignable, or beyond the const-hop bound); governed-host allowlists fail closed on this uncertainty',
         );
       }
     }
@@ -784,6 +784,9 @@ export class AstExtractor implements RepositoryFactsExtractor {
         extractor: 'ast',
         filesScanned: files.length,
         unsupported,
+        ...(egressCoverage.items.length > 0
+          ? { unresolvedEgress: [...egressCoverage.items].sort((a, b) => `${a.ref}\0${a.callee}`.localeCompare(`${b.ref}\0${b.callee}`)) }
+          : {}),
         // 0.8.0 (widen-only): the RAW scanned-file set (repo-relative, sorted, deterministic) so a
         // `forbiddenFile` constraint can match a forbidden basename regardless of export shape.
         scannedFiles: toRelSorted(repoDir, files),
@@ -871,7 +874,7 @@ export class AstExtractor implements RepositoryFactsExtractor {
 
     // Emit edges for a resolved (hosts, unresolvable) result + update the honesty coverage — shared
     // by the CallExpression pass (fetch/axios/got/http.request) and the NewExpression pass (undici
-    // Client/Pool/Agent constructors) below, so both share the SAME fail-OPEN edge/coverage contract.
+    // Client/Pool/Agent constructors) below, so both share the SAME uncertainty contract.
     const record = (
       hosts: Set<string>,
       unresolvable: boolean,
@@ -889,13 +892,10 @@ export class AstExtractor implements RepositoryFactsExtractor {
       // resolved some hosts (e.g. a `||`-chain where one operand resolves and another doesn't) —
       // the resolved hosts are still real edges; `unresolvable` on its own is the coverage signal.
       if (unresolvable) coverage.unresolved++;
-      // b3/coverage-envelope Class B — ITEMIZE only a call that resolved to NOTHING (`hosts.size===0`
-      // AND unresolvable): a detected egress callee whose host is env-only/cross-module/reassignable/
-      // beyond-bound. A call that DID resolve a host (the house-idiom conformant/drift shape, whose
-      // `||`-chain also carries an unresolvable `opts`/env operand) is NOT itemized — it already
-      // produced an edge and is not a "we saw a call we couldn't resolve" case. This keeps the
-      // conformant/drift surfaces byte-identical (their aggregate count is unchanged, no item added).
-      if (hosts.size === 0 && unresolvable) {
+      // Itemize EVERY unresolved branch, including a fallback chain that also yielded a literal.
+      // At runtime an earlier env/imported operand may win, so the fallback cannot justify an
+      // allowlist pass. Blocklist mode remains detection-based and does not consume this field.
+      if (unresolvable) {
         coverage.items.push({ callee: calleeLabel, ref: `${relPath}#L${line}` });
       }
     };
@@ -931,7 +931,7 @@ export class AstExtractor implements RepositoryFactsExtractor {
     // constructor identifier is a known undici dispatcher (or a blueprint-declared `egressCallees`
     // entry naming one) and resolve its first argument to the host. Fail-OPEN + itemized identically
     // to the call pass (an `Agent({...})` options-bag or an env-built URL resolves to nothing →
-    // Class B advisory, never a false edge).
+    // unresolved item; governed-host allowlists fail closed without fabricating an edge).
     for (const ne of source.getDescendantsOfKind(SyntaxKind.NewExpression) as NewExpression[]) {
       const ctorExpr = ne.getExpression();
       const ctorText = ctorExpr.getText().trim();

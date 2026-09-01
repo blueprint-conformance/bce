@@ -52,7 +52,7 @@ section is about rows 1–25 only.
 
 > **Claim:** the measured-recall *protocol* reproduces on your machine: running the engine in
 > this repository over the corpus in this repository yields **recall 1.0 (34/34) with zero
-> cried-wolf false positives over 45 reports** (32 distinct seeded fixture runs + 13 clean
+> cried-wolf false positives over 42 reports** (32 distinct seeded fixture runs + 10 clean
 > control runs), and the gate passes at its default thresholds.
 
 > **Non-claim:** we do **not** claim the files here are byte-identical to the paper's cited

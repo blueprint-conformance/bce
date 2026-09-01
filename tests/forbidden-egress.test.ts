@@ -172,11 +172,46 @@ describe('raw provider-host egress AST detection', () => {
     expect(g.guardEdges.filter((e) => e.type === 'egress').length).toBe(0);
     expect(g.coverage.unsupported.some((u) => /egress host resolution is bounded/.test(u))).toBe(true);
     expect(g.coverage.unsupported.some((u) => /unresolvable host/.test(u))).toBe(true);
+    expect(g.coverage.unresolvedEgress).toEqual([{ callee: 'fetch', ref: 'readers/dyn.mjs#L3' }]);
   });
 });
 
 /* -------------------------------------------------------------------------- */
 describe('forbiddenEgress constraint scoring (green vs red discrimination)', () => {
+  it('ALLOWLIST fails closed when a detected destination is unresolved', () => {
+    const dir = make({
+      'readers/dynamic.mjs': `export const read = () => fetch(process.env.TARGET, {});\n`,
+    });
+    const allowlist: EngineeringBlueprint = {
+      ...EGRESS_BLUEPRINT,
+      constraints: [{
+        id: 'governed-only',
+        type: 'forbiddenEgress',
+        severity: 'critical',
+        from: '*',
+        governedHosts: ['localhost'],
+        egressCallees: ['fetch'],
+      }],
+    };
+    const graph = new AstExtractor(resolveExtraction(allowlist.extraction, allowlist.constraints)).extract(dir, 'sha');
+    const report = evaluate(allowlist, graph, 'plugin-surface');
+    expect(report.verdict).toBe('fail');
+    expect(report.score).toBeLessThan(100);
+    expect(report.violations).toHaveLength(1);
+    expect(report.violations[0]?.evidenceRef).toBe('readers/dynamic.mjs#L1');
+    expect(report.violations[0]?.observed).toContain('could not be resolved');
+  });
+
+  it('BLOCKLIST keeps unresolved destinations visible but does not invent a forbidden host', () => {
+    const dir = make({
+      'readers/dynamic.mjs': `export const read = () => fetch(process.env.TARGET, {});\n`,
+    });
+    const graph = new AstExtractor(cfg).extract(dir, 'sha');
+    const report = evaluate(EGRESS_BLUEPRINT, graph, 'plugin-surface');
+    expect(graph.coverage.unresolvedEgress).toHaveLength(1);
+    expect(report.verdict).toBe('pass');
+  });
+
   it('scores 100/pass on an internal-only surface', () => {
     const dir = make({
       'readers/clean.mjs': `export async function read() {\n  return fetch('http://localhost:3000/api/capabilities', {});\n}\n`,

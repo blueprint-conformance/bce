@@ -36,9 +36,9 @@ silently-missed corpus row, which the recall gate forbids).
   resolution` in `coverage.unsupported`. Needs engine capability; not seedable honestly.
 - `[DESIGN]` **python dynamic imports** (`__import__`, `importlib.import_module`) — documented
   miss, pinned by honesty tests (a seeded defect here would be a permanently-red corpus row).
-- `[DESIGN]` **egress via cross-module/env-only hosts** — fail-OPEN by design (advisory
-  disclosure, never a false RED); the advisory path is covered by the CLEAN fixtures
-  (`advisory-egress-*`), which is the honest shape for a fail-open surface.
+- `[RUNS]` **egress via cross-module/env-only hosts** — governed-host allowlists fail closed
+  with a located unresolved-destination violation. Blocklists disclose the uncertainty but do
+  not invent a forbidden destination.
 - `[DESIGN]` **baseline-interaction drift** (a violation smuggled INTO a baseline refresh) —
   needs a baseline-aware corpus harness; the shrink-only property is unit-tested today.
 

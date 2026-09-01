@@ -109,12 +109,8 @@ const CLEAN_FIXTURES: ReadonlyArray<{ fixture: string; blueprintRef: string }> =
   { fixture: 'conformant-comment', blueprintRef: 'luna-chat-extension@0.1.0' },
   { fixture: 'conformant-curried', blueprintRef: 'luna-chat-extension@0.1.0' },
   { fixture: 'conformant-typeimport', blueprintRef: 'luna-chat-extension@0.1.0' },
-  // egress surface (promoted): the advisory fp controls + env-only reader — fail-OPEN advisory
-  // disclosures surface in coverage.unsupported, which measureRecall correctly ignores.
+  // egress surface: only a provably governed destination is a clean allowlist control.
   { fixture: 'egress-surface/conformant-houseidiom', blueprintRef: 'egress-reader@0.1.0' },
-  { fixture: 'egress-surface/advisory-egress-crossmodule', blueprintRef: 'egress-reader@0.1.0' },
-  { fixture: 'egress-surface/advisory-egress-envonly', blueprintRef: 'egress-reader@0.1.0' },
-  { fixture: 'egress-surface/unresolvable-env', blueprintRef: 'egress-reader@0.1.0' },
   // route surface (new) — the denominator for every route-surface constraint
   { fixture: 'route-surface/conformant-guarded', blueprintRef: 'route-guard@0.1.0' },
   { fixture: 'route-surface/conformant-mixed-verbs', blueprintRef: 'route-guard@0.1.0' },
