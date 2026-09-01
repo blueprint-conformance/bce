@@ -36,22 +36,16 @@ may reach the network, which file shapes may exist, which symbol is the invarian
 
 ## The lifecycle
 
-Install an exact reviewed Git commit in the target project — this is the shortest working
-pre-release path today:
+Install the exact provenance-backed public release in the target project:
 
 ```bash
-npm install --save-dev \
-  "git+https://github.com/blueprint-conformance/bce.git#<reviewed-40-character-commit-sha>"
+npm install --save-dev --save-exact bce-engine@0.1.1
 npx --no-install bce demo
 ```
 
-**Do not reach for `npm install -g bce-engine` yet.** The npm name is currently a `0.0.0`
-reservation stub, and its `bce` binary exits 0 on every command — which means the done-check this
-skill teaches would report green unconditionally, on a repository it never even read. A gate that
-cannot go red is exactly what this tool exists to catch, so shipping one by accident is the worst
-possible first impression. The exact Git dependency builds through `prepare` and exposes local
-`bce` and `bce-mcp` bins. After `0.1.0` publishes, an exact registry pin becomes the short path;
-until then, verify what you installed can actually fail before you trust a green from it.
+Keep the dependency local and exact—never a range or `latest` for a merge gate. The package exposes
+both `bce` and `bce-mcp`; `bce demo` must produce a GREEN/RED discriminating pair before you trust a
+green from it. Registry signatures and npm provenance authenticate the published artifact.
 
 ### 1. AUTHOR — derive the contract from the real tree
 

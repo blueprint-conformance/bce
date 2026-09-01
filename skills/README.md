@@ -75,16 +75,15 @@ documentation.
 Copy the whole directory, not just `SKILL.md`: `skill-tuning` reads its `references/` on demand,
 and a skill whose references are missing fails by finding nothing rather than by reporting it.
 
-The skill drives the `bce` CLI, so the command has to be reachable. Before npm publication, install
-an exact reviewed Git commit in the target project; its `prepare` script builds both package bins:
+The skill drives the `bce` CLI, so the command has to be reachable. Install the exact
+provenance-backed public release in the target project:
 
 ```bash
-npm install --save-dev \
-  "git+https://github.com/blueprint-conformance/bce.git#<reviewed-40-character-commit-sha>"
+npm install --save-dev --save-exact bce-engine@0.1.1
 npx --no-install bce demo
 ```
 
-Do not install the registry's `0.0.0` reservation stub. The Git-installed package also contains
+Never use a range or `latest` for a merge gate. The published package also contains
 `skills/`, `prompts/`, integration snippets, schemas, and onboarding docs, so copying a plain skill
 from `node_modules/bce-engine/skills/` does not require a second checkout.
 
