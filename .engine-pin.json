@@ -1,11 +1,11 @@
 {
   "$comment": "The Lane-A engine pin \u2014 the EXACT published bce-engine version that gates this tree independently of the code under review. See docs/pin-ceremony.md and docs/self-hosting.md \u00a7'Lane A / Lane B'. Bumping this pin is a PR gated by the OLD pin (a trust-anchor ratchet), never an in-line edit.",
   "package": "bce-engine",
-  "pin": "0.1.0",
+  "pin": "0.1.1",
   "range": false,
-  "rangeRationale": "EXACT pin only \u2014 never ^0.1.0, ~0.1.0, or @latest. Lane A must be independent of the code under review, so it installs a fixed published artifact. A range would let a later publish silently change the grader every contributor is measured against, reintroducing the trusting-trust hole Lane A exists to close. The caret-0.x incident is the recorded reason: on a 0.x line `^0.6.0` is equivalent to `~0.6.0` and EXCLUDES 0.7.0, so a caret pin does not even receive a minor bump \u2014 it ships dead-green.",
+  "rangeRationale": "EXACT pin only \u2014 never ^0.1.1, ~0.1.1, or @latest. Lane A must be independent of the code under review, so it installs a fixed published artifact. A range would let a later publish silently change the grader every contributor is measured against, reintroducing the trusting-trust hole Lane A exists to close. The caret-0.x incident is the recorded reason: on a 0.x line `^0.6.0` is equivalent to `~0.6.0` and EXCLUDES 0.7.0, so a caret pin does not even receive a minor bump \u2014 it ships dead-green.",
   "published": true,
-  "publishedNote": "bce-engine@0.1.0 is live on the public npm registry with provenance from release run 33513405902.",
+  "publishedNote": "bce-engine@0.1.1 is live on the public npm registry with provenance from release run 33517228816.",
   "bumpCeremony": "docs/pin-ceremony.md",
-  "trustAnchor": "Lane A installs the exact public bce-engine@0.1.0 artifact, independently of the code under review."
+  "trustAnchor": "Lane A installs the exact public bce-engine@0.1.1 artifact, independently of the code under review."
 }
