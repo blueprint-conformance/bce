@@ -216,15 +216,62 @@ proveDemo(packedBce, packedConsumer, 'packed demo');
 const installedRoot = join(packedConsumer, 'node_modules', 'bce-engine');
 const installedPackage = JSON.parse(readFileSync(join(installedRoot, 'package.json'), 'utf8'));
 assert(installedPackage.engines?.node === '>=22', 'packed package does not declare Node >=22');
+const documentedScopePaths = 'src/**/*.js,src/**/*.jsx,src/**/*.ts,src/**/*.tsx';
+const installedOnboarding = readFileSync(join(installedRoot, 'docs', 'onboarding.md'), 'utf8');
+assert(
+  installedOnboarding.includes(`--scope-paths '${documentedScopePaths}'`),
+  'packed onboarding guide lost the executable multi-extension scope example',
+);
 for (const rel of [
   'skills/bce/SKILL.md',
   'prompts/blueprint-author.md',
   'integrations/AGENTS.md.snippet',
   'docs/onboarding.md',
   'spec/schemas/engineering-blueprint.schema.json',
+  'spec/skill-standard/SKILL-STANDARD.md',
+  'spec/skill-standard/skill-standard.blueprint.json',
+  'examples/skill-standard/clean/skills/greet/SKILL.md',
+  'examples/skill-standard/drift/skills/greet/SKILL.md',
 ]) {
   assert(existsSync(join(installedRoot, rel)), `packed package omitted consumer asset: ${rel}`);
 }
+
+// The shipped skill-tuning skill must be executable from the advertised npm-only
+// installation, not merely readable. Its seeded corpus is the substance proof:
+// the same packaged blueprint must reject drift and accept the clean tree.
+const skillStandardBlueprint = join(
+  installedRoot,
+  'spec',
+  'skill-standard',
+  'skill-standard.blueprint.json',
+);
+const skillDrift = bce(
+  packedBce,
+  [
+    'run',
+    '--blueprint', skillStandardBlueprint,
+    '--ct-repo', join(installedRoot, 'examples', 'skill-standard', 'drift'),
+    '--no-pin',
+    '--extractor', 'ast',
+    '--out', join(packedConsumer, 'skill-drift-report.json'),
+  ],
+  packedConsumer,
+  { accept: [1] },
+);
+assert(skillDrift.status === 1, `packaged skill-standard drift corpus did not redden (got ${skillDrift.status})`);
+const skillClean = bce(
+  packedBce,
+  [
+    'run',
+    '--blueprint', skillStandardBlueprint,
+    '--ct-repo', join(installedRoot, 'examples', 'skill-standard', 'clean'),
+    '--no-pin',
+    '--extractor', 'ast',
+    '--out', join(packedConsumer, 'skill-clean-report.json'),
+  ],
+  packedConsumer,
+);
+assert(skillClean.status === 0, `packaged skill-standard clean corpus did not pass (got ${skillClean.status})`);
 
 // Author and onboard a repository using only the installed package binary.
 const repoDir = join(packedConsumer, 'sample-repo');
@@ -243,7 +290,7 @@ const author = bce(
     '--intent-ref', 'architecture/network-boundary',
     '--constraint', 'forbiddenDependency:axios:critical',
     '--extraction-profile', 'plugin-surface',
-    '--scope-paths', 'src/**/*.ts',
+    '--scope-paths', documentedScopePaths,
     '--min-files', '1',
     '--repo', repoDir,
     '--out', draftPath,

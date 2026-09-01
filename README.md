@@ -89,12 +89,12 @@ without turning a check red. Regenerate them with
 Install the exact verified release on Node 22 or newer:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.2
+npm install --save-dev --save-exact bce-engine@0.1.3
 npx --no-install bce demo
 ```
 
 The package was published through npm Trusted Publishing with
-[provenance](https://www.npmjs.com/package/bce-engine/v/0.1.2), after the release workflow reran
+[provenance](https://www.npmjs.com/package/bce-engine/v/0.1.3), after the release workflow reran
 the full suite, corpus/recall proof, self-gate, leakage gate, and RED/GREEN discriminating pair.
 
 `bce demo` runs an offline packaged GREEN/RED discrimination proof with no repository setup.
@@ -208,10 +208,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }        # the gate diffs against the merge base
-      - uses: blueprint-conformance/bce@v0.1.2
+      - uses: blueprint-conformance/bce@v0.1.3
         with:
           repo: .
-          engine: bce-engine@0.1.2
+          engine: bce-engine@0.1.3
 ```
 
 Blueprints live in `.blueprints/*.blueprint.json` by default (`blueprint-dir` to override). Both
@@ -238,7 +238,7 @@ the Action and engine are exact pins; ranges and `latest` are deliberately avoid
 - **Citing this work**: [CITATION.cff](CITATION.cff)
 - **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-**Status: v0.1.2 released.** The functional npm package, immutable tag, GitHub Release, provenance,
+**Status: v0.1.3 released.** The functional npm package, immutable tag, GitHub Release, provenance,
 and release evidence are verified. Independent witnesses remain at 0. The schema is
 `blueprint-conformance/v1alpha1`; compatibility remains pre-1.0.
 
