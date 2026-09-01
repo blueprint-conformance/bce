@@ -13,9 +13,8 @@ keys, no accounts, no telemetry; the only network use is the one `npm ci`.
 ## What you need
 
 - **A source copy of this repository** that you obtained yourself — a collaborator clone,
-  or a source archive (`git archive` / "Download ZIP"). Do **not** use the npm package
-  tarball for this: the published package intentionally omits `examples/`, and the point
-  of a witness run is the source tree anyway.
+  or a source archive (`git archive` / "Download ZIP"). Use the source tree for a witness run so
+  its exact revision and the full witness workflow are independently inspectable.
 - **Node 22** (see [`.nvmrc`](../../.nvmrc)) and npm.
 - A machine the project's authors have never had access to. Your own laptop is ideal.
 

@@ -535,15 +535,13 @@ describe('first-win matrix — the honesty claims are checked against the repo, 
     }
   });
 
-  it('the "examples/ is not in the published tarball" claim matches package.json files[]', () => {
+  it('the full consumer package includes the worked examples claimed by the docs', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8')) as {
       files: string[];
     };
-    expect(pkg.files, 'the walkthroughs tell readers examples/ is not shipped — keep that true').not.toContain(
-      'examples',
-    );
+    expect(pkg.files).toContain('examples');
     for (const doc of [MATRIX_README, FIRST_WIN_DOC]) {
-      expect(fs.readFileSync(doc, 'utf8')).toContain('`dist`, `src`, `fixtures`, `integrations`');
+      expect(fs.readFileSync(doc, 'utf8')).toContain('includes `examples/`');
     }
   });
 
