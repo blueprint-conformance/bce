@@ -27,8 +27,8 @@
  * compare bytes, not semantics.
  *
  * $id base: https://blueprint-conformance.github.io/bce/schemas/ (org GitHub Pages). These URLs
- * resolve only after the public flip enables the org Pages site — documented, not hidden; see
- * `.github/workflows/publish-schemas.yml` (dormant by design until then).
+ * resolve once the public flip enabled the org Pages site — documented, not hidden; see
+ * `.github/workflows/publish-schemas.yml` (dormant by design until then; active since the flip).
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';

@@ -44,8 +44,10 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
 
 ## Phase 2 — activation (agent-drivable once 5–7 are done)
 
-8. **[agent]** Activate `.github/workflows/publish-schemas.yml` (remove the
-   `if: false` dormancy guard per its header) and run it.
+8. ~~**[agent]** Activate `.github/workflows/publish-schemas.yml` (remove the
+   `if: false` dormancy guard per its header) and run it.~~ **DONE 2026-09-01** —
+   Pages enabled (`build_type: workflow`); the guard's paired assertions in
+   `docs-site-check.yml` and `tests/docs-site-proof.test.ts` were inverted, not deleted.
 9. **[agent]** Verify every schema `$id` resolves 200:
    `for s in spec/schemas/*.schema.json; do curl -fsI "$(jq -r '."$id"' "$s")" >/dev/null && echo "OK $s"; done`
 10. **[agent]** Branch protection + required checks on `main`: `build-test-prove`,
