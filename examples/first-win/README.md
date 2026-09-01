@@ -25,24 +25,17 @@ bce author …   →   bce gate  (RED, exit 1)   →   edit the code   →   bce
 
 ## Which command is `bce`?
 
-**From a checkout of this repository** — the path these walkthroughs and the CI test both
-exercise:
+Install the exact public package and copy its shipped examples to a writable directory:
 
 ```bash
-npm ci && npm run build
+npm install --save-dev --save-exact bce-engine@0.1.0
+cp -R node_modules/bce-engine/examples/first-win ./bce-first-win
 # then, wherever a walkthrough says `bce`:
-node /path/to/bce/dist/cli.js …
+npx --no-install bce …
 ```
 
-**From the published npm package** is not available yet. The registry name currently serves a
-non-functional `0.0.0` reservation stub. [`.engine-pin.json`](../../.engine-pin.json) records
-`"published": false`, and Lane A remains dormant. Two consequences are worth stating plainly:
-
- 1. **There is no published-package proof yet.** It must be added as a clean-room post-publish
-    check before this section can advertise an npm command.
-2. **The candidate package now includes `examples/` and the full onboarding assets.** The
-   black-box consumer proof checks those files in the tarball. These walkthrough commands still
-   use a checkout until the first functional npm release is published and independently verified.
+The published package includes `examples/` and the full onboarding assets. Registry signatures,
+provenance, a clean-room install, and the black-box consumer proof verify this package path.
 
 Both statements are checked against the repository's own state by the matrix test, so they cannot
 quietly go stale after a publish.

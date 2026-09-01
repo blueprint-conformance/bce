@@ -33,22 +33,18 @@ governed host — never a directly-imported HTTP client.** Routing egress throug
 what gives you one place for auth, budget, and logging; a plugin that reaches for `axios`
 itself quietly bypasses all three. The blueprint makes that rule enforceable.
 
-## 0. Build the development snapshot
+## 0. Install the exact release and copy the writable example
 
 ```bash
-cd /path/to/bce
-npm ci && npm run build
-alias bce='node /path/to/bce/dist/cli.js'
+mkdir bce-quickstart && cd bce-quickstart
+npm init -y
+npm install --save-dev --save-exact bce-engine@0.1.0
+cp -R node_modules/bce-engine/examples/quickstart .
+cd quickstart
+alias bce='../node_modules/.bin/bce'
 ```
 
-No functional npm release exists yet; the registry name currently serves a `0.0.0` reservation
-stub. Every command below uses the built checkout through the alias above.
-
-All commands are run from **this directory**:
-
-```bash
-cd examples/quickstart
-```
+Every command below runs in the copied `quickstart` directory through the exact public engine pin.
 
 ## 1. The blueprint is valid — and the engine says how far its vacuity probe can trust it
 

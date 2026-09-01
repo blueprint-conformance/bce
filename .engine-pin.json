@@ -4,8 +4,8 @@
   "pin": "0.1.0",
   "range": false,
   "rangeRationale": "EXACT pin only \u2014 never ^0.1.0, ~0.1.0, or @latest. Lane A must be independent of the code under review, so it installs a fixed published artifact. A range would let a later publish silently change the grader every contributor is measured against, reintroducing the trusting-trust hole Lane A exists to close. The caret-0.x incident is the recorded reason: on a 0.x line `^0.6.0` is equivalent to `~0.6.0` and EXCLUDES 0.7.0, so a caret pin does not even receive a minor bump \u2014 it ships dead-green.",
-  "published": false,
-  "publishedNote": "false until bce-engine@0.1.0 is verifiably live on the public npm registry. The registry currently exposes only a 0.0.0 reservation stub; Lane A remains dormant.",
+  "published": true,
+  "publishedNote": "bce-engine@0.1.0 is live on the public npm registry with provenance from release run 33513405902.",
   "bumpCeremony": "docs/pin-ceremony.md",
-  "trustAnchor": "Planned: after publication, Lane A will use a fixed registry artifact independent of the code under review. This trust anchor does not exist yet."
+  "trustAnchor": "Lane A installs the exact public bce-engine@0.1.0 artifact, independently of the code under review."
 }

@@ -24,8 +24,8 @@
  *  - BOTH DIRECTIONS. An under-fire control (the bug: claims published, is absent -> must be RED)
  *    and an over-fire control (dormant while the pin happens to resolve -> must stay GREEN).
  *    A guard that reddens everything is not a guard.
- *  - REAL REGISTRY, NOT A MOCK. bce-engine@0.0.0 is published (the reserved stub) and @0.1.0 is
- *    not, so the resolvable/unresolvable controls are real npm answers, not fixtures we invented.
+ *  - REAL REGISTRY, NOT A MOCK. bce-engine@0.1.0 is published and @999999.0.0 is not, so the
+ *    resolvable/unresolvable controls are real npm answers, not fixtures we invented.
  *
  * Usage:
  *   node scripts/lane-a-pin-guard-selftest.mjs                 # against the working tree
@@ -106,9 +106,10 @@ if (!script || !script.includes(MARKER)) {
 }
 console.log(`baseline: extracted ${script.split('\n').length} lines of the shipped guard from ${YML}\n`);
 
-// bce-engine@0.0.0 IS published (reserved stub); @0.1.0 is NOT. Real registry answers.
-const RESOLVABLE = '0.0.0';
-const ABSENT = '0.1.0';
+// bce-engine@0.1.0 IS published; @999999.0.0 is not. Real registry answers. Keeping the live
+// control on the current trust anchor also makes this self-test exercise the release transition.
+const RESOLVABLE = '0.1.0';
+const ABSENT = '999999.0.0';
 
 const CASES = [
   {

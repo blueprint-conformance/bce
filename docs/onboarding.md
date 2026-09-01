@@ -18,21 +18,18 @@ engine; you do not need every optional adapter to trust the verdict.
 The skill supplies judgment and workflow instructions. MCP supplies tools. Agent context supplies the
 standing rule. CI supplies enforcement. None of those duplicates conformance logic.
 
-## 1. Install an exact pre-release commit
+## 1. Install the exact release
 
-BCE has no functional npm release yet. Node 22 or newer is required. Install a reviewed 40-character
-Git commit as a development dependency; npm builds Git dependencies through the package's
-`prepare` script, so both `bce` and `bce-mcp` become local project binaries:
+Node 22 or newer is required. Install the exact published version as a development dependency;
+both `bce` and `bce-mcp` become local project binaries:
 
 ```bash
-npm install --save-dev \
-  "git+https://github.com/blueprint-conformance/bce.git#<reviewed-40-character-commit-sha>"
+npm install --save-dev --save-exact bce-engine@0.1.0
 npx --no-install bce demo
 ```
 
 `demo` must print one GREEN and one RED result. If it cannot go red, stop: you do not have a
-functional engine. After a verified npm release exists, the exact package pin replaces the Git URL;
-never use `latest` or a range for a merge gate.
+functional engine. Never use `latest` or a range for a merge gate.
 
 ## 2. Author one falsifiable draft
 
@@ -66,7 +63,7 @@ existing instructions, and configures MCP where the harness has a project JSON f
 npx --no-install bce onboard \
   --repo . \
   --blueprint bce-draft.json \
-  --engine blueprint-conformance/bce@<reviewed-40-character-commit-sha> \
+  --engine blueprint-conformance/bce@v0.1.0 \
   --harness agents
 ```
 
@@ -83,9 +80,9 @@ Override paths with `--agent-file` or `--mcp-config`. Paths are confined to the 
 existing context and unrelated MCP servers are preserved. The command refuses to overwrite existing
 policy files or an existing MCP server named `bce`.
 
-The generated Action uses `engine: local`: the immutable Action commit builds its own engine, so
-this works before npm publication. Once a release is verified, `--engine bce-engine@X.Y.Z`
-generates an exact-package workflow instead.
+The generated Action uses the immutable `v0.1.0` Action source and can build that source locally.
+Pass `--engine bce-engine@0.1.0` instead when you want the generated workflow to install the exact
+published package independently.
 
 ## 4. Diagnose, prove RED, and go GREEN
 

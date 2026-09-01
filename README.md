@@ -86,17 +86,16 @@ without turning a check red. Regenerate them with
 
 ## Try it
 
-There is no functional npm release yet. The shortest honest pre-release path is an exact reviewed
-Git commit; npm builds the Git dependency and exposes both local bins:
+Install the exact verified release on Node 22 or newer:
 
 ```bash
-npm install --save-dev \
-  "git+https://github.com/blueprint-conformance/bce.git#<reviewed-40-character-commit-sha>"
+npm install --save-dev --save-exact bce-engine@0.1.0
 npx --no-install bce demo
 ```
 
-Do not install `bce-engine` from npm for this walkthrough: the registry name currently resolves to
-a non-functional `0.0.0` reservation stub. See [STATUS.md](STATUS.md).
+The package was published through npm Trusted Publishing with
+[provenance](https://www.npmjs.com/package/bce-engine/v/0.1.0), after the release workflow reran
+the full suite, corpus/recall proof, self-gate, leakage gate, and RED/GREEN discriminating pair.
 
 `bce demo` runs an offline packaged GREEN/RED discrimination proof with no repository setup.
 `npm run test:onboarding` creates clean external consumers and proves the packed and immutable-Git
@@ -194,10 +193,8 @@ the repository's contract, not of whoever invoked it. Details:
 
 ## Use it in your repo
 
-There is no released Action tag or functional npm package yet. `bce onboard` generates this
-workflow from a reviewed commit SHA and wires agent context plus MCP at the same time. Do not copy a
-`@v0.1.0` or `bce-engine@0.1.0` example until [STATUS.md](STATUS.md) records that those artifacts
-were verified.
+The immutable Action tag and npm engine pin are both released. `bce onboard` generates this
+workflow and wires agent context plus MCP at the same time:
 
 The generated workflow is equivalent to:
 
@@ -211,14 +208,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }        # the gate diffs against the merge base
-      - uses: blueprint-conformance/bce@<reviewed-commit-sha>
+      - uses: blueprint-conformance/bce@v0.1.0
         with:
           repo: .
-          engine: local
+          engine: bce-engine@0.1.0
 ```
 
-Blueprints live in `.blueprints/*.blueprint.json` by default (`blueprint-dir` to
-override). Local mode builds from the Action checkout at `$GITHUB_ACTION_PATH`.
+Blueprints live in `.blueprints/*.blueprint.json` by default (`blueprint-dir` to override). Both
+the Action and engine are exact pins; ranges and `latest` are deliberately avoided.
 
 ## Docs and spec
 
@@ -241,9 +238,9 @@ override). Local mode builds from the Action checkout at `$GITHUB_ACTION_PATH`.
 - **Citing this work**: [CITATION.cff](CITATION.cff)
 - **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-**Status: unreleased development snapshot.** The source declares version `0.1.0`, but no matching
-functional npm package, immutable release tag, GitHub Release, or independent witness has been
-verified. The schema is `blueprint-conformance/v1alpha1`; compatibility is still pre-release.
+**Status: v0.1.0 released.** The functional npm package, immutable tag, GitHub Release, provenance,
+and release evidence are verified. Independent witnesses remain at 0. The schema is
+`blueprint-conformance/v1alpha1`; compatibility remains pre-1.0.
 
 ## Links
 

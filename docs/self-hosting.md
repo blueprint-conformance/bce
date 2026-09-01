@@ -67,35 +67,28 @@ The blueprint never talks to `ts-morph`. It talks to **facts**:
   same graph shape; `evaluate()`, `score`, `teeth`, and the CLI are unchanged. That is the
   plugin seam this repository's own blueprint exercises end-to-end.
 
-## Lane A / Lane B — and the bootstrap-0 exception, honestly
+## Lane A / Lane B
 
 Two lanes can gate this tree:
 
 - **Lane B (live now)** — `self-gate.yml` builds the engine **from the commit under
   review** and runs `gate` + `teeth` + the sync test with it. Fail-closed: any non-pass
   verdict, toothless blueprint, or sync drift fails CI.
-- **Lane A (not yet possible)** — the last **published** engine, installed from the
+- **Lane A (live)** — the last **published** engine, installed from the
   public registry at an **exact version pin**, gates the tree. Lane A is independent of
   the code under review, so it cannot be fooled by a defective change to the engine
   itself.
 
-**The bootstrap-0 exception:** no version of `bce-engine` has been published yet, so Lane
-A cannot exist — there is nothing to pin. Until first publish, Lane B is the only lane,
-and it carries a known trusting-trust caveat: a change that simultaneously breaks the
-engine and the engine's ability to notice the break could self-grade green. We record
-that limitation here instead of pretending the lane is independent. Mitigations already
-in place: the `teeth` non-vacuity verdict (a gate that cannot fail is rejected), the
-seeded-drift proofs in the test suite, and review of every change to the gate itself.
+The bootstrap-0 exception ended with the provenance-backed `bce-engine@0.1.0` publication.
+Lane A now installs that exact registry artifact independently, while Lane B continues to grade
+the commit under review with its own build.
 
 **The flip:** the `lane-a-pinned-gate` job already exists in
 [`self-gate.yml`](../.github/workflows/self-gate.yml) — it reads the exact pin from
 [`.engine-pin.json`](../.engine-pin.json), and is **if-guarded on the pin being published AND
-`bce-engine@<pin>` actually resolving on npm**. Until 0.1.0 publishes it prints an honest "Lane A
-dormant" notice and runs no pinned gate (describe only machinery that runs). When `0.1.0` publishes and
-`.engine-pin.json` `"published"` is set true (the same PR — see
-[`docs/pin-ceremony.md`](./pin-ceremony.md)), the guard opens and the job installs `bce-engine@0.1.0`
-(exact pin, no range) and runs the same `gate` verb. Making that job a **required** branch-protection
-check is the accompanying operator action, and is the exit condition for the bootstrap-0 exception.
+`bce-engine@<pin>` actually resolving on npm**. The guard is open: the job installs
+`bce-engine@0.1.0` (exact pin, no range) and runs the same `gate` verb. The job is also a required
+branch-protection check.
 
 ## The Lane-A pin ceremony (forward reference)
 
@@ -112,11 +105,9 @@ of the lane. Lane A must be independent of the code under review, so it installs
   the engine in the PR under review cannot influence the Lane-A verdict: Lane A rebuilds nothing from
   the branch.
 
-The exact steps are written up in [`docs/pin-ceremony.md`](./pin-ceremony.md), and the pin itself lives
-in [`.engine-pin.json`](../.engine-pin.json) with `"published": false` (Lane A dormant). Until first
-publish there is nothing to pin, so the ceremony's *execution* is a forward reference — the pin flips to
-published, and the required Lane-A check is added, in the release moment that publishes `0.1.0` via
-[`release.yml`](../.github/workflows/release.yml).
+The exact steps are written up in [`docs/pin-ceremony.md`](./pin-ceremony.md), and the live exact pin
+is recorded in [`.engine-pin.json`](../.engine-pin.json). `v0.1.0` completed bootstrap; subsequent pin
+bumps are admitted by the previously published Lane-A engine.
 
 ## Admin-override incident policy (attended recovery, not a skip flag)
 

@@ -9,9 +9,9 @@ source tree.
 |---|---|---|
 | Source checkout | Working, internally tested | Node 22, `npm ci`, `npm run build`, then `node dist/cli.js` |
 | Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree and runs `bce demo` |
-| npm | Not released | The public name currently serves a non-functional `0.0.0` reservation stub |
-| Git tag / GitHub Release | Not released | No immutable `v0.1.0` artifact is claimed |
-| GitHub Action | Working at an immutable source commit | A creator-maintained external repository installed and ran commit `5d8a3d9`; pin a reviewed commit SHA and use `engine: local` until a release tag exists |
+| npm | Released | [`bce-engine@0.1.0`](https://www.npmjs.com/package/bce-engine/v/0.1.0) is public with npm provenance; install the exact version on Node 22+ |
+| Git tag / GitHub Release | Released | [`v0.1.0`](https://github.com/blueprint-conformance/bce/releases/tag/v0.1.0) is immutable and carries the release compliance report plus verified evidence record |
+| GitHub Action | Released | Pin `blueprint-conformance/bce@v0.1.0` and `engine: bce-engine@0.1.0`; creator-maintained external RED/GREEN evidence is linked below |
 | GitLab template | Dormant | It deliberately exits 2 until an exact real release is supplied |
 
 ## What the engine currently proves

@@ -53,12 +53,11 @@ agent picks it up alongside everything else the repo already tells it.
 
 ### Claude Code / Cursor / CLI harnesses
 
-For any agent that can run shell commands, an exact Git dependency puts the gate on the project's
-PATH. `bce onboard` can preserve and extend the appropriate context file automatically:
+For any agent that can run shell commands, the exact published dependency puts the gate on the
+project's PATH. `bce onboard` can preserve and extend the appropriate context file automatically:
 
 ```bash
-npm install --save-dev \
-  "git+https://github.com/blueprint-conformance/bce.git#<reviewed-40-character-commit-sha>"
+npm install --save-dev --save-exact bce-engine@0.1.0
 npx --no-install bce demo
 ```
 

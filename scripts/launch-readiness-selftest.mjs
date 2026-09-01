@@ -48,7 +48,7 @@ const CASES = [
   { id: 'readme/placeholder-links',     file: 'README.md',            strip: new RegExp(`_placeholder|${SM}`),   add: '\n- Paper: _placeholder — added at release_\n' },
   { id: 'readme/badge-block',           file: 'README.md',            strip: /badge-placeholder/,                add: '\n<!-- badge-placeholder: selftest -->\n' },
   { id: 'readme/status-line',           file: 'README.md',            strip: /Status:?\s*(pre-release|private)|This repository is private/i, add: '\n**Status: pre-release.** This repository is private while seeded.\n' },
-  { id: 'readme/npm-stub-instruction',  file: 'README.md',            strip: /0\.0\.0.*(reservation|stub)|(?:reservation|stub).*0\.0\.0/i, add: '\nThe npm registry has a non-functional 0.0.0 reservation stub; use the checkout.\n', inverse: true },
+  { id: 'readme/npm-stub-instruction',  file: 'README.md',            strip: /0\.0\.0.*(reservation|stub)|(?:reservation|stub).*0\.0\.0/i, add: '\nThe npm registry has a non-functional 0.0.0 reservation stub; use the checkout.\n', pinDependent: true },
   { id: 'contributor-docs/pre-release', file: 'CONTRIBUTING.md',      strip: /pre-release,?\s*private phase|contributions open with the initial public release|before the initial public release|this repository is (in a )?(pre-release|private)/i, add: '\nThis repository is in a pre-release, private phase.\n', also: 'SECURITY.md' },
   { id: 'corpus-map/private-wording',   file: 'corpus/CORPUS-MAP.md', strip: /private\s+`?bce-paper-artifacts/i,  add: '\nHeld in the private `bce-paper-artifacts` repository.\n' },
   { id: 'citation/placeholders',        file: 'CITATION.cff',         strip: new RegExp(`ARXIV-ID-PENDING|DOI-PENDING|${SM}`), add: '\n# selftest: DOI-PENDING\n' },
@@ -99,18 +99,25 @@ for (const c of CASES) {
   cpSync(clean, dir, { recursive: true });
   const target = path.join(dir, c.file);
   if (!existsSync(target)) { console.log(`  SKIP  ${c.id} (${c.file} absent)`); continue; }
+  // The npm-stub promise deliberately changes polarity at publication: before publication the
+  // warning is required; afterwards that same warning is stale and forbidden. Derive the expected
+  // direction from the copied pin contract so this refusal probe remains valid on both sides of
+  // the release transition instead of baking in the bootstrap-0 state.
+  const inverse = c.pinDependent
+    ? !JSON.parse(readFileSync(path.join(dir, '.engine-pin.json'), 'utf8')).published
+    : Boolean(c.inverse);
 
   // 1. STRIP the real claim so the promise should go quiet. Without this the
   //    tree is already red and "fired on the plant" proves nothing.
   stripLines(target, c.strip);
   if (c.also) stripLines(path.join(dir, c.also), c.strip);
   const stripped = runIn(dir);
-  const quietWhenClean = c.inverse ? brokenIn(stripped.out, c.id) : !brokenIn(stripped.out, c.id);
+  const quietWhenClean = inverse ? brokenIn(stripped.out, c.id) : !brokenIn(stripped.out, c.id);
 
   // 2. PLANT the breakage back and require the detector to fire.
   writeFileSync(target, readFileSync(target, 'utf8') + c.add);
   const after = runIn(dir);
-  const firedOnPlant = c.inverse ? !brokenIn(after.out, c.id) : brokenIn(after.out, c.id);
+  const firedOnPlant = inverse ? !brokenIn(after.out, c.id) : brokenIn(after.out, c.id);
 
   if (!firedOnPlant) {
     console.log(`  FAIL  ${c.id} — planted a breakage in ${c.file} and the detector did NOT fire`);
