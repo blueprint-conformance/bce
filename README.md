@@ -234,6 +234,9 @@ verified. The schema is `blueprint-conformance/v1alpha1`; compatibility is still
 
 - Current capability and claim ledger: [STATUS.md](STATUS.md)
 - Specification (`blueprint-conformance/v1alpha1`): [spec/SPEC.md](spec/SPEC.md)
+- Docs site + published JSON schemas: <https://blueprint-conformance.github.io/bce/>
+- Frozen paper-artifacts release (corpus, transcripts, chain verifier):
+  [`odin-labs-ai/bce-paper-artifacts`](https://github.com/odin-labs-ai/bce-paper-artifacts)
 
 ## License
 
