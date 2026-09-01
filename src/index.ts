@@ -92,8 +92,8 @@ export { resolveRevision, materializeAtRevision } from './pin.js';
 
 export { runGate, discoverBlueprints, blueprintTouchesChanges, resolveTreeRevision, computeGateReport, assembleGateReportDoc } from './gate.js';
 export type { GateResult, GateReportDoc, ComputedGate } from './gate.js';
-export { doctorRepository } from './lifecycle.js';
-export type { DoctorReport, DoctorCheck, DoctorCheckStatus } from './lifecycle.js';
+export { doctorRepository, checkEngineUpgrade } from './lifecycle.js';
+export type { DoctorReport, DoctorCheck, DoctorCheckStatus, EngineUpgradeCheck } from './lifecycle.js';
 export { ratifyBlueprint, amendBlueprint, readPolicyHistory, semverGreater, PolicyHistoryError, POLICY_HISTORY_RELPATH } from './policy-history.js';
 export type { PolicyHistoryEntry, PolicyOperation, ReviewInput } from './policy-history.js';
 export { classifyPolicyChanges } from './policy-change.js';

@@ -20,6 +20,37 @@ export interface DoctorReport {
   checks: DoctorCheck[];
 }
 
+export interface EngineUpgradeCheck {
+  schemaVersion: '1';
+  candidateVersion: string;
+  outcome: 'compatible' | 'refusal';
+  exitCode: 0 | 2;
+  blueprintRefs: string[];
+  refusals: string[];
+}
+
+/** Read-only preflight. It proves schema/floor compatibility but never edits the committed pin. */
+export function checkEngineUpgrade(blueprintDir: string, candidateVersion: string): EngineUpgradeCheck {
+  const refusals: string[] = [];
+  const blueprintRefs: string[] = [];
+  if (!/^\d+\.\d+\.\d+$/.test(candidateVersion)) refusals.push('candidateVersion must be exact semver (no range/latest/prerelease)');
+  const files = discoverBlueprints(blueprintDir);
+  if (files.length === 0) refusals.push('zero blueprints discovered');
+  for (const file of files) {
+    try {
+      const bp = parseBlueprint(JSON.parse(fs.readFileSync(file, 'utf8')));
+      blueprintRefs.push(`${bp.metadata.id}@${bp.metadata.version}`);
+      if (/^\d+\.\d+\.\d+$/.test(candidateVersion) && bp.minEngineVersion && semverLt(candidateVersion, bp.minEngineVersion)) {
+        refusals.push(`${bp.metadata.id} requires engine >=${bp.minEngineVersion}`);
+      }
+    } catch (e) {
+      refusals.push(`${path.basename(file)}: ${(e as Error).message}`);
+    }
+  }
+  blueprintRefs.sort();
+  return { schemaVersion: '1', candidateVersion, outcome: refusals.length ? 'refusal' : 'compatible', exitCode: refusals.length ? 2 : 0, blueprintRefs, refusals };
+}
+
 function hasTextFile(repoDir: string, candidates: string[], pattern: RegExp): boolean {
   return candidates.some((rel) => {
     const p = path.join(repoDir, rel);

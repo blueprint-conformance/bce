@@ -76,7 +76,7 @@ import { collectPortfolio, PortfolioRegistrySchema } from './portfolio-collect.j
 import { architectureScore } from './score.js';
 import type { ArchitectureGraph, ObservedComponent } from './graph.js';
 import { loadObservations, observationBinding } from './observations.js';
-import { doctorRepository } from './lifecycle.js';
+import { doctorRepository, checkEngineUpgrade } from './lifecycle.js';
 import { ratifyBlueprint, amendBlueprint, PolicyHistoryError, type ReviewInput, type PolicyHistoryEntry } from './policy-history.js';
 import { createEvidenceBundle, verifyEvidenceBundle, type EvidenceBundle } from './evidence-bundle.js';
 
@@ -438,6 +438,16 @@ function main(): void {
     const result = verifyEvidenceBundle(bundle);
     process.stdout.write(stableStringify(result));
     process.exit(result.valid ? 0 : 2);
+  }
+
+  if (cmd === 'upgrade' && (args.check === true || args.check === 'true')) {
+    const repoDir = (args.repo as string) || '.';
+    const blueprintDir = (args['blueprint-dir'] as string) || path.join(repoDir, '.blueprints');
+    const candidateVersion = typeof args['candidate-engine'] === 'string' ? args['candidate-engine'] : '';
+    const result = checkEngineUpgrade(blueprintDir, candidateVersion);
+    if (typeof args.out === 'string') fs.writeFileSync(args.out, stableStringify(result));
+    process.stdout.write(stableStringify(result));
+    process.exit(result.exitCode);
   }
 
   if (cmd === 'adopt') {
@@ -1272,6 +1282,10 @@ function main(): void {
       `  bce demo  Package-only offline RED/GREEN proof (no repository or configuration required)\n` +
       `  bce doctor [--repo <dir>] [--blueprint-dir <dir>] [--out <json>]  Read-only lifecycle readiness audit\n` +
       `  bce adopt --repo <dir> --blueprint <draft.json> --engine bce-engine@<exact>  Propose advisory files; never ratifies\n` +
+      `  bce ratify --repo <dir> --blueprint <path> --human-reviewer --reviewer <id> --rationale <text> --recorded-at <UTC>\n` +
+      `  bce amend --repo <dir> --blueprint <current> --replacement <next> --compatibility <kind> [--accept-weakening] <review flags>\n` +
+      `  bce upgrade --check --repo <dir> --candidate-engine X.Y.Z [--out <json>]  Read-only compatibility preflight\n` +
+      `  bce verify-bundle --bundle <json>  Re-hash and re-evaluate; reports integrity, never origin authenticity\n` +
       `  bce author --id <id> --intent-ref <ref> --constraint "<type>:<arg>[:<severity>]"\n` +
       `       [--repository <org/repo>] [--repo <dir>] [--scope-paths <glob,glob>]\n` +
       `       [--extraction-profile next-route-handler|plugin-surface] [--guard-symbol <sym>]\n` +
@@ -1287,7 +1301,7 @@ function main(): void {
       `       optional trailing :<severity> = info|low|medium|high|critical (default high)\n` +
       `  bce validate --blueprint <path>\n` +
       `  bce scan  --ct-repo <dir> [--blueprint <path>] [--ref <sha|ref>] [--extractor ast|line-scan] --out <path>\n` +
-      `  bce run   --blueprint <path> --ct-repo <dir> [--ref <sha|ref>] [--extractor ast|line-scan] --out <path>\n` +
+      `  bce run   --blueprint <path> --ct-repo <dir> [--ref <sha|ref>] [--extractor ast|line-scan] --out <path> [--emit-bundle <json>]\n` +
       `  bce teeth --blueprint <path> --ct-repo <dir> [--require-extractor-real] [--reviewed-waiver] [--out <path>]\n` +
       `       --reviewed-waiver accepts evaluator-only proof only via committed ${TEETH_WAIVER_RELPATH}.\n` +
       `  bce gate  [--repo <dir>] [--blueprint-dir <dir>] [--changed a,b,c] [--extractor ast|line-scan] [--repo-name <org/repo>] [--all] [--report-json <path>]\n` +

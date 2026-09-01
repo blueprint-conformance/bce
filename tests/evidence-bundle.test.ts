@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as os from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { parseBlueprint } from '../src/schema.js';
 import { resolveExtraction } from '../src/extractors.js';
 import { makeExtractor } from '../src/extractor-registry.js';
@@ -30,5 +32,18 @@ describe('self-contained evidence bundle', () => {
     const result = verifyEvidenceBundle(b);
     expect(result.valid).toBe(false);
     expect(result.failures.join(' ')).toContain(part);
+  });
+
+  it('CLI emits and independently verifies a portable bundle', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-bundle-'));
+    const out = path.join(dir, 'bundle.json');
+    const run = spawnSync(process.execPath, ['--import', 'tsx', path.join(ROOT, 'src/cli.ts'), 'run',
+      '--blueprint', path.join(ROOT, 'fixtures/luna-chat-extension.blueprint.json'), '--ct-repo',
+      path.join(ROOT, 'fixtures/extension-surface/conformant'), '--no-pin', '--out', path.join(dir, 'report.json'),
+      '--emit-bundle', out], { encoding: 'utf8' });
+    expect(run.status, `${run.stdout}${run.stderr}`).toBe(0);
+    const verify = spawnSync(process.execPath, ['--import', 'tsx', path.join(ROOT, 'src/cli.ts'), 'verify-bundle', '--bundle', out], { encoding: 'utf8' });
+    expect(verify.status, `${verify.stdout}${verify.stderr}`).toBe(0);
+    expect(JSON.parse(verify.stdout)).toMatchObject({ valid: true, authenticity: 'not-established' });
   });
 });

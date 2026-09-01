@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { doctorRepository } from '../src/lifecycle.js';
+import { doctorRepository, checkEngineUpgrade } from '../src/lifecycle.js';
 import { readPolicyHistory } from '../src/policy-history.js';
 
 const ROOT = path.join(__dirname, '..');
@@ -31,6 +31,19 @@ describe('doctor — read-only lifecycle readiness', () => {
     expect(report.outcome).toBe('refusal');
     expect(report.exitCode).toBe(2);
     expect(report.checks).toContainEqual(expect.objectContaining({ id: 'blueprints/discovery', status: 'refusal' }));
+  });
+});
+
+describe('engine upgrade preflight', () => {
+  it('accepts exact compatible candidates and refuses ranges or versions below blueprint floors', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-upgrade-'));
+    fs.mkdirSync(path.join(dir, '.blueprints'));
+    const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'fixtures/luna-chat-extension.blueprint.json'), 'utf8'));
+    raw.minEngineVersion = '2.0.0';
+    fs.writeFileSync(path.join(dir, '.blueprints', 'a.blueprint.json'), JSON.stringify(raw));
+    expect(checkEngineUpgrade(path.join(dir, '.blueprints'), '2.1.0').outcome).toBe('compatible');
+    expect(checkEngineUpgrade(path.join(dir, '.blueprints'), '1.9.9')).toMatchObject({ outcome: 'refusal', exitCode: 2 });
+    expect(checkEngineUpgrade(path.join(dir, '.blueprints'), 'latest').outcome).toBe('refusal');
   });
 });
 
