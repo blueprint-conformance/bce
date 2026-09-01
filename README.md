@@ -161,9 +161,9 @@ missing, and both are deliberately unfinished in the open:
   uncoached OSS user to run the full external-repository journey and report every point of
   friction.
 - **External Action execution exists, but is not independent.** A creator-maintained
-  [public consumer repository](https://github.com/odinlabs-ai/bce-action-witness) installed BCE
+  [public consumer repository](https://github.com/blueprint-conformance/bce-action-witness) installed BCE
   from immutable commit `5d8a3d9`, merged its generated Action through
-  [PR #1](https://github.com/odinlabs-ai/bce-action-witness/pull/1), and records clean GREEN,
+  [PR #1](https://github.com/blueprint-conformance/bce-action-witness/pull/1), and records clean GREEN,
   planted-drift detection, and corrected GREEN runs. This proves the Action crosses repository
   boundaries; it does not prove that an unfamiliar user can adopt BCE without help.
 - **Citation metadata is software-only.** [CITATION.cff](CITATION.cff) does not invent a paper,

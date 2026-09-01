@@ -27,10 +27,10 @@ source tree.
 - `bce run --emit` can emit hash-chained integrity records. Ordinary gate runs do not emit them,
   and a local hash chain is not authenticated provenance.
 - The generated GitHub Action runs outside this repository: the public
-  [`odinlabs-ai/bce-action-witness`](https://github.com/odinlabs-ai/bce-action-witness) consumer
-  produced a [clean GREEN](https://github.com/odinlabs-ai/bce-action-witness/actions/runs/33496925176),
-  [reported planted drift](https://github.com/odinlabs-ai/bce-action-witness/actions/runs/33497018340),
-  and returned to [GREEN after the fix](https://github.com/odinlabs-ai/bce-action-witness/actions/runs/33497122787).
+  [`blueprint-conformance/bce-action-witness`](https://github.com/blueprint-conformance/bce-action-witness) consumer
+  produced a [clean GREEN](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497921200),
+  [reported planted drift](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497995578),
+  and returned to [GREEN after the fix](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33498058816).
   The drift run was advisory, so its successful workflow conclusion is not evidence of enforced
   blocking; its log is evidence that the generated Action found and reported the violation.
 
