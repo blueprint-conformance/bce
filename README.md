@@ -98,6 +98,10 @@ node ../../dist/cli.js gate --repo drift --blueprint-dir blueprint --extractor a
 
 Do not install `bce-engine` from npm for this walkthrough: the registry name currently resolves to
 a non-functional `0.0.0` reservation stub. See [STATUS.md](STATUS.md).
+
+After building—or after installing a locally packed tarball—`bce demo` runs an offline packaged
+GREEN/RED discrimination proof with no repository setup. `npm run test:package` builds a tarball,
+installs it into a clean temporary consumer, and executes that command through the installed bin.
 The full walkthrough — RED, the fix, GREEN, and what each verdict means — is
 [docs/quickstart.md](docs/quickstart.md) · [examples/quickstart](examples/quickstart). A second
 worked example, on a config surface rather than code, is

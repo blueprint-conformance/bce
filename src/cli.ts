@@ -24,6 +24,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   parseBlueprint,
   parsePortfolioBlueprint,
@@ -345,6 +346,31 @@ function main(): void {
   const cmd = args._[0];
   const extractorKind = (args.extractor === 'line-scan' ? 'line-scan' : 'ast') as 'ast' | 'line-scan';
   const noPin = args['no-pin'] === true || args['no-pin'] === 'true';
+
+  if (cmd === 'demo') {
+    // Package-only first win: fixtures are part of the published tarball, unlike examples/.
+    // Execute one conformant and one seeded-drift tree through the same extractor/evaluator.
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    const bp = readBlueprint(path.join(root, 'fixtures', 'luna-chat-extension.blueprint.json'));
+    const cfg = resolveExtraction(bp.extraction, bp.constraints);
+    const run = (name: string): ComplianceReport => {
+      const tree = path.join(root, 'fixtures', 'extension-surface', name);
+      const graph = makeExtractor('ast', cfg).extract(tree, `demo:${name}`);
+      return evaluate(bp, graph, cfg.profile);
+    };
+    const clean = run('conformant');
+    const drift = run('drift-forbidden-import');
+    const expectedDrift = drift.violations.some((v) => v.constraintId === 'no-direct-provider-sdk');
+    if (clean.verdict !== 'pass' || clean.score !== 100 || drift.verdict !== 'fail' || !expectedDrift) {
+      die(`demo REFUSED: packaged RED/GREEN discrimination did not match its expected oracle`, 2);
+    }
+    process.stdout.write(`GREEN conformant: score ${clean.score}, exit 0\n`);
+    process.stdout.write(
+      `RED drift-forbidden-import: score ${drift.score}, would exit 1, violation no-direct-provider-sdk\n`,
+    );
+    process.stdout.write(`bce demo: package fixtures discriminate GREEN from RED\n`);
+    return;
+  }
 
   if (cmd === 'validate') {
     const bp = readBlueprint(args.blueprint as string);
@@ -1029,7 +1055,8 @@ function main(): void {
   }
 
   process.stdout.write(
-    `bce — Blueprint Compliance Engine\n\n` +
+      `bce — Blueprint Compliance Engine\n\n` +
+      `  bce demo  Package-only offline RED/GREEN proof (no repository or configuration required)\n` +
       `  bce author --id <id> --intent-ref <ref> --constraint "<type>:<arg>[:<severity>]"\n` +
       `       [--repository <org/repo>] [--repo <dir>] [--scope-paths <glob,glob>]\n` +
       `       [--extraction-profile next-route-handler|plugin-surface] [--guard-symbol <sym>]\n` +

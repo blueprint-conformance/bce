@@ -33,6 +33,7 @@
     "build": "rimraf dist tsconfig.tsbuildinfo && tsup && tsc --emitDeclarationOnly",
     "dev": "tsup --watch",
     "test": "vitest run",
+    "test:package": "node scripts/package-consumer-proof.mjs",
     "test:watch": "vitest",
     "generate:schemas": "tsx scripts/generate-schemas.ts",
     "typecheck": "tsc --noEmit",

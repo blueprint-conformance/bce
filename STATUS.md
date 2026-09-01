@@ -8,7 +8,7 @@ source tree.
 | Surface | Status | What a user may rely on |
 |---|---|---|
 | Source checkout | Working, internally tested | Node 22, `npm ci`, `npm run build`, then `node dist/cli.js` |
-| Packed local tarball | Tested before release | `npm pack` output must pass the clean-room consumer proof |
+| Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree and runs `bce demo` |
 | npm | Not released | The public name currently serves a non-functional `0.0.0` reservation stub |
 | Git tag / GitHub Release | Not released | No immutable `v0.1.0` artifact is claimed |
 | GitHub Action | Source evaluation only | Pin a reviewed commit SHA and use `engine: local`; there is no release tag |
