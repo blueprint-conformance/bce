@@ -235,6 +235,7 @@ describe('bce-mcp — run_gate is byte-identical to `bce gate --report-json`', (
     const doc = toolStructured(result);
     expect(doc.schemaVersion).toBe('1');
     expect(doc.gateFailed).toBe(false);
+    expect(doc.outcome).toBe('pass');
     expect(doc.exitCode).toBe(0);
     expect((doc.reports as Array<{ verdict: string }>)[0].verdict).toBe('pass');
     // and the CLI over the SAME tree really exits 0
@@ -248,6 +249,7 @@ describe('bce-mcp — run_gate is byte-identical to `bce gate --report-json`', (
     expect(result.isError).toBe(false);
     const doc = toolStructured(result);
     expect(doc.gateFailed).toBe(true);
+    expect(doc.outcome).toBe('violation');
     expect(doc.exitCode).toBe(1);
     const reports = doc.reports as Array<{ verdict: string; violations: Array<{ constraintId: string }> }>;
     expect(reports[0].verdict).toBe('fail');
@@ -265,6 +267,28 @@ describe('bce-mcp — run_gate is byte-identical to `bce gate --report-json`', (
     expect(green.gateFailed).toBe(false);
     expect(red.gateFailed).toBe(true);
     expect(green.exitCode).not.toBe(red.exitCode);
+  });
+
+  it('REFUSAL: zero blueprints returns exit 2 and matches the CLI machine contract', async () => {
+    const emptyBp = join(tmp, 'mcp-empty-blueprints');
+    mkdirSync(emptyBp);
+    const mcpDoc = toolStructured(await callTool('run_gate', {
+      repoDir: CONFORMANT,
+      blueprintDir: emptyBp,
+      extractor: 'ast',
+    }));
+    expect(mcpDoc.gateFailed).toBe(true);
+    expect(mcpDoc.outcome).toBe('refusal');
+    expect(mcpDoc.exitCode).toBe(2);
+    expect((mcpDoc.refusals as string[]).join(' ')).toContain('0 blueprint(s) discovered');
+
+    const cliOut = join(tmp, 'cli-refusal.json');
+    const cli = runCli([
+      'gate', '--repo', CONFORMANT, '--blueprint-dir', emptyBp,
+      '--extractor', 'ast', '--report-json', cliOut,
+    ]);
+    expect(cli.code).toBe(2);
+    expect(mcpDoc).toEqual(JSON.parse(readFileSync(cliOut, 'utf8')));
   });
 
   it('FAIL-CLOSED: a missing repoDir is an isError result, never a silent pass', async () => {

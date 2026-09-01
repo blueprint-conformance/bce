@@ -735,7 +735,8 @@ function main(): void {
     // refusal (baseline narrows only the graded-violation reds; advisory then ungates the exit
     // entirely — composition: refusal always blocks → baseline narrows graded reds → advisory zeroes).
     const blockingBlueprints = result.reports.filter(blocks).length;
-    const gateFailed = baseline !== null ? blockingBlueprints > 0 : result.failed;
+    const gateFailed = (result.refusals?.length ?? 0) > 0 ||
+      (baseline !== null ? blockingBlueprints > 0 : result.failed);
     process.stdout.write(
       `bce gate [${resolvedMode.mode}]: ${result.blueprintsSelected}/${result.blueprintsDiscovered} blueprint(s) evaluated, ` +
         `${blockingBlueprints} failing` +
@@ -744,7 +745,7 @@ function main(): void {
     );
     // In advisory mode, restate the non-blocking exit LOUDLY when there is a real (new) red — so the
     // exit-0 is never read as "it passed". The verdict is unchanged; only the build-gate consequence is.
-    if (resolvedMode.mode === 'advisory' && gateFailed) {
+    if (resolvedMode.mode === 'advisory' && gateFailed && (result.refusals?.length ?? 0) === 0) {
       process.stderr.write(
         `::warning::ADVISORY MODE — ${blockingBlueprints} blueprint(s) have NEW violation(s) but the gate exits 0 (non-blocking). ` +
           `Graduate to enforced (bce graduate) to make these block.\n`,
@@ -758,6 +759,18 @@ function main(): void {
     // BYTE-IDENTICAL with or without the flag (widen-only — absent flag ⇒ pre-flag path unchanged).
     // Fail-closed: a write failure is a LOUD error (exit 1), never a silent skip — a consumer that
     // asked for the machine report must never proceed as if it got one.
+    const doc = assembleGateReportDoc({
+      resolvedMode,
+      baseline,
+      result,
+      blockingBlueprints,
+      newViolationsTotal,
+      baselinedViolationsTotal: baselinedTotal,
+      gateFailed,
+    });
+    for (const refusal of result.refusals ?? []) {
+      process.stderr.write(`::error::${refusal}. Author one with 'bce author', or point --blueprint-dir at the right directory.\n`);
+    }
     const reportJsonPath = typeof args['report-json'] === 'string' ? (args['report-json'] as string) : undefined;
     if (reportJsonPath) {
       // NO interpretation, NO re-computation: the doc is assembled by `assembleGateReportDoc` — the
@@ -765,49 +778,13 @@ function main(): void {
       // Sharing that one assembler is what makes the CLI's machine report and the MCP shell's output
       // byte-identical BY CONSTRUCTION (COUNCIL-SYNTHESIS #20 — zero logic to diverge). The inputs
       // are exactly the graded facts the human render above already computed from the SAME run.
-      const doc = assembleGateReportDoc({
-        resolvedMode,
-        baseline,
-        result,
-        blockingBlueprints,
-        newViolationsTotal,
-        baselinedViolationsTotal: baselinedTotal,
-        gateFailed,
-      });
       try {
         fs.writeFileSync(reportJsonPath, stableStringify(doc));
       } catch (e) {
         die(`--report-json: could not write machine report to ${reportJsonPath}: ${(e as Error).message}`, 1);
       }
     }
-    // ANTI-SHELFWARE FLOOR (exit 2) — a repository that gates NOTHING has proven NOTHING.
-    //
-    // This is DISCOVERY, not selection, and the distinction is the whole point. `blueprintsSelected
-    // === 0` is legitimate and common: a change that intersects no blueprint's scope was correctly
-    // graded against everything that applied to it, and exits 0. `blueprintsDiscovered === 0` is a
-    // different animal — the portfolio is absent or has been deleted — and returning a green there
-    // makes the gate silently retirable by `rm -rf` on the blueprint directory.
-    //
-    // Exit 2, not 1, deliberately: 1 is a GRADED red (constraints evaluated, violations found), and
-    // conflating "your architecture drifted" with "you have no architecture declared" would make
-    // the two indistinguishable to any consumer parsing the exit code. 2 is already this CLI's
-    // structural-refusal code — `bce teeth` exits 2 on a toothless blueprint, the exact sibling
-    // property (a blueprint that cannot fail vs a portfolio that cannot be evaluated).
-    //
-    // Advisory is honored, because advisory's documented contract is that it changes ONLY the exit
-    // and is "an adoption posture, NOT a skip flag" — a repo mid-adoption legitimately has no
-    // blueprints yet. The error is still emitted, loudly, so the state is never silent.
-    if (result.blueprintsDiscovered === 0) {
-      process.stderr.write(
-        `::error::fail-closed: 0 blueprint(s) discovered under ${blueprintDir} — a repository that ` +
-          `gates nothing has proven nothing. Author one with 'bce author', or point --blueprint-dir ` +
-          `at the right directory.\n`,
-      );
-      if (resolvedMode.mode !== 'advisory') process.exit(2);
-    }
-    // The ONE place mode changes behavior: advisory → 0 regardless; enforced → the real red/green
-    // (where "red" now means a NEW-violation red — the baseline overlay already applied).
-    process.exit(exitCodeForGate(gateFailed, resolvedMode.mode));
+    process.exit(doc.exitCode);
   }
 
   if (cmd === 'baseline') {

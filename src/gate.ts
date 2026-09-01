@@ -35,6 +35,12 @@ export interface GateResult {
   reports: ComplianceReport[];
   failed: boolean;
   /**
+   * Structural reasons the gate could not honestly grade. Refusals are never
+   * softened by advisory mode or a baseline and map to process exit 2 on every
+   * interface. Omitted when the run was fully gradeable.
+   */
+  refusals?: string[];
+  /**
    * ADDITIVE (OPTIONAL): advisory WARN lines (repo-identity mismatch — see
    * `runGate`). Absent on the pre-B2 path; NEVER a failure cause.
    */
@@ -237,6 +243,7 @@ export function runGate(
   const files = discoverBlueprints(blueprintDir);
   const reports: ComplianceReport[] = [];
   const warnings: string[] = [];
+  const refusals: string[] = [];
   let selected = 0;
   // FIX-B / FIX-E skip counters — every skip below is ALSO an explicit warnings line; the counters
   // surface omit-when-0 on the GateResult (mirroring `warnings?`) so a consumer can assert
@@ -250,6 +257,12 @@ export function runGate(
   const repoTag = repoName !== undefined ? { repo: repoName } : {};
   // FIX-E b: this engine's own version, resolved ONCE per gate run (one engine, one fact).
   const engineVersion = resolveEngineVersion();
+
+  if (files.length === 0) {
+    refusals.push(
+      `fail-closed: 0 blueprint(s) discovered under ${blueprintDir} — a repository that gates nothing has proven nothing`,
+    );
+  }
 
   for (const bpPath of files) {
     let bp: EngineeringBlueprint;
@@ -437,12 +450,13 @@ export function runGate(
     reports.push(report);
   }
 
-  const failed = reports.some((r) => r.verdict !== 'pass');
+  const failed = refusals.length > 0 || reports.some((r) => r.verdict !== 'pass');
   return {
     blueprintsDiscovered: files.length,
     blueprintsSelected: selected,
     reports,
     failed,
+    ...(refusals.length > 0 ? { refusals } : {}),
     // omit-not-empty: absent unless something was actually warned (pre-B2 shape preserved).
     ...(warnings.length > 0 ? { warnings } : {}),
     // omit-when-0 (FIX-B / FIX-E a): the skip counters mirror the `warnings?` additive precedent —
@@ -471,7 +485,11 @@ export interface GateReportDoc {
   newViolationsTotal: number;
   baselinedViolationsTotal: number;
   gateFailed: boolean;
-  exitCode: 0 | 1;
+  /** Canonical three-state gate outcome. */
+  outcome: 'pass' | 'violation' | 'refusal';
+  /** Structural refusal reasons. Empty on pass/violation. */
+  refusals: string[];
+  exitCode: 0 | 1 | 2;
   warnings: string[];
   reports: ComplianceReport[];
 }
@@ -504,7 +522,20 @@ export function assembleGateReportDoc(args: {
   baselinedViolationsTotal: number;
   gateFailed: boolean;
 }): GateReportDoc {
-  const { resolvedMode, baseline, result, blockingBlueprints, newViolationsTotal, baselinedViolationsTotal, gateFailed } = args;
+  const { resolvedMode, baseline, result, blockingBlueprints, newViolationsTotal, baselinedViolationsTotal } = args;
+  const reportRefusals = result.reports
+    .filter((r) => r.verdict !== 'pass' && r.violations.length === 0)
+    .map((r) => r.summary);
+  const refusals = [...new Set([...(result.refusals ?? []), ...reportRefusals])];
+  const gateFailed = args.gateFailed || refusals.length > 0;
+  const outcome: GateReportDoc['outcome'] = refusals.length > 0
+    ? 'refusal'
+    : gateFailed
+      ? 'violation'
+      : 'pass';
+  const exitCode: GateReportDoc['exitCode'] = outcome === 'refusal'
+    ? 2
+    : exitCodeForGate(gateFailed, resolvedMode.mode);
   return {
     schemaVersion: '1',
     mode: resolvedMode.mode,
@@ -516,7 +547,9 @@ export function assembleGateReportDoc(args: {
     newViolationsTotal,
     baselinedViolationsTotal,
     gateFailed,
-    exitCode: exitCodeForGate(gateFailed, resolvedMode.mode),
+    outcome,
+    refusals,
+    exitCode,
     warnings: result.warnings ?? [],
     reports: result.reports,
   };
@@ -591,7 +624,8 @@ export function computeGateReport(
   const blockingBlueprints = result.reports.filter(blocks).length;
   // advisory ungates the exit entirely → the composition is: refusal always blocks → baseline
   // narrows the graded reds → advisory zeroes. `gateFailed` is the REAL build-gate signal.
-  const gateFailed = baseline !== null ? blockingBlueprints > 0 : result.failed;
+  const gateFailed = (result.refusals?.length ?? 0) > 0 ||
+    (baseline !== null ? blockingBlueprints > 0 : result.failed);
 
   const doc = assembleGateReportDoc({
     resolvedMode,
