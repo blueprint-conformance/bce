@@ -85,11 +85,28 @@ export type { ComplianceReport, Violation } from './report.js';
 
 export { assessTeeth, ConstraintTeeth } from './teeth.js';
 export type { TeethReport, RefutabilityWitness } from './teeth.js';
+export { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
+export type { TeethWaiver } from './teeth-waiver.js';
 
 export { resolveRevision, materializeAtRevision } from './pin.js';
 
 export { runGate, discoverBlueprints, blueprintTouchesChanges, resolveTreeRevision, computeGateReport, assembleGateReportDoc } from './gate.js';
 export type { GateResult, GateReportDoc, ComputedGate } from './gate.js';
+export { doctorRepository } from './lifecycle.js';
+export type { DoctorReport, DoctorCheck, DoctorCheckStatus } from './lifecycle.js';
+export { ratifyBlueprint, amendBlueprint, readPolicyHistory, semverGreater, PolicyHistoryError, POLICY_HISTORY_RELPATH } from './policy-history.js';
+export type { PolicyHistoryEntry, PolicyOperation, ReviewInput } from './policy-history.js';
+
+export {
+  assessBaselineMaintenance,
+  renderBaselineShrinkPatch,
+  planBaselineWrite,
+  readBaseline,
+  writeBaseline,
+  BaselineError,
+  BASELINE_RELPATH,
+} from './baseline.js';
+export type { BaselineCheckResult, BaselineCheckState, BaselineWritePlan, BaselineFile, BaselineEntry } from './baseline.js';
 
 // Mode doctrine (SPEC §9) — advisory vs enforced adoption posture. The gate reads the mode from a
 // COMMITTED `.bce-mode.json` (never a flag); advisory prints the full verdict + banner and exits 0.
@@ -152,4 +169,3 @@ export type {
   ViolationClass,
   UpsertDescriptor,
 } from './materializer.js';
-

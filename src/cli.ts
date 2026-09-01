@@ -43,6 +43,7 @@ import { makeExtractor } from './extractor-registry.js';
 import { safeCompilePattern, UnsafePatternError } from './safe-regex.js';
 import { evaluate, stableStringify, type ComplianceReport } from './report.js';
 import { assessTeeth } from './teeth.js';
+import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 import { resolveRevision, materializeAtRevision } from './pin.js';
 import { runGate, assembleGateReportDoc } from './gate.js';
 import {
@@ -60,6 +61,8 @@ import {
 import {
   readBaseline,
   planBaselineWrite,
+  assessBaselineMaintenance,
+  renderBaselineShrinkPatch,
   writeBaseline,
   partitionAgainstBaseline,
   BaselineError,
@@ -73,6 +76,8 @@ import { collectPortfolio, PortfolioRegistrySchema } from './portfolio-collect.j
 import { architectureScore } from './score.js';
 import type { ArchitectureGraph, ObservedComponent } from './graph.js';
 import { loadObservations, observationBinding } from './observations.js';
+import { doctorRepository } from './lifecycle.js';
+import { ratifyBlueprint, amendBlueprint, PolicyHistoryError, type ReviewInput, type PolicyHistoryEntry } from './policy-history.js';
 
 interface Args {
   _: string[];
@@ -118,6 +123,43 @@ function readBlueprint(p: string) {
   } catch (e) {
     die(`blueprint failed schema validation: ${(e as Error).message}`);
   }
+}
+
+function policyReview(args: Args): ReviewInput {
+  const reviewer = typeof args.reviewer === 'string' ? args.reviewer : '';
+  const rationale = typeof args.rationale === 'string' ? args.rationale : '';
+  const recordedAt = typeof args['recorded-at'] === 'string' ? args['recorded-at'] : '';
+  const humanReviewer = args['human-reviewer'] === true || args['human-reviewer'] === 'true';
+  const acceptWeakening = args['accept-weakening'] === true || args['accept-weakening'] === 'true';
+  return { reviewer, rationale, recordedAt, humanReviewer, acceptWeakening };
+}
+
+/** Prove the exact candidate policy can be falsified against the live tree before approval. */
+function policyProof(
+  repoDir: string,
+  blueprint: EngineeringBlueprint,
+  reviewedWaiver: boolean,
+): PolicyHistoryEntry['proof'] {
+  const cfg = resolveExtraction(blueprint.extraction, blueprint.constraints);
+  const graph = makeExtractor('ast', cfg).extract(repoDir, 'policy-working-tree');
+  if (graph.coverage.filesScanned < cfg.minFiles) {
+    die(`policy proof refused: scanned ${graph.coverage.filesScanned} file(s), expected >= ${cfg.minFiles}`, 2);
+  }
+  const teeth = assessTeeth(blueprint, graph, cfg.profile);
+  if (teeth.verdict === 'toothed') return 'extractor-real';
+  if (teeth.verdict === 'evaluator-refutable' && reviewedWaiver) {
+    try {
+      readTeethWaiver(repoDir, teeth.blueprintRef);
+      return 'reviewed-evaluator-waiver';
+    } catch (e) {
+      die(`policy proof waiver refused: ${(e as Error).message}`, 2);
+    }
+  }
+  die(
+    `policy proof refused: ${teeth.verdict}; approval requires extractor-real teeth` +
+      (teeth.verdict === 'evaluator-refutable' ? ` or --reviewed-waiver backed by ${TEETH_WAIVER_RELPATH}` : ''),
+    2,
+  );
 }
 
 /**
@@ -369,6 +411,111 @@ function main(): void {
       `RED drift-forbidden-import: score ${drift.score}, would exit 1, violation no-direct-provider-sdk\n`,
     );
     process.stdout.write(`bce demo: package fixtures discriminate GREEN from RED\n`);
+    return;
+  }
+
+  if (cmd === 'doctor') {
+    const repoDir = (args.repo as string) || '.';
+    if (!fs.existsSync(repoDir)) die(`--repo not found: ${repoDir}`, 2);
+    const blueprintDir = (args['blueprint-dir'] as string) || path.join(repoDir, '.blueprints');
+    const report = doctorRepository(repoDir, blueprintDir);
+    const out = typeof args.out === 'string' ? (args.out as string) : undefined;
+    if (out) fs.writeFileSync(out, stableStringify(report));
+    for (const check of report.checks) {
+      process.stdout.write(`  ${check.status === 'pass' ? '✓' : check.status === 'warning' ? '!' : '✗'} ${check.id}: ${check.detail}\n`);
+    }
+    process.stdout.write(`bce doctor: ${report.outcome} (exit ${report.exitCode})\n`);
+    process.exit(report.exitCode);
+  }
+
+  if (cmd === 'adopt') {
+    // Safe proposal generator: installs advisory posture + a DRAFT contract + least-privilege CI
+    // and agent instructions. It never approves/ratifies policy and never overwrites a file.
+    const repoDir = (args.repo as string) || '.';
+    if (!fs.existsSync(repoDir)) die(`--repo not found: ${repoDir}`, 2);
+    const sourceBlueprint = readBlueprint(args.blueprint as string);
+    if (sourceBlueprint.metadata.status !== 'draft' && sourceBlueprint.metadata.status !== 'proposed') {
+      die(`bce adopt accepts only draft/proposed blueprints; ratification is a separate human-gated ceremony`, 2);
+    }
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(sourceBlueprint.metadata.id)) {
+      die(`blueprint id must be lowercase kebab-case for adoption`, 2);
+    }
+    const engine = typeof args.engine === 'string' ? (args.engine as string) : '';
+    if (!/^bce-engine@\d+\.\d+\.\d+$/.test(engine)) {
+      die(`--engine must be an exact published pin such as bce-engine@1.2.3; ranges/latest are refused`, 2);
+    }
+    const targets = {
+      blueprint: path.join(repoDir, '.blueprints', `${sourceBlueprint.metadata.id}.blueprint.json`),
+      mode: path.join(repoDir, MODE_CONFIG_BASENAME),
+      workflow: path.join(repoDir, '.github', 'workflows', 'blueprint-conformance.yml'),
+      agents: path.join(repoDir, 'AGENTS.bce.md'),
+      manifest: path.join(repoDir, '.bce-adoption.json'),
+    };
+    const occupied = Object.values(targets).filter((p) => fs.existsSync(p));
+    if (occupied.length > 0) die(`adopt refuses to overwrite existing policy files: ${occupied.map((p) => path.relative(repoDir, p)).join(', ')}`, 2);
+    fs.mkdirSync(path.dirname(targets.blueprint), { recursive: true });
+    fs.mkdirSync(path.dirname(targets.workflow), { recursive: true });
+    fs.writeFileSync(targets.blueprint, stableStringify(sourceBlueprint));
+    writeModeConfig(repoDir, 'advisory');
+    fs.writeFileSync(targets.workflow,
+      `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-node@v4\n        with:\n          node-version: "22"\n      - run: npx --yes --package ${engine} bce gate --repo . --report-json bce-report.json\n`);
+    fs.writeFileSync(targets.agents,
+      `# BCE done-check\n\nRun \`bce gate --repo .\` before declaring work complete. Fix code on violations. ` +
+      `Blueprint, baseline, mode, workflow, waiver, and engine-pin changes are policy changes and require human-owner review.\n`);
+    fs.writeFileSync(targets.manifest, stableStringify({
+      schemaVersion: '1',
+      state: 'proposed',
+      engine,
+      blueprintRef: `${sourceBlueprint.metadata.id}@${sourceBlueprint.metadata.version}`,
+      mode: 'advisory',
+      ratified: false,
+      generatedFiles: Object.values(targets).filter((p) => p !== targets.manifest).map((p) => path.relative(repoDir, p)).sort(),
+    }));
+    process.stdout.write(`bce adopt: PROPOSED advisory adoption with draft ${sourceBlueprint.metadata.id}; human ratification still required\n`);
+    return;
+  }
+
+  if (cmd === 'ratify') {
+    const repoDir = (args.repo as string) || '.';
+    if (!fs.existsSync(repoDir)) die(`--repo not found: ${repoDir}`, 2);
+    const blueprintPath = args.blueprint as string;
+    const blueprint = readBlueprint(blueprintPath);
+    const proof = policyProof(repoDir, blueprint, args['reviewed-waiver'] === true || args['reviewed-waiver'] === 'true');
+    try {
+      const result = ratifyBlueprint({ repoDir, blueprintPath, review: policyReview(args), proof });
+      process.stdout.write(`bce ratify: ${result.entry.fromRef} -> ${result.entry.toRef}; approved with ${proof} proof\n`);
+    } catch (e) {
+      if (e instanceof PolicyHistoryError) die(e.message, 2);
+      throw e;
+    }
+    return;
+  }
+
+  if (cmd === 'amend') {
+    const repoDir = (args.repo as string) || '.';
+    if (!fs.existsSync(repoDir)) die(`--repo not found: ${repoDir}`, 2);
+    const blueprintPath = args.blueprint as string;
+    const replacementPath = args.replacement as string;
+    const replacement = readBlueprint(replacementPath);
+    const compatibility = args.compatibility;
+    if (!['compatible', 'breaking', 'tightening', 'weakening'].includes(String(compatibility))) {
+      die(`--compatibility must be compatible|breaking|tightening|weakening`, 2);
+    }
+    const proof = policyProof(repoDir, replacement, args['reviewed-waiver'] === true || args['reviewed-waiver'] === 'true');
+    try {
+      const result = amendBlueprint({
+        repoDir,
+        blueprintPath,
+        replacementPath,
+        review: policyReview(args),
+        compatibility: compatibility as 'compatible' | 'breaking' | 'tightening' | 'weakening',
+        proof,
+      });
+      process.stdout.write(`bce amend: ${result.entry.fromRef} -> ${result.entry.toRef}; ${compatibility}; ${proof} proof\n`);
+    } catch (e) {
+      if (e instanceof PolicyHistoryError) die(e.message, 2);
+      throw e;
+    }
     return;
   }
 
@@ -636,6 +783,30 @@ function main(): void {
     const graph = buildGraph(args['ct-repo'] as string, args.ref as string | undefined, extractorKind, noPin, cfg);
     const teeth = assessTeeth(bp, graph, cfg.profile);
     const requireExtractorReal = args['require-extractor-real'] === true || args['require-extractor-real'] === 'true';
+    const reviewedWaiver = args['reviewed-waiver'] === true || args['reviewed-waiver'] === 'true';
+    let readinessRefused = false;
+    if (requireExtractorReal) {
+      if (teeth.verdict === 'toothed') {
+        teeth.readiness = { status: 'ready', proof: 'extractor-real' };
+      } else if (teeth.verdict === 'evaluator-refutable' && reviewedWaiver) {
+        try {
+          const waiver = readTeethWaiver(args['ct-repo'] as string, teeth.blueprintRef);
+          teeth.readiness = {
+            status: 'waived',
+            proof: 'reviewed-evaluator-waiver',
+            waiver: { reviewer: waiver.reviewer, rationale: waiver.rationale, evidenceRef: waiver.evidenceRef },
+          };
+        } catch (e) {
+          readinessRefused = true;
+          teeth.readiness = { status: 'refusal', proof: 'insufficient' };
+          if (e instanceof TeethWaiverError) process.stderr.write(`::error::reviewed teeth waiver refused: ${e.message}\n`);
+          else throw e;
+        }
+      } else {
+        readinessRefused = true;
+        teeth.readiness = { status: 'refusal', proof: 'insufficient' };
+      }
+    }
     const out = (args.out as string) || 'teeth-report.json';
     fs.writeFileSync(out, stableStringify(teeth));
     if (teeth.verdict === 'toothless') {
@@ -655,10 +826,10 @@ function main(): void {
         );
       }
     }
-    if (requireExtractorReal && teeth.verdict !== 'toothed') {
+    if (requireExtractorReal && teeth.verdict !== 'toothed' && teeth.readiness?.status !== 'waived') {
       process.stderr.write(`::error::enforcement readiness requires extractor-real teeth; evaluator-only mutations are insufficient\n`);
     }
-    process.exit(teeth.verdict === 'toothless' || (requireExtractorReal && teeth.verdict !== 'toothed') ? 2 : 0);
+    process.exit(teeth.verdict === 'toothless' || readinessRefused ? 2 : 0);
   }
 
   if (cmd === 'gate') {
@@ -852,6 +1023,7 @@ function main(): void {
     const repoDir = (args['repo'] as string) || (args['ct-repo'] as string) || '.';
     const blueprintDir = (args['blueprint-dir'] as string) || path.join(repoDir, '.blueprints');
     const dryRun = args['dry-run'] === true || args['dry-run'] === 'true';
+    const checkOnly = args.check === true || args.check === 'true';
     const changedArg = args['changed'];
     const changed =
       typeof changedArg === 'string' && changedArg.length > 0
@@ -868,6 +1040,24 @@ function main(): void {
     const result = runGate(repoDir, blueprintDir, changed, extractorKind, repoName);
     const plan = planBaselineWrite(result.reports, existing);
     const engine = resolveEngineVersion();
+
+    if (checkOnly) {
+      const checked = assessBaselineMaintenance(result.reports, existing, result.refusals).result;
+      const checkOut = typeof args.out === 'string' ? (args.out as string) : undefined;
+      const bytes = stableStringify(checked);
+      if (checkOut) fs.writeFileSync(checkOut, bytes);
+      const patchOut = typeof args['patch-out'] === 'string' ? (args['patch-out'] as string) : undefined;
+      if (patchOut) {
+        if (existing === null) die(`--patch-out requires an existing baseline; fresh creation is a human-reviewed policy act`, 2);
+        const patch = renderBaselineShrinkPatch(existing, plan);
+        fs.writeFileSync(patchOut, patch);
+      }
+      process.stdout.write(
+        `BaselineCheck: ${checked.state} — ${checked.currentViolations} current, ${checked.removable} removable, ` +
+          `${checked.unacceptedNew} unaccepted-new (exit ${checked.exitCode})\n`,
+      );
+      process.exit(checked.exitCode);
+    }
 
     if (plan.hadExisting) {
       process.stdout.write(
@@ -1060,6 +1250,8 @@ function main(): void {
   process.stdout.write(
       `bce — Blueprint Compliance Engine\n\n` +
       `  bce demo  Package-only offline RED/GREEN proof (no repository or configuration required)\n` +
+      `  bce doctor [--repo <dir>] [--blueprint-dir <dir>] [--out <json>]  Read-only lifecycle readiness audit\n` +
+      `  bce adopt --repo <dir> --blueprint <draft.json> --engine bce-engine@<exact>  Propose advisory files; never ratifies\n` +
       `  bce author --id <id> --intent-ref <ref> --constraint "<type>:<arg>[:<severity>]"\n` +
       `       [--repository <org/repo>] [--repo <dir>] [--scope-paths <glob,glob>]\n` +
       `       [--extraction-profile next-route-handler|plugin-surface] [--guard-symbol <sym>]\n` +
@@ -1076,7 +1268,8 @@ function main(): void {
       `  bce validate --blueprint <path>\n` +
       `  bce scan  --ct-repo <dir> [--blueprint <path>] [--ref <sha|ref>] [--extractor ast|line-scan] --out <path>\n` +
       `  bce run   --blueprint <path> --ct-repo <dir> [--ref <sha|ref>] [--extractor ast|line-scan] --out <path>\n` +
-      `  bce teeth --blueprint <path> --ct-repo <dir> [--require-extractor-real] [--out <path>]\n` +
+      `  bce teeth --blueprint <path> --ct-repo <dir> [--require-extractor-real] [--reviewed-waiver] [--out <path>]\n` +
+      `       --reviewed-waiver accepts evaluator-only proof only via committed ${TEETH_WAIVER_RELPATH}.\n` +
       `  bce gate  [--repo <dir>] [--blueprint-dir <dir>] [--changed a,b,c] [--extractor ast|line-scan] [--repo-name <org/repo>] [--all] [--report-json <path>]\n` +
       `       --report-json <path> ADDITIVELY writes the machine-parseable gate result (verdict, exit code,\n` +
       `       mode, counts, full graded reports) — a pure output side-channel; the verdict + exit + streams\n` +
@@ -1090,6 +1283,7 @@ function main(): void {
       `       grouped per-constraint by default; --all prints every violation with observed-vs-expected +\n` +
       `       the anchor + both remediation paths (fix the code / amend the blueprint via PR).\n` +
       `  bce baseline [--repo <dir>] [--blueprint-dir <dir>] [--changed a,b,c] [--extractor ...] [--dry-run]\n` +
+      `       --check [--out <json>] [--patch-out <diff>] reports typed clean | shrink-needed | unaccepted-new | refusal;\n` +
       `       Write a shrink-only, PR-reviewed ${BASELINE_RELPATH} of the CURRENT violations (the burndown\n` +
       `       wall). Fresh creation records them all; a re-write can only REMOVE (auto-drops vanished ones,\n` +
       `       refuses to add). To GROW the wall, delete the file and re-create (PR-visible). --dry-run previews.\n` +

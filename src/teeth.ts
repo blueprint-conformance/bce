@@ -99,6 +99,12 @@ export interface TeethReport {
    */
   verdict: 'toothed' | 'toothless' | 'evaluator-refutable';
   summary: string;
+  /** Enforcement-readiness decision, populated by the CLI when strict readiness is requested. */
+  readiness?: {
+    status: 'ready' | 'waived' | 'refusal';
+    proof: 'extractor-real' | 'reviewed-evaluator-waiver' | 'insufficient';
+    waiver?: { reviewer: string; rationale: string; evidenceRef: string };
+  };
 }
 
 type Profile = ExtractionProfile;
