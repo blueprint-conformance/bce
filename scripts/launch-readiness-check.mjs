@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * launch-readiness-check.mjs — the promises that must be true the moment this
- * repository becomes public, enforced instead of remembered.
+ * launch-readiness-check.mjs — verify that the public surface agrees with its actual
+ * distribution state. A public development snapshot is allowed; contradictory release claims
+ * are not.
  *
  * Several launch steps are "do this before/with the flip": clear the citation
  * placeholders, replace the README's placeholder links, activate the badge block,
@@ -54,19 +55,11 @@ const promises = [];
 const promise = (id, ready, detail, remedy) => promises.push({ id, ready, detail, remedy });
 
 // ---------------------------------------------------------------------------
-// R2 — the one that is not merely embarrassing.
-// bce-engine@0.1.0 must be live on npm BEFORE this repository is public, or the
-// quickstart's first command installs the 0.0.0 reservation stub instead of the
-// engine. The pin file records the operator's own flip; npm is the ground truth.
+// Distribution consistency. The pin file records the claim; npm is ground truth. Both the
+// honest pre-release state (false/not published) and verified release state (true/published)
+// are acceptable.
 // ---------------------------------------------------------------------------
 const pin = JSON.parse(read('.engine-pin.json'));
-promise(
-  'R2/engine-pin',
-  pin.published === true,
-  `.engine-pin.json published=${pin.published} (pin ${pin.package}@${pin.pin})`,
-  'flip published:true in the same PR that first publishes 0.1.0 (docs/pin-ceremony.md)'
-);
-
 let npmVersion = '(not checked)';
 let npmOk = false;
 try {
@@ -79,10 +72,16 @@ try {
   npmOk = false;
 }
 promise(
+  'R2/engine-pin',
+  pin.published === npmOk,
+  `.engine-pin.json published=${pin.published} (pin ${pin.package}@${pin.pin})`,
+  'make the committed pin state agree with the public registry; never claim a release before it resolves'
+);
+promise(
   'R2/npm-live',
-  npmOk,
+  pin.published === npmOk,
   `npm serves ${pin.package}@${pin.pin} -> ${npmVersion || 'not published'}`,
-  'publish 0.1.0 BEFORE flipping the repository public — otherwise the quickstart installs the 0.0.0 stub'
+  'keep checkout-only instructions while unpublished; after publish, verify the exact registry artifact and flip the pin'
 );
 
 // ---------------------------------------------------------------------------
@@ -106,8 +105,8 @@ const cffLeft = ['ARXIV-ID-PENDING', 'DOI-PENDING'].filter((t) => cff.includes(t
 promise(
   'citation/placeholders',
   cffLeft.length === 0,
-  cffLeft.length ? `CITATION.cff still carries: ${cffLeft.join(', ')}` : 'CITATION.cff carries real identifiers',
-  'replace with the real arXiv id and Zenodo DOI (release.yml refuses the tag until then)'
+  cffLeft.length ? `CITATION.cff still carries: ${cffLeft.join(', ')}` : 'CITATION.cff carries no placeholder identifiers',
+  'remove provisional identifiers; add arXiv/DOI metadata only after real records exist'
 );
 
 // ---------------------------------------------------------------------------
@@ -175,14 +174,16 @@ promise(
 // prevent, arriving by documentation rather than by a missing publish.
 const npmStubLines = readme.split('\n')
   .map((l, i) => [i + 1, l])
-  .filter(([, l]) => /npm serves a `?0\.0\.0`? placeholder/i.test(l));
+  .filter(([, l]) => /0\.0\.0.*(reservation|stub)|(?:reservation|stub).*0\.0\.0/i.test(l));
 promise(
   'readme/npm-stub-instruction',
-  npmStubLines.length === 0,
+  pin.published ? npmStubLines.length === 0 : npmStubLines.length > 0,
   npmStubLines.length
-    ? `README.md still tells readers npm serves a 0.0.0 placeholder and to prefer the local engine, at line ${npmStubLines.map(([n]) => n).join(', ')}`
-    : 'README does not carry the pre-publish npm-stub instruction',
-  'reword once 0.1.0 is on npm — otherwise the page tells visitors to avoid the package you just published'
+    ? `README honestly warns about the 0.0.0 reservation at line ${npmStubLines.map(([n]) => n).join(', ')}`
+    : 'README carries no npm-stub warning',
+  pin.published
+    ? 'remove the obsolete stub warning after the exact published artifact is verified'
+    : 'warn public pre-release users before any npm command that the registry name is not functional'
 );
 
 // ---------------------------------------------------------------------------
