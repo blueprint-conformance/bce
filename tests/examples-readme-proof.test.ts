@@ -71,6 +71,15 @@ describe('quickstart README — the guaranteed path is proven, command by comman
     assertReadmeCarriesTeethLine(join(QUICKSTART, 'README.md'), r.out);
   });
 
+  it('enforcement readiness refuses evaluator-only teeth when strict proof is required', () => {
+    const r = runCli([
+      'teeth', '--blueprint', BP, '--ct-repo', join(QUICKSTART, 'clean'), '--no-pin',
+      '--extractor', 'ast', '--require-extractor-real',
+    ]);
+    expect(r.code).toBe(2);
+    expect(r.out).toContain('enforcement readiness requires extractor-real teeth');
+  });
+
   it('step 2: gate on the clean tree passes with 1/1 evaluated, 0 failing', () => {
     const r = runCli(['gate', '--repo', join(QUICKSTART, 'clean'), '--blueprint-dir', join(QUICKSTART, 'blueprint'), '--extractor', 'ast']);
     expect(r.code).toBe(0);

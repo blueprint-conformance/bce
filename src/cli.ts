@@ -635,6 +635,7 @@ function main(): void {
     const cfg = resolveExtraction(bp.extraction, bp.constraints);
     const graph = buildGraph(args['ct-repo'] as string, args.ref as string | undefined, extractorKind, noPin, cfg);
     const teeth = assessTeeth(bp, graph, cfg.profile);
+    const requireExtractorReal = args['require-extractor-real'] === true || args['require-extractor-real'] === 'true';
     const out = (args.out as string) || 'teeth-report.json';
     fs.writeFileSync(out, stableStringify(teeth));
     if (teeth.verdict === 'toothless') {
@@ -654,7 +655,10 @@ function main(): void {
         );
       }
     }
-    process.exit(teeth.verdict === 'toothless' ? 2 : 0);
+    if (requireExtractorReal && teeth.verdict !== 'toothed') {
+      process.stderr.write(`::error::enforcement readiness requires extractor-real teeth; evaluator-only mutations are insufficient\n`);
+    }
+    process.exit(teeth.verdict === 'toothless' || (requireExtractorReal && teeth.verdict !== 'toothed') ? 2 : 0);
   }
 
   if (cmd === 'gate') {
@@ -1072,6 +1076,7 @@ function main(): void {
       `  bce validate --blueprint <path>\n` +
       `  bce scan  --ct-repo <dir> [--blueprint <path>] [--ref <sha|ref>] [--extractor ast|line-scan] --out <path>\n` +
       `  bce run   --blueprint <path> --ct-repo <dir> [--ref <sha|ref>] [--extractor ast|line-scan] --out <path>\n` +
+      `  bce teeth --blueprint <path> --ct-repo <dir> [--require-extractor-real] [--out <path>]\n` +
       `  bce gate  [--repo <dir>] [--blueprint-dir <dir>] [--changed a,b,c] [--extractor ast|line-scan] [--repo-name <org/repo>] [--all] [--report-json <path>]\n` +
       `       --report-json <path> ADDITIVELY writes the machine-parseable gate result (verdict, exit code,\n` +
       `       mode, counts, full graded reports) — a pure output side-channel; the verdict + exit + streams\n` +

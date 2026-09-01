@@ -25,7 +25,7 @@ This is an internal regression measurement, not an independent performance bench
 [![ci](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg)](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml)
 
 <p align="center">
-  <img src="assets/badges/tests.svg" alt="tests: 743">
+  <img src="assets/badges/tests.svg" alt="tests: 744">
   <img src="assets/badges/license.svg" alt="license: Apache-2.0">
   <img src="assets/badges/docs.svg" alt="docs: zero-dep">
   <img src="assets/badges/node.svg" alt="node: >=22">
