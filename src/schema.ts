@@ -272,10 +272,29 @@ export const BlueprintMetadataSchema = z
   .passthrough();
 export type BlueprintMetadata = z.infer<typeof BlueprintMetadataSchema>;
 
+/**
+ * Blueprint scan paths are always repository-relative. Reject traversal at the
+ * schema boundary so a reviewed contract cannot make files outside the target
+ * repository contribute evidence. The extractor repeats the containment check
+ * after realpath resolution as defense in depth against symlinks.
+ */
+const RepoRelativePathPatternSchema = z.string().min(1).superRefine((value, ctx) => {
+  const normalized = value.replace(/\\/g, '/');
+  if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'path must be repository-relative' });
+  }
+  if (normalized.split('/').includes('..')) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "path must not contain '..' traversal" });
+  }
+  if (normalized.includes('\0')) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'path must not contain NUL' });
+  }
+});
+
 export const BlueprintScopeSchema = z
   .object({
     repositories: z.array(z.string()).min(1),
-    paths: z.array(z.string()).optional(),
+    paths: z.array(RepoRelativePathPatternSchema).optional(),
     environments: z.array(z.string()).optional(),
   })
   .passthrough();
@@ -329,7 +348,7 @@ export const BlueprintExtractionSchema = z
      * (only valid with the next-route-handler profile). For plugin-surface, REQUIRED.
      * Simple `**` / `*` globs (no brace expansion) — resolved deterministically, sorted.
      */
-    paths: z.array(z.string()).optional(),
+    paths: z.array(RepoRelativePathPatternSchema).optional(),
     /**
      * symbols whose bare-identifier CALL inside a component body counts as a satisfied
      * `guards` (next-route-handler) or `provides` (plugin-surface) edge. Absent →

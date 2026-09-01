@@ -418,7 +418,24 @@ export function runGate(
       });
       continue;
     }
-    const graph = makeExtractor(extractorKind, cfg).extract(repoDir, revision);
+    let graph;
+    try {
+      graph = makeExtractor(extractorKind, cfg).extract(repoDir, revision);
+    } catch (e) {
+      reports.push({
+        schemaVersion: '1',
+        blueprintRef: `${bp.metadata.id}@${bp.metadata.version}`,
+        ctRepoRevision: revision,
+        score: 0,
+        verdict: 'fail',
+        violations: [],
+        evidenceRef: 'n/a',
+        summary: `extractor refused: ${(e as Error).message}`,
+        coverage: { extractor: extractorKind, filesScanned: 0, unsupported: [(e as Error).message] },
+        ...repoTag,
+      });
+      continue;
+    }
     // fail-closed on an empty/partial scan (a stale glob would else score 100).
     if (graph.coverage.filesScanned < cfg.minFiles) {
       reports.push({

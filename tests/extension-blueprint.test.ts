@@ -74,6 +74,11 @@ describe('resolveFiles glob resolution', () => {
   it('a non-matching glob resolves to zero files (fail-closed input)', () => {
     expect(resolveFiles(surface('conformant'), ['src/nonexistent/**/*.ts'])).toHaveLength(0);
   });
+
+  it('refuses exact and glob parent traversal outside the repository', () => {
+    expect(() => resolveFiles(surface('conformant'), ['../outside.ts'])).toThrow(/fail-closed|repository-relative/);
+    expect(() => resolveFiles(surface('conformant'), ['src/../../**/*.ts'])).toThrow(/fail-closed|repository-relative/);
+  });
 });
 
 /* -------------------------------------------------------------------------- */

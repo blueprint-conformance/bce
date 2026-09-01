@@ -216,22 +216,44 @@ export function resolveExtraction(
  * behavior byte-for-byte.
  */
 export function resolveFiles(repoDir: string, patterns: readonly string[]): string[] {
+  const repoRoot = fs.realpathSync(repoDir);
+  const repoPath = path.resolve(repoDir);
   const out = new Set<string>();
+  const containedPath = (candidate: string): string => {
+    const real = fs.realpathSync(candidate);
+    if (real !== repoRoot && !real.startsWith(`${repoRoot}${path.sep}`)) {
+      throw new Error(`fail-closed: extraction path escapes repository root: ${candidate}`);
+    }
+    // Preserve the caller's absolute spelling (not fs.realpath's platform alias,
+    // e.g. macOS /var -> /private/var) so repository-relative evidence remains stable.
+    return path.resolve(candidate);
+  };
   for (const pattern of patterns) {
+    const normalized = pattern.replace(/\\/g, '/');
+    if (
+      normalized.startsWith('/') ||
+      /^[A-Za-z]:\//.test(normalized) ||
+      normalized.split('/').includes('..')
+    ) {
+      throw new Error(`fail-closed: extraction path must be repository-relative without '..': ${pattern}`);
+    }
     if (!/[*?]/.test(pattern)) {
       // exact path (historical behavior)
       const abs = path.join(repoDir, pattern);
-      if (fs.existsSync(abs) && fs.statSync(abs).isFile()) out.add(abs);
+      if (fs.existsSync(abs) && fs.statSync(abs).isFile()) out.add(containedPath(abs));
       continue;
     }
     // glob: walk from the longest non-glob prefix dir, match the rest as a regex
     const firstGlob = pattern.search(/[*?]/);
     const prefix = pattern.slice(0, firstGlob);
-    const baseDir = path.join(repoDir, path.dirname(prefix.endsWith('/') ? prefix : `${prefix}x`));
+    const prefixDir = prefix.endsWith('/') ? prefix.slice(0, -1) : path.dirname(prefix);
+    const baseDir = path.join(repoDir, prefixDir);
+    if (fs.existsSync(baseDir)) containedPath(baseDir);
     const re = globToRegExp(pattern);
     for (const abs of walkFiles(baseDir)) {
-      const rel = path.relative(repoDir, abs).split(path.sep).join('/');
-      if (re.test(rel)) out.add(abs);
+      const contained = containedPath(abs);
+      const rel = path.relative(repoPath, contained).split(path.sep).join('/');
+      if (re.test(rel)) out.add(contained);
     }
   }
   return [...out].sort();

@@ -190,4 +190,22 @@ describe('walkFiles hardening (via resolveFiles) — depth bound + symlink skip 
     const rels = files.map((f) => f.slice(dir.length + 1));
     expect(rels).toEqual([join('tree', 'sub', 'real.ts')]);
   });
+
+  it('exact-path symlink escaping the repository is refused', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'astsym-escape-'));
+    const outside = mkdtempSync(join(tmpdir(), 'astsym-outside-'));
+    created.push(dir, outside);
+    writeFileSync(join(outside, 'outside.ts'), 'export {};\n', 'utf8');
+    symlinkSync(join(outside, 'outside.ts'), join(dir, 'outside-link.ts'), 'file');
+    expect(() => resolveFiles(dir, ['outside-link.ts'])).toThrow(/escapes repository root/);
+  });
+
+  it('glob base symlink escaping the repository is refused', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'astsym-glob-escape-'));
+    const outside = mkdtempSync(join(tmpdir(), 'astsym-glob-outside-'));
+    created.push(dir, outside);
+    writeFileSync(join(outside, 'outside.ts'), 'export {};\n', 'utf8');
+    symlinkSync(outside, join(dir, 'linked'), 'dir');
+    expect(() => resolveFiles(dir, ['linked/**/*.ts'])).toThrow(/escapes repository root/);
+  });
 });
