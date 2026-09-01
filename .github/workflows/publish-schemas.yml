@@ -1,16 +1,18 @@
 name: publish-schemas
 
-# DORMANT BY DESIGN — activates at public flip when org Pages exists.
+# ACTIVE since the public flip (2026-08-31), when org Pages was enabled.
 #
 # The spec pack's JSON Schemas (spec/schemas/*.schema.json) declare
 #   $id: https://blueprint-conformance.github.io/bce/schemas/<name>.schema.json
-# Those URLs are served by the organization's GitHub Pages site, which does not
-# exist until the repository's public flip enables it. Per the house discipline of
-# describing only machinery that runs, this workflow ships in the tree but its job
-# is hard-disabled (`if: false`) so it can never claim a publish that cannot
-# happen. Flipping it live is a deliberate one-line change (remove the `if: false`)
-# made together with enabling Pages on the repository — nothing else here needs to
-# change at that point.
+# Those URLs are served by the organization's GitHub Pages site. Before the public
+# flip that site did not exist, so — per the house discipline of describing only
+# machinery that runs — this workflow shipped in the tree with its job hard-disabled
+# (`if: false`), unable to claim a publish that could not happen.
+#
+# The flip happened on 2026-08-31 and Pages is enabled on the repository
+# (build_type `workflow`, which is what the deploy step below requires). Removing
+# the `if: false` is the deliberate one-line change this header always named as the
+# activation step; nothing else here changed.
 #
 # The payload this job deploys is the documentation site AND the schemas — one
 # surface, assembled by scripts/build-docs-site.mjs. The schemas keep their
@@ -20,8 +22,7 @@ name: publish-schemas
 # name, and a rename on the way to a flip is a way to lose a checklist item.
 #
 # The assembly step is safe to run and to gate at any time — it only ever writes
-# a local `_site/` directory. Only the two steps after it publish, and they are
-# gated by the same `if: false` as the rest of the job.
+# a local `_site/` directory. Only the two steps after it publish.
 
 on:
   push:
@@ -42,10 +43,9 @@ concurrency:
 
 jobs:
   publish:
-    # activates at public flip when org Pages exists — until then the $id base
-    # (https://blueprint-conformance.github.io/bce/schemas/) intentionally does not
-    # resolve and this job is intentionally disabled. See spec/SPEC.md §14.1.
-    if: false
+    # Active since the public flip: the $id base
+    # (https://blueprint-conformance.github.io/bce/schemas/) is served by this job.
+    # See spec/SPEC.md §14.1.
     runs-on: ubuntu-latest
     environment:
       name: github-pages
