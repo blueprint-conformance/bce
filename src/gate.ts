@@ -379,9 +379,9 @@ export function runGate(
       continue;
     }
     const cfg = resolveExtraction(bp.extraction, bp.constraints);
-    // refuse line-scan for a governed-modules plugin-surface blueprint (see cli.ts) — fail the gate
+    // refuse line-scan for any governed-modules blueprint (see cli.ts) — fail the gate
     // LOUD with guidance rather than false-reject a conformant PR on the fallback extractor.
-    if (extractorKind === 'line-scan' && cfg.profile === 'plugin-surface' && cfg.governedModules.length > 0) {
+    if (extractorKind === 'line-scan' && cfg.governedModules.length > 0) {
       reports.push({
         schemaVersion: '1', blueprintRef: `${bp.metadata.id}@${bp.metadata.version}`, ctRepoRevision: revision,
         score: 0, verdict: 'fail', violations: [], evidenceRef: 'n/a',

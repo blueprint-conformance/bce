@@ -322,7 +322,7 @@ export type BlueprintArchitecture = z.infer<typeof BlueprintArchitectureSchema>;
  *
  *  - `profile: 'next-route-handler'` — the original: exported HTTP-verb functions in
  *    Next.js `route.ts` files are components; `guardSymbols` called (bare identifier) in a
- *    handler body are `guards` edges.
+ *    handler body are `guards` edges only when their imports resolve to `governedModules`.
  *  - `profile: 'plugin-surface'` — an agent-host ExtensionFactory surface: an exported
  *    extension factory (or a `pi.registerTool({...})` call) is a component; symbols in
  *    `requiredSymbols` called in the factory body are `provides` edges; `forbiddenImports`
@@ -373,11 +373,10 @@ export const BlueprintExtractionSchema = z
      */
     forbiddenEgressHosts: z.array(z.string()).optional(),
     /**
-     * (plugin-surface) module specifiers that provide the GOVERNED registration helper. A
-     * BARE `registerTool(...)` call is credited as a `provides` edge ONLY when its symbol is
-     * imported from one of these modules. Absent/empty → a bare call is NEVER credited (only the
-     * explicit `<harness>.registerTool(...)` property-access form proves governance). This closes
-     * the "bare registerTool imported from any/ungoverned module falsely passes" hole.
+     * Module specifiers that provide GOVERNED helpers. A bare route guard or plugin registration
+     * call is credited ONLY when its symbol is imported from one of these modules. Absent/empty →
+     * a bare call is NEVER credited (plugin-surface may still prove governance through the explicit
+     * `<harness>.registerTool(...)` property-access form).
      */
     governedModules: z.array(z.string()).optional(),
     /**

@@ -824,7 +824,14 @@ export class AstExtractor implements RepositoryFactsExtractor {
         // SECURITY-CRITICAL: only a BARE IDENTIFIER callee counts (reject obj.method()).
         if (expr.getKind() !== SyntaxKind.Identifier) continue;
         const calleeName = expr.getText().trim();
-        if (guardSet.has(calleeName)) {
+        // A matching spelling is not proof of a governed guard. Credit only symbols whose
+        // declaration resolves to an import from a blueprint-declared governed module. Local
+        // no-op functions and same-name imports from arbitrary modules therefore fail closed.
+        if (
+          guardSet.has(calleeName) &&
+          this.cfg.governedModules.length > 0 &&
+          this.identifierResolvesToGovernedImport(expr, this.cfg.governedModules)
+        ) {
           guardEdges.push({ from: id, to: calleeName, type: 'guards', evidenceRef: `${relPath}#L${call.getStartLineNumber()}` });
         }
       }
@@ -1269,8 +1276,9 @@ export class AstExtractor implements RepositoryFactsExtractor {
 
   /**
    * True iff a bare identifier callee resolves to an import FROM ONE OF THE GOVERNED MODULES.
-   * Merely resolving to *an* import is NOT enough (finding #3: `registerTool` imported from an
-   * ungoverned local module must not be credited). Fail-closed on any resolution failure.
+   * Used by both route guards and plugin registrations. Merely resolving to *an* import is NOT
+   * enough: a same-name local declaration or import from an ungoverned module must not be
+   * credited. Fail-closed on any resolution failure.
    */
   private identifierResolvesToGovernedImport(
     expr: { getSymbol?: () => unknown },

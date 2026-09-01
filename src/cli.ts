@@ -507,11 +507,10 @@ function main(): void {
     const bp = readBlueprint(args.blueprint as string);
     const cfg = resolveExtraction(bp.extraction, bp.constraints);
     // line-scan structurally cannot resolve a bare governed import (it has no symbol table), so it
-    // would FALSE-REJECT a conformant extension that registers via a bare governed call. Refuse it
-    // for an plugin-surface blueprint that declares governedModules — escalate to the faithful AST
-    // path rather than reject a conformant PR (finding: extractor divergence on governed-bare form).
-    if (extractorKind === 'line-scan' && cfg.profile === 'plugin-surface' && cfg.governedModules.length > 0) {
-      die(`--extractor line-scan cannot honor governedModules for an plugin-surface blueprint (it has no symbol resolution). Use --extractor ast.`, 1);
+    // would FALSE-REJECT a conformant route or extension that uses a bare governed call. Refuse
+    // every blueprint that declares governedModules and escalate to the faithful AST path.
+    if (extractorKind === 'line-scan' && cfg.governedModules.length > 0) {
+      die(`--extractor line-scan cannot honor governedModules (it has no symbol resolution). Use --extractor ast.`, 1);
     }
     // b1/egress — line-scan has no AST / symbol table, so it cannot resolve a fetch() argument to
     // a host (the `||`-chain const-fold is an AST-only operation). Refuse LOUD rather than silently

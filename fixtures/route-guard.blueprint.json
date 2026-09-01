@@ -22,6 +22,7 @@
     "profile": "next-route-handler",
     "paths": ["src/app/api/**/*.ts"],
     "guardSymbols": ["requireTenantAccess", "requireTenantWriteAccess", "requireTenantAdminAccess"],
+    "governedModules": ["@/lib/tenant-guards"],
     "minFiles": 3
   },
   "architecture": {
