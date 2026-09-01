@@ -46,4 +46,10 @@ describe('self-contained evidence bundle', () => {
     expect(verify.status, `${verify.stdout}${verify.stderr}`).toBe(0);
     expect(JSON.parse(verify.stdout)).toMatchObject({ valid: true, authenticity: 'not-established' });
   });
+
+  it('returns a typed failure for a structurally malformed JSON object', () => {
+    const result = verifyEvidenceBundle({} as never);
+    expect(result).toMatchObject({ valid: false, integrity: 'failed', authenticity: 'not-established' });
+    expect(result.failures.join(' ')).toContain('malformed bundle');
+  });
 });

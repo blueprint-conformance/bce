@@ -53,20 +53,24 @@ export interface EvidenceBundleVerification {
 /** Re-hash every artifact and independently re-evaluate blueprint + graph to reproduce the report. */
 export function verifyEvidenceBundle(bundle: EvidenceBundle): EvidenceBundleVerification {
   const failures: string[] = [];
-  if (bundle.kind !== 'BceEvidenceBundle' || bundle.schemaVersion !== '1') failures.push('unsupported bundle envelope');
-  if (bundle.claim !== 'self-contained-integrity-not-origin-authenticity') failures.push('dishonest or unknown claim');
-  let blueprint: EngineeringBlueprint | undefined;
-  try { blueprint = parseBlueprint(bundle.artifacts.blueprint); } catch (e) { failures.push(`blueprint invalid: ${(e as Error).message}`); }
-  if (sha256(bundle.artifacts.blueprint) !== bundle.hashes.blueprint) failures.push('blueprint hash mismatch');
-  if (sha256(bundle.artifacts.graph) !== bundle.hashes.graph) failures.push('graph hash mismatch');
-  if (sha256(bundle.artifacts.report) !== bundle.hashes.report) failures.push('report hash mismatch');
-  const { bundle: ignored, ...artifactHashes } = bundle.hashes;
-  void ignored;
-  const body: WithoutBundleHash = { ...bundle, hashes: artifactHashes };
-  if (sha256(body) !== bundle.hashes.bundle) failures.push('bundle hash mismatch');
-  if (blueprint) {
-    const reproduced = evaluate(blueprint, bundle.artifacts.graph, bundle.invocation.extractionProfile, bundle.artifacts.report.repo);
-    if (stableStringify(reproduced) !== stableStringify(bundle.artifacts.report)) failures.push('report does not reproduce from bundled blueprint and graph');
+  try {
+    if (bundle.kind !== 'BceEvidenceBundle' || bundle.schemaVersion !== '1') failures.push('unsupported bundle envelope');
+    if (bundle.claim !== 'self-contained-integrity-not-origin-authenticity') failures.push('dishonest or unknown claim');
+    let blueprint: EngineeringBlueprint | undefined;
+    try { blueprint = parseBlueprint(bundle.artifacts.blueprint); } catch (e) { failures.push(`blueprint invalid: ${(e as Error).message}`); }
+    if (sha256(bundle.artifacts.blueprint) !== bundle.hashes.blueprint) failures.push('blueprint hash mismatch');
+    if (sha256(bundle.artifacts.graph) !== bundle.hashes.graph) failures.push('graph hash mismatch');
+    if (sha256(bundle.artifacts.report) !== bundle.hashes.report) failures.push('report hash mismatch');
+    const { bundle: ignored, ...artifactHashes } = bundle.hashes;
+    void ignored;
+    const body: WithoutBundleHash = { ...bundle, hashes: artifactHashes };
+    if (sha256(body) !== bundle.hashes.bundle) failures.push('bundle hash mismatch');
+    if (blueprint) {
+      const reproduced = evaluate(blueprint, bundle.artifacts.graph, bundle.invocation.extractionProfile, bundle.artifacts.report.repo);
+      if (stableStringify(reproduced) !== stableStringify(bundle.artifacts.report)) failures.push('report does not reproduce from bundled blueprint and graph');
+    }
+  } catch (e) {
+    failures.push(`malformed bundle: ${(e as Error).message}`);
   }
   return { valid: failures.length === 0, integrity: failures.length === 0 ? 'verified' : 'failed', authenticity: 'not-established', failures };
 }
