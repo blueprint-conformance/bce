@@ -53,17 +53,17 @@ relaxed.
 
 ## Bootstrap-0: the pin is dormant until 0.1.0 publishes
 
-`.engine-pin.json` ships with `"published": false`. While it is false there is nothing published to
-pin, so:
+`.engine-pin.json` originally shipped with `"published": false`. While it was false there was nothing
+published to pin, so:
 
 - Lane A is **dormant** — `self-gate.yml`'s Lane-A step is `if`-guarded on the pin being published AND
   the pinned version resolving on npm, so it does not run and does not claim a check that cannot exist.
 - Lane B (HEAD gating its own tree) is the only lane — the **bootstrap-0 exception**, recorded in
   [`docs/self-hosting.md`](./self-hosting.md).
 
-The operator flips `"published": true` in the **same PR that first publishes `0.1.0`**. That flip
-activates the Lane-A step; making it a **required** branch-protection check is the accompanying operator
-action (branch protection → required checks) and is the exit condition for the bootstrap-0 exception.
+The `v0.1.0` release completed this bootstrap. Its post-release PR flips `"published": true`, activates
+the Lane-A step, and makes it a **required** branch-protection check. Later releases follow the
+predecessor-gated ceremony above.
 
 ## What this ceremony is NOT
 

@@ -50,13 +50,10 @@ is the one that gets a contract to exist in the first place.
    `lane-b-self-gate`, `leakage-gate`, `banned-phrases`. The skill's own
    contract test (`tests/skill-contract.test.ts`) runs inside `build-test-prove`.
 3. **[agent]** `bce` is installable by the exact command the listing prints,
-   **and what it installs can actually go red**. Until `0.1.0` publishes, the
-   listing must say "from a checkout" and show the clone plus
-   `npm ci && npm run build`. The failure mode here is not a 404, which would
-   at least be loud: the npm name holds a `0.0.0` reservation stub whose `bce`
-   binary exits 0 on every command, so a reader who follows an `npm install -g`
-   line gets a done-check that is green on a repository it never read. Verify
-   the installed binary can fail before printing any install line.
+   **and what it installs can actually go red**. The listing must use the exact
+   `bce-engine@0.1.0` pin, never a range or `latest`. Verify the registry artifact's
+   signatures and provenance, then run `bce demo` and require its GREEN/RED
+   discrimination before printing any install line.
 4. **[operator]** Read each directory's own submission rules before filing.
    The texts below are content, not a claim about any particular directory's
    process.

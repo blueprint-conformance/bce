@@ -46,25 +46,20 @@ The matrix reports this honestly rather than rounding every shape to "one line":
 | typescript | one line — replace the interpolated query with a parameterized one |
 | monorepo | a small edit — drop the import and the client, call the server route instead |
 
-## Checkout vs. published package (read before you copy a command)
+## Run from the published package
 
-The walkthroughs are written with `bce` as the command. Today that means **a checkout of this
-repository**:
+The walkthroughs are written with `bce` as the command. Install the exact release and copy the
+shipped examples to a writable directory:
 
 ```bash
-npm ci && npm run build
-node /path/to/bce/dist/cli.js …     # wherever a walkthrough says `bce`
+npm install --save-dev --save-exact bce-engine@0.1.0
+cp -R node_modules/bce-engine/examples/first-win ./bce-first-win
+npx --no-install bce …
 ```
 
-`npx bce-engine …` does not currently resolve to a functional engine:
-[`.engine-pin.json`](../.engine-pin.json) records `"published": false`. The public name is a
-`0.0.0` reservation stub, so Lane A and the published-package journey remain dormant until an
-immutable release is published and clean-room verified.
-
-The candidate package includes `examples/` and the complete onboarding assets, and the black-box
-consumer proof verifies them. These walkthroughs still use a checkout until the first functional
-npm release exists; see [`self-hosting.md`](self-hosting.md) for how the Lane-A pin and the
-published artifact relate.
+The published package includes `examples/` and the complete onboarding assets. Registry signatures,
+provenance, a clean-room install, and the black-box consumer proof verify the package path. See
+[`self-hosting.md`](self-hosting.md) for how Lane A uses the same exact artifact independently.
 
 Both of those statements are asserted against the repository's own state by the matrix test, so a
 publish cannot silently leave this page stale.

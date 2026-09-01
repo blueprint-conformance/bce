@@ -18,9 +18,12 @@ examples/quickstart/
 ```
 
 ```bash
-npm ci && npm run build          # from the bce source checkout
-alias bce='node /absolute/path/to/bce/dist/cli.js'
-cd examples/quickstart
+mkdir bce-quickstart && cd bce-quickstart
+npm init -y
+npm install --save-dev --save-exact bce-engine@0.1.0
+cp -R node_modules/bce-engine/examples/quickstart .
+cd quickstart
+alias bce='../node_modules/.bin/bce'
 
 # 1. the contract parses and is not vacuous
 bce validate --blueprint blueprint/no-direct-http-client.blueprint.json
@@ -36,8 +39,9 @@ bce gate --repo drift --blueprint-dir blueprint --extractor ast --all
 bce gate --repo drift --blueprint-dir blueprint --extractor ast
 ```
 
-There is no functional published package yet. The npm name currently serves a `0.0.0`
-reservation stub; use the checkout command above and consult [`STATUS.md`](../STATUS.md).
+The exact package above is the provenance-backed public release recorded in
+[`STATUS.md`](../STATUS.md). The copy keeps the shipped example writable while the installed
+package remains untouched.
 
 A gate that cannot go red is not a gate. This walkthrough proves, on your own machine, that this one
 can — and that a green verdict therefore means something.
