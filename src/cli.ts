@@ -144,6 +144,11 @@ function writableRepoTarget(repoDir: string, rel: string, label: string): string
   return target;
 }
 
+/** Persisted and user-facing repository paths are platform-independent contracts. */
+function repoRelative(repoDir: string, target: string): string {
+  return path.relative(repoDir, target).split(path.sep).join('/');
+}
+
 function packageRoot(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 }
@@ -586,7 +591,7 @@ function main(): void {
     }
     const occupiedSkills = skillTargets.filter(({ target }) => fs.existsSync(target));
     if (occupiedSkills.length > 0) {
-      die(`onboard refuses to overwrite existing skills: ${occupiedSkills.map(({ target }) => path.relative(repoDir, target)).join(', ')}`, 2);
+      die(`onboard refuses to overwrite existing skills: ${occupiedSkills.map(({ target }) => repoRelative(repoDir, target)).join(', ')}`, 2);
     }
     const targets = {
       blueprint: path.join(repoDir, '.blueprints', `${sourceBlueprint.metadata.id}.blueprint.json`),
@@ -595,7 +600,7 @@ function main(): void {
       manifest: path.join(repoDir, '.bce-adoption.json'),
     };
     const occupied = Object.values(targets).filter((p) => fs.existsSync(p));
-    if (occupied.length > 0) die(`adopt refuses to overwrite existing policy files: ${occupied.map((p) => path.relative(repoDir, p)).join(', ')}`, 2);
+    if (occupied.length > 0) die(`adopt refuses to overwrite existing policy files: ${occupied.map((p) => repoRelative(repoDir, p)).join(', ')}`, 2);
     fs.mkdirSync(path.dirname(targets.blueprint), { recursive: true });
     fs.mkdirSync(path.dirname(targets.workflow), { recursive: true });
     fs.writeFileSync(targets.blueprint, stableStringify(sourceBlueprint));
@@ -620,7 +625,7 @@ function main(): void {
     const installedSkillFiles = skillTargets.flatMap(({ target }) => filesUnder(target));
     const generatedFiles = [...Object.values(targets), agentTarget, ...(mcpTarget ? [mcpTarget] : []), ...installedSkillFiles]
       .filter((p, i, all) => p !== targets.manifest && all.indexOf(p) === i)
-      .map((p) => path.relative(repoDir, p)).sort();
+      .map((p) => repoRelative(repoDir, p)).sort();
     fs.writeFileSync(targets.manifest, stableStringify({
       schemaVersion: '1',
       state: 'proposed',
@@ -633,9 +638,9 @@ function main(): void {
     }));
     process.stdout.write(`bce ${cmd}: PROPOSED advisory adoption with draft ${sourceBlueprint.metadata.id}; human ratification still required\n`);
     if (cmd === 'onboard') {
-      process.stdout.write(`agent context: ${path.relative(repoDir, agentTarget)}\n`);
+      process.stdout.write(`agent context: ${repoRelative(repoDir, agentTarget)}\n`);
       process.stdout.write(`skills: ${skillRootRel}/bce, ${skillRootRel}/skill-tuning\n`);
-      process.stdout.write(`MCP config: ${path.relative(repoDir, mcpTarget!)} (doctor_repository, check_baseline, validate_blueprint, run_gate, assess_teeth, get_report)\n`);
+      process.stdout.write(`MCP config: ${repoRelative(repoDir, mcpTarget!)} (doctor_repository, check_baseline, validate_blueprint, run_gate, assess_teeth, get_report)\n`);
       process.stdout.write(`next: run 'npx --no-install bce doctor --repo .' and review/commit the proposal; ratification remains attended\n`);
     }
     return;
