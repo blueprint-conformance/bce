@@ -4,9 +4,11 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const root = process.cwd();
 const hook = resolve(root, 'scripts', 'network-deny-hook.mjs');
+const hookUrl = pathToFileURL(hook).href;
 const cli = resolve(root, 'dist', 'cli.js');
 const mcp = resolve(root, 'dist', 'mcp-server.js');
 const scratch = mkdtempSync(join(tmpdir(), 'bce-network-deny-'));
@@ -21,7 +23,7 @@ const env = {
   npm_config_proxy: hostileProxy,
   npm_config_https_proxy: hostileProxy,
 };
-const run = (entry, args = [], input) => spawnSync(process.execPath, ['--import', hook, entry, ...args], {
+const run = (entry, args = [], input) => spawnSync(process.execPath, ['--import', hookUrl, entry, ...args], {
   cwd: root, env, input, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
 });
 const expect = (name, result, status, marker) => {
