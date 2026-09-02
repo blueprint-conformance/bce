@@ -36,6 +36,8 @@
     "test": "vitest run",
     "test:package": "node scripts/package-consumer-proof.mjs",
     "test:onboarding": "node scripts/onboarding-consumer-proof.mjs",
+    "dogfood:soak": "node scripts/accelerated-dogfood-soak.mjs",
+    "dogfood:soak:check": "node scripts/accelerated-dogfood-soak.mjs --check evidence/dogfood/accelerated-soak.json",
     "test:ai-adoption": "node scripts/ai-adoption-proof.mjs",
     "test:mcp-compatibility": "node scripts/mcp-compatibility-proof.mjs",
     "test:portable": "vitest run --exclude tests/pre-commit-hook.test.ts --exclude tests/skill-contract.test.ts --exclude tests/self-gate-honesty.test.ts",

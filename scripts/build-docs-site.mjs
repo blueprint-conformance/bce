@@ -102,6 +102,7 @@ const PAGES = [
   { route: 'guides/adoption-lifecycle', source: 'docs/adoption-lifecycle.md', section: 'Guides' },
   { route: 'guides/agent-loop', source: 'docs/agent-loop.md', section: 'Guides' },
   { route: 'guides/self-hosting', source: 'docs/self-hosting.md', section: 'Guides' },
+  { route: 'guides/accelerated-dogfooding', source: 'docs/accelerated-dogfooding.md', section: 'Guides' },
   { route: 'guides/agent-estate', source: 'docs/fleet-dogfooding.md', section: 'Guides' },
   { route: 'guides/exit-codes', source: 'docs/exit-codes.md', section: 'Guides' },
   { route: 'guides/report-contract', source: 'docs/report-contract.md', section: 'Guides' },

@@ -363,7 +363,7 @@ export function scanPatterns(
   const hits: Array<{ pattern: string; file: string; line: number }> = [];
   for (const abs of [...absFiles].sort()) {
     const rel = path.relative(repoDir, abs).split(path.sep).join('/');
-    const lines = fs.readFileSync(abs, 'utf8').split('\n');
+    const lines = fs.readFileSync(abs, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
       for (const { pattern, re } of compiled) {
         if (re.test(lines[i] ?? '')) hits.push({ pattern, file: rel, line: i + 1 });
@@ -1333,7 +1333,7 @@ export class LineScanExtractor implements RepositoryFactsExtractor {
 
     for (const absPath of files) {
       const relPath = path.relative(repoDir, absPath).split(path.sep).join('/');
-      const lines = fs.readFileSync(absPath, 'utf8').split('\n');
+      const lines = fs.readFileSync(absPath, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/);
       if (this.cfg.profile === 'plugin-surface') {
         this.scanExtension(relPath, lines, guardRe, components, guardEdges);
       } else {

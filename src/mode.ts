@@ -188,7 +188,7 @@ export function readGraduationRecord(repoDir: string): GraduationEntry[] {
   const text = fs.readFileSync(recordPath, 'utf8');
   const entries: GraduationEntry[] = [];
   const headingRe = /^##\s+(GRADUATE|DOWNGRADE):\s+(enforced|advisory)\s+→\s+(enforced|advisory)\s*$/;
-  const lines = text.split('\n');
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line === undefined) continue;

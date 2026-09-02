@@ -109,25 +109,26 @@ The exact steps are written up in [`docs/pin-ceremony.md`](./pin-ceremony.md), a
 is recorded in [`.engine-pin.json`](../.engine-pin.json). `v0.1.0` completed bootstrap; subsequent pin
 bumps are admitted by the previously published Lane-A engine.
 
-## Admin-override incident policy (attended recovery, not a skip flag)
+## Branch-protection incident policy (attended recovery, not a skip flag)
 
 A required, fail-closed check can occasionally block *its own fix* — the classic case is a change that
 reddens the gate whose only correct resolution is that very change (a corrected gate, a fixed
-extractor). GitHub's branch protection has an admin-merge escape hatch; bce's policy for using it is
-**pre-written, not improvised**:
+extractor). This repository's current branch protection applies required checks to administrators;
+there is no ordinary admin-merge bypass. Recovery therefore requires an explicit, temporary change
+to branch protection (or a separately reviewed forward fix), and its policy is **pre-written, not
+improvised**:
 
-- An admin-merge that bypasses a red required check is **attended** — a human decides it, in the
-  moment, with the red in front of them.
+- A temporary protection change is **attended** — a human decides it, in the moment, with the red in
+  front of them, records the before-state, and restores that exact state immediately after the
+  forward fix lands.
 - Every such bypass produces a **mandatory public incident record** in this repository: what was red,
   why the bypass was the correct forward action, and what re-greened the check afterward.
 
 This is an *attended recovery path*, not a skip flag — and the distinction is exact. bce's "no skip
 flag" claim is a claim about **the engine**: there is no `--skip` / `--no-verify` / `--force` in `bce`
-that turns a red green (the test suite asserts it). It is **not** a claim that GitHub has no
-admin-merge button — of course it does. The first flaky red does not falsify the rhetoric, because the
-rhetoric never claimed "no escape hatch exists in the platform"; it claimed "no skip flag exists in
-bce," and the incident record is what keeps the platform's escape hatch honest and visible when it is
-used.
+that turns a red green (the test suite asserts it). It is not a claim that repository administrators
+cannot reconfigure GitHub. The incident record and exact restoration are what keep that platform
+recovery visible when it is used.
 
 ## Reproducing the self-gate locally
 
@@ -140,7 +141,8 @@ node dist/cli.js teeth --blueprint .blueprints/engine.blueprint.json --ct-repo .
 npx vitest run tests/self-blueprint.test.ts
 ```
 
-Expected: blueprint VALID, gate score 100 (pass), teeth verdict `toothed` (30/30), tests
+Expected: blueprint VALID, gate score 100 (pass), teeth verdict `evaluator-refutable` (0/37
+extractor-real, 37 evaluator-refutable, with a warning), tests
 green. To watch the gate actually bite, add `import { Project } from 'ts-morph';` to
 `src/score.ts` and re-run the gate: it exits 1 with two violations (the seam constraint,
 via the AST import edge, and the evaluator-purity pattern) — then revert.
@@ -152,5 +154,7 @@ Assessing the engine's own blueprint surfaced a real engine gap on day one: the
 placeholder path that could never match a `scopePaths`-narrowed constraint, so a
 genuinely enforcing, scoped constraint was mislabeled `TRIVIALLY_GREEN`. Fixed in
 `src/teeth.ts` (the injected edge now lands at a concrete in-scope path) with a
-discriminating regression test in `tests/self-blueprint.test.ts`. That is the point of
-Lane B.
+discriminating regression test in `tests/self-blueprint.test.ts`. The current 0/37 result is an
+honest remaining gap: the self-blueprint is evaluator-refutable, while its real extraction path is
+covered by the planted-drift tests rather than by extractor-real `teeth` mutations. That is the
+point of Lane B—and a reason not to overstate what its teeth report proves.

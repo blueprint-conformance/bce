@@ -150,7 +150,7 @@ export function amendBlueprint(args: {
 export function readPolicyHistory(repoDir: string): PolicyHistoryEntry[] {
   const p = path.join(repoDir, POLICY_HISTORY_RELPATH);
   if (!fs.existsSync(p)) return [];
-  return fs.readFileSync(p, 'utf8').split('\n').filter(Boolean).map((line, i) => {
+  return fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean).map((line, i) => {
     try { return JSON.parse(line) as PolicyHistoryEntry; }
     catch (e) { throw new PolicyHistoryError(`${POLICY_HISTORY_RELPATH} line ${i + 1} invalid: ${(e as Error).message}`); }
   });
