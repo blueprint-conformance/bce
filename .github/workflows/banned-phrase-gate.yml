@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
       # Negative control. A `grep -F` list is exactly the kind of check that keeps
       # reporting "clean (9 patterns, 0 hits)" long after a typo, a stray quote or
