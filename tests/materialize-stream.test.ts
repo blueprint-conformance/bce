@@ -52,6 +52,9 @@ function git(dir: string, ...a: string[]): string {
 function initRepo(dir: string): void {
   mkdirSync(dir, { recursive: true });
   execFileSync('git', ['init', '-q', '-b', 'main', dir], { stdio: ['ignore', 'pipe', 'pipe'] });
+  // The fixture asserts exact committed bytes. Do not inherit a Windows runner's
+  // global core.autocrlf and accidentally mutate the fixture while staging it.
+  git(dir, 'config', 'core.autocrlf', 'false');
   git(dir, 'config', 'user.email', 'bce-test@example.com');
   git(dir, 'config', 'user.name', 'bce-test');
 }

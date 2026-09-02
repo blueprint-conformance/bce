@@ -135,7 +135,9 @@ export function renderTranscript(commands, engine = resolveEngine()) {
   return `${commands
     .map((args) => {
       const r = runInterleaved(engine.argv, args);
-      const body = stripAnsi(r.out).replace(/\n+$/, '');
+      // A generated public transcript has one canonical byte representation;
+      // Windows console newlines must not rewrite the proof artifact.
+      const body = stripAnsi(r.out).replace(/\r\n/g, '\n').replace(/\n+$/, '');
       return `$ bce ${args.join(' ')}\n${body}\n$ echo $?\n${r.code}\n`;
     })
     .join('\n')}`;

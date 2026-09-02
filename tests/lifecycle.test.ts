@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { doctorRepository, checkEngineUpgrade } from '../src/lifecycle.js';
 import { readPolicyHistory } from '../src/policy-history.js';
 
@@ -13,7 +14,7 @@ const SETUP_NODE_SHA = '49933ea5288caeca8642d1e84afbd3f7d6820020';
 
 function cli(args: string[], cwd = ROOT) {
   const loader = path.join(ROOT, 'node_modules', 'tsx', 'dist', 'loader.mjs');
-  const r = spawnSync(process.execPath, ['--import', loader, CLI, ...args], { cwd, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, ['--import', pathToFileURL(loader).href, CLI, ...args], { cwd, encoding: 'utf8' });
   return { status: r.status ?? 1, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
 }
 

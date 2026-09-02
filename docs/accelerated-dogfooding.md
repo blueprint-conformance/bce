@@ -17,7 +17,7 @@ sanitized diagnostic tail for failed attempts.
 
 The evidence class is deliberately `author-operated-accelerated-soak`. It supports a claim about
 repeated journey reliability on the recorded platform and commit. It does not support claims about
-30-day stability, independent adoption, production use, or private Odin tenant behavior.
+30-day stability, independent adoption, production use, or private-estate tenant behavior.
 
 ## Three-ring vision
 
@@ -25,7 +25,7 @@ repeated journey reliability on the recorded platform and commit. It does not su
    adopters to use. The accelerated soak is the first machine-derived reliability record.
 2. **Continuous Proof Crucible:** PR, nightly, and release runs retain failures, exercise policy
    changes and recovery, and measure scoped outcomes rather than merely counting gate executions.
-3. **Odin Fabric:** private Odin repositories consume the exact public artifact. Only sanitized
+3. **Private consuming estate:** private repositories consume the exact public artifact. Only sanitized
    aggregate outcomes cross the boundary, and they count as public BCE dogfood only when bound to the
    public package version, package integrity, and source commit. Private doctrine, topology, tenant
    identifiers, and raw telemetry never cross it.

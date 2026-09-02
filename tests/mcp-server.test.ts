@@ -23,11 +23,12 @@ import { spawn, execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const TSX_LOADER = join(ROOT, 'node_modules', 'tsx', 'dist', 'loader.mjs');
+const TSX_LOADER_URL = pathToFileURL(TSX_LOADER).href;
 const SERVER = join(HERE, '..', 'src', 'mcp-server.ts');
 const CLI = join(HERE, '..', 'src', 'cli.ts');
 const FIXROOT = join(HERE, '..', 'fixtures');
@@ -52,7 +53,7 @@ function rpcRoundTrip(
   cwd?: string,
 ): Promise<Map<number | string, RpcResponse>> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['--import', TSX_LOADER, SERVER], {
+    const child = spawn(process.execPath, ['--import', TSX_LOADER_URL, SERVER], {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -97,7 +98,7 @@ function rpcRoundTrip(
 /** Drive exact stdin bytes through the real server. Unlike rpcRoundTrip this retains parse errors
  * (id:null), which is required to test framing recovery and notification silence. */
 function rawRpc(stdin: string): { responses: RpcResponse[]; stderr: string; status: number | null } {
-  const result = spawnSync(process.execPath, ['--import', TSX_LOADER, SERVER], {
+  const result = spawnSync(process.execPath, ['--import', TSX_LOADER_URL, SERVER], {
     input: stdin,
     encoding: 'utf8',
     maxBuffer: 8 * 1024 * 1024,
