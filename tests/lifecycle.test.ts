@@ -119,6 +119,8 @@ describe('onboard — full repository wiring', () => {
     const context = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
     expect(context).toContain('# Existing rules');
     expect(context).toContain('<!-- bce-agent-context -->');
+    expect(context).toContain('Prefer MCP `run_gate {}`');
+    expect(context).toContain('advisory mode can exit 0 while reports remain RED');
     const mcp = JSON.parse(fs.readFileSync(path.join(dir, '.mcp.json'), 'utf8'));
     expect(mcp.mcpServers.existing).toEqual({ command: 'existing' });
     expect(mcp.mcpServers.bce).toEqual({ command: 'npx', args: ['--no-install', 'bce-mcp'] });

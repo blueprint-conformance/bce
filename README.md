@@ -25,7 +25,7 @@ This is an internal regression measurement, not an independent performance bench
 [![ci](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg)](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml)
 
 <p align="center">
-  <img src="assets/badges/tests.svg" alt="tests: 774">
+  <img src="assets/badges/tests.svg" alt="tests: 775">
   <img src="assets/badges/license.svg" alt="license: Apache-2.0">
   <img src="assets/badges/docs.svg" alt="docs: zero-dep">
   <img src="assets/badges/node.svg" alt="node: >=22">
@@ -89,12 +89,12 @@ without turning a check red. Regenerate them with
 Install the exact verified release on Node 22 or newer:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.4
+npm install --save-dev --save-exact bce-engine@0.1.5
 npx --no-install bce demo
 ```
 
 The package was published through npm Trusted Publishing with
-[provenance](https://www.npmjs.com/package/bce-engine/v/0.1.4), after the release workflow reran
+[provenance](https://www.npmjs.com/package/bce-engine/v/0.1.5), after the release workflow reran
 the full suite, corpus/recall proof, self-gate, leakage gate, and RED/GREEN discriminating pair.
 
 `bce demo` runs an offline packaged GREEN/RED discrimination proof with no repository setup.
@@ -105,6 +105,10 @@ six MCP tools. CI and the release gate rerun that black-box journey.
 layouts: project skill discovery, project-local MCP wiring, zero-argument readiness/gate calls, and
 a live GREEN → planted RED → corrected GREEN loop. Its timings are local regression observations,
 not a model-quality or cross-machine performance claim.
+`npm run eval:ai-adoption` is the opt-in sampled layer: an authenticated Codex first session must
+implicitly load the project BCE skill, choose MCP `run_gate` for RED and GREEN, change only the
+named source file, and preserve every policy surface. It is deliberately not required CI; one model
+sample is behavioral evidence, not a success-rate, cost, or comparative-quality claim.
 The full walkthrough — RED, the fix, GREEN, and what each verdict means — is
 [docs/quickstart.md](docs/quickstart.md) · [examples/quickstart](examples/quickstart). A second
 worked example, on a config surface rather than code, is
@@ -139,6 +143,11 @@ MCP, skills, lifecycle checks, and reproducible evidence without conflating thos
   shipped skills are discoverable and the six read-only MCP tools can drive a live correction loop
   without post-onboarding copy/config commands. It does not score an LLM or count as an independent
   human witness. [docs/ai-adoption-benchmark.md](docs/ai-adoption-benchmark.md)
+- **Sampled skill-to-MCP routing** — an author-operated paired Codex run found the released
+  CLI-biased wording selected the CLI, while the MCP-first candidate selected `run_gate {}` twice
+  under the same generic repair prompt and completed the same source-only RED → GREEN correction.
+  This is one reproducible sample, not an agent-uplift study or independent witness.
+  [evidence record](evidence/model-adoption/2026-09-02.json)
 - **Optional integrity records** — `bce run --emit` emits hash-chained records;
   [tools/verify-chain.mjs](tools/verify-chain.mjs) verifies a chain with zero dependencies and
   no bce install required. [docs/evidence-format.md](docs/evidence-format.md)
@@ -216,10 +225,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }        # the gate diffs against the merge base
-      - uses: blueprint-conformance/bce@v0.1.4
+      - uses: blueprint-conformance/bce@v0.1.5
         with:
           repo: .
-          engine: bce-engine@0.1.4
+          engine: bce-engine@0.1.5
 ```
 
 Blueprints live in `.blueprints/*.blueprint.json` by default (`blueprint-dir` to override). Both
@@ -247,7 +256,7 @@ the Action and engine are exact pins; ranges and `latest` are deliberately avoid
 - **Citing this work**: [CITATION.cff](CITATION.cff)
 - **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-**Status: v0.1.4 released.** The functional npm package, immutable tag, GitHub Release, provenance,
+**Status: v0.1.5 released.** The functional npm package, immutable tag, GitHub Release, provenance,
 and release evidence are verified. Independent witnesses remain at 0. The schema is
 `blueprint-conformance/v1alpha1`; compatibility remains pre-1.0.
 

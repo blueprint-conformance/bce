@@ -27,10 +27,10 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const scratch = mkdtempSync(join(tmpdir(), 'bce-ai-adoption-'));
 const maxLocalMs = 5_000;
 const harnesses = {
-  agents: { skillRoot: '.agents/skills', mcp: '.mcp.json' },
-  claude: { skillRoot: '.claude/skills', mcp: '.mcp.json' },
-  cursor: { skillRoot: '.cursor/skills', mcp: '.cursor/mcp.json' },
-  codex: { skillRoot: '.agents/skills', mcp: '.codex/config.toml' },
+  agents: { skillRoot: '.agents/skills', mcp: '.mcp.json', context: 'AGENTS.md' },
+  claude: { skillRoot: '.claude/skills', mcp: '.mcp.json', context: 'CLAUDE.md' },
+  cursor: { skillRoot: '.cursor/skills', mcp: '.cursor/mcp.json', context: '.cursorrules' },
+  codex: { skillRoot: '.agents/skills', mcp: '.codex/config.toml', context: 'AGENTS.md' },
 };
 
 function assert(condition, message) {
@@ -142,9 +142,17 @@ for (const [harness, expected] of Object.entries(harnesses)) {
   for (const skill of ['bce', 'skill-tuning']) {
     assert(existsSync(join(repo, expected.skillRoot, skill, 'SKILL.md')), `${harness} omitted ${skill}`);
   }
+  const bceSkill = readFileSync(join(repo, expected.skillRoot, 'bce', 'SKILL.md'), 'utf8');
+  assert(bceSkill.includes('MCP-first repair loop'), `${harness} installed a non-MCP-first BCE skill`);
+  assert(existsSync(join(repo, expected.skillRoot, 'bce', 'references', 'lifecycle.md')),
+    `${harness} omitted the on-demand BCE lifecycle reference`);
+  const context = readFileSync(join(repo, expected.context), 'utf8');
+  assert(context.includes('Prefer MCP `run_gate {}`'), `${harness} context does not prefer MCP`);
   assert(existsSync(join(repo, expected.mcp)), `${harness} omitted project MCP config`);
   const manifest = JSON.parse(readFileSync(join(repo, '.bce-adoption.json'), 'utf8'));
   assert(manifest.generatedFiles.includes(`${expected.skillRoot}/bce/SKILL.md`), `${harness} manifest omitted bce skill`);
+  assert(manifest.generatedFiles.includes(`${expected.skillRoot}/bce/references/lifecycle.md`),
+    `${harness} manifest omitted bce lifecycle reference`);
   assert(manifest.generatedFiles.includes(`${expected.skillRoot}/skill-tuning/SKILL.md`), `${harness} manifest omitted skill-tuning`);
   if (harness === 'codex') {
     const config = readFileSync(join(repo, expected.mcp), 'utf8');

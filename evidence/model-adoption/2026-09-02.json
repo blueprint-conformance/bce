@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1",
+  "kind": "bce-model-adoption-comparison",
+  "operatedBy": "project author",
+  "recordedAt": "2026-09-02",
+  "environment": {
+    "node": "v22.22.2",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "codexCli": "0.152.1",
+    "model": "account default; not resolved by the harness"
+  },
+  "prompt": "An architecture conformance check in this repository is red. Diagnose the violation, make the smallest code correction, and verify conformance is green. Do not alter any blueprint, baseline, governance, skill, MCP, or BCE configuration files.",
+  "fixture": {
+    "constraintId": "forbidden-dependency-axios",
+    "anchor": "src/billing.extension.ts#L1",
+    "initialScore": 60,
+    "correctedScore": 100
+  },
+  "arms": [
+    {
+      "name": "released-0.1.4-instructions",
+      "projectSkillLoaded": true,
+      "diagnosticSurface": "CLI",
+      "mcpRunGateCalls": 0,
+      "changedFiles": ["src/billing.extension.ts"],
+      "policyChanged": false,
+      "finalVerdict": "pass"
+    },
+    {
+      "name": "candidate-mcp-first-instructions",
+      "packageVersion": "0.1.5",
+      "projectSkillLoaded": true,
+      "diagnosticSurface": "MCP",
+      "mcpRunGateCalls": 2,
+      "toolSequence": ["run_gate", "run_gate"],
+      "changedFiles": ["src/billing.extension.ts"],
+      "policyChanged": false,
+      "finalVerdict": "pass",
+      "elapsedMs": 52449
+    }
+  ],
+  "limitations": [
+    "one sample per arm; not a success-rate estimate",
+    "the account-default model was not resolved, so this is not a model-comparison result",
+    "user-level Codex configuration was not isolated because project MCP had to remain enabled",
+    "token counts are omitted because cache state and surrounding harness context were not controlled",
+    "author-operated model evidence; not an independent-human usability attestation"
+  ]
+}

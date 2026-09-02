@@ -598,8 +598,8 @@ function main(): void {
       ? `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n      - uses: actions/setup-node@v4\n        with:\n          node-version: "22"\n      - run: npx --yes --package ${engine} bce gate --repo . --report-json bce-report.json\n`
       : `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n      - uses: ${engine}\n        with:\n          engine: local\n          repo: .\n          comment: "false"\n`);
     const contextMarker = '<!-- bce-agent-context -->';
-    const context = `${contextMarker}\n# BCE done-check\n\nRun \`npx --no-install bce gate --repo .\` (or MCP \`run_gate\`) before declaring work complete. ` +
-      `Fix code on violations. Treat exit 1 and 2 as red. Blueprint, baseline, mode, workflow, waiver, and engine-pin changes are policy changes and require human-owner review.\n`;
+    const context = `${contextMarker}\n# BCE done-check\n\nPrefer MCP \`run_gate {}\` for diagnosis and the final live-tree done-check; if BCE MCP is unavailable, run \`npx --no-install bce gate --repo .\`. ` +
+      `Read the substantive verdict: advisory mode can exit 0 while reports remain RED. Fix code on violations. Treat refusals and CLI exits 1 and 2 as red. Blueprint, baseline, mode, workflow, waiver, agent/MCP configuration, installed-skill, and engine-pin changes are policy changes and require human-owner review.\n`;
     fs.mkdirSync(path.dirname(agentTarget), { recursive: true });
     if (!fs.existsSync(agentTarget)) fs.writeFileSync(agentTarget, context);
     else if (!fs.readFileSync(agentTarget, 'utf8').includes(contextMarker)) fs.appendFileSync(agentTarget, `\n${context}`);
