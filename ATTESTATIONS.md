@@ -27,6 +27,7 @@ exist somewhere; a ledger that says **0** cannot be misread.
 | measured recall against a seeded-defect corpus | `ci.yml` corpus/recall gate |
 | the engine gates its own repository | `self-gate.yml` (Lane B) |
 | the generated Action executes in a separate public consumer repository | [`blueprint-conformance/bce-action-witness`](https://github.com/blueprint-conformance/bce-action-witness): [clean GREEN](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497921200), [planted-drift report](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497995578), [corrected GREEN](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33498058816) |
+| a sampled Codex session implicitly loads the project skill and selects MCP for RED → code fix → GREEN | [`evidence/model-adoption/2026-09-02.json`](evidence/model-adoption/2026-09-02.json); author-operated, one sample, not an attestation |
 
 **Not established** — none of the above is independent. Every one of those runs on
 infrastructure the authors control, from code the authors wrote. That is exactly the gap a

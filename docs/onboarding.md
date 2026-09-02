@@ -24,7 +24,7 @@ Node 22 or newer is required. Install the exact published version as a developme
 both `bce` and `bce-mcp` become local project binaries:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.4
+npm install --save-dev --save-exact bce-engine@0.1.5
 npx --no-install bce demo
 ```
 
@@ -64,7 +64,7 @@ project-local format.
 npx --no-install bce onboard \
   --repo . \
   --blueprint bce-draft.json \
-  --engine blueprint-conformance/bce@v0.1.4 \
+  --engine blueprint-conformance/bce@v0.1.5 \
   --harness agents
 ```
 
@@ -81,8 +81,8 @@ Override paths with `--agent-file` or `--mcp-config`. Paths are confined to the 
 existing context and unrelated MCP servers/settings are preserved. The command refuses to overwrite
 existing policy files, either installed skill, or an existing MCP server named `bce`.
 
-The generated Action uses the immutable `v0.1.4` Action source and can build that source locally.
-Pass `--engine bce-engine@0.1.4` instead when you want the generated workflow to install the exact
+The generated Action uses the immutable `v0.1.5` Action source and can build that source locally.
+Pass `--engine bce-engine@0.1.5` instead when you want the generated workflow to install the exact
 published package independently.
 
 ## 4. Diagnose, prove RED, and go GREEN

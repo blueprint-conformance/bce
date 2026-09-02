@@ -1,6 +1,6 @@
 {
   "name": "bce-engine",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "bce — the blueprint conformance engine. Author an EngineeringBlueprint (the durable architectural contract for a repository) and gate code against it: a deterministic conformance score, fail-closed verdicts, and re-derivable evidence. Extraction is TypeScript/JavaScript today (ts-morph AST primary, line-scan fallback, behind one RepositoryFacts interface); the blueprint graph model is language-neutral.",
   "license": "Apache-2.0",
   "author": "bce maintainers",
@@ -37,6 +37,7 @@
     "test:package": "node scripts/package-consumer-proof.mjs",
     "test:onboarding": "node scripts/onboarding-consumer-proof.mjs",
     "test:ai-adoption": "node scripts/ai-adoption-proof.mjs",
+    "eval:ai-adoption": "node scripts/model-adoption-eval.mjs",
     "research:readiness": "tsx scripts/research-readiness.ts",
     "research:study-readiness": "tsx scripts/research-readiness.ts --study",
     "test:watch": "vitest",
@@ -66,6 +67,7 @@
     "skills",
     "prompts",
     "scripts/ai-adoption-proof.mjs",
+    "scripts/model-adoption-eval.mjs",
     ".claude-plugin",
     "docs",
     "spec/schemas",

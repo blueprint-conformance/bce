@@ -9,9 +9,9 @@ source tree.
 |---|---|---|
 | Source checkout | Working, internally tested | Node 22, `npm ci`, `npm run build`, then `node dist/cli.js` |
 | Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree and runs `bce demo` |
-| npm | Released | [`bce-engine@0.1.4`](https://www.npmjs.com/package/bce-engine/v/0.1.4) is public with npm provenance; install the exact version on Node 22+ |
-| Git tag / GitHub Release | Released | [`v0.1.4`](https://github.com/blueprint-conformance/bce/releases/tag/v0.1.4) is immutable and carries the release compliance report plus verified evidence record |
-| GitHub Action | Released | Pin `blueprint-conformance/bce@v0.1.4` and `engine: bce-engine@0.1.4`; creator-maintained external RED/GREEN evidence is linked below |
+| npm | Released | [`bce-engine@0.1.5`](https://www.npmjs.com/package/bce-engine/v/0.1.5) is public with npm provenance; install the exact version on Node 22+ |
+| Git tag / GitHub Release | Released | [`v0.1.5`](https://github.com/blueprint-conformance/bce/releases/tag/v0.1.5) is immutable and carries the release compliance report plus verified evidence record |
+| GitHub Action | Released | Pin `blueprint-conformance/bce@v0.1.5` and `engine: bce-engine@0.1.5`; creator-maintained external RED/GREEN evidence is linked below |
 | GitLab template | Dormant | It deliberately exits 2 until an exact real release is supplied |
 
 ## What the engine currently proves
@@ -37,6 +37,10 @@ source tree.
   discovery of both skills, project-local MCP configuration, read-only tool affordances,
   zero-argument repository calls, and live GREEN → RED → GREEN correction. This is a deterministic
   agent-harness simulation, not an LLM comparison or independent-human usability evidence.
+- The opt-in model-adoption eval samples an authenticated Codex session and scores observable JSONL
+  skill reads, MCP calls, the git diff, policy preservation, and RED → GREEN. The 2026-09-02 paired
+  author-operated sample changed tool selection from CLI to MCP after the routing instructions were
+  corrected. One sample is not a success-rate estimate, model comparison, or independent witness.
 
 ## What has not been established
 

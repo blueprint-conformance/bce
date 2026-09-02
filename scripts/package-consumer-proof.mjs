@@ -33,6 +33,8 @@ if (installed.engines?.node !== '>=22') throw new Error('packed package does not
 const installedRoot = join(scratch, 'node_modules', 'bce-engine');
 for (const rel of [
   'skills/bce/SKILL.md',
+  'skills/bce/references/lifecycle.md',
+  'scripts/model-adoption-eval.mjs',
   '.claude-plugin/plugin.json',
   'integrations/README.md',
   'docs/onboarding.md',
@@ -63,6 +65,7 @@ for (const rel of [
   'examples/quickstart/README.md',
   'skills/README.md',
   'skills/bce/SKILL.md',
+  'skills/bce/references/lifecycle.md',
   'llms.txt',
 ]) {
   const text = readFileSync(join(installedRoot, rel), 'utf8');

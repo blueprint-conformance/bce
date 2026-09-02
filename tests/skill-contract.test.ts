@@ -42,6 +42,11 @@ const SKILL_README = path.join(repoRoot, 'skills', 'README.md');
 const CLI_SRC = path.join(repoRoot, 'src', 'cli.ts');
 
 const skillText = fs.readFileSync(SKILL_MD, 'utf8');
+const skillDocuments = [SKILL_MD, ...fs.readdirSync(path.join(SKILL_DIR, 'references'), { recursive: true })
+  .filter((entry) => typeof entry === 'string' && entry.endsWith('.md'))
+  .map((entry) => path.join(SKILL_DIR, 'references', entry as string))]
+  .map((file) => ({ source: path.relative(repoRoot, file), text: fs.readFileSync(file, 'utf8') }));
+const skillSurfaceText = skillDocuments.map(({ text }) => text).join('\n');
 const cliSource = fs.readFileSync(CLI_SRC, 'utf8');
 
 // ---------------------------------------------------------------------------
@@ -155,7 +160,7 @@ function invocationsIn(text: string, source: string): Invocation[] {
 }
 
 const invocations = [
-  ...invocationsIn(skillText, 'skills/bce/SKILL.md'),
+  ...skillDocuments.flatMap(({ source, text }) => invocationsIn(text, source)),
   ...invocationsIn(fs.readFileSync(SKILL_README, 'utf8'), 'skills/README.md'),
 ];
 
@@ -199,11 +204,18 @@ describe('Agent Skill — frontmatter', () => {
     // skill. A one-liner that says "the bce skill" is a skill that never fires.
     expect((keys.description as string).length).toBeGreaterThan(80);
     expect((keys.description as string).length).toBeLessThanOrEqual(1024);
+    expect(keys.description).toContain('MCP');
   });
 
   it('has a body — the frontmatter is not the whole file', () => {
     expect(body.trim().length).toBeGreaterThan(1000);
     expect(body).toMatch(/^#\s+\S/m);
+  });
+
+  it('keeps the always-loaded routing surface compact and defers lifecycle detail', () => {
+    expect(skillText.split('\n').length).toBeLessThanOrEqual(140);
+    expect(skillText).toContain('references/lifecycle.md');
+    expect(fs.existsSync(path.join(SKILL_DIR, 'references', 'lifecycle.md'))).toBe(true);
   });
 });
 
@@ -256,8 +268,10 @@ describe('Agent Skill — every command it teaches is a real command', () => {
   });
 
   it('names only real flags in prose too, except the ones it says do not exist', () => {
-    const mentioned = inlineFlagMentions(skillText);
-    expect(mentioned.length).toBeGreaterThanOrEqual(8);
+    const mentioned = inlineFlagMentions(skillSurfaceText);
+    // The compact primary skill intentionally moves most flags into executable command blocks;
+    // keep two prose anchors so this separate extractor cannot silently go empty.
+    expect(mentioned.length).toBeGreaterThanOrEqual(2);
     const absent = new Set<string>(ABSENT_BY_DESIGN);
     const bad = [...new Set(mentioned)].filter((f) => !flags.has(f) && !absent.has(f));
     expect(bad, `prose names flag(s) the CLI never reads: ${bad.map((f) => `--${f}`).join(' ')}`).toEqual([]);
@@ -277,7 +291,7 @@ describe('Agent Skill — the taxonomy it teaches is the schema\'s', () => {
     const real = new Set<string>(ConstraintTypeSchema.options);
     // Constraint types appear as `type` or `type:arg` inside code spans; collect the bare heads.
     const named = new Set<string>();
-    for (const m of skillText.matchAll(/`(forbidden|required|minimum|custom|behavioral)([A-Za-z]+)[`:]/g)) {
+    for (const m of skillSurfaceText.matchAll(/`(forbidden|required|minimum|custom|behavioral)([A-Za-z]+)[`:]/g)) {
       named.add(`${m[1] as string}${m[2] as string}`);
     }
     expect(named.size, 'the skill names no constraint types — the extraction went stale').toBeGreaterThanOrEqual(8);
@@ -288,7 +302,7 @@ describe('Agent Skill — the taxonomy it teaches is the schema\'s', () => {
   it('every extraction profile it names is a real ExtractionProfile', () => {
     const real = new Set<string>(ExtractionProfileSchema.options);
     const named = new Set<string>();
-    for (const m of skillText.matchAll(/`([a-z][a-z-]*-(?:handler|surface))`/g)) named.add(m[1] as string);
+    for (const m of skillSurfaceText.matchAll(/`([a-z][a-z-]*-(?:handler|surface))`/g)) named.add(m[1] as string);
     expect(named.size).toBeGreaterThanOrEqual(1);
     const unknown = [...named].filter((n) => !real.has(n));
     expect(unknown, `not in ExtractionProfileSchema: ${unknown.join(', ')}`).toEqual([]);
@@ -336,7 +350,7 @@ describe('Agent Skill — the tree-wide gates hold over it', () => {
     expect(phrases.length).toBeGreaterThanOrEqual(9);
 
     const haystacks: ReadonlyArray<readonly [string, string]> = [
-      ['skills/bce/SKILL.md', skillText.toLowerCase()],
+      ...skillDocuments.map(({ source, text }) => [source, text.toLowerCase()] as const),
       ['skills/README.md', fs.readFileSync(SKILL_README, 'utf8').toLowerCase()],
     ];
     const hits: string[] = [];

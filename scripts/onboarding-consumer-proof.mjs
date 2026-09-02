@@ -224,8 +224,10 @@ assert(
 );
 for (const rel of [
   'skills/bce/SKILL.md',
+  'skills/bce/references/lifecycle.md',
   'prompts/blueprint-author.md',
   'scripts/ai-adoption-proof.mjs',
+  'scripts/model-adoption-eval.mjs',
   'integrations/AGENTS.md.snippet',
   'docs/onboarding.md',
   'spec/schemas/engineering-blueprint.schema.json',
