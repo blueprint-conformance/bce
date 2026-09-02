@@ -31,8 +31,18 @@ source tree.
   produced a [clean GREEN](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497921200),
   [reported planted drift](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497995578),
   and returned to [GREEN after the fix](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33498058816).
-  The drift run was advisory, so its successful workflow conclusion is not evidence of enforced
+  That drift run was advisory, so its successful workflow conclusion is not evidence of enforced
   blocking; its log is evidence that the generated Action found and reported the violation.
+  On 2026-09-03 the same consumer was graduated with `bce graduate` (`.bce-mode.json` → `enforced`,
+  ceremony record `.blueprints/GRADUATION.md`) and the sequence was replayed under the enforced
+  posture with the same immutable Action pin:
+  [clean GREEN](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33689516050) →
+  [planted drift **FAILED the run**](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33689961361)
+  (`forbidden-dependency-axios` at `src/billing.extension.ts#L1`, score 60, workflow conclusion
+  `failure`, exit 1) →
+  [GREEN after the fix](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33690296051).
+  That RED is evidence of enforced blocking in an external consumer. It remains creator-maintained
+  (see the consumer's `WITNESS.md`), so it does not change the independent-witness count below.
 - The source-tree AI-adoption proof runs all four supported harness layouts. It checks project-local
   discovery of both skills, project-local MCP configuration, read-only tool affordances,
   zero-argument repository calls, and live GREEN → RED → GREEN correction. This is a deterministic
