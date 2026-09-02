@@ -53,6 +53,9 @@ jobs:
       - name: Fresh-consumer full-stack onboarding proof
         run: npm run test:onboarding
 
+      - name: Agent Skills + MCP first-session adoption proof
+        run: npm run test:ai-adoption
+
       # The README's shields are generated from ground truth, and this is what makes
       # that true rather than merely intended. It re-derives every badge value from
       # the tree — test count from the runner's own enumeration, licence from

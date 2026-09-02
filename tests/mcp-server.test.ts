@@ -1,14 +1,13 @@
 /**
  * mcp-server.test.ts — the THIN MCP stdio server (`bce-mcp`) round-trips against real fixture trees.
  *
- * The server is spec-churn insurance: EXACTLY four tools, each a logic-free shell over the SAME
- * exported engine API the `bce` CLI calls (validate_blueprint → parseBlueprint, run_gate →
- * computeGateReport, assess_teeth → assessTeeth, get_report → re-read a serialized report). These
+ * The server is spec-churn insurance: EXACTLY six tools, each a logic-free shell over the SAME
+ * exported engine API the `bce` CLI calls. These
  * tests SPAWN the real server (source, via tsx — the project convention) and drive newline-delimited
  * JSON-RPC 2.0 over its stdin/stdout, asserting:
  *
  *   1. HANDSHAKE — initialize returns the server identity + protocolVersion; tools/list returns
- *      EXACTLY the four tools (a fifth tool, or a missing one, is a surface regression).
+ *      EXACTLY the six tools (an extra tool, or a missing one, is a surface regression).
  *   2. run_gate is BYTE-IDENTICAL to `bce gate --report-json` — RED and GREEN produce OPPOSITE
  *      machine verdicts (gateFailed / exitCode) matching the CLI's, over the same fixtures.
  *   3. validate_blueprint / assess_teeth round-trip a real blueprint against a real tree.
@@ -21,12 +20,14 @@
  */
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { spawn, execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { cpSync, readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(HERE, '..');
+const TSX_LOADER = join(ROOT, 'node_modules', 'tsx', 'dist', 'loader.mjs');
 const SERVER = join(HERE, '..', 'src', 'mcp-server.ts');
 const CLI = join(HERE, '..', 'src', 'cli.ts');
 const FIXROOT = join(HERE, '..', 'fixtures');
@@ -46,9 +47,13 @@ interface RpcResponse {
  * the response objects (matched by id, order-independent). Closes stdin so the server exits cleanly.
  * This is the true MCP client shape: one long-lived stdio process, many framed messages.
  */
-function rpcRoundTrip(requests: Array<Record<string, unknown>>): Promise<Map<number | string, RpcResponse>> {
+function rpcRoundTrip(
+  requests: Array<Record<string, unknown>>,
+  cwd?: string,
+): Promise<Map<number | string, RpcResponse>> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['--import', 'tsx', SERVER], {
+    const child = spawn(process.execPath, ['--import', TSX_LOADER, SERVER], {
+      cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -90,11 +95,11 @@ function rpcRoundTrip(requests: Array<Record<string, unknown>>): Promise<Map<num
 }
 
 /** A single tools/call, returning the parsed structuredContent (or throwing with the isError text). */
-async function callTool(name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+async function callTool(name: string, args: Record<string, unknown>, cwd?: string): Promise<Record<string, unknown>> {
   const responses = await rpcRoundTrip([
     { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
     { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name, arguments: args } },
-  ]);
+  ], cwd);
   const r = responses.get(2);
   if (!r) throw new Error(`no response for tools/call ${name}`);
   if (r.error) throw new Error(`protocol error: ${r.error.message}`);
@@ -149,12 +154,20 @@ describe('bce-mcp — handshake + tool surface', () => {
       { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
     ]);
     const list = responses.get(2);
-    const tools = (list!.result!.tools as Array<{ name: string; inputSchema: unknown }>);
+    const tools = (list!.result!.tools as Array<{ name: string; inputSchema: unknown; annotations?: Record<string, unknown> }>);
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(['assess_teeth', 'check_baseline', 'doctor_repository', 'get_report', 'run_gate', 'validate_blueprint']);
     expect(names).not.toEqual(expect.arrayContaining(['adopt', 'ratify', 'amend', 'graduate', 'baseline']));
     // every tool declares an input schema (an agent needs it to call correctly)
-    for (const t of tools) expect(t.inputSchema).toBeDefined();
+    for (const t of tools) {
+      expect(t.inputSchema).toBeDefined();
+      expect(t.annotations).toMatchObject({
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      });
+    }
   });
 
   it('an unknown method is a JSON-RPC method-not-found error (not a crash)', async () => {
@@ -268,6 +281,22 @@ describe('bce-mcp — run_gate is byte-identical to `bce gate --report-json`', (
     expect(green.gateFailed).toBe(false);
     expect(red.gateFailed).toBe(true);
     expect(green.exitCode).not.toBe(red.exitCode);
+  });
+
+  it('zero-argument done-check defaults to cwd and detects a live uncommitted drift', async () => {
+    const liveRepo = join(tmp, 'live-default-repo');
+    cpSync(CONFORMANT, liveRepo, { recursive: true });
+    mkdirSync(join(liveRepo, '.blueprints'), { recursive: true });
+    writeFileSync(join(liveRepo, '.blueprints', 'luna-chat-extension.blueprint.json'), readFileSync(BLUEPRINT, 'utf8'));
+    const green = toolStructured(await callTool('run_gate', {}, liveRepo));
+    expect(green.gateFailed).toBe(false);
+
+    const source = join(liveRepo, 'src/extensions/luna-chat.extension.ts');
+    writeFileSync(source, `import OpenAI from 'openai';\n${readFileSync(source, 'utf8')}`);
+    const red = toolStructured(await callTool('run_gate', {}, liveRepo));
+    expect(red.gateFailed).toBe(true);
+    expect(red.exitCode).toBe(1);
+    expect(JSON.stringify(red)).toContain('no-direct-provider-sdk');
   });
 
   it('REFUSAL: zero blueprints returns exit 2 and matches the CLI machine contract', async () => {

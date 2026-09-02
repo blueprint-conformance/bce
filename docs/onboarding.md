@@ -24,7 +24,7 @@ Node 22 or newer is required. Install the exact published version as a developme
 both `bce` and `bce-mcp` become local project binaries:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.3
+npm install --save-dev --save-exact bce-engine@0.1.4
 npx --no-install bce demo
 ```
 
@@ -57,31 +57,32 @@ onboarding command installs it as a governed proposal.
 `bce onboard` creates an advisory proposal, never an approved policy. It installs the draft under
 `.blueprints/`, writes the committed mode and adoption manifest, creates least-privilege CI at an
 immutable Action commit, adds BCE's done-check to the selected agent context without replacing
-existing instructions, and configures MCP where the harness has a project JSON format.
+existing instructions, installs both shipped Agent Skills, and configures MCP in the harness's
+project-local format.
 
 ```bash
 npx --no-install bce onboard \
   --repo . \
   --blueprint bce-draft.json \
-  --engine blueprint-conformance/bce@v0.1.3 \
+  --engine blueprint-conformance/bce@v0.1.4 \
   --harness agents
 ```
 
 Harness choices:
 
-| `--harness` | Context file | MCP wiring |
-|---|---|---|
-| `agents` | `AGENTS.md` | `.mcp.json` |
-| `claude` | `CLAUDE.md` | `.mcp.json` |
-| `cursor` | `.cursorrules` | `.cursor/mcp.json` |
-| `codex` | `AGENTS.md` | prints the supported user-profile command: `codex mcp add bce -- npx --no-install bce-mcp` |
+| `--harness` | Context file | Skills | MCP wiring |
+|---|---|---|---|
+| `agents` | `AGENTS.md` | `.agents/skills/{bce,skill-tuning}` | `.mcp.json` |
+| `claude` | `CLAUDE.md` | `.claude/skills/{bce,skill-tuning}` | `.mcp.json` |
+| `cursor` | `.cursorrules` | `.cursor/skills/{bce,skill-tuning}` | `.cursor/mcp.json` |
+| `codex` | `AGENTS.md` | `.agents/skills/{bce,skill-tuning}` | `.codex/config.toml` |
 
 Override paths with `--agent-file` or `--mcp-config`. Paths are confined to the repository;
-existing context and unrelated MCP servers are preserved. The command refuses to overwrite existing
-policy files or an existing MCP server named `bce`.
+existing context and unrelated MCP servers/settings are preserved. The command refuses to overwrite
+existing policy files, either installed skill, or an existing MCP server named `bce`.
 
-The generated Action uses the immutable `v0.1.3` Action source and can build that source locally.
-Pass `--engine bce-engine@0.1.3` instead when you want the generated workflow to install the exact
+The generated Action uses the immutable `v0.1.4` Action source and can build that source locally.
+Pass `--engine bce-engine@0.1.4` instead when you want the generated workflow to install the exact
 published package independently.
 
 ## 4. Diagnose, prove RED, and go GREEN
@@ -113,10 +114,12 @@ The MCP server exposes six read-only tools:
 - `get_report` reads a report already produced by the engine.
 
 It deliberately cannot adopt, ratify, amend, graduate, or grow a baseline. Those are policy acts.
-Restart the harness after changing MCP configuration, then ask it to list BCE tools and call
-`doctor_repository`.
+On a first session, launch the harness after onboarding, ask it to list BCE tools, and call
+`doctor_repository` with no arguments. If onboarding changed configuration in an already-running
+session, restart that session first.
 
-For richer authoring guidance, install the Agent Skill:
+Onboarding has already installed both project skills. The Claude plugin marketplace is an
+alternative distribution path when you want user-level installation and plugin updates:
 
 ```text
 # Claude Code plugin marketplace
@@ -124,9 +127,9 @@ For richer authoring guidance, install the Agent Skill:
 /plugin install blueprint@bce
 ```
 
-Or copy `node_modules/bce-engine/skills/bce` into the skill directory your agent supports. The
-package includes the skill, prompts, integration snippets, schemas, and onboarding docs; a Git
-install is not a CLI-only partial distribution.
+For a manual installation, copy the complete `node_modules/bce-engine/skills/bce` and
+`node_modules/bce-engine/skills/skill-tuning` directories into the skill directory your agent
+supports. Copy directories, not only `SKILL.md`, because `skill-tuning` has references.
 
 ## 6. Review and ratify
 
@@ -166,7 +169,7 @@ created the artifacts or independently witnessed the run.
 | `npx` tries to download a package named `bce` | the exact Git dependency did not build/install; check Node >=22 and that `node_modules/.bin/bce` exists |
 | doctor exits 1 | setup is gradeable but still needs an action; read the typed warning list |
 | doctor or gate exits 2 | BCE refused to claim a grade; fix discovery, scope, parser, extractor, or engine-floor cause |
-| gate is green but ignores an uncommitted fix | use `--no-pin` locally; the default pinned run grades `HEAD` |
+| `bce run` is green but ignores an uncommitted fix | use `--no-pin` locally; `run` is pinned by default. `bce gate` and MCP `run_gate` scan the live tree |
 | MCP tools do not appear | restart the harness and verify `npx --no-install bce-mcp` exists |
 | CI never reports | remove workflow-level path filters and ensure the workflow event covers pull requests |
 | `evaluator-refutable` teeth | this is not extractor-real proof; seed a realistic mutation or obtain an explicit reviewed waiver |

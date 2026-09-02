@@ -122,13 +122,26 @@ describe('onboard — full repository wiring', () => {
     const mcp = JSON.parse(fs.readFileSync(path.join(dir, '.mcp.json'), 'utf8'));
     expect(mcp.mcpServers.existing).toEqual({ command: 'existing' });
     expect(mcp.mcpServers.bce).toEqual({ command: 'npx', args: ['--no-install', 'bce-mcp'] });
-    expect(JSON.parse(fs.readFileSync(path.join(dir, '.bce-adoption.json'), 'utf8'))).toMatchObject({
+    expect(fs.existsSync(path.join(dir, '.agents/skills/bce/SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(dir, '.agents/skills/skill-tuning/SKILL.md'))).toBe(true);
+    const manifest = JSON.parse(fs.readFileSync(path.join(dir, '.bce-adoption.json'), 'utf8'));
+    expect(manifest).toMatchObject({
       state: 'proposed', ratified: false, harness: 'agents', engine: `blueprint-conformance/bce@${sha}`,
     });
+    expect(manifest.generatedFiles).toEqual(expect.arrayContaining([
+      '.agents/skills/bce/SKILL.md',
+      '.agents/skills/skill-tuning/SKILL.md',
+      '.agents/skills/skill-tuning/references/portability-matrix.md',
+    ]));
+    const doctor = doctorRepository(dir);
+    expect(doctor.checks).toContainEqual(expect.objectContaining({ id: 'agents/project-skills', status: 'pass' }));
+    expect(doctor.checks).toContainEqual(expect.objectContaining({ id: 'agents/mcp-config', status: 'pass' }));
   });
 
-  it('uses the supported Codex registration command and refuses unsafe output paths', () => {
+  it('writes project-local Codex MCP + skills, preserves config, and refuses unsafe output paths', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-onboard-codex-'));
+    fs.mkdirSync(path.join(dir, '.codex'));
+    fs.writeFileSync(path.join(dir, '.codex/config.toml'), 'model = "gpt-5"\n');
     const draftPath = path.join(dir, 'draft.json');
     const source = JSON.parse(fs.readFileSync(path.join(ROOT, 'fixtures', 'luna-chat-extension.blueprint.json'), 'utf8'));
     source.metadata.status = 'draft';
@@ -141,8 +154,31 @@ describe('onboard — full repository wiring', () => {
     expect(fs.existsSync(path.join(dir, '.bce-adoption.json'))).toBe(false);
     const ok = cli(base);
     expect(ok.status, ok.out).toBe(0);
-    expect(ok.out).toContain('codex mcp add bce -- npx --no-install bce-mcp');
+    expect(ok.out).toContain('MCP config: .codex/config.toml');
+    expect(ok.out).toContain('skills: .agents/skills/bce, .agents/skills/skill-tuning');
+    const codexConfig = fs.readFileSync(path.join(dir, '.codex/config.toml'), 'utf8');
+    expect(codexConfig).toContain('model = "gpt-5"');
+    expect(codexConfig).toContain('[mcp_servers.bce]');
+    expect(codexConfig).toContain('args = ["--no-install", "bce-mcp"]');
+    expect(fs.existsSync(path.join(dir, '.agents/skills/bce/SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(dir, '.agents/skills/skill-tuning/SKILL.md'))).toBe(true);
     expect(fs.existsSync(path.join(dir, '.mcp.json'))).toBe(false);
+  });
+
+  it('refuses a skill collision before writing any policy artifact', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-onboard-skill-collision-'));
+    fs.mkdirSync(path.join(dir, '.agents/skills/bce'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.agents/skills/bce/SKILL.md'), 'existing');
+    const draftPath = path.join(dir, 'draft.json');
+    const source = JSON.parse(fs.readFileSync(path.join(ROOT, 'fixtures', 'luna-chat-extension.blueprint.json'), 'utf8'));
+    source.metadata.status = 'draft';
+    fs.writeFileSync(draftPath, JSON.stringify(source));
+    const result = cli(['onboard', '--repo', dir, '--blueprint', draftPath,
+      '--engine', `blueprint-conformance/bce@${'c'.repeat(40)}`, '--harness', 'agents']);
+    expect(result.status).toBe(2);
+    expect(result.out).toContain('refuses to overwrite existing skills');
+    expect(fs.existsSync(path.join(dir, '.bce-adoption.json'))).toBe(false);
+    expect(fs.readFileSync(path.join(dir, '.agents/skills/bce/SKILL.md'), 'utf8')).toBe('existing');
   });
 });
 

@@ -138,6 +138,31 @@ function writableRepoTarget(repoDir: string, rel: string, label: string): string
   return target;
 }
 
+function packageRoot(): string {
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+}
+
+function filesUnder(root: string): string[] {
+  const files: string[] = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const p = path.join(root, entry.name);
+    if (entry.isDirectory()) files.push(...filesUnder(p));
+    else if (entry.isFile()) files.push(p);
+  }
+  return files;
+}
+
+function codexMcpConfig(existing: string): string {
+  if (
+    /^\s*\[\s*mcp_servers\s*\.\s*(?:bce|"bce"|'bce')(?:\s*\.|\s*\])/m.test(existing) ||
+    /^\s*mcp_servers\s*\.\s*(?:bce|"bce"|'bce')\s*=/m.test(existing)
+  ) {
+    die(`--mcp-config already defines mcp_servers.bce`, 2);
+  }
+  const prefix = existing.length === 0 || existing.endsWith('\n') ? existing : `${existing}\n`;
+  return `${prefix}${existing.length === 0 ? '' : '\n'}[mcp_servers.bce]\ncommand = "npx"\nargs = ["--no-install", "bce-mcp"]\n`;
+}
+
 function policyReview(args: Args): ReviewInput {
   const reviewer = typeof args.reviewer === 'string' ? args.reviewer : '';
   const rationale = typeof args.rationale === 'string' ? args.rationale : '';
@@ -461,8 +486,9 @@ function main(): void {
   }
 
   if (cmd === 'doctor') {
-    const repoDir = (args.repo as string) || '.';
-    if (!fs.existsSync(repoDir)) die(`--repo not found: ${repoDir}`, 2);
+    const requestedRepoDir = (args.repo as string) || '.';
+    if (!fs.existsSync(requestedRepoDir)) die(`--repo not found: ${requestedRepoDir}`, 2);
+    const repoDir = fs.realpathSync(requestedRepoDir);
     const blueprintDir = (args['blueprint-dir'] as string) || path.join(repoDir, '.blueprints');
     const report = doctorRepository(repoDir, blueprintDir);
     const out = typeof args.out === 'string' ? (args.out as string) : undefined;
@@ -498,8 +524,9 @@ function main(): void {
   if (cmd === 'adopt' || cmd === 'onboard') {
     // Safe proposal generator: installs advisory posture + a DRAFT contract + least-privilege CI
     // and agent instructions. It never approves/ratifies policy and never overwrites a file.
-    const repoDir = (args.repo as string) || '.';
-    if (!fs.existsSync(repoDir)) die(`--repo not found: ${repoDir}`, 2);
+    const requestedRepoDir = (args.repo as string) || '.';
+    if (!fs.existsSync(requestedRepoDir)) die(`--repo not found: ${requestedRepoDir}`, 2);
+    const repoDir = fs.realpathSync(requestedRepoDir);
     const sourceBlueprint = readBlueprint(args.blueprint as string);
     if (sourceBlueprint.metadata.status !== 'draft' && sourceBlueprint.metadata.status !== 'proposed') {
       die(`bce adopt accepts only draft/proposed blueprints; ratification is a separate human-gated ceremony`, 2);
@@ -520,22 +547,40 @@ function main(): void {
       ? (typeof args['agent-file'] === 'string' ? args['agent-file'] : defaultAgentFile)
       : 'AGENTS.bce.md';
     const agentTarget = writableRepoTarget(repoDir, agentRel, '--agent-file');
-    const defaultMcpRel = harness === 'cursor' ? '.cursor/mcp.json' : harness === 'codex' ? '' : '.mcp.json';
+    const defaultMcpRel = harness === 'cursor' ? '.cursor/mcp.json' : harness === 'codex' ? '.codex/config.toml' : '.mcp.json';
     const mcpRel = cmd === 'onboard'
       ? (typeof args['mcp-config'] === 'string' ? args['mcp-config'] : defaultMcpRel)
       : '';
     const mcpTarget = mcpRel ? writableRepoTarget(repoDir, mcpRel, '--mcp-config') : undefined;
-    let mcpConfig: Record<string, unknown> | undefined;
+    let mcpConfig: Record<string, unknown> | string | undefined;
     if (mcpTarget) {
-      mcpConfig = {};
-      if (fs.existsSync(mcpTarget)) {
-        try { mcpConfig = JSON.parse(fs.readFileSync(mcpTarget, 'utf8')) as Record<string, unknown>; }
-        catch (e) { die(`--mcp-config is not valid JSON: ${(e as Error).message}`, 2); }
+      if (harness === 'codex') {
+        mcpConfig = codexMcpConfig(fs.existsSync(mcpTarget) ? fs.readFileSync(mcpTarget, 'utf8') : '');
+      } else {
+        mcpConfig = {};
+        if (fs.existsSync(mcpTarget)) {
+          try { mcpConfig = JSON.parse(fs.readFileSync(mcpTarget, 'utf8')) as Record<string, unknown>; }
+          catch (e) { die(`--mcp-config is not valid JSON: ${(e as Error).message}`, 2); }
+        }
+        const servers = mcpConfig.mcpServers && typeof mcpConfig.mcpServers === 'object'
+          ? mcpConfig.mcpServers as Record<string, unknown> : {};
+        if (servers.bce !== undefined) die(`--mcp-config already defines mcpServers.bce`, 2);
+        mcpConfig.mcpServers = { ...servers, bce: { command: 'npx', args: ['--no-install', 'bce-mcp'] } };
       }
-      const servers = mcpConfig.mcpServers && typeof mcpConfig.mcpServers === 'object'
-        ? mcpConfig.mcpServers as Record<string, unknown> : {};
-      if (servers.bce !== undefined) die(`--mcp-config already defines mcpServers.bce`, 2);
-      mcpConfig.mcpServers = { ...servers, bce: { command: 'npx', args: ['--no-install', 'bce-mcp'] } };
+    }
+    const skillRootRel = harness === 'claude' ? '.claude/skills' : harness === 'cursor' ? '.cursor/skills' : '.agents/skills';
+    const skillTargets = ['bce', 'skill-tuning'].map((name) => ({
+      name,
+      source: path.join(packageRoot(), 'skills', name),
+      target: writableRepoTarget(repoDir, path.join(skillRootRel, name), '--harness skill directory'),
+    }));
+    const missingSkillSources = skillTargets.filter(({ source }) => !fs.existsSync(source));
+    if (missingSkillSources.length > 0) {
+      die(`installed package is missing skills: ${missingSkillSources.map(({ name }) => name).join(', ')}`, 2);
+    }
+    const occupiedSkills = skillTargets.filter(({ target }) => fs.existsSync(target));
+    if (occupiedSkills.length > 0) {
+      die(`onboard refuses to overwrite existing skills: ${occupiedSkills.map(({ target }) => path.relative(repoDir, target)).join(', ')}`, 2);
     }
     const targets = {
       blueprint: path.join(repoDir, '.blueprints', `${sourceBlueprint.metadata.id}.blueprint.json`),
@@ -560,9 +605,14 @@ function main(): void {
     else if (!fs.readFileSync(agentTarget, 'utf8').includes(contextMarker)) fs.appendFileSync(agentTarget, `\n${context}`);
     if (mcpTarget) {
       fs.mkdirSync(path.dirname(mcpTarget), { recursive: true });
-      fs.writeFileSync(mcpTarget, stableStringify(mcpConfig));
+      fs.writeFileSync(mcpTarget, typeof mcpConfig === 'string' ? mcpConfig : stableStringify(mcpConfig));
     }
-    const generatedFiles = [...Object.values(targets), agentTarget, ...(mcpTarget ? [mcpTarget] : [])]
+    for (const skill of skillTargets) {
+      fs.mkdirSync(path.dirname(skill.target), { recursive: true });
+      fs.cpSync(skill.source, skill.target, { recursive: true, errorOnExist: true });
+    }
+    const installedSkillFiles = skillTargets.flatMap(({ target }) => filesUnder(target));
+    const generatedFiles = [...Object.values(targets), agentTarget, ...(mcpTarget ? [mcpTarget] : []), ...installedSkillFiles]
       .filter((p, i, all) => p !== targets.manifest && all.indexOf(p) === i)
       .map((p) => path.relative(repoDir, p)).sort();
     fs.writeFileSync(targets.manifest, stableStringify({
@@ -578,9 +628,8 @@ function main(): void {
     process.stdout.write(`bce ${cmd}: PROPOSED advisory adoption with draft ${sourceBlueprint.metadata.id}; human ratification still required\n`);
     if (cmd === 'onboard') {
       process.stdout.write(`agent context: ${path.relative(repoDir, agentTarget)}\n`);
-      process.stdout.write(mcpTarget
-        ? `MCP config: ${path.relative(repoDir, mcpTarget)} (doctor_repository, check_baseline, validate_blueprint, run_gate, assess_teeth, get_report)\n`
-        : `Codex MCP: run 'codex mcp add bce -- npx --no-install bce-mcp' once for this user profile\n`);
+      process.stdout.write(`skills: ${skillRootRel}/bce, ${skillRootRel}/skill-tuning\n`);
+      process.stdout.write(`MCP config: ${path.relative(repoDir, mcpTarget!)} (doctor_repository, check_baseline, validate_blueprint, run_gate, assess_teeth, get_report)\n`);
       process.stdout.write(`next: run 'npx --no-install bce doctor --repo .' and review/commit the proposal; ratification remains attended\n`);
     }
     return;
@@ -1374,7 +1423,7 @@ function main(): void {
       `  bce adopt --repo <dir> --blueprint <draft.json> --engine bce-engine@<exact>  Minimal advisory proposal; never ratifies\n` +
       `  bce onboard --repo <dir> --blueprint <draft.json> --engine <package|owner/repo@40-char-sha>\n` +
       `       [--harness agents|claude|cursor|codex] [--agent-file <repo-relative>] [--mcp-config <repo-relative>]\n` +
-      `       Full-stack proposal: policy + immutable CI + preserved agent context + MCP wiring.\n` +
+      `       Full-stack proposal: policy + immutable CI + preserved agent context + project skills + MCP wiring.\n` +
       `  bce ratify --repo <dir> --blueprint <path> --human-reviewer --reviewer <id> --rationale <text> --recorded-at <UTC>\n` +
       `  bce amend --repo <dir> --blueprint <current> --replacement <next> --compatibility <kind> [--accept-weakening] <review flags>\n` +
       `  bce upgrade --check --repo <dir> --candidate-engine X.Y.Z [--out <json>]  Read-only compatibility preflight\n` +

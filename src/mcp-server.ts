@@ -84,7 +84,7 @@ function negotiateProtocolVersion(requested: unknown): string {
 }
 
 const SERVER_NAME = 'bce-mcp';
-const SERVER_VERSION = '1'; // matches the engine schemaVersion cadence; bumped only on a surface change
+const SERVER_VERSION = '2';
 
 interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -184,26 +184,26 @@ const TOOL_DEFINITIONS = [
   {
     name: 'doctor_repository',
     description: 'Read-only adoption/readiness audit. Returns typed ready, needs-action, or refusal checks; mutates nothing.',
+    annotations: { title: 'Diagnose BCE adoption', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       type: 'object',
       properties: {
-        repoDir: { type: 'string', description: 'Repository tree to inspect.' },
+        repoDir: { type: 'string', description: 'Repository tree to inspect (default: MCP server working directory).' },
         blueprintDir: { type: 'string', description: 'Optional blueprint directory.' },
       },
-      required: ['repoDir'],
       additionalProperties: false,
     },
   },
   {
     name: 'check_baseline',
     description: 'Read-only baseline maintenance check. Identifies removable debt and unaccepted new violations without changing policy.',
+    annotations: { title: 'Check BCE baseline', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       type: 'object',
       properties: {
-        repoDir: { type: 'string', description: 'Repository tree to inspect.' },
+        repoDir: { type: 'string', description: 'Repository tree to inspect (default: MCP server working directory).' },
         blueprintDir: { type: 'string', description: 'Optional blueprint directory.' },
       },
-      required: ['repoDir'],
       additionalProperties: false,
     },
   },
@@ -213,6 +213,7 @@ const TOOL_DEFINITIONS = [
       'Schema-validate an authored EngineeringBlueprint JSON file (the SAME parse the `bce` CLI ' +
       'runs before any gate). Returns { valid, id, version } on success, or a fail-closed error ' +
       'with the exact schema message. Fix the blueprint until this is valid before gating.',
+    annotations: { title: 'Validate BCE blueprint', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       type: 'object',
       properties: {
@@ -231,10 +232,11 @@ const TOOL_DEFINITIONS = [
       'sweep), honors the committed .bce-mode.json posture (advisory/enforced) and .blueprints/' +
       'baseline.json — no skip flags. Read gateFailed / exitCode / reports[] to self-correct. ' +
       'Fail-closed: a malformed mode/baseline config is an error, never a silent pass.',
+    annotations: { title: 'Run BCE done-check', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       type: 'object',
       properties: {
-        repoDir: { type: 'string', description: 'The repository tree to gate.' },
+        repoDir: { type: 'string', description: 'The repository tree to gate (default: MCP server working directory).' },
         blueprintDir: {
           type: 'string',
           description: 'Authored-blueprint directory (default <repoDir>/.blueprints).',
@@ -254,7 +256,6 @@ const TOOL_DEFINITIONS = [
           description: 'Optional repo identity (stamps report.repo + fail-closed scope check).',
         },
       },
-      required: ['repoDir'],
       additionalProperties: false,
     },
   },
@@ -265,18 +266,19 @@ const TOOL_DEFINITIONS = [
       'iff a realistic architecture-graph mutation would redden it. verdict "toothless" means a ' +
       'green gate would prove nothing. Deterministic, static — no runtime, no network. Fail-closed: ' +
       'a scan below the blueprint’s file floor is an error, never a false all-clear.',
+    annotations: { title: 'Assess blueprint teeth', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       type: 'object',
       properties: {
         blueprintPath: { type: 'string', description: 'Path to the .blueprint.json to grade.' },
-        repoDir: { type: 'string', description: 'The repository tree to build the observed graph from.' },
+        repoDir: { type: 'string', description: 'The repository tree to build the observed graph from (default: MCP server working directory).' },
         extractor: {
           type: 'string',
           enum: ['ast', 'line-scan'],
           description: "Extractor kind (default 'ast').",
         },
       },
-      required: ['blueprintPath', 'repoDir'],
+      required: ['blueprintPath'],
       additionalProperties: false,
     },
   },
@@ -286,6 +288,7 @@ const TOOL_DEFINITIONS = [
       'Read a serialized report JSON document the engine already wrote (a compliance-report.json, a ' +
       'gate --report-json doc, or a teeth-report.json) and return it parsed. Purely logic-free — it ' +
       'RE-READS a graded fact, never re-derives one. Fail-closed: a missing or non-JSON file is an error.',
+    annotations: { title: 'Read BCE report', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: {
       type: 'object',
       properties: {
@@ -324,12 +327,12 @@ function callTool(name: string, rawArgs: unknown): Record<string, unknown> {
   try {
     switch (name) {
       case 'doctor_repository': {
-        const repoDir = requireString(args, 'repoDir');
+        const repoDir = optionalString(args, 'repoDir') ?? process.cwd();
         const blueprintDir = optionalString(args, 'blueprintDir') ?? path.join(repoDir, '.blueprints');
         return toolResult(doctorRepository(repoDir, blueprintDir));
       }
       case 'check_baseline': {
-        const repoDir = requireString(args, 'repoDir');
+        const repoDir = optionalString(args, 'repoDir') ?? process.cwd();
         const blueprintDir = optionalString(args, 'blueprintDir') ?? path.join(repoDir, '.blueprints');
         const gate = runGate(repoDir, blueprintDir, null, 'ast');
         // Diagnosis only: expose the typed maintenance result, not the write
@@ -349,7 +352,7 @@ function callTool(name: string, rawArgs: unknown): Record<string, unknown> {
         });
       }
       case 'run_gate': {
-        const repoDir = requireString(args, 'repoDir');
+        const repoDir = optionalString(args, 'repoDir') ?? process.cwd();
         if (!fs.existsSync(repoDir)) return toolError(`repoDir not found: ${repoDir}`);
         const blueprintDir = optionalString(args, 'blueprintDir') ?? path.join(repoDir, '.blueprints');
         const extractor = (optionalString(args, 'extractor') ?? 'ast') as 'ast' | 'line-scan';
@@ -372,7 +375,7 @@ function callTool(name: string, rawArgs: unknown): Record<string, unknown> {
       }
       case 'assess_teeth': {
         const p = requireString(args, 'blueprintPath');
-        const repoDir = requireString(args, 'repoDir');
+        const repoDir = optionalString(args, 'repoDir') ?? process.cwd();
         const extractor = (optionalString(args, 'extractor') ?? 'ast') as 'ast' | 'line-scan';
         if (extractor !== 'ast' && extractor !== 'line-scan') {
           return toolError(`extractor must be 'ast' or 'line-scan'`);
@@ -409,9 +412,12 @@ function handleRequest(req: JsonRpcRequest): void {
         capabilities: { tools: {} },
         serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
         instructions:
-          'THIN, logic-free shell over the bce blueprint-conformance engine. Run the gate before ' +
-          'claiming a change is done; fix the code, never silently edit the blueprint; baseline ' +
-          'changes require PR review (the baseline only ever shrinks).',
+          'Start with doctor_repository. Use run_gate as the done-check after every code change; ' +
+          'it defaults to the server working directory and scans the live tree. On RED, fix the ' +
+          'named code violation and rerun—never silently edit a blueprint or baseline. Use ' +
+          'validate_blueprint for contract syntax, assess_teeth to prove a contract can fail, ' +
+          'check_baseline for debt maintenance, and get_report only to reread an existing report. ' +
+          'All tools are read-only; policy changes require attended CLI review.',
       });
       return;
     }

@@ -28,7 +28,7 @@ bce author …   →   bce gate  (RED, exit 1)   →   edit the code   →   bce
 Install the exact public package and copy its shipped examples to a writable directory:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.3
+npm install --save-dev --save-exact bce-engine@0.1.4
 cp -R node_modules/bce-engine/examples/first-win ./bce-first-win
 # then, wherever a walkthrough says `bce`:
 npx --no-install bce …

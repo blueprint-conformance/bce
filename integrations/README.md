@@ -46,7 +46,7 @@ The `bce-mcp` stdio server exposes six read-only tools over the same engine the 
 `get_report`. Point your agent's MCP client at the `bce-mcp` bin; the snippets tell the agent to
 prefer `run_gate` as its done-check. Policy mutation/approval tools are deliberately absent.
 
-`bce onboard --harness agents|claude|cursor` merges the stdio command into the harness's project
-MCP JSON without deleting unrelated servers. Codex uses its supported user-profile command:
-`codex mcp add bce -- npx --no-install bce-mcp`. See the complete path in
+`bce onboard --harness agents|claude|cursor|codex` installs both project skills and merges the stdio
+command into the harness's project configuration without deleting unrelated servers/settings.
+Codex uses `.agents/skills` and trusted-project `.codex/config.toml`. See the complete path in
 [`docs/onboarding.md`](../docs/onboarding.md).
