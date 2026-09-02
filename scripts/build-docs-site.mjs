@@ -117,6 +117,7 @@ const PAGES = [
   // rather than the document's, which as a card label says nothing.
   { route: 'agents/llms-txt', source: 'llms.txt', section: 'For Agents', title: 'llms.txt — the machine-readable index' },
   { route: 'agents/integrations', source: 'integrations/README.md', section: 'For Agents' },
+  { route: 'agents/ai-adoption-benchmark', source: 'docs/ai-adoption-benchmark.md', section: 'For Agents' },
   // The Agent Skill's own SKILL.md is deliberately NOT the published page: it opens with
   // YAML frontmatter, which is a rule directly under text — a setext heading this renderer
   // refuses (correctly) rather than publish as an accidental heading. The directory README

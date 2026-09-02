@@ -39,7 +39,7 @@ may reach the network, which file shapes may exist, which symbol is the invarian
 Install the exact provenance-backed public release in the target project:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.3
+npm install --save-dev --save-exact bce-engine@0.1.4
 npx --no-install bce demo
 ```
 
@@ -120,9 +120,10 @@ bce onboard \
   --harness agents
 ```
 
-Harnesses are `agents`, `claude`, `cursor`, and `codex`. The first three generate project MCP JSON;
-Codex prints its supported `codex mcp add` command instead of mutating user-global configuration.
-Onboarding never approves the draft. `ratify` remains an attended human-review ceremony.
+Harnesses are `agents`, `claude`, `cursor`, and `codex`. Onboarding installs both packaged skills
+into the harness's project skill directory and writes project-local MCP configuration; Codex uses
+`.agents/skills` and `.codex/config.toml`. It preserves unrelated context and MCP settings and never
+approves the draft. `ratify` remains an attended human-review ceremony.
 
 ### 3. RUN — score one blueprint against one tree
 

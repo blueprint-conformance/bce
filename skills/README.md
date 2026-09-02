@@ -27,6 +27,11 @@ worth publishing.
 
 ## Installing it
 
+The lowest-friction project path is `bce onboard --harness agents|claude|cursor|codex`. It installs
+both complete skill directories in the harness's repository scope while also wiring context, MCP,
+CI, and the advisory contract. The manual and plugin paths below remain useful when you want only
+the skills or a user-level installation.
+
 ### As a Claude Code plugin
 
 This repository is also a plugin marketplace: it carries
@@ -79,7 +84,7 @@ The skill drives the `bce` CLI, so the command has to be reachable. Install the 
 provenance-backed public release in the target project:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.3
+npm install --save-dev --save-exact bce-engine@0.1.4
 npx --no-install bce demo
 ```
 

@@ -25,7 +25,7 @@ This is an internal regression measurement, not an independent performance bench
 [![ci](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg)](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml)
 
 <p align="center">
-  <img src="assets/badges/tests.svg" alt="tests: 772">
+  <img src="assets/badges/tests.svg" alt="tests: 774">
   <img src="assets/badges/license.svg" alt="license: Apache-2.0">
   <img src="assets/badges/docs.svg" alt="docs: zero-dep">
   <img src="assets/badges/node.svg" alt="node: >=22">
@@ -89,18 +89,22 @@ without turning a check red. Regenerate them with
 Install the exact verified release on Node 22 or newer:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.3
+npm install --save-dev --save-exact bce-engine@0.1.4
 npx --no-install bce demo
 ```
 
 The package was published through npm Trusted Publishing with
-[provenance](https://www.npmjs.com/package/bce-engine/v/0.1.3), after the release workflow reran
+[provenance](https://www.npmjs.com/package/bce-engine/v/0.1.4), after the release workflow reran
 the full suite, corpus/recall proof, self-gate, leakage gate, and RED/GREEN discriminating pair.
 
 `bce demo` runs an offline packaged GREEN/RED discrimination proof with no repository setup.
 `npm run test:onboarding` creates clean external consumers and proves the packed and immutable-Git
 install paths, both binaries, author/onboard, advisory RED, fix/GREEN, evidence verification, and all
 six MCP tools. CI and the release gate rerun that black-box journey.
+`npm run test:ai-adoption` separately exercises the first AI-agent session across all four harness
+layouts: project skill discovery, project-local MCP wiring, zero-argument readiness/gate calls, and
+a live GREEN → planted RED → corrected GREEN loop. Its timings are local regression observations,
+not a model-quality or cross-machine performance claim.
 The full walkthrough — RED, the fix, GREEN, and what each verdict means — is
 [docs/quickstart.md](docs/quickstart.md) · [examples/quickstart](examples/quickstart). A second
 worked example, on a config surface rather than code, is
@@ -131,6 +135,10 @@ MCP, skills, lifecycle checks, and reproducible evidence without conflating thos
 <!-- fleet-record:end -->
 - **RED/GREEN discrimination** — CI proves, offline, that one blueprint yields opposite verdicts
   on a conformant vs a seeded-drift tree, by real exit codes.
+- **Agent-surface adoption mechanics** — a deterministic clean-repository simulation proves both
+  shipped skills are discoverable and the six read-only MCP tools can drive a live correction loop
+  without post-onboarding copy/config commands. It does not score an LLM or count as an independent
+  human witness. [docs/ai-adoption-benchmark.md](docs/ai-adoption-benchmark.md)
 - **Optional integrity records** — `bce run --emit` emits hash-chained records;
   [tools/verify-chain.mjs](tools/verify-chain.mjs) verifies a chain with zero dependencies and
   no bce install required. [docs/evidence-format.md](docs/evidence-format.md)
@@ -208,10 +216,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }        # the gate diffs against the merge base
-      - uses: blueprint-conformance/bce@v0.1.3
+      - uses: blueprint-conformance/bce@v0.1.4
         with:
           repo: .
-          engine: bce-engine@0.1.3
+          engine: bce-engine@0.1.4
 ```
 
 Blueprints live in `.blueprints/*.blueprint.json` by default (`blueprint-dir` to override). Both
@@ -227,7 +235,8 @@ the Action and engine are exact pins; ranges and `latest` are deliberately avoid
   [docs/extending-extractors.md](docs/extending-extractors.md)
 - **Agents**: the [MCP server](docs/agent-loop.md) and loop snippets in
   [integrations/](integrations) · the [Agent Skill](skills/README.md) carries the whole
-  author → validate → run → teeth → gate lifecycle — copy `skills/bce` into `.claude/skills/`
+  author → validate → run → teeth → gate lifecycle; `bce onboard` installs both project skills
+  and project-local MCP configuration for the selected harness
 - **Complete onboarding**: [one ordered CLI → context → MCP → CI → lifecycle → evidence path](docs/onboarding.md)
 - **How it compares** to structural rule engines, policy engines, and spec-driven development
   tools: [docs/comparison.md](docs/comparison.md)
@@ -238,7 +247,7 @@ the Action and engine are exact pins; ranges and `latest` are deliberately avoid
 - **Citing this work**: [CITATION.cff](CITATION.cff)
 - **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-**Status: v0.1.3 released.** The functional npm package, immutable tag, GitHub Release, provenance,
+**Status: v0.1.4 released.** The functional npm package, immutable tag, GitHub Release, provenance,
 and release evidence are verified. Independent witnesses remain at 0. The schema is
 `blueprint-conformance/v1alpha1`; compatibility remains pre-1.0.
 

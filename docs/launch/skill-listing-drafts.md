@@ -39,7 +39,7 @@ to fit a directory's field.
 Distinct from the two surfaces already shipped, and the listing text should say
 so rather than blur them: the [house-rules snippets](../../integrations/README.md)
 are the always-loaded done-check for a repository that already has a blueprint,
-and the `bce-mcp` server exposes the engine as four logic-free tools. The skill
+and the `bce-mcp` server exposes the engine as six logic-free, read-only tools. The skill
 is the one that gets a contract to exist in the first place.
 
 ## Pre-submission gates (all must hold)
@@ -51,7 +51,7 @@ is the one that gets a contract to exist in the first place.
    contract test (`tests/skill-contract.test.ts`) runs inside `build-test-prove`.
 3. **[agent]** `bce` is installable by the exact command the listing prints,
    **and what it installs can actually go red**. The listing must use the exact
-   `bce-engine@0.1.3` pin, never a range or `latest`. Verify the registry artifact's
+   `bce-engine@0.1.4` pin, never a range or `latest`. Verify the registry artifact's
    signatures and provenance, then run `bce demo` and require its GREEN/RED
    discrimination before printing any install line.
 4. **[operator]** Read each directory's own submission rules before filing.

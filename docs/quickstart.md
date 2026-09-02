@@ -20,7 +20,7 @@ examples/quickstart/
 ```bash
 mkdir bce-quickstart && cd bce-quickstart
 npm init -y
-npm install --save-dev --save-exact bce-engine@0.1.3
+npm install --save-dev --save-exact bce-engine@0.1.4
 cp -R node_modules/bce-engine/examples/quickstart .
 cd quickstart
 alias bce='../node_modules/.bin/bce'

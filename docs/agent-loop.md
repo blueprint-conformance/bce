@@ -57,7 +57,7 @@ For any agent that can run shell commands, the exact published dependency puts t
 project's PATH. `bce onboard` can preserve and extend the appropriate context file automatically:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.3
+npm install --save-dev --save-exact bce-engine@0.1.4
 npx --no-install bce demo
 ```
 
@@ -83,9 +83,15 @@ snippets tell the agent to prefer `run_gate` as its done-check. The server is de
 holds no logic of its own, so there is nothing in it to diverge from the CLI. See
 [`integrations/README.md`](../integrations/README.md) for the MCP details.
 
+When the server is launched from the repository—as every generated project config does—
+`doctor_repository`, `check_baseline`, and `run_gate` default to that working directory. The normal
+agent calls are therefore `doctor_repository {}` and `run_gate {}`; pass `repoDir` only when
+intentionally inspecting a different tree. MCP `run_gate` scans live files, including uncommitted
+edits.
+
 The MCP surface cannot approve or weaken policy. `adopt`, `ratify`, `amend`, `graduate`, and baseline
 growth remain attended CLI/review acts. [`onboarding.md`](onboarding.md) shows the generated project
-configs and the Codex registration command.
+skill and MCP configurations for every harness.
 
 ## Having an agent draft the first blueprint (experimental)
 

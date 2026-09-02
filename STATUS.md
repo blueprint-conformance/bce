@@ -1,6 +1,6 @@
 # Project status
 
-Last reviewed: 2026-09-01. This file is the authoritative public claim ledger for the current
+Last reviewed: 2026-09-02. This file is the authoritative public claim ledger for the current
 source tree.
 
 ## Distribution
@@ -9,9 +9,9 @@ source tree.
 |---|---|---|
 | Source checkout | Working, internally tested | Node 22, `npm ci`, `npm run build`, then `node dist/cli.js` |
 | Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree and runs `bce demo` |
-| npm | Released | [`bce-engine@0.1.3`](https://www.npmjs.com/package/bce-engine/v/0.1.3) is public with npm provenance; install the exact version on Node 22+ |
-| Git tag / GitHub Release | Released | [`v0.1.3`](https://github.com/blueprint-conformance/bce/releases/tag/v0.1.3) is immutable and carries the release compliance report plus verified evidence record |
-| GitHub Action | Released | Pin `blueprint-conformance/bce@v0.1.3` and `engine: bce-engine@0.1.3`; creator-maintained external RED/GREEN evidence is linked below |
+| npm | Released | [`bce-engine@0.1.4`](https://www.npmjs.com/package/bce-engine/v/0.1.4) is public with npm provenance; install the exact version on Node 22+ |
+| Git tag / GitHub Release | Released | [`v0.1.4`](https://github.com/blueprint-conformance/bce/releases/tag/v0.1.4) is immutable and carries the release compliance report plus verified evidence record |
+| GitHub Action | Released | Pin `blueprint-conformance/bce@v0.1.4` and `engine: bce-engine@0.1.4`; creator-maintained external RED/GREEN evidence is linked below |
 | GitLab template | Dormant | It deliberately exits 2 until an exact real release is supplied |
 
 ## What the engine currently proves
@@ -33,6 +33,10 @@ source tree.
   and returned to [GREEN after the fix](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33498058816).
   The drift run was advisory, so its successful workflow conclusion is not evidence of enforced
   blocking; its log is evidence that the generated Action found and reported the violation.
+- The source-tree AI-adoption proof runs all four supported harness layouts. It checks project-local
+  discovery of both skills, project-local MCP configuration, read-only tool affordances,
+  zero-argument repository calls, and live GREEN → RED → GREEN correction. This is a deterministic
+  agent-harness simulation, not an LLM comparison or independent-human usability evidence.
 
 ## What has not been established
 

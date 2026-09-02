@@ -225,6 +225,7 @@ assert(
 for (const rel of [
   'skills/bce/SKILL.md',
   'prompts/blueprint-author.md',
+  'scripts/ai-adoption-proof.mjs',
   'integrations/AGENTS.md.snippet',
   'docs/onboarding.md',
   'spec/schemas/engineering-blueprint.schema.json',

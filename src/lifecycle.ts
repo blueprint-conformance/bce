@@ -131,6 +131,35 @@ export function doctorRepository(repoDir: string, blueprintDir = path.join(repoD
   } catch (e) {
     add('agents/mcp', 'refusal', `cannot inspect package MCP binary: ${(e as Error).message}`);
   }
+  const skillRoots = ['.agents/skills', '.claude/skills', '.cursor/skills'];
+  const discoveredSkillRoot = skillRoots.find((root) =>
+    ['bce', 'skill-tuning'].every((name) => fs.existsSync(path.join(repoDir, root, name, 'SKILL.md'))),
+  );
+  add(
+    'agents/project-skills',
+    discoveredSkillRoot ? 'pass' : 'warning',
+    discoveredSkillRoot ? `bce + skill-tuning discovered under ${discoveredSkillRoot}` : 'project skills not installed',
+  );
+  let configuredMcp: string | undefined;
+  for (const rel of ['.mcp.json', '.cursor/mcp.json']) {
+    const p = path.join(repoDir, rel);
+    if (!fs.existsSync(p)) continue;
+    try {
+      const doc = JSON.parse(fs.readFileSync(p, 'utf8')) as { mcpServers?: Record<string, unknown> };
+      if (doc.mcpServers?.bce !== undefined) configuredMcp = rel;
+    } catch {
+      // The malformed config remains visible as not configured here; its harness owns syntax errors.
+    }
+  }
+  const codexConfig = path.join(repoDir, '.codex/config.toml');
+  if (fs.existsSync(codexConfig) && /^\s*\[mcp_servers\.bce\]\s*$/m.test(fs.readFileSync(codexConfig, 'utf8'))) {
+    configuredMcp = '.codex/config.toml';
+  }
+  add(
+    'agents/mcp-config',
+    configuredMcp ? 'pass' : 'warning',
+    configuredMcp ? `bce project server configured in ${configuredMcp}` : 'project MCP server not configured',
+  );
 
   try {
     const gate = runGate(repoDir, blueprintDir, null, 'ast');
