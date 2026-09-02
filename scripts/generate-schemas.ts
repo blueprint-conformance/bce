@@ -38,6 +38,7 @@ import {
   EngineeringBlueprintSchema,
   PortfolioBlueprintSchema,
   SeveritySchema,
+  ExtractionProfileSchema,
 } from '../src/schema.js';
 import { stableStringify, SEVERITY_WEIGHT } from '../src/report.js';
 import { APPROVAL_FLOOR } from '../src/emit.js';
@@ -46,6 +47,7 @@ export const SCHEMA_ID_BASE = 'https://blueprint-conformance.github.io/bce/schem
 const DRAFT = 'http://json-schema.org/draft-07/schema#';
 
 const SEVERITIES = SeveritySchema.options;
+const EXTRACTION_PROFILES = ExtractionProfileSchema.options;
 const HEX64 = '^[0-9a-f]{64}$';
 
 /** Wrap a zod-derived or hand-authored body with the published-schema envelope. */
@@ -222,6 +224,37 @@ function evidenceRecordSchema(): Record<string, unknown> {
         verdict: { type: 'string', enum: ['pass', 'fail'] },
         violationCount: { type: 'integer', minimum: 0 },
         reportEvidenceRef: { type: 'string' },
+        toolchain: {
+          type: 'object',
+          additionalProperties: false,
+          description: 'Producer/parser identity. Optional only for compatibility with historical pre-0.1.6 records; current CLI emissions always include it.',
+          required: ['engine', 'dependencyLock', 'runtime', 'extractor'],
+          properties: {
+            engine: {
+              type: 'object', additionalProperties: false, required: ['name', 'version'],
+              properties: { name: { const: 'bce-engine' }, version: { type: 'string' } },
+            },
+            dependencyLock: {
+              type: 'object', additionalProperties: false, required: ['file', 'sha256'],
+              properties: { file: { const: 'npm-shrinkwrap.json' }, sha256: { type: 'string', pattern: HEX64 } },
+            },
+            runtime: {
+              type: 'object', additionalProperties: false, required: ['node', 'npm', 'platform', 'arch'],
+              properties: {
+                node: { type: 'string' }, npm: { type: 'string' }, platform: { type: 'string' }, arch: { type: 'string' },
+              },
+            },
+            extractor: {
+              type: 'object', additionalProperties: false, required: ['kind', 'profile', 'provider', 'version'],
+              properties: {
+                kind: { type: 'string', enum: ['ast', 'line-scan'] },
+                profile: { type: 'string', enum: [...EXTRACTION_PROFILES] },
+                provider: { type: 'string', enum: ['typescript-ts-morph', 'typescript-line-scan', 'python-line-scan'] },
+                version: { type: 'string' },
+              },
+            },
+          },
+        },
         previousHash: { type: 'string', pattern: HEX64 },
         hash: { type: 'string', pattern: HEX64 },
       },

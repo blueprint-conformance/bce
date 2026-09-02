@@ -736,6 +736,11 @@ export class AstExtractor implements RepositoryFactsExtractor {
       if (this.cfg.egressEnabled) {
         this.extractEgress(source, relPath, components, guardEdges, egressCoverage);
       }
+      // This extractor explicitly does not perform cross-module resolution. Retaining every
+      // parsed SourceFile makes ts-morph rebuild an ever-growing program as the scan advances,
+      // turning large trees into quadratic work. All facts needed from this file have now been
+      // materialized, so release it before parsing the next one.
+      project.removeSourceFile(source);
     }
 
     components.sort(compareComponents);
@@ -1020,7 +1025,11 @@ export class AstExtractor implements RepositoryFactsExtractor {
         break;
       }
     }
-    if (factoryNode === null) {
+    // getDefaultExportSymbol() asks the TypeScript checker to resolve a symbol. Avoid that cost for
+    // the overwhelmingly common no-default-export file; on a large tree, invoking the checker for
+    // every plain module dominates extraction time. The syntax guard preserves the fallback for
+    // actual `export default ...` shapes.
+    if (factoryNode === null && source.getExportAssignments().length > 0) {
       const def = source.getDefaultExportSymbol();
       const d = def?.getDeclarations()[0];
       if (d) {

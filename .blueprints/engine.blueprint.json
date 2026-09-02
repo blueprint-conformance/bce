@@ -141,6 +141,7 @@
         "src/python-extractor.ts",
         "src/recall-gate.ts",
         "src/report.ts",
+        "src/runtime-identity.ts",
         "src/safe-regex.ts",
         "src/schema.ts",
         "src/score.ts",
@@ -424,6 +425,14 @@
       "policyRef": "policy/library-modules-never-exit"
     },
     {
+      "id": "only-cli-may-call-process-exit--runtime-identity",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/runtime-identity.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
       "id": "only-cli-may-call-process-exit--extractor-registry",
       "type": "forbiddenPattern",
       "severity": "high",
@@ -450,6 +459,6 @@
     "paths": [
       "src/**/*.ts"
     ],
-    "minFiles": 32
+    "minFiles": 33
   }
 }

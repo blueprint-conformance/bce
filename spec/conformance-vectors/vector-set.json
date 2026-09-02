@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "1",
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "vectorsSha256": "7b5db8dea67fc0aac0b38be4f3ac33913867bd6ceffea0a6f9389242d5d96ebc",
+  "externalImplementationsAccepted": 0,
+  "status": "reference-vectors-only"
+}

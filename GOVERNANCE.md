@@ -14,13 +14,16 @@ namespace (`blueprint-conformance/v1alpha1`), and the project marks (see
 
 ## Maintainer reality
 
-- **Solo maintainer.** The project currently has one maintainer, backed by
-  Odin Labs.
+- **Solo maintainer.** The project currently has one human maintainer, backed by Odin Labs. Required
+  CI checks protect `main`, admins cannot bypass those checks, and force-push/deletion are disabled.
+  Human approval and release-review requirements remain off because no second person is available;
+  enabling them would deadlock the project rather than create independent review. A solo maintainer
+  cannot truthfully provide independent review of their own change.
 - **AI-driven maintenance, named plainly.** A substantial share of the
   project's day-to-day engineering — issue triage drafts, test authoring,
   refactors, release mechanics — is performed by AI agents operated by the
-  maintainer. Every change still lands through the same review gate and CI
-  as any human contribution, and the maintainer is accountable for
+  maintainer. Every change still lands through required CI; independent review is
+  not claimed until a distinct authorized human actually reviews a change. The maintainer is accountable for
   everything that merges. If AI involvement in this project matters to you,
   you now know exactly what it is.
 - **No SLA.** This is an open-source project, not a support contract.
@@ -86,6 +89,16 @@ that point.
   are the fast triage bar above, the shared-maintainership trigger, and the
   fact that everything needed to fork or reimplement — code, spec, schemas,
   conformance vectors — is Apache-2.0 and in this repository.
+
+## Review-enforcement activation
+
+The repository deliberately does not require a human approval or release reviewer while it has one
+human maintainer. Six required CI checks, admin enforcement, and force-push/deletion prevention stay
+live and provide solo-safe protection. When a distinct second human accepts responsibility and can
+exercise it, add CODEOWNERS, require their approval, and protect the release environment in the same
+reviewed change. A nominal account or same-author approval is not independent review. The live state
+and activation requirements are documented in
+[`docs/governance-enforcement.md`](docs/governance-enforcement.md).
 
 ## Changes to this document
 

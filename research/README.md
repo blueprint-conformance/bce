@@ -12,3 +12,13 @@ The analysis API reports TP/FP/FN/TN, precision, recall, specificity, false viol
 opportunity, collateral violations, Wilson 95% intervals, and per-defect-class results. This is not
 evidence that BCE improves agents. That claim requires the not-yet-run multi-repository controlled
 study described in `study-preregistration.json`.
+
+The cross-harness real-model protocol is frozen separately in
+`model-evaluation-preregistration.json`. It requires baseline/BCE arms and at least 30 trials per arm
+for each of Codex, Claude, Cursor, and a generic Agent Skills harness. Exact client binaries, model
+snapshots, isolated homes, disabled shared caches, a sealed randomized task manifest, failures,
+tokens, latency, cost, MCP selection, and policy mutation are all part of the denominator. Run
+`npm run research:model-eval-readiness`: it currently refuses because those expensive external inputs
+have not been frozen, and a refusal is the correct result before executing any trial. Seal the task
+manifest by hashing its compact JSON serialization with `manifestSha256` set to `null`, then store
+the result as `sha256:<hex>`. Readiness and analysis recompute that value and refuse post-seal edits.

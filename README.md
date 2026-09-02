@@ -25,7 +25,7 @@ This is an internal regression measurement, not an independent performance bench
 [![ci](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg)](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml)
 
 <p align="center">
-  <img src="assets/badges/tests.svg" alt="tests: 775">
+  <img src="assets/badges/tests.svg" alt="tests: 781">
   <img src="assets/badges/license.svg" alt="license: Apache-2.0">
   <img src="assets/badges/docs.svg" alt="docs: zero-dep">
   <img src="assets/badges/node.svg" alt="node: >=22">
@@ -210,8 +210,9 @@ the repository's contract, not of whoever invoked it. Details:
 
 ## Use it in your repo
 
-The immutable Action tag and npm engine pin are both released. `bce onboard` generates this
-workflow and wires agent context plus MCP at the same time:
+The npm engine is released. GitHub release immutability was enabled after `v0.1.5`, so executable
+examples pin that release's source commit directly instead of trusting its historical mutable tag.
+`bce onboard` generates this workflow and wires agent context plus MCP at the same time:
 
 The generated workflow is equivalent to:
 
@@ -223,9 +224,10 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with: { fetch-depth: 0 }        # the gate diffs against the merge base
-      - uses: blueprint-conformance/bce@v0.1.5
+      # BCE v0.1.5 source commit; the SHA, not the comment, is executable.
+      - uses: blueprint-conformance/bce@3611709acf0dace4698dd1876f835a73ec44837b
         with:
           repo: .
           engine: bce-engine@0.1.5
@@ -256,8 +258,10 @@ the Action and engine are exact pins; ranges and `latest` are deliberately avoid
 - **Citing this work**: [CITATION.cff](CITATION.cff)
 - **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-**Status: v0.1.5 released.** The functional npm package, immutable tag, GitHub Release, provenance,
-and release evidence are verified. Independent witnesses remain at 0. The schema is
+**Status: v0.1.5 released.** The functional npm package, GitHub Release, provenance, and release
+evidence are verified. Its historical tag is mutable; repository-level release immutability now
+protects future releases, and executable examples pin the v0.1.5 commit SHA. Independent witnesses
+remain at 0. The schema is
 `blueprint-conformance/v1alpha1`; compatibility remains pre-1.0.
 
 ## Links

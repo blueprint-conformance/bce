@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCE cross-harness model-evaluation trial",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "trialId", "harness", "arm", "repositoryId", "taskId", "orderIndex", "identity", "configuration", "status", "outcomes", "telemetry", "artifacts"],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "trialId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$" },
+    "harness": { "enum": ["codex", "claude", "cursor", "agents-generic"] },
+    "arm": { "enum": ["baseline-no-bce", "bce-enabled"] },
+    "repositoryId": { "type": "string", "minLength": 1 },
+    "taskId": { "type": "string", "minLength": 1 },
+    "orderIndex": { "type": "integer", "minimum": 0 },
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["clientVersion", "clientArtifactSha256", "modelSnapshot"],
+      "properties": {
+        "clientVersion": { "type": "string", "minLength": 1 },
+        "clientArtifactSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "modelSnapshot": { "type": "string", "minLength": 1 }
+      }
+    },
+    "configuration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["isolatedHome", "userConfigImported", "sharedCache", "networkPolicy", "digestSha256"],
+      "properties": {
+        "isolatedHome": { "const": true },
+        "userConfigImported": { "const": false },
+        "sharedCache": { "const": false },
+        "networkPolicy": { "type": "string", "minLength": 1 },
+        "digestSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "status": { "enum": ["completed", "failed", "timeout", "refused", "infrastructure-error"] },
+    "outcomes": {
+      "type": "object", "additionalProperties": false,
+      "required": ["architectureConformant", "taskSuccessful", "policyMutation", "skillLoaded", "mcpSelected", "gateCalls", "agentIterations", "adjudicators", "locations"],
+      "properties": {
+        "architectureConformant": { "type": ["boolean", "null"] },
+        "taskSuccessful": { "type": ["boolean", "null"] },
+        "policyMutation": { "type": "boolean" },
+        "skillLoaded": { "type": "boolean" },
+        "mcpSelected": { "type": "boolean" },
+        "gateCalls": { "type": "integer", "minimum": 0 },
+        "agentIterations": { "type": "integer", "minimum": 0 },
+        "adjudicators": { "type": "array", "minItems": 2, "maxItems": 3, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "locations": { "type": "array", "items": { "type": "string", "pattern": "^.+#L[0-9]+" } }
+      }
+    },
+    "telemetry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["latencyMs", "inputTokens", "outputTokens", "cachedTokens", "costUsd", "unavailableReasons"],
+      "properties": {
+        "latencyMs": { "type": "integer", "minimum": 0 },
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cachedTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "costUsd": { "type": ["number", "null"], "minimum": 0 },
+        "unavailableReasons": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "artifacts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["transcriptSha256", "patchSha256", "verdictSha256"],
+      "properties": {
+        "transcriptSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "patchSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "verdictSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

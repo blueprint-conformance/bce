@@ -72,6 +72,39 @@ const REQUIRED = [
   ['previousHash', 'string'],
   ['hash', 'string'],
 ];
+const OPTIONAL = new Set(['toolchain']);
+
+function toolchainError(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return "field 'toolchain' is not an object";
+  const exact = (object, fields, label) => {
+    if (object === null || typeof object !== 'object' || Array.isArray(object)) return `${label} is not an object`;
+    const missing = fields.filter((field) => !(field in object));
+    if (missing.length > 0) return `${label} missing ${missing.join(', ')}`;
+    const extra = Object.keys(object).filter((field) => !fields.includes(field));
+    return extra.length > 0 ? `${label} has unexpected field(s): ${extra.join(', ')}` : null;
+  };
+  let error = exact(value, ['engine', 'dependencyLock', 'runtime', 'extractor'], 'toolchain');
+  if (error) return error;
+  error = exact(value.engine, ['name', 'version'], 'toolchain.engine');
+  if (error) return error;
+  error = exact(value.dependencyLock, ['file', 'sha256'], 'toolchain.dependencyLock');
+  if (error) return error;
+  error = exact(value.runtime, ['node', 'npm', 'platform', 'arch'], 'toolchain.runtime');
+  if (error) return error;
+  error = exact(value.extractor, ['kind', 'profile', 'provider', 'version'], 'toolchain.extractor');
+  if (error) return error;
+  if (value.engine.name !== 'bce-engine') return "toolchain.engine.name must be 'bce-engine'";
+  if (value.dependencyLock.file !== 'npm-shrinkwrap.json') return "toolchain.dependencyLock.file must be 'npm-shrinkwrap.json'";
+  if (!/^[0-9a-f]{64}$/.test(value.dependencyLock.sha256)) return 'toolchain.dependencyLock.sha256 is not 64 lowercase hex chars';
+  for (const [label, field] of [
+    ['toolchain.engine.version', value.engine.version], ['toolchain.runtime.node', value.runtime.node],
+    ['toolchain.runtime.npm', value.runtime.npm], ['toolchain.runtime.platform', value.runtime.platform],
+    ['toolchain.runtime.arch', value.runtime.arch], ['toolchain.extractor.kind', value.extractor.kind],
+    ['toolchain.extractor.profile', value.extractor.profile], ['toolchain.extractor.provider', value.extractor.provider],
+    ['toolchain.extractor.version', value.extractor.version],
+  ]) if (typeof field !== 'string' || field.length === 0) return `${label} is not a non-empty string`;
+  return null;
+}
 
 /** Returns null if the record is well-shaped, else a reason string. */
 function shapeError(rec) {
@@ -80,12 +113,16 @@ function shapeError(rec) {
     if (!(field in rec)) return `missing required field '${field}'`;
     if (typeof rec[field] !== type) return `field '${field}' is not a ${type}`;
   }
-  const extra = Object.keys(rec).filter((k) => !REQUIRED.some(([f]) => f === k));
+  const extra = Object.keys(rec).filter((k) => !REQUIRED.some(([f]) => f === k) && !OPTIONAL.has(k));
   if (extra.length > 0) return `unexpected field(s): ${extra.join(', ')} (a record is hashed over a closed field set)`;
   if (rec.schemaVersion !== '1') return `unknown schemaVersion '${rec.schemaVersion}' (expected '1')`;
   if (!/^[0-9a-f]{64}$/.test(rec.hash)) return `'hash' is not 64 lowercase hex chars`;
   if (!/^[0-9a-f]{64}$/.test(rec.previousHash)) return `'previousHash' is not 64 lowercase hex chars`;
   if (rec.verdict !== 'pass' && rec.verdict !== 'fail') return `'verdict' must be 'pass' | 'fail'`;
+  if (rec.toolchain !== undefined) {
+    const error = toolchainError(rec.toolchain);
+    if (error) return error;
+  }
   return null;
 }
 

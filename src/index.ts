@@ -148,6 +148,8 @@ export {
   EVIDENCE_GENESIS_HASH,
 } from './emit.js';
 export type { EvidenceRecord, RemediationWorkOrder, RunEmission, ApprovalState } from './emit.js';
+export { resolveToolchainIdentity } from './runtime-identity.js';
+export type { ToolchainIdentity } from './runtime-identity.js';
 
 export {
   subsystemScore,

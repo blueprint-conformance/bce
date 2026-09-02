@@ -42,8 +42,10 @@ Run [`docs/launch/witness-kit.md`](docs/launch/witness-kit.md), then open a
 adds the row below and updates the count above.
 
 For the larger onboarding journey—installation, blueprint authoring, generated Action, and a
-planted violation in a repository you control—see the
-[independent-beta request](https://github.com/blueprint-conformance/bce/issues/9).
+planted violation in a repository you control—file the structured
+[independent-adoption form](../../issues/new?template=independent-adoption.yml). Failed and
+abandoned journeys remain in the denominator under `research/adoption-program.json`; the validator
+forbids an author-controlled or author-operated run from being counted as independent.
 
 **A failed or mismatched run counts and will be recorded.** If the commands did not do what the
 doc says, that is a defect here, not a mistake by you — and a recorded contradiction is worth

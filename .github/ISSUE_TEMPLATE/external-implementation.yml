@@ -1,0 +1,37 @@
+name: External implementation report
+description: Submit independently maintained implementation results against the frozen vector set.
+title: "external implementation: <name>"
+labels: ["external-implementation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is evidence intake, not automatic certification. Attach a report conforming to
+        `spec/conformance-vectors/implementation-report.schema.json` and run its verifier first.
+  - type: input
+    id: repository
+    attributes:
+      label: Implementation repository and exact revision
+    validations:
+      required: true
+  - type: textarea
+    id: control
+    attributes:
+      label: Maintainer and control disclosure
+      description: Identify maintainers and disclose any control by BCE maintainers.
+    validations:
+      required: true
+  - type: input
+    id: evidence
+    attributes:
+      label: Public clean-run evidence
+      description: URL of the run plus report SHA-256.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Machine-readable report
+      render: json
+    validations:
+      required: true

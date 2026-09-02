@@ -77,11 +77,20 @@ jobs:
     outputs:
       dry_run: ${{ steps.mode.outputs.dry_run }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - name: Action supply-chain policy (negative control + full-tree check)
+        run: node scripts/check-action-pins.selftest.mjs && node scripts/check-action-pins.mjs
+
+      - name: Release proof policy (negative control + gate check)
+        run: node scripts/check-release-proof-policy.selftest.mjs && node scripts/check-release-proof-policy.mjs
+
+      - name: Cross-document release claims (negative controls + truth check)
+        run: node scripts/check-release-claims.selftest.mjs && node scripts/check-release-claims.mjs
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version: 22.22.2
           cache: npm
           # registry-url writes the .npmrc that makes NODE_AUTH_TOKEN usable, so the
           # publish-auth gate leg below can PROVE the credential against the registry
@@ -147,6 +156,33 @@ jobs:
       - name: Fresh-consumer full-stack onboarding proof
         run: npm run test:onboarding
 
+      - name: Agent Skills + MCP first-session adoption proof (deterministic, no paid model)
+        run: npm run test:ai-adoption
+
+      - name: Independent adoption denominator + adjudication policy
+        run: npm run test:adoption-program
+
+      - name: MCP Inspector compatibility + startup SLO proof
+        run: npm run test:mcp-compatibility
+
+      - name: Synthetic 2,000-file scale budget + planted RED control
+        run: npm run test:scale
+
+      - name: External implementation intake contract + negative control
+        run: npm run test:external-contract
+
+      - name: Cross-harness 240-trial model evaluation protocol + denominator controls
+        run: npm run test:model-eval-protocol
+
+      - name: Restricted-network runtime + hostile proxy/registry proof
+        run: npm run test:restricted-network
+
+      - name: OpenAI plugin archive validates with negative controls
+        run: npm run test:codex-plugin
+
+      - name: Two-clean-install runtime graph + report reproducibility proof
+        run: npm run test:reproducibility
+
       - name: Corpus / measured-recall run (recall arithmetic + real-engine e2e proof)
         run: npx vitest run tests/recall-gate.test.ts tests/recall-e2e-proof.test.ts
 
@@ -173,6 +209,7 @@ jobs:
           NAME="${o1}${o2}"
           NAME_PAT="(^|[^a-zA-Z])${NAME}"
           STEWARD="${c1}d${o2} Labs"
+          PUBLIC_SECURITY_CONTACT="mitchell@${o1}${o2}-labs.ai"
           sn="blueprintconformance"".dev"
           t1="redro""cket"; t2="3d""3d"; t3="h""es"; t4="open""value"; t5="hazel""man"; t6="la""rs"; t7="techre""bels"
           gp="gh""p_"; gs="gh""s_"; go="gh""o_"; gpat="git""hub_pat_"; pk="PRIV""ATE KEY"
@@ -198,6 +235,8 @@ jobs:
             for p in "${PATTERNS[@]}"; do
               if [ "$allow" -eq 1 ] && [ "$p" = "$NAME_PAT" ]; then
                 hits="$(tr -d '\000' < "$f" | sed "s/${STEWARD}//g" | { grep -a -i -n -E -- "$p" || true; })"
+              elif [ "$rel" = "SECURITY.md" ] && [ "$p" = "$NAME_PAT" ]; then
+                hits="$(tr -d '\000' < "$f" | sed "s/${PUBLIC_SECURITY_CONTACT}//g" | { grep -a -i -n -E -- "$p" || true; })"
               else
                 hits="$(tr -d '\000' < "$f" | { grep -a -i -n -E -- "$p" || true; })"
               fi
@@ -354,11 +393,11 @@ jobs:
       contents: write   # create/update the GitHub Release + upload the evidence asset
       id-token: write    # npm provenance + Trusted Publishing (OIDC) — auth path (B)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version: 22.22.2
           registry-url: https://registry.npmjs.org
           cache: npm
 
@@ -423,6 +462,20 @@ jobs:
           node tools/verify-chain.mjs release-evidence-chain
           echo "release evidence record verifies (zero-dep verifier)."
 
+      - name: Keyless-sign and verify the release evidence record
+        shell: bash
+        run: |
+          set -euo pipefail
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}"
+          node node_modules/@sigstore/cli/bin/run attest \
+            release-evidence-record.json \
+            --output-file release-evidence-record.sigstore
+          node node_modules/@sigstore/cli/bin/run verify \
+            release-evidence-record.sigstore \
+            --certificate-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-uri "$identity"
+          echo "release evidence signature verifies for ${identity}."
+
       - name: Attach the evidence record to the GitHub Release
         shell: bash
         env:
@@ -434,10 +487,11 @@ jobs:
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" \
               --title "$tag" \
-              --notes "Automated release of $(node -p "require('./package.json').name")@${tag#v}. The attached release-evidence-record.json is the EvidenceRecord of this release's gate-run — re-derivable with \`node tools/verify-chain.mjs\`. Published with npm provenance."
+              --notes "Automated release of $(node -p "require('./package.json').name")@${tag#v}. The attached release-evidence-record.json is the EvidenceRecord of this release's gate-run — re-derivable with \`node tools/verify-chain.mjs\` and keyless-signed in release-evidence-record.sigstore. Published with npm provenance."
           fi
           gh release upload "$tag" \
             release-evidence-record.json \
+            release-evidence-record.sigstore \
             release-compliance-report.json \
             --clobber
-          echo "attached release-evidence-record.json + release-compliance-report.json to Release $tag"
+          echo "attached evidence record + Sigstore bundle + compliance report to Release $tag"

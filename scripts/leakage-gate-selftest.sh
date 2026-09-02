@@ -99,6 +99,7 @@ scan() {  # scan <dir> -> prints hit filenames, exit 0 if any hit
   # allowlisted files tripped the baseline. Fragment assembly is what keeps this
   # file out of its own scan, and it is also how a typo hides in plain sight.
   local STEWARD="O""d${o2} Labs"
+  local PUBLIC_SECURITY_CONTACT="mitchell@${o1}${o2}-labs.ai"
   local CRED=(
     "(^|[^a-zA-Z0-9])sk_[a-zA-Z0-9]{8,}"
     "${gp}[A-Za-z0-9]{10,}" "${gs}[A-Za-z0-9]{10,}" "${go}[A-Za-z0-9]{10,}" "$gpat"
@@ -130,6 +131,8 @@ scan() {  # scan <dir> -> prints hit filenames, exit 0 if any hit
       local h
       if [ "$allow" -eq 1 ] && [ "$p" = "$NAME_PAT" ]; then
         h="$(tr -d '\000' < "$f" | sed "s/${STEWARD}//g" | { grep -a -i -E -- "$p" || true; })"
+      elif [ "$rel" = "SECURITY.md" ] && [ "$p" = "$NAME_PAT" ]; then
+        h="$(tr -d '\000' < "$f" | sed "s/${PUBLIC_SECURITY_CONTACT}//g" | { grep -a -i -E -- "$p" || true; })"
       else
         h="$(tr -d '\000' < "$f" | { grep -a -i -E -- "$p" || true; })"
       fi
@@ -151,6 +154,21 @@ if [ -n "$base_hits" ]; then
   exit 2
 fi
 echo "  baseline: clean tree is silent"
+echo
+
+# The public security-address exception is exact in both content and location. It must not become
+# a file-wide exemption, and the same address outside SECURITY.md must remain a leak.
+contact="mitchell@${o1}${o2}-labs.ai"
+exception_dir="$TMP/security_exception"
+mkdir -p "$exception_dir"
+printf 'Fallback: %s\n' "$contact" > "$exception_dir/SECURITY.md"
+[ -z "$(scan "$exception_dir")" ] || { echo "  MISS  exact security contact was not allowlisted"; fails=$((fails+1)); }
+printf 'Fallback: %s\n%s Systems\n' "$contact" "$NAME" > "$exception_dir/SECURITY.md"
+case "$(scan "$exception_dir")" in *SECURITY.md*) ;; *) echo "  MISS  SECURITY.md exception hid another steward reference"; fails=$((fails+1));; esac
+rm -f "$exception_dir/SECURITY.md"
+printf 'Fallback: %s\n' "$contact" > "$exception_dir/README.md"
+case "$(scan "$exception_dir")" in *README.md*) ;; *) echo "  MISS  security contact escaped its file-scoped allowlist"; fails=$((fails+1));; esac
+[ "$fails" -eq 0 ] && echo "  OK    exact SECURITY.md contact exception is content- and file-scoped"
 echo
 
 for entry in "${PROBES[@]}"; do

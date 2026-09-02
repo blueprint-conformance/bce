@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1",
+  "frozenAt": "2026-09-02",
+  "targetIndependentSuccesses": 3,
+  "inclusion": "A non-author runs the journey on a machine the authors neither control nor operate, discloses their relationship, and publishes inspectable evidence.",
+  "outcomes": {
+    "invited": 0,
+    "started": 0,
+    "success": 0,
+    "failure": 0,
+    "abandoned": 0,
+    "acceptedIndependent": 0
+  },
+  "status": "recruitment-not-started"
+}

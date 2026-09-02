@@ -17,7 +17,7 @@ jobs:
     name: leakage-gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # Negative control. Until this existed nothing had ever demonstrated this
       # gate refusing anything on purpose — the only evidence any pattern worked
@@ -51,7 +51,8 @@ jobs:
           # (X_NAME_Y, .name, name-labs, @namelabs) while excluding English words that merely
           # contain the letter sequence (enc*ing, c*ing). Tightened per B1 verify (2026-08-04).
           NAME_PAT="(^|[^a-zA-Z])${NAME}"
-          STEWARD="${c1}d${o2} Labs"   # the ONE allowed phrase, exact casing, allowlisted files only
+          STEWARD="${c1}d${o2} Labs"   # exact public attribution, allowlisted files only
+          PUBLIC_SECURITY_CONTACT="mitchell@${o1}${o2}-labs.ai" # exact monitored fallback, SECURITY.md only
 
           # Struck namespace (operator amendment 2026-08-04): the .dev domain was never registered;
           # any reappearance of it is stale doctrine — gate-enforced per B2 leak-audit blocker.
@@ -143,6 +144,10 @@ jobs:
               if [ "$allow" -eq 1 ] && [ "$p" = "$NAME_PAT" ]; then
                 # Strip the exact steward phrase first, then scan the remainder.
                 hits="$(tr -d '\000' < "$f" | sed "s/${STEWARD}//g" | { grep -a -i -n -E -- "$p" || true; })"
+              elif [ "$rel" = "SECURITY.md" ] && [ "$p" = "$NAME_PAT" ]; then
+                # Strip only the deliberately public fallback address. Any other steward-name
+                # occurrence in SECURITY.md remains visible to this same pattern.
+                hits="$(tr -d '\000' < "$f" | sed "s/${PUBLIC_SECURITY_CONTACT}//g" | { grep -a -i -n -E -- "$p" || true; })"
               else
                 hits="$(tr -d '\000' < "$f" | { grep -a -i -n -E -- "$p" || true; })"
               fi

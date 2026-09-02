@@ -32,6 +32,19 @@ both complete skill directories in the harness's repository scope while also wir
 CI, and the advisory contract. The manual and plugin paths below remain useful when you want only
 the skills or a user-level installation.
 
+### As an OpenAI plugin
+
+The repository root is also a skills-only plugin for ChatGPT and Codex. Its
+[`plugin.json`](../.codex-plugin/plugin.json) packages both skill directories without claiming that
+the local `bce-mcp` stdio process is a hosted MCP integration. Run `npm run test:codex-plugin` to
+check the archive and its negative controls. The same archive also passes the canonical validator
+from OpenAI's `plugin-creator` skill.
+
+The public universal-directory submission is **not live**. There is no public listing URL or
+clean-account directory install to cite. The operator-owned materials and blockers are recorded in
+[`docs/launch/openai-plugin-submission.md`](../docs/launch/openai-plugin-submission.md). Project
+onboarding remains the verified installation path for the CLI and read-only MCP tools.
+
 ### As a Claude Code plugin
 
 This repository is also a plugin marketplace: it carries

@@ -37,19 +37,34 @@
     "test:package": "node scripts/package-consumer-proof.mjs",
     "test:onboarding": "node scripts/onboarding-consumer-proof.mjs",
     "test:ai-adoption": "node scripts/ai-adoption-proof.mjs",
+    "test:mcp-compatibility": "node scripts/mcp-compatibility-proof.mjs",
+    "test:portable": "vitest run --exclude tests/pre-commit-hook.test.ts --exclude tests/skill-contract.test.ts --exclude tests/self-gate-honesty.test.ts",
+    "test:action-pins": "node scripts/check-action-pins.selftest.mjs && node scripts/check-action-pins.mjs",
+    "test:release-policy": "node scripts/check-release-proof-policy.selftest.mjs && node scripts/check-release-proof-policy.mjs",
+    "test:reproducibility": "node scripts/reproducibility-proof.mjs",
+    "test:release-claims": "node scripts/check-release-claims.selftest.mjs && node scripts/check-release-claims.mjs",
+    "test:adoption-program": "node scripts/validate-adoption-program.selftest.mjs && node scripts/validate-adoption-program.mjs",
+    "test:scale": "node scripts/scale-proof.mjs",
+    "test:external-contract": "node scripts/verify-external-implementation-report.selftest.mjs && node scripts/verify-external-implementation-report.mjs",
+    "test:model-eval-protocol": "node scripts/model-evaluation-protocol.selftest.mjs",
+    "test:restricted-network": "node scripts/restricted-network-proof.mjs",
+    "test:codex-plugin": "node scripts/validate-codex-plugin.selftest.mjs && node scripts/validate-codex-plugin.mjs",
     "eval:ai-adoption": "node scripts/model-adoption-eval.mjs",
     "research:readiness": "tsx scripts/research-readiness.ts",
     "research:study-readiness": "tsx scripts/research-readiness.ts --study",
+    "research:model-eval-readiness": "tsx scripts/research-readiness.ts --model-eval",
     "test:watch": "vitest",
     "generate:schemas": "tsx scripts/generate-schemas.ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "ts-morph": "^23.0.0",
-    "zod": "^3.23.8"
+    "ts-morph": "23.0.0",
+    "zod": "3.25.76"
   },
   "devDependencies": {
+    "@modelcontextprotocol/inspector": "2.5.0",
+    "@sigstore/cli": "0.10.3",
     "@types/node": "^22.5.0",
     "ajv": "^8.20.0",
     "rimraf": "^6.0.1",
@@ -69,17 +84,20 @@
     "scripts/ai-adoption-proof.mjs",
     "scripts/model-adoption-eval.mjs",
     ".claude-plugin",
+    ".codex-plugin",
     "docs",
     "spec/schemas",
     "spec/skill-standard",
     "examples",
     "evidence/example-chain",
     "tools/verify-chain.mjs",
+    "npm-shrinkwrap.json",
     "action.yml",
     "llms.txt"
   ],
   "overrides": {
     "esbuild": "0.28.1",
+    "fast-uri": "3.1.6",
     "nanoid": "3.3.18",
     "rollup": "4.62.2"
   }

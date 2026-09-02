@@ -6,9 +6,9 @@
  *
  * Several launch steps are "do this before/with the flip": clear the citation
  * placeholders, replace the README's placeholder links, activate the badge block,
- * flip the engine pin once 0.1.0 is published. Today every one of them depends on
- * a human remembering, at the busiest moment of the whole ceremony, in the right
- * order. Nothing detects a miss.
+ * and keep the engine pin consistent with the registry. Historically every one
+ * depended on a human remembering at the busiest moment of the ceremony. This
+ * gate makes those promises executable, including the now-completed bootstrap.
  *
  * The cost of forgetting is asymmetric. A private repo with placeholder links is
  * a TODO. A PUBLIC repo whose README still says "_placeholder — added at release_"

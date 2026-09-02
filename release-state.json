@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1",
+  "currentVersion": "0.1.5",
+  "releaseTag": "v0.1.5",
+  "actionCommit": "3611709acf0dace4698dd1876f835a73ec44837b",
+  "githubReleaseImmutable": false,
+  "repositoryImmutableReleasesEnabled": true,
+  "schemasPublished": true,
+  "gitlabSupport": "unsupported",
+  "listingStatus": "unsubmitted",
+  "openaiPluginStatus": "unsubmitted",
+  "independentWitnesses": 0,
+  "requiredApprovingReviews": 0,
+  "codeOwnerReviewConfigured": false,
+  "releaseEnvironmentReviewerConfigured": false,
+  "releaseEnvironmentPreventSelfReview": false,
+  "independentReview": "unestablished-solo-maintainer"
+}

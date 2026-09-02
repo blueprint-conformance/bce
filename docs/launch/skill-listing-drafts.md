@@ -2,12 +2,10 @@
 
 > **DRAFT — nothing here has been submitted anywhere.** These are the
 > submission texts for the Agent Skill in [`skills/bce/`](../../skills/bce/SKILL.md),
-> written ahead of the public flip so launch day is a reveal rather than a
-> drafting session. **[operator]** owns every submission: a listing points
-> at a public repository, so no entry may be filed before the flip
-> ([public-flip-checklist.md](public-flip-checklist.md) Phase 2). Re-check
-> every claim against CI on the submission morning; nothing here may outrun
-> the tree.
+> retained for an operator-reviewed submission. The repository and npm package
+> are public, but no marketplace review or clean-account listing install has
+> occurred. **[operator]** owns every submission. Re-check every claim against
+> CI on the submission morning; nothing here may outrun the tree.
 
 ## What is being listed
 
@@ -20,6 +18,11 @@ which the user installs separately.
 It reaches an installer two ways, and a listing should name whichever one that
 directory is for:
 
+- **As an OpenAI skills-only plugin.** The repository root has a validated
+  [`.codex-plugin/plugin.json`](../../.codex-plugin/plugin.json) packaging both skills. It does not
+  declare MCP because BCE's stdio server is local rather than a hosted integration. The universal
+  directory submission remains unsubmitted; see the
+  [submission dossier](openai-plugin-submission.md).
 - **As a Claude Code plugin.** The repository is also a plugin marketplace
   ([`.claude-plugin/marketplace.json`](../../.claude-plugin/marketplace.json)),
   offering one plugin, `blueprint`, whose source is the repository root
@@ -65,6 +68,9 @@ is the one that gets a contract to exist in the first place.
    flag is load-bearing: the runtime ignores an unrecognized manifest key at load
    time, so without it a typo'd field is invisible until an installer's skill
    silently fails to appear.
+6. **[agent]** The OpenAI archive passes `npm run test:codex-plugin` and the canonical
+   `plugin-creator` validator. This proves packaging shape, not portal acceptance or public
+   availability.
 
 ## Short description (one line, ~120 characters)
 
@@ -130,6 +136,15 @@ any figure about adoption or users, and anything about language support beyond
 what the extractors do today.
 
 ## Where a plugin listing goes
+
+**[operator] OpenAI.** OpenAI accepts skills-only plugins through its submission portal and
+publishes approved plugins to the universal directory shared by ChatGPT and Codex. The prepared
+metadata, five positive cases, three negative cases, and unresolved identity/legal/assets work are
+tracked in [`openai-plugin-submission.md`](openai-plugin-submission.md). No portal draft, submission,
+acceptance, listing URL, or clean-account install is claimed.
+
+Official references: [Package your plugin](https://developers.openai.com/plugins/build/plugins) and
+[Submit plugins](https://developers.openai.com/plugins/deploy/submission).
 
 **[operator]** Distinct from any skill directory: a Claude Code plugin is
 submitted through the Console form at `platform.claude.com/plugins/submit`,

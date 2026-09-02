@@ -50,6 +50,17 @@ vectors — the engine reports them INDETERMINATE, not toothed, and a vector cla
 would be dishonest. When they become enforced, red vectors for them are added here under an RFC (see
 [`../../rfcs/RFC-0001-process.md`](../../rfcs/RFC-0001-process.md)).
 
+## External implementation intake
+
+[`vector-set.json`](vector-set.json) freezes the SHA-256 of `vectors.json` and records zero accepted
+external implementations today. A separately maintained implementation may submit a report conforming
+to [`implementation-report.schema.json`](implementation-report.schema.json) through the repository's
+external-implementation issue form. `node scripts/verify-external-implementation-report.mjs
+REPORT.json` checks the frozen digest, complete vector coverage, exact verdicts and exits, unique
+IDs, and rejects this repository as its own “external” implementation. Passing that mechanical check
+is review input, not automatic certification; maintainer independence and linked public execution
+still require adjudication.
+
 ## The claim, and the non-claim
 
 > **Claim:** running the reference engine over each vector's `(blueprint, tree)` pair in this

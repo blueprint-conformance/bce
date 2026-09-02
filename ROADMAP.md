@@ -71,8 +71,7 @@ If a label here overstates reality, that is a bug — please open an issue.
   `blueprint-conformance/v1alpha1` namespace ([`spec/schemas/`](spec/schemas)), with conformance
   vectors ([`spec/conformance-vectors/`](spec/conformance-vectors)).
 - **[RUNS]** Schema-publishing workflow ([`.github/workflows/publish-schemas.yml`](.github/workflows/publish-schemas.yml)) —
-  the workflow exists and runs; the public schema URLs resolve when the repository goes public at
-  launch.
+  the workflow exists and runs, and the public schema URLs resolve at their declared `$id` paths.
 
 ### Integrations and release machinery
 
@@ -83,10 +82,10 @@ If a label here overstates reality, that is a bug — please open an issue.
   no API keys, no network beyond one install ([`examples/quickstart/`](examples/quickstart),
   [`docs/quickstart.md`](docs/quickstart.md)).
 - **[RUNS]** Tag-gated release workflow that re-executes every proof at the tag — full suite,
-  corpus recall, self-gate, RED/GREEN pair — and refuses to publish unless all of them are green
-  in that run ([`.github/workflows/release.yml`](.github/workflows/release.yml)). To be precise:
-  the machinery runs and is dry-run-exercised; the first public npm publish of `bce-engine` has
-  not happened yet.
+  deterministic Agent Skills/MCP adoption, clean-install reproducibility, corpus recall, self-gate,
+  and RED/GREEN pair — and refuses to publish unless all of them are green in that run
+  ([`.github/workflows/release.yml`](.github/workflows/release.yml)). `bce-engine@0.1.5` is public;
+  repository-level immutable releases protect releases created after that setting was enabled.
 
 ## Designed, not built — [DESIGN]
 
@@ -94,12 +93,10 @@ If a label here overstates reality, that is a bug — please open an issue.
   is deliberately line-scan: full-fidelity structured parsing — decorators, dynamic imports,
   egress observation — is designed-for through the same provider seam but not built. See
   [docs/extending-extractors.md](docs/extending-extractors.md).
-- **[DESIGN]** Research paper and archived artifacts. The paper, arXiv id, and artifact-archive
-  DOI are explicit placeholders until release — see [CITATION.cff](CITATION.cff), whose
-  placeholder tokens are gated by [`scripts/check-release-citation.mjs`](scripts/check-release-citation.mjs)
-  so a release tag cannot ship them.
-- **[DESIGN]** Published schema URLs. The publishing workflow is in place; the URLs go live with
-  the public launch, and downstream tooling should not hardcode them until then.
+- **[DESIGN]** Research paper and archived artifacts. No paper, arXiv identifier, or artifact DOI
+  exists today. [CITATION.cff](CITATION.cff) intentionally contains software metadata only, and
+  [`scripts/check-release-citation.mjs`](scripts/check-release-citation.mjs) prevents provisional
+  identifiers from entering a release.
 - **[DESIGN]** Spec-change process beyond `v1alpha1`. The RFC process is written
   ([`rfcs/RFC-0001-process.md`](rfcs/RFC-0001-process.md)); no spec-change RFC has yet been run
   through it.

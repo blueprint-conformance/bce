@@ -8,15 +8,10 @@ name: self-gate
 # blueprint, a failed build, or a broken sync test fails the workflow — there
 # is no continue-on-error and no skip flag on any step.
 #
-# Lane A (the last PUBLISHED engine at an exact version pin gating the tree,
-# independent of the code under review) is DORMANT until 0.1.0 publishes — the
-# bootstrap-0 exception, recorded honestly in docs/self-hosting.md. Its step
-# below is if-guarded on `.engine-pin.json` marking the pin PUBLISHED *and* the
-# pinned version actually resolving on npm; until both hold it prints an honest
-# "Lane A dormant" notice and does not run the pinned gate (describe only
-# machinery that runs). It flips live the moment 0.1.0 is published and
-# `.engine-pin.json` `"published"` is set true (docs/pin-ceremony.md); making it
-# a REQUIRED branch-protection check is the accompanying operator action.
+# Lane A is LIVE: the last published engine at the exact `.engine-pin.json` pin
+# gates the tree independently of the code under review. The generic bootstrap
+# guard remains fail-closed for a future checkout whose pin is honestly marked
+# unpublished, but this repository's current pin is published and resolvable.
 
 on:
   push:
@@ -30,11 +25,11 @@ jobs:
     name: lane-b-self-gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version: 22.22.2
           cache: npm
 
       - name: Install (clean, lockfile-exact)
@@ -112,25 +107,22 @@ jobs:
         run: cat teeth-report.json
 
   # Lane A — the last PUBLISHED engine at an EXACT pin gates this tree,
-  # independent of the code under review. DORMANT until 0.1.0 publishes: the
-  # step is if-guarded on `.engine-pin.json` marking the pin published AND the
-  # pinned version resolving on npm. While dormant it prints an honest notice and
-  # runs no pinned gate. It activates automatically when `"published": true` and
-  # `bce-engine@<pin>` exists on the registry (docs/pin-ceremony.md). This job is
-  # not a required check until the operator adds it as one at the flip.
+  # independent of the code under review. Current state is LIVE at 0.1.5. The
+  # published-state and registry-resolution guard is retained so a contradictory
+  # pin fails instead of producing a green job that graded nothing.
   lane-a-pinned-gate:
     name: lane-a-pinned-gate
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version: 22.22.2
 
-      - name: Resolve the Lane-A pin and decide dormant vs live
+      - name: Resolve and verify the live Lane-A pin
         id: pin
         shell: bash
         run: |
@@ -184,7 +176,7 @@ jobs:
           if [ "$live" = "true" ]; then
             echo "→ Lane A LIVE: installing ${pkg}@${pin} to gate this tree independently."
           else
-            echo "→ Lane A DORMANT (bootstrap-0 exception): ${pkg}@${pin} published=${published}. Lane B is the only lane until 0.1.0 publishes. See docs/self-hosting.md."
+            echo "→ Lane A DORMANT (generic bootstrap exception): ${pkg}@${pin} published=${published}. Lane B is the only active lane. See docs/self-hosting.md."
           fi
 
       - name: Lane A — the PINNED published engine gates this tree (exact pin, no range)
