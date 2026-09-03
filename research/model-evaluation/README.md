@@ -50,33 +50,52 @@ self-asserted outcomes, policy weakening, incomplete denominators, and missing t
 as zero. Synthetic results are harness tests only and are ineligible for product claims.
 
 The real-controller self-test uses the separate eight-attempt pilot with a deterministic no-model
-fixture. It proves the macOS sandbox denies hidden-input reads and protected/host writes, both arms
-reach the real visible pipeline and twice-run hidden oracles, caught post-exposure exceptions become
-terminal ITT failures, a killed controller recovers its immutable exposure journal without losing
-the denominator, and restricted transcripts are excluded from the public export while their
-digests remain committed:
+fixture. It proves the macOS sandbox is read-default-deny, denies hidden-input reads and
+protected/host writes, stages exact client and standalone Node bytes, completes a real MCP
+initialize/tools-list handshake through generated project configuration, retires copied Codex
+authentication before the fixture model-command phase, reaches the visible pipeline and twice-run
+hidden oracles in both arms, terminalizes caught failures, recovers a killed controller without
+losing the denominator, rejects self-rehashed aggregate tampering, and excludes restricted
+transcripts from the public export while retaining their digests:
 
 ```sh
 npm run build
 npm run test:model-eval-controller
 ```
 
-The accelerated real-model pilot lives under `pilots/accelerated-v1/`. Its intended lifecycle is:
+The active fix-forward real-model pilot lives under `pilots/accelerated-v2/`; v1 and its complete
+failed-launch denominator remain immutable beside it. The v2 lifecycle is:
 
 ```sh
 npm run build:model-eval-pilot                 # only before the generated path exists
-node scripts/verify-model-evaluation-bundle.mjs --bundle research/model-evaluation/pilots/accelerated-v1
-npm run model-eval:run -- --bundle research/model-evaluation/pilots/accelerated-v1 --execute-sealed-study
-npm run model-eval:analyze -- --bundle research/model-evaluation/pilots/accelerated-v1 --runs "$RESTRICTED_RUNS"
-npm run model-eval:export-public -- --bundle research/model-evaluation/pilots/accelerated-v1 --runs "$RESTRICTED_RUNS" --out research/model-evaluation/pilots/accelerated-v1/results
+node scripts/run-model-evaluation.mjs --bundle research/model-evaluation/pilots/accelerated-v2 --runs "$(mktemp -d)" --preflight-only
+node scripts/verify-model-evaluation-bundle.mjs --bundle research/model-evaluation/pilots/accelerated-v2
+npm run model-eval:run -- --bundle research/model-evaluation/pilots/accelerated-v2 --execute-sealed-study
+npm run model-eval:analyze -- --bundle research/model-evaluation/pilots/accelerated-v2 --runs "$RESTRICTED_RUNS"
+npm run model-eval:export-public -- --bundle research/model-evaluation/pilots/accelerated-v2 --runs "$RESTRICTED_RUNS" --out research/model-evaluation/pilots/accelerated-v2/results
+npm run model-eval:verify-public -- --bundle research/model-evaluation/pilots/accelerated-v2 --results research/model-evaluation/pilots/accelerated-v2/results
 ```
 
 Sealing is intentionally omitted from the copy-paste block because it requires a public pre-run
 commit anchor. Selective trial execution is refused: the controller consumes the exact sealed
-global order. The pilot's Codex client records an accepted requested model but no provider-returned
+global order. The preflight command executes the exact sandbox, client/runtime version probes, and
+BCE MCP handshake but never sends a model request. The pilot's Codex client records an accepted requested model but no provider-returned
 model identifier, so those rows cannot satisfy the protocol's `modelIdentityVerified` component of
 safe successful completion even if all task/oracle checks pass. Confirmatory cells must provide a
 provider-response identity.
+
+The treatment is an exact local candidate, not a claim about the npm release. Its builder resolves
+pinned runtime dependencies once before sealing, removes install-only lock metadata that embeds
+host paths, archives the complete executable runtime tree, and the controller later extracts it
+without registry access and verifies the installed-tree digest. The sealed provenance leaves
+`publishedPackageByteMatch` explicitly unknown.
+
+For Codex subscription authentication, the controller copies only `auth.json` into disposable
+state, proves initialization access, then deletes that file on the first
+`thread.started`/`turn.started` event and records whether any model tool event preceded deletion.
+The sealed adapter also sets shell environment inheritance to none. A dedicated spend-capped
+credential remains the confirmatory-study standard; this pilot does not claim credential-broker
+isolation.
 
 ## Canonical files
 

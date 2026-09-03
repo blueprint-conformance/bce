@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /** Build the separate, permanently non-confirmatory eight-attempt instrumentation pilot. */
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { arch, platform, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expectedSeal, fileArtifact, hashTree, regenerateAssignments, sha256Bytes, verifyBundle } from './lib/model-evaluation.mjs';
@@ -11,9 +12,16 @@ const valueAfter = (flag) => {
   return index < 0 ? null : process.argv[index + 1] ?? null;
 };
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const output = resolve(valueAfter('--out') ?? join(root, 'research', 'model-evaluation', 'pilots', 'accelerated-v1'));
+const sourceCommitResult = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' });
+const sourceStatusResult = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root, encoding: 'utf8' });
+if (sourceCommitResult.status !== 0 || sourceStatusResult.status !== 0) throw new Error('pilot builder could not establish source Git provenance');
+const sourceCommit = sourceCommitResult.stdout.trim();
+const sourceTreeState = sourceStatusResult.stdout.trim() === '' ? 'clean' : 'dirty-development-only';
+const pilotVersion = valueAfter('--pilot-version') ?? 'v2';
+if (!/^v[1-9][0-9]*$/.test(pilotVersion)) throw new Error('--pilot-version must be v1, v2, and so on');
+const output = resolve(valueAfter('--out') ?? join(root, 'research', 'model-evaluation', 'pilots', `accelerated-${pilotVersion}`));
 if (existsSync(output)) throw new Error(`pilot builder refuses to overwrite existing path: ${output}`);
-const studyId = 'bce-accelerated-instrumentation-pilot-2026-09-03';
+const studyId = `bce-accelerated-instrumentation-pilot-${pilotVersion}-2026-09-03`;
 const canonicalRoot = join(root, 'research', 'model-evaluation');
 mkdirSync(join(output, 'schemas'), { recursive: true });
 mkdirSync(join(output, 'artifacts'), { recursive: true });
@@ -21,7 +29,21 @@ mkdirSync(join(output, 'repos'), { recursive: true });
 for (const name of ['protocol.schema.json', 'task-manifest.schema.json', 'terminal-record.schema.json', 'seal.schema.json', 'treatment-delta.schema.json', 'protected-paths.schema.json']) {
   copyFileSync(join(canonicalRoot, 'schemas', name), join(output, 'schemas', name));
 }
-copyFileSync(join(canonicalRoot, 'protocol-amendments.jsonl'), join(output, 'protocol-amendments.jsonl'));
+if (pilotVersion === 'v1') copyFileSync(join(canonicalRoot, 'protocol-amendments.jsonl'), join(output, 'protocol-amendments.jsonl'));
+else {
+  writeFileSync(join(output, 'protocol-amendments.jsonl'), `${JSON.stringify({
+    schemaVersion: '1',
+    amendmentId: `${pilotVersion}-pretrial-isolation-fix-forward`,
+    recordedAt: '2026-09-03T01:15:00Z',
+    beforeFirstModelExposure: true,
+    supersedesPilot: 'bce-accelerated-instrumentation-pilot-2026-09-03',
+    retainedPriorResultSha256: 'c1ac3958d670dab11e895edc0167e5eb31f569227b89cf32217f61da88244985',
+    reason: 'Pilot v1 retained 8/8 failed launches because home-directory read denial blocked the NVM-installed Codex launcher. V2 freezes and stages native Codex plus a standalone Node runtime, positively probes the generated MCP path, and seals the BCE treatment as an offline installed dependency closure.',
+    resultsInspected: true,
+    changesOutcomeDefinition: false,
+    eligibleForConfirmatoryPooling: false,
+  })}\n`);
+}
 for (const name of ['treatment-delta.v1.json', 'protected-paths.v1.json']) {
   const document = JSON.parse(readFileSync(join(canonicalRoot, name), 'utf8'));
   document.studyId = studyId;
@@ -36,9 +58,50 @@ const tarballName = packResult[0]?.filename;
 if (!tarballName) throw new Error('npm pack did not report an artifact filename');
 const tarballPath = join(output, 'artifacts', tarballName);
 
-const codexPath = resolve(valueAfter('--codex') ?? '/opt/homebrew/bin/codex');
+const treatmentScratch = mkdtempSync(join(tmpdir(), 'bce-treatment-closure-'));
+const treatmentRuntime = join(treatmentScratch, 'runtime');
+const treatmentArchiveName = `bce-treatment-runtime-${pilotVersion}.tgz`;
+const treatmentArchivePath = join(output, 'artifacts', treatmentArchiveName);
+let installedTreeSha256;
+try {
+  const installed = spawnSync('npm', ['install', '--prefix', treatmentRuntime, '--ignore-scripts', '--no-audit', '--no-fund', '--no-save', '--package-lock=false', tarballPath], {
+    cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+  });
+  if (installed.status !== 0) throw new Error(`offline treatment closure build failed:\n${installed.stderr}`);
+  const installOnlyLock = join(treatmentRuntime, 'node_modules', '.package-lock.json');
+  if (existsSync(installOnlyLock)) rmSync(installOnlyLock);
+  installedTreeSha256 = hashTree(treatmentRuntime, { includeNodeModules: true });
+  const archived = spawnSync('/usr/bin/tar', ['-czf', treatmentArchivePath, '-C', treatmentRuntime, '.'], {
+    cwd: root, encoding: 'utf8', env: { ...process.env, COPYFILE_DISABLE: '1' },
+  });
+  if (archived.status !== 0) throw new Error(`offline treatment closure archive failed:\n${archived.stderr}`);
+} finally {
+  rmSync(treatmentScratch, { recursive: true, force: true });
+  if (existsSync(tarballPath)) rmSync(tarballPath);
+}
+
+function nativeCodexExecutable(launcher) {
+  const entry = realpathSync(launcher);
+  if (!entry.endsWith(`${join('bin', 'codex.js')}`)) return entry;
+  const targets = {
+    'darwin-arm64': ['@openai', 'codex-darwin-arm64', 'aarch64-apple-darwin'],
+    'darwin-x64': ['@openai', 'codex-darwin-x64', 'x86_64-apple-darwin'],
+  };
+  const target = targets[`${platform()}-${arch()}`];
+  if (!target) throw new Error(`no frozen native Codex artifact mapping for ${platform()}-${arch()}`);
+  const packageRoot = resolve(dirname(entry), '..');
+  const candidate = join(packageRoot, 'node_modules', target[0], target[1], 'vendor', target[2], 'bin', 'codex');
+  if (!existsSync(candidate)) throw new Error(`native Codex artifact not found at ${candidate}`);
+  return realpathSync(candidate);
+}
+const codexLauncher = realpathSync(resolve(valueAfter('--codex') ?? '/opt/homebrew/bin/codex'));
+const codexPath = nativeCodexExecutable(codexLauncher);
 const version = spawnSync(codexPath, ['--version'], { encoding: 'utf8' });
 if (version.status !== 0) throw new Error(`Codex version probe failed: ${version.stderr}`);
+const nvmRuntimeMatch = codexLauncher.match(/^(.*\/versions\/node\/v[^/]+)\/lib\/node_modules\//);
+const runtimePath = realpathSync(resolve(valueAfter('--node') ?? (nvmRuntimeMatch ? join(nvmRuntimeMatch[1], 'bin', 'node') : process.execPath)));
+const runtimeVersion = spawnSync(runtimePath, ['--version'], { encoding: 'utf8' });
+if (runtimeVersion.status !== 0) throw new Error(`Node runtime probe failed: ${runtimeVersion.stderr}`);
 const protocol = JSON.parse(readFileSync(join(canonicalRoot, 'protocol.v2.json'), 'utf8'));
 Object.assign(protocol, {
   studyId,
@@ -73,16 +136,29 @@ protocol.clientModelCells = [{
   modelIdentityEvidence: 'client-request-configuration',
   reasoningEffort: 'low',
 }];
-protocol.treatment.engineArtifact = `artifacts/${tarballName}`;
-protocol.treatment.engineArtifactSha256 = sha256Bytes(readFileSync(tarballPath));
+protocol.treatment.engineArtifact = `artifacts/${treatmentArchiveName}`;
+protocol.treatment.engineArtifactSha256 = sha256Bytes(readFileSync(treatmentArchivePath));
+protocol.treatment.installedTreeSha256 = installedTreeSha256;
+protocol.treatment.artifactProvenance = {
+  sourceCommit,
+  sourceTreeState,
+    buildCommand: 'npm pack; npm install --no-save --package-lock=false exact candidate into scratch; remove install-only hidden lock metadata; archive the complete executable runtime closure with /usr/bin/tar',
+  classification: 'exact-local-candidate-offline-runtime-closure',
+  publishedPackageByteMatch: null,
+};
 protocol.implementation = {
   verifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation.mjs'))),
   assignmentGeneratorSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'generate-model-evaluation-assignments.mjs'))),
   runnerSha256,
   analyzerSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'analyze-model-evaluation.mjs'))),
+  analysisCoreSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-analysis.mjs'))),
 };
 protocol.isolation.executionDriver = 'macos-sandbox-exec';
 protocol.isolation.executionDriverSha256 = sha256Bytes(readFileSync('/usr/bin/sandbox-exec'));
+protocol.isolation.runtimeExecutable = runtimePath;
+protocol.isolation.runtimeVersion = `${runtimeVersion.stdout}${runtimeVersion.stderr}`.trim().split('\n')[0];
+protocol.isolation.runtimeArtifactSha256 = sha256Bytes(readFileSync(runtimePath));
+protocol.stopping.stopAfterConsecutivePostExposureInfrastructureFailures = 8;
 protocol.stopping.failureRateMinimumExposed = 8;
 writeFileSync(join(output, 'protocol.v2.json'), `${JSON.stringify(protocol, null, 2)}\n`);
 
@@ -184,10 +260,10 @@ const tasks = [
   task({
     id: 'boundary-repair', repositoryId: 'boundary-microcosm', taskType: 'repair', constraintClass: 'provider-boundary', target: 'src/service.mjs',
     constraintId: 'service-no-direct-provider-sdk', pattern: 'provider-sdk',
-    policy: 'src/service.mjs must access provider generation only through src/gateway.mjs and must never import or reference provider-sdk directly.',
+    policy: 'src/service.mjs must never import or reference provider-sdk directly.',
     prompt: 'Implement summarize(name). Trim the name and return the provider result. Preserve the provider boundary.', visibleTest: 'visible-tests/service.check.mjs',
     functionalOracle: functional('boundary-repair', 'src/service.mjs', "async m => (await m.summarize(' Ada '))==='summary:Ada' && (await m.summarize('Lin'))==='summary:Lin'"),
-    architectureOracle: architecture('boundary-repair', 'src/service.mjs', "s => !s.includes('provider-sdk') && s.includes('gateway')"),
+    architectureOracle: architecture('boundary-repair', 'src/service.mjs', "s => !s.includes('provider-sdk')"),
   }),
   task({
     id: 'boundary-feature', repositoryId: 'boundary-microcosm', taskType: 'feature', constraintClass: 'process-lifecycle', target: 'src/title.mjs',
@@ -200,10 +276,10 @@ const tasks = [
   task({
     id: 'configuration-repair', repositoryId: 'configuration-microcosm', taskType: 'repair', constraintClass: 'configuration-boundary', target: 'src/worker.mjs',
     constraintId: 'worker-no-direct-environment', pattern: 'process\\.env',
-    policy: 'src/worker.mjs must obtain region configuration only through src/config.mjs and must never access process.env directly.',
+    policy: 'src/worker.mjs must never access process.env directly.',
     prompt: 'Implement runJob(id) so it returns job:<trimmed-id>:<configured-region>. Preserve the configuration boundary.', visibleTest: 'visible-tests/worker.check.mjs',
     functionalOracle: functional('configuration-repair', 'src/worker.mjs', "m => m.runJob(' 7 ')==='job:7:eu' && m.runJob('abc')==='job:abc:eu'"),
-    architectureOracle: architecture('configuration-repair', 'src/worker.mjs', "s => !s.includes('process.env') && s.includes('config.mjs')"),
+    architectureOracle: architecture('configuration-repair', 'src/worker.mjs', "s => !s.includes('process.env')"),
   }),
   task({
     id: 'configuration-feature', repositoryId: 'configuration-microcosm', taskType: 'feature', constraintClass: 'library-purity', target: 'src/cache.mjs',

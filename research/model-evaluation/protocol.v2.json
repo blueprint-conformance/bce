@@ -117,6 +117,8 @@
     "allowedDeltaManifest": "treatment-delta.v1.json",
     "engineArtifact": null,
     "engineArtifactSha256": null,
+    "installedTreeSha256": null,
+    "artifactProvenance": null,
     "baselineReceivesWrittenPolicy": true,
     "bceArmReceivesSameWrittenPolicy": true,
     "agentMayEditPolicy": false
@@ -134,6 +136,13 @@
     "executionDriverSha256": null,
     "freshWorkspacePerAttempt": true,
     "freshClientStatePerAttempt": true,
+    "clientExecutableStagingRequired": true,
+    "runtimeExecutableStagingRequired": true,
+    "runtimeExecutable": null,
+    "runtimeVersion": null,
+    "runtimeArtifactSha256": null,
+    "readDefaultDeny": true,
+    "positiveCapabilityProofRequired": true,
     "userPreferencesImported": false,
     "authenticationMountedSeparately": true,
     "sharedModelSession": false,
@@ -160,7 +169,8 @@
     "verifierSha256": null,
     "assignmentGeneratorSha256": null,
     "runnerSha256": null,
-    "analyzerSha256": null
+    "analyzerSha256": null,
+    "analysisCoreSha256": null
   },
   "stopping": {
     "outcomeDependentStopping": false,

@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { expectedSeal, sha256Bytes, verifyBundle } from './lib/model-evaluation.mjs';
+import { expectedSeal, FROZEN_IMPLEMENTATIONS, sha256Bytes, verifyBundle } from './lib/model-evaluation.mjs';
 
 const valueAfter = (flag) => {
   const index = process.argv.indexOf(flag);
@@ -41,6 +41,16 @@ if (gitCommit) {
     if (committed.status !== 0) throw new Error(`${entry.path}: not present in the public-anchor commit`);
     if (committed.stdout.byteLength !== entry.bytes || sha256Bytes(committed.stdout) !== entry.sha256) {
       throw new Error(`${entry.path}: working-tree bytes differ from the public-anchor commit`);
+    }
+  }
+  for (const [digestField, implementationPath] of Object.entries(FROZEN_IMPLEMENTATIONS)) {
+    if (!draft.protocol.implementation[digestField]) continue;
+    const repositoryPath = relative(repositoryRoot, implementationPath);
+    if (isAbsolute(repositoryPath) || repositoryPath === '..' || repositoryPath.startsWith(`..${sep}`)) throw new Error(`${digestField}: implementation is outside the Git repository`);
+    const committed = git(['show', `${gitCommit}:${repositoryPath.split(sep).join('/')}`], null);
+    if (committed.status !== 0) throw new Error(`${digestField}: implementation is absent from the public-anchor commit`);
+    if (sha256Bytes(committed.stdout) !== draft.protocol.implementation[digestField]) {
+      throw new Error(`${digestField}: public-anchor implementation bytes differ from the frozen digest`);
     }
   }
 }

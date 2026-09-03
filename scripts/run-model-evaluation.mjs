@@ -19,8 +19,9 @@ const valueAfter = (flag) => {
   const index = process.argv.indexOf(flag);
   return index < 0 ? null : process.argv[index + 1] ?? null;
 };
-if (!process.argv.includes('--execute-sealed-study')) {
-  process.stderr.write('execution refused: pass --execute-sealed-study after verifying the sealed inputs; this invokes external model clients\n');
+const preflightOnly = process.argv.includes('--preflight-only');
+if (!process.argv.includes('--execute-sealed-study') && !preflightOnly) {
+  process.stderr.write('execution refused: pass --execute-sealed-study to invoke external model clients, or --preflight-only for zero-model capability probes\n');
   process.exit(2);
 }
 if (process.argv.includes('--cell') || process.argv.includes('--trial')) {
@@ -29,7 +30,7 @@ if (process.argv.includes('--cell') || process.argv.includes('--trial')) {
 }
 
 const bundleDir = resolve(valueAfter('--bundle') ?? 'research/model-evaluation');
-const verified = verifyBundle(bundleDir, { requireSealed: true });
+const verified = verifyBundle(bundleDir, { requireSealed: !preflightOnly });
 if (!verified.ok) throw new Error(`execution refused by bundle verifier:\n${verified.refusals.map((item) => `- ${item}`).join('\n')}`);
 const { protocol, manifest, seal } = verified;
 const limit = Number(valueAfter('--limit') ?? Number.POSITIVE_INFINITY);
@@ -128,6 +129,28 @@ function verifyClientIdentity(cell) {
   if (!allowed.includes(cell.client)) throw new Error(`${cell.id}: no sealed adapter for client '${cell.client}'`);
 }
 
+function verifyRuntimeIdentity() {
+  const isolation = protocol.isolation;
+  if (executableDigest(isolation.runtimeExecutable) !== isolation.runtimeArtifactSha256) throw new Error('runtime executable digest differs from protocol');
+  const version = run(isolation.runtimeExecutable, ['--version'], bundleDir);
+  const text = `${version.stdout ?? ''}${version.stderr ?? ''}`.trim().split('\n')[0];
+  if (version.status !== 0 || text !== isolation.runtimeVersion) throw new Error(`runtime version probe '${text}' differs from '${isolation.runtimeVersion}'`);
+}
+
+function stageToolchain(cell, stateRoot) {
+  const executableRoot = join(stateRoot, 'executable');
+  mkdirSync(executableRoot, { recursive: true, mode: 0o700 });
+  const clientExecutable = join(executableRoot, cell.client === 'codex' ? 'codex' : cell.client === 'fixture-agent' ? 'fixture-agent' : 'client');
+  copyFileSync(cell.executable, clientExecutable);
+  chmodSync(clientExecutable, 0o700);
+  if (sha256Bytes(readFileSync(clientExecutable)) !== cell.clientArtifactSha256) throw new Error(`${cell.id}: staged client digest differs from protocol`);
+  const runtimeExecutable = join(executableRoot, 'node');
+  copyFileSync(protocol.isolation.runtimeExecutable, runtimeExecutable);
+  chmodSync(runtimeExecutable, 0o700);
+  if (sha256Bytes(readFileSync(runtimeExecutable)) !== protocol.isolation.runtimeArtifactSha256) throw new Error('staged runtime digest differs from protocol');
+  return { clientExecutable, runtimeExecutable };
+}
+
 function copyTree(source, target, { includeNodeModules = false } = {}) {
   cpSync(source, target, {
     recursive: true, errorOnExist: false,
@@ -187,12 +210,13 @@ function appendContext(path, content) {
   writeFileSync(path, `${prefix}${content}\n`);
 }
 
-function materializeTreatment(workspace, task, cell, preparedInventory) {
+function materializeTreatment(workspace, task, cell, preparedInventory, runtimeExecutable) {
   const runtime = join(workspace, '.bce-runtime');
   mkdirSync(runtime, { recursive: true });
   const engineArtifact = resolveInside(bundleDir, protocol.treatment.engineArtifact, 'engine artifact');
-  const installed = run('npm', ['install', '--prefix', runtime, '--ignore-scripts', '--no-audit', '--no-fund', '--save-exact', engineArtifact], workspace, { env: process.env });
-  if (installed.status !== 0) throw new Error(`BCE treatment install failed: ${installed.stderr}`);
+  const installed = run('/usr/bin/tar', ['-xzf', engineArtifact, '-C', runtime], workspace, { env: minimalControllerEnv({ COPYFILE_DISABLE: '1' }) });
+  if (installed.status !== 0) throw new Error(`BCE offline treatment extraction failed: ${installed.stderr}`);
+  if (hashTree(runtime, { includeNodeModules: true }) !== protocol.treatment.installedTreeSha256) throw new Error('BCE offline treatment installed-tree digest mismatch');
   const engineRoot = join(runtime, 'node_modules', 'bce-engine');
   const cli = join(engineRoot, 'dist', 'cli.js');
   const mcp = join(engineRoot, 'dist', 'mcp-server.js');
@@ -206,18 +230,18 @@ function materializeTreatment(workspace, task, cell, preparedInventory) {
   const context = '# BCE done-check\n\nUse the project BCE skill and MCP server when useful. The final visible pipeline includes the BCE gate. Fix code; do not edit policy, blueprint, BCE configuration, tests, CI, or evaluation surfaces.';
   if (cell.client === 'claude-code') {
     appendContext(join(workspace, 'CLAUDE.md'), context);
-    writeFileSync(join(workspace, '.mcp.json'), `${JSON.stringify({ mcpServers: { bce: { command: process.execPath, args: [mcp] } } }, null, 2)}\n`);
+    writeFileSync(join(workspace, '.mcp.json'), `${JSON.stringify({ mcpServers: { bce: { command: runtimeExecutable, args: [mcp] } } }, null, 2)}\n`);
   } else {
     appendContext(join(workspace, 'AGENTS.md'), context);
     mkdirSync(join(workspace, '.codex'), { recursive: true });
-    if (cell.client === 'codex') writeFileSync(join(workspace, '.codex', 'config.toml'), `[mcp_servers.bce]\ncommand = ${JSON.stringify(process.execPath)}\nargs = [${JSON.stringify(mcp)}]\nrequired = true\n`);
-    else writeFileSync(join(workspace, '.mcp.json'), `${JSON.stringify({ mcpServers: { bce: { command: process.execPath, args: [mcp] } } }, null, 2)}\n`);
+    if (cell.client === 'codex') writeFileSync(join(workspace, '.codex', 'config.toml'), `[mcp_servers.bce]\ncommand = ${JSON.stringify(runtimeExecutable)}\nargs = [${JSON.stringify(mcp)}]\nrequired = true\n`);
+    else writeFileSync(join(workspace, '.mcp.json'), `${JSON.stringify({ mcpServers: { bce: { command: runtimeExecutable, args: [mcp] } } }, null, 2)}\n`);
   }
   const changes = inventoryChanges(preparedInventory, treeInventory(workspace));
   const delta = JSON.parse(readFileSync(resolve(bundleDir, protocol.treatment.allowedDeltaManifest), 'utf8'));
   const undeclared = changes.filter((entry) => !matchesAny(entry.path, delta.allowedPathPatterns ?? []));
   if (undeclared.length) throw new Error(`treatment materialization changed undeclared paths: ${undeclared.map((entry) => entry.path).join(', ')}`);
-  return { cli, treatmentDelta: { arm: 'bce-enabled', changes }, treatmentConfigSha256: sha256Json({ arm: 'bce-enabled', changes }) };
+  return { cli, mcp, treatmentDelta: { arm: 'bce-enabled', changes }, treatmentConfigSha256: sha256Json({ arm: 'bce-enabled', changes }) };
 }
 
 function detectBceContamination(workspace) {
@@ -227,9 +251,10 @@ function detectBceContamination(workspace) {
   if (findings.length) throw new Error(`base-tree BCE contamination: ${findings.map((entry) => entry.path).join(', ')}`);
 }
 
-function freshClientEnvironment(stateRoot, cell) {
+function freshClientEnvironment(stateRoot, cell, runtimeExecutable) {
   const env = {};
-  for (const key of ['PATH', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL', 'TERM', 'SSL_CERT_FILE', 'SSL_CERT_DIR']) if (process.env[key]) env[key] = process.env[key];
+  for (const key of ['LANG', 'LC_ALL', 'TERM', 'SSL_CERT_FILE', 'SSL_CERT_DIR']) if (process.env[key]) env[key] = process.env[key];
+  env.PATH = `${dirname(runtimeExecutable)}:/usr/bin:/bin:/usr/sbin:/sbin`;
   const clientHome = join(stateRoot, 'home');
   mkdirSync(clientHome, { recursive: true, mode: 0o700 });
   env.HOME = clientHome;
@@ -238,18 +263,19 @@ function freshClientEnvironment(stateRoot, cell) {
   env.TMPDIR = clientTmp;
   env.TMP = clientTmp;
   env.TEMP = clientTmp;
+  let authPath = null;
   if (cell.client === 'codex') {
     const codexHome = join(stateRoot, 'codex');
     mkdirSync(codexHome, { recursive: true, mode: 0o700 });
     env.CODEX_HOME = codexHome;
     const sourceAuth = join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'auth.json');
     if (!existsSync(sourceAuth)) throw new Error('Codex auth-only mount unavailable');
-    const isolatedAuth = join(codexHome, 'auth.json');
-    copyFileSync(sourceAuth, isolatedAuth);
-    chmodSync(isolatedAuth, 0o600);
+    authPath = join(codexHome, 'auth.json');
+    copyFileSync(sourceAuth, authPath);
+    chmodSync(authPath, 0o600);
   }
   if (cell.client === 'claude-code') env.CLAUDE_CONFIG_DIR = join(stateRoot, 'claude');
-  return env;
+  return { env, authPath };
 }
 
 function adapterCommand(cell, workspace, prompt, clientEnv, task) {
@@ -290,9 +316,8 @@ function sandboxLiteral(value) {
 
 function sandboxProfile(workspace, clientState, controllerRoot, protectedPatterns) {
   if (platform() !== 'darwin' || !existsSync('/usr/bin/sandbox-exec')) throw new Error('outer client isolation unavailable: this runner currently requires macOS sandbox-exec');
-  const denyReads = [homedir(), repositoryRoot, bundleDir, runsRoot, controllerRoot]
-    .filter((value, index, values) => values.indexOf(value) === index)
-    .map((value) => `(deny file-read-data (subpath ${sandboxLiteral(value)}))`);
+  const systemReadRoots = ['/System', '/usr', '/bin', '/sbin', '/Library', '/private/etc', '/private/var/db', '/private/var/run', '/dev']
+    .filter((value) => existsSync(value));
   const protectedRoots = new Set([join(workspace, '.git')]);
   for (const pattern of protectedPatterns) {
     const prefix = pattern.split('*')[0].replace(/\/$/, '');
@@ -300,30 +325,108 @@ function sandboxProfile(workspace, clientState, controllerRoot, protectedPattern
   }
   const denyWrites = [...protectedRoots].map((value) => `(deny file-write* (subpath ${sandboxLiteral(value)}))`);
   const allowedRoots = [workspace, clientState];
-  const allowReads = allowedRoots.map((value) => `(allow file-read* (subpath ${sandboxLiteral(value)}))`);
+  const allowReads = [...systemReadRoots, ...allowedRoots].map((value) => `(allow file-read* (subpath ${sandboxLiteral(value)}))`);
   const allowWrites = allowedRoots.map((value) => `(allow file-write* (subpath ${sandboxLiteral(value)}))`);
-  return ['(version 1)', '(allow default)', ...denyReads, ...allowReads, '(deny file-write*)', ...allowWrites, ...denyWrites].join('\n');
+  const allowExec = ['/usr', '/bin', '/sbin', ...allowedRoots]
+    .filter((value) => existsSync(value))
+    .map((value) => `(allow process-exec (subpath ${sandboxLiteral(value)}))`);
+  const ancestorReads = new Set(['/']);
+  for (const value of [...systemReadRoots, ...allowedRoots]) {
+    let cursor = realpathSync(value);
+    while (cursor !== '/') {
+      cursor = dirname(cursor);
+      ancestorReads.add(cursor);
+    }
+  }
+  return [
+    '(version 1)', '(deny default)',
+    '(allow process-fork)', '(allow signal (target self))', '(allow process-info* (target self))',
+    '(allow sysctl*)', '(allow mach*)', '(allow ipc*)', '(allow network*)', '(allow system-socket)',
+    '(allow file-read-metadata)',
+    `(allow file-read-data ${[...ancestorReads].sort().map((value) => `(literal ${JSON.stringify(value)})`).join(' ')})`,
+    ...allowReads, ...allowExec,
+    ...allowWrites, '(allow file-write* (literal "/dev/null"))', ...denyWrites,
+  ].join('\n');
 }
 
-function proveIsolation(profile, controllerRoot, workspace) {
-  const canary = join(controllerRoot, 'hidden-oracle.canary');
-  writeFileSync(canary, 'controller-only\n');
-  const protectedProbe = join(workspace, '.blueprints', 'write-probe.tmp');
-  mkdirSync(dirname(protectedProbe), { recursive: true });
-  const readProbe = "const fs=require('fs');try{fs.readFileSync(process.argv[1]);process.exit(1)}catch(error){process.stderr.write(String(error.code ?? error.message));process.exit(0)}";
-  const writeProbe = "const fs=require('fs');try{fs.writeFileSync(process.argv[1],'x');process.exit(1)}catch(error){process.stderr.write(String(error.code ?? error.message));process.exit(0)}";
-  const readResult = run('/usr/bin/sandbox-exec', ['-p', profile, process.execPath, '-e', readProbe, canary], workspace, { env: { PATH: process.env.PATH } });
-  const writeResult = run('/usr/bin/sandbox-exec', ['-p', profile, process.execPath, '-e', writeProbe, protectedProbe], workspace, { env: { PATH: process.env.PATH } });
-  if (existsSync(protectedProbe)) unlinkSync(protectedProbe);
+function generatedMcpCommand(workspace, cell, expectedRuntime, expectedMcp) {
+  if (!expectedMcp) return null;
+  let command;
+  if (cell.client === 'codex') {
+    const config = readFileSync(join(workspace, '.codex', 'config.toml'), 'utf8');
+    const executable = config.match(/^command = (.+)$/m);
+    const argument = config.match(/^args = \[(.+)\]$/m);
+    if (!executable || !argument) throw new Error('generated Codex MCP configuration is not parseable');
+    command = { file: JSON.parse(executable[1]), args: [JSON.parse(argument[1])] };
+  } else {
+    const config = JSON.parse(readFileSync(join(workspace, '.mcp.json'), 'utf8'));
+    command = { file: config.mcpServers?.bce?.command, args: config.mcpServers?.bce?.args };
+  }
+  if (command.file !== expectedRuntime || canonicalJson(command.args) !== canonicalJson([expectedMcp])) throw new Error('generated MCP command does not use the staged sealed runtime and frozen server');
+  return command;
+}
+
+function probeMcpHandshake(profile, workspace, command, env) {
+  if (!command) return { passed: null, toolNames: [], exitCode: null, stderr: '' };
+  const input = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bce-evaluation-preflight', version: '1.0.0' } } },
+    { jsonrpc: '2.0', method: 'notifications/initialized', params: {} },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
+  ].map((value) => JSON.stringify(value)).join('\n') + '\n';
+  const result = run('/usr/bin/sandbox-exec', ['-p', profile, command.file, ...command.args], workspace, { env, input, timeout: 10000 });
+  const documents = jsonDocuments(result.stdout);
+  const initialized = documents.find((value) => value.id === 1 && typeof value.result?.protocolVersion === 'string');
+  const listed = documents.find((value) => value.id === 2 && Array.isArray(value.result?.tools));
   return {
-    driver: 'macos-sandbox-exec', driverSha256: executableDigest('/usr/bin/sandbox-exec'), profileSha256: sha256Bytes(profile),
-    oracleReadDenied: readResult.status === 0, protectedWriteDenied: writeResult.status === 0,
-    readProbeExitCode: readResult.status, writeProbeExitCode: writeResult.status,
-    readProbeStderr: redact(readResult.stderr), writeProbeStderr: redact(writeResult.stderr),
+    passed: result.status === 0 && Boolean(initialized) && Boolean(listed),
+    toolNames: listed ? listed.result.tools.map((tool) => tool.name).filter((name) => typeof name === 'string').sort() : [],
+    exitCode: result.status,
+    stderr: redact(result.stderr),
   };
 }
 
-async function runClient(command, workspace, profile, timeoutMs) {
+function proveIsolation(profile, controllerRoot, workspace, cell, toolchain, clientEnv, authPath, treatment) {
+  const canary = join(controllerRoot, 'hidden-oracle.canary');
+  const hostWriteProbe = join(controllerRoot, 'host-write-probe.tmp');
+  writeFileSync(canary, 'controller-only\n');
+  const protectedProbe = join(workspace, '.blueprints', 'write-probe.tmp');
+  const workspaceProbe = join(workspace, '.bce-capability-probe.tmp');
+  mkdirSync(dirname(protectedProbe), { recursive: true });
+  const readProbe = "const fs=require('fs');try{fs.readFileSync(process.argv[1]);process.exit(1)}catch(error){process.stderr.write(String(error.code ?? error.message));process.exit(0)}";
+  const writeProbe = "const fs=require('fs');try{fs.writeFileSync(process.argv[1],'x');process.exit(1)}catch(error){process.stderr.write(String(error.code ?? error.message));process.exit(0)}";
+  const workspaceProbeScript = "const fs=require('fs');fs.readFileSync('package.json');fs.writeFileSync(process.argv[1],'ok');fs.unlinkSync(process.argv[1]);process.stdout.write('ok')";
+  const readResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', readProbe, canary], workspace, { env: clientEnv });
+  const hostWriteResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeProbe, hostWriteProbe], workspace, { env: clientEnv });
+  const writeResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeProbe, protectedProbe], workspace, { env: clientEnv });
+  const workspaceResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', workspaceProbeScript, workspaceProbe], workspace, { env: clientEnv });
+  const runtimeVersion = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '--version'], workspace, { env: clientEnv });
+  const clientVersion = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.clientExecutable, '--version'], workspace, { env: clientEnv });
+  const authResult = authPath ? run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', "require('fs').accessSync(process.argv[1]);process.stdout.write('ok')", authPath], workspace, { env: clientEnv }) : null;
+  const mcp = probeMcpHandshake(profile, workspace, generatedMcpCommand(workspace, cell, toolchain.runtimeExecutable, treatment.mcp), clientEnv);
+  if (existsSync(protectedProbe)) unlinkSync(protectedProbe);
+  if (existsSync(workspaceProbe)) unlinkSync(workspaceProbe);
+  if (existsSync(hostWriteProbe)) unlinkSync(hostWriteProbe);
+  return {
+    driver: 'macos-sandbox-exec', driverSha256: executableDigest('/usr/bin/sandbox-exec'), profileSha256: sha256Bytes(profile),
+    readDefaultDeny: true,
+    oracleReadDenied: readResult.status === 0, hostCanaryReadDenied: readResult.status === 0,
+    hostCanaryWriteDenied: hostWriteResult.status === 0, protectedWriteDenied: writeResult.status === 0,
+    workspaceReadWriteAllowed: workspaceResult.status === 0 && workspaceResult.stdout === 'ok',
+    stagedRuntimeVersionVerified: runtimeVersion.status === 0 && runtimeVersion.stdout.trim() === protocol.isolation.runtimeVersion,
+    stagedClientVersionVerified: clientVersion.status === 0 && `${clientVersion.stdout}${clientVersion.stderr}`.trim().split('\n')[0] === cell.clientVersion,
+    authenticationReadableToClientProcess: authResult === null ? null : authResult.status === 0,
+    mcpHandshakePassed: mcp.passed, mcpToolNames: mcp.toolNames,
+    clientExecutableStagedSha256: sha256Bytes(readFileSync(toolchain.clientExecutable)),
+    runtimeExecutableStagedSha256: sha256Bytes(readFileSync(toolchain.runtimeExecutable)),
+    readProbeExitCode: readResult.status, hostWriteProbeExitCode: hostWriteResult.status, writeProbeExitCode: writeResult.status,
+    readProbeSignal: readResult.signal, hostWriteProbeSignal: hostWriteResult.signal, writeProbeSignal: writeResult.signal, workspaceProbeSignal: workspaceResult.signal,
+    runtimeProbeSignal: runtimeVersion.signal, clientProbeSignal: clientVersion.signal,
+    runtimeProbeStderr: redact(runtimeVersion.stderr), clientProbeStderr: redact(clientVersion.stderr),
+    readProbeStderr: redact(readResult.stderr), hostWriteProbeStderr: redact(hostWriteResult.stderr), writeProbeStderr: redact(writeResult.stderr), mcpExitCode: mcp.exitCode, mcpStderr: mcp.stderr,
+  };
+}
+
+async function runClient(command, workspace, profile, timeoutMs, credentialPath = null) {
   return new Promise((resolveResult) => {
     const started = performance.now();
     const child = spawn('/usr/bin/sandbox-exec', ['-p', profile, command.file, ...command.args], {
@@ -335,6 +438,37 @@ async function runClient(command, workspace, profile, timeoutMs) {
     let timedOut = false;
     let overflow = false;
     let settled = false;
+    let stdoutLines = '';
+    let clientSessionObserved = false;
+    let credentialRetiredBeforeModelToolExecution = credentialPath === null;
+    let modelToolExecutionObservedBeforeCredentialRetirement = false;
+    const isModelToolEvent = (event) => {
+      const type = String(event?.type ?? '').toLowerCase();
+      const itemType = String(event?.item?.type ?? '').toLowerCase();
+      return type.includes('tool_call') || ['command_execution', 'file_change', 'mcp_tool_call'].includes(itemType);
+    };
+    const observeLine = (line) => {
+      try {
+        const event = JSON.parse(line);
+        if (isModelToolEvent(event) && credentialPath && existsSync(credentialPath)) {
+          modelToolExecutionObservedBeforeCredentialRetirement = true;
+          credentialRetiredBeforeModelToolExecution = false;
+        }
+        if (['thread.started', 'turn.started'].includes(event.type)) {
+          clientSessionObserved = true;
+          if (credentialPath && existsSync(credentialPath)) {
+            unlinkSync(credentialPath);
+            credentialRetiredBeforeModelToolExecution = !modelToolExecutionObservedBeforeCredentialRetirement;
+          }
+        }
+      } catch {}
+    };
+    const observeClientEvent = (chunk) => {
+      stdoutLines += chunk.toString();
+      const lines = stdoutLines.split('\n');
+      stdoutLines = lines.pop() ?? '';
+      for (const line of lines) observeLine(line);
+    };
     const finish = (result) => { if (!settled) { settled = true; resolveResult(result); } };
     const collect = (chunks) => (chunk) => {
       bytes += chunk.length;
@@ -343,7 +477,7 @@ async function runClient(command, workspace, profile, timeoutMs) {
         try { process.kill(-child.pid, 'SIGKILL'); } catch {}
       } else chunks.push(chunk);
     };
-    child.stdout.on('data', collect(stdout));
+    child.stdout.on('data', (chunk) => { collect(stdout)(chunk); observeClientEvent(chunk); });
     child.stderr.on('data', collect(stderr));
     const timer = setTimeout(() => {
       timedOut = true;
@@ -351,13 +485,17 @@ async function runClient(command, workspace, profile, timeoutMs) {
     }, timeoutMs);
     child.on('error', (error) => {
       clearTimeout(timer);
-      finish({ status: null, signal: null, stdout: Buffer.concat(stdout).toString(), stderr: `${Buffer.concat(stderr).toString()}\n${error.message}`, timedOut, overflow, latencyMs: Math.round(performance.now() - started), processGroupTerminated: true });
+      if (credentialPath && existsSync(credentialPath)) unlinkSync(credentialPath);
+      if (stdoutLines.trim()) observeLine(stdoutLines);
+      finish({ status: null, signal: null, stdout: Buffer.concat(stdout).toString(), stderr: `${Buffer.concat(stderr).toString()}\n${error.message}`, timedOut, overflow, latencyMs: Math.round(performance.now() - started), processGroupTerminated: true, clientSessionObserved, credentialRetiredBeforeModelToolExecution, modelToolExecutionObservedBeforeCredentialRetirement });
     });
     child.on('close', (code, signal) => {
       clearTimeout(timer);
       let processGroupTerminated = true;
       try { process.kill(-child.pid, 0); processGroupTerminated = false; process.kill(-child.pid, 'SIGKILL'); } catch {}
-      finish({ status: code, signal, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), timedOut, overflow, latencyMs: Math.round(performance.now() - started), processGroupTerminated });
+      if (stdoutLines.trim()) observeLine(stdoutLines);
+      if (credentialPath && existsSync(credentialPath)) unlinkSync(credentialPath);
+      finish({ status: code, signal, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), timedOut, overflow, latencyMs: Math.round(performance.now() - started), processGroupTerminated, clientSessionObserved, credentialRetiredBeforeModelToolExecution, modelToolExecutionObservedBeforeCredentialRetirement });
     });
   });
 }
@@ -439,6 +577,36 @@ function observedWritePaths(stdout) {
   };
   for (const document of jsonDocuments(stdout)) visit(document);
   return [...paths].sort();
+}
+
+function extractMechanism(stdout, assignment) {
+  const documents = jsonDocuments(stdout);
+  if (documents.length === 0) return {
+    eventEvidenceAvailable: false, skillReadObserved: null, mcpToolCalls: null, bceGateCalls: null,
+    bceVerdictSequence: null, redToGreenCorrectionObserved: null,
+  };
+  const nodes = [];
+  const visit = (value) => {
+    if (!value || typeof value !== 'object') return;
+    nodes.push(value);
+    for (const child of Object.values(value)) if (typeof child === 'object') visit(child);
+  };
+  for (const document of documents) visit(document);
+  const text = canonicalJson(documents);
+  const mcpNodes = nodes.filter((value) => String(value.type ?? '').toLowerCase().includes('mcp') && /bce/i.test(canonicalJson(value)));
+  const commandNodes = nodes.filter((value) => String(value.type ?? '').toLowerCase().includes('command'));
+  const gateCommands = commandNodes.filter((value) => /(?:\bbce\b[^\n]{0,80}\bgate\b|\brun_gate\b)/i.test(canonicalJson(value)));
+  const verdicts = [...text.matchAll(/\\?"verdict\\?"\s*:\s*\\?"(pass|fail)\\?"/gi)].map((match) => match[1].toLowerCase());
+  const firstFail = verdicts.indexOf('fail');
+  const redToGreen = firstFail >= 0 && verdicts.slice(firstFail + 1).includes('pass');
+  return {
+    eventEvidenceAvailable: true,
+    skillReadObserved: assignment.arm === 'bce-enabled' ? /\.agents\/skills\/bce\/SKILL\.md|\.claude\/skills\/bce\/SKILL\.md/.test(text) : null,
+    mcpToolCalls: assignment.arm === 'bce-enabled' ? mcpNodes.length : 0,
+    bceGateCalls: assignment.arm === 'bce-enabled' ? mcpNodes.filter((value) => /run_gate|\bgate\b/i.test(canonicalJson(value))).length + gateCommands.length : 0,
+    bceVerdictSequence: assignment.arm === 'bce-enabled' ? verdicts : [],
+    redToGreenCorrectionObserved: assignment.arm === 'bce-enabled' ? redToGreen : false,
+  };
 }
 
 function minimalControllerEnv(extra = {}) {
@@ -613,7 +781,7 @@ function commitTerminal(context) {
     assignment: { cellId: assignment.cellId, repositoryId: assignment.repositoryId, taskId: assignment.taskId, arm: assignment.arm, orderIndex: assignment.orderIndex },
     bindings, status,
     exposure: { modelRequestExposed: true, startedAt, endedAt: new Date().toISOString(), exitCode },
-    evidence, derived, telemetry, recordSha256: null,
+    evidence, derived, mechanism: documents.mechanism, telemetry, recordSha256: null,
   };
   terminal.recordSha256 = sha256Json(terminal);
   const terminalPath = join(trialDir, 'terminal.json');
@@ -636,6 +804,7 @@ function failureDocuments(context, error) {
     functional: { passed: false, collateralRegression: false, deterministic: true, executed: false, failure: message },
     architecture: { passed: false, locations: [], deterministic: true, executed: false, failure: message },
     policy: { mutation: true, finalPolicyPaths: [], observedWritePaths: [], outOfScope: [], conservativeFailureClassification: true },
+    mechanism: { eventEvidenceAvailable: false, skillReadObserved: null, mcpToolCalls: null, bceGateCalls: null, bceVerdictSequence: null, redToGreenCorrectionObserved: null },
   };
 }
 
@@ -730,7 +899,7 @@ async function executeAssignment(assignment) {
   mkdirSync(controllerRoot, { recursive: true, mode: 0o700 });
   let exposed = false;
   let startedAt = null;
-  let treatment = { cli: null, treatmentDelta: { arm: 'baseline-no-bce', changes: [] }, treatmentConfigSha256: sha256Json({ arm: 'baseline-no-bce', changes: [] }) };
+  let treatment = { cli: null, mcp: null, treatmentDelta: { arm: 'baseline-no-bce', changes: [] }, treatmentConfigSha256: sha256Json({ arm: 'baseline-no-bce', changes: [] }) };
   let preparation = null;
   let isolationProof = null;
   let clientResult = null;
@@ -748,30 +917,48 @@ async function executeAssignment(assignment) {
     preparation = { successful: true, preparedTreeSha256, commands: setupRuns };
     copyTree(workspace, preparedRoot, { includeNodeModules: true });
     const preparedInventory = treeInventory(workspace);
-    if (assignment.arm === 'bce-enabled') treatment = materializeTreatment(workspace, task, cell, preparedInventory);
+    const toolchain = stageToolchain(cell, clientState);
+    if (assignment.arm === 'bce-enabled') treatment = materializeTreatment(workspace, task, cell, preparedInventory, toolchain.runtimeExecutable);
     preparation = { ...preparation, treatmentDelta: treatment.treatmentDelta, treatmentConfigSha256: treatment.treatmentConfigSha256 };
     initializeWorkspace(workspace);
     const initialInventory = treeInventory(workspace);
     const globalPolicy = JSON.parse(readFileSync(resolve(bundleDir, protocol.protectedPaths), 'utf8'));
     const protectedPatterns = [...new Set([...globalPolicy.patterns, ...(globalPolicy.packagePolicy?.files ?? []), ...task.protectedPaths])];
-    const clientEnv = freshClientEnvironment(clientState, cell);
+    const { env: clientEnv, authPath } = freshClientEnvironment(clientState, cell, toolchain.runtimeExecutable);
     const profile = sandboxProfile(workspace, clientState, controllerRoot, protectedPatterns);
-    isolationProof = proveIsolation(profile, controllerRoot, workspace);
-    if (!isolationProof.oracleReadDenied || !isolationProof.protectedWriteDenied) throw new Error(`outer sandbox isolation canary failed: ${JSON.stringify(isolationProof)}`);
+    isolationProof = proveIsolation(profile, controllerRoot, workspace, cell, toolchain, clientEnv, authPath, treatment);
+    if (!isolationProof.oracleReadDenied || !isolationProof.hostCanaryReadDenied || !isolationProof.hostCanaryWriteDenied || !isolationProof.protectedWriteDenied ||
+        !isolationProof.workspaceReadWriteAllowed || !isolationProof.stagedRuntimeVersionVerified || !isolationProof.stagedClientVersionVerified ||
+        (authPath && isolationProof.authenticationReadableToClientProcess !== true) || (treatment.mcp && isolationProof.mcpHandshakePassed !== true)) {
+      throw new Error(`outer sandbox capability/isolation preflight failed: ${JSON.stringify(isolationProof)}`);
+    }
     appendEvent(state, 'controller', 'isolation-proven', isolationProof);
     appendEvent(state, 'controller', 'isolation-prepared', { baseTreeSha256: repository.treeSha256, preparedTreeSha256, arm: assignment.arm, treatmentConfigSha256: treatment.treatmentConfigSha256 });
+    if (preflightOnly) {
+      rmSync(trialDir, { recursive: true, force: true });
+      return { preflightOnly: true, cellId: cell.id, arm: assignment.arm, isolationProof };
+    }
     const prompt = `${readFileSync(resolveInside(bundleDir, task.prompt.path, 'task prompt'), 'utf8').trim()}\n\nArchitecture policy (identical in both randomized arms):\n${readFileSync(resolveInside(bundleDir, task.writtenPolicy.path, 'written policy'), 'utf8').trim()}\n\nComplete the task in this repository. Do not edit tests, policy, blueprint, agent configuration, CI, dependencies, or evaluation files.`;
-    const command = adapterCommand(cell, workspace, prompt, clientEnv, task);
+    const command = adapterCommand({ ...cell, executable: toolchain.clientExecutable }, workspace, prompt, clientEnv, task);
     appendEvent(state, 'controller', 'model-request-exposed', { client: cell.client, requestedModel: cell.requestedModel });
     exposed = true;
     startedAt = new Date().toISOString();
     const visibleStart = performance.now();
-    clientResult = await runClient(command, workspace, profile, task.budget.timeoutMs);
+    clientResult = await runClient(command, workspace, profile, task.budget.timeoutMs, authPath);
+    isolationProof = {
+      ...isolationProof,
+      clientSessionObserved: clientResult.clientSessionObserved,
+      credentialRetiredBeforeModelToolExecution: clientResult.credentialRetiredBeforeModelToolExecution,
+      modelToolExecutionObservedBeforeCredentialRetirement: clientResult.modelToolExecutionObservedBeforeCredentialRetirement,
+      shellEnvironmentPolicy: cell.client === 'codex' ? 'inherit-none' : 'adapter-specific',
+    };
     if (!clientResult.processGroupTerminated) throw new Error('client process group remained alive after termination');
     if (seal.attestation?.kind === 'synthetic-self-test' && process.env.BCE_MODEL_EVAL_FAULT_AT === 'after-client') {
       throw new Error('synthetic fault injection after model exposure');
     }
-    let status = clientResult.timedOut ? 'timeout' : clientResult.status === 0 ? 'completed' : /auth|credential|rate.?limit|overloaded|network/i.test(`${clientResult.stderr}\n${clientResult.stdout}`) ? 'infrastructure-error' : 'failed';
+    const clientDocuments = jsonDocuments(clientResult.stdout);
+    let status = clientResult.timedOut ? 'timeout' : clientResult.status === 0 ? 'completed' :
+      clientDocuments.length === 0 || /auth|credential|rate.?limit|overloaded|network|operation not permitted|\bEPERM\b|sandbox-exec|execvp/i.test(`${clientResult.stderr}\n${clientResult.stdout}`) ? 'infrastructure-error' : 'failed';
     appendEvent(state, 'client', 'client-terminated', { status, exitCode: clientResult.status, signal: clientResult.signal, latencyMs: clientResult.latencyMs, processGroupTerminated: true, overflow: clientResult.overflow });
     if (seal.attestation?.kind === 'synthetic-self-test' && process.env.BCE_MODEL_EVAL_FAULT_AT === 'hard-crash-after-client') {
       process.kill(process.pid, 'SIGKILL');
@@ -838,6 +1025,7 @@ async function executeAssignment(assignment) {
       finalTree: { neutralTreeSha256: hashTree(neutralRoot), agentWorkspaceTreeSha256: hashTree(workspace), changedPaths },
       preparation,
       isolationProof, visible, functional, architecture, policy,
+      mechanism: extractMechanism(stdout, assignment),
     };
     return commitTerminal({ assignment, task, trialDir, state, status, startedAt, exitCode: clientResult.status, bindings, documents, telemetry });
   } catch (error) {
@@ -906,27 +1094,40 @@ function stoppingHalt(records) {
 }
 
 try {
+  verifyRuntimeIdentity();
   for (const cell of protocol.clientModelCells) verifyClientIdentity(cell);
-  let ledger = reconcileTerminalWithoutLedger();
-  const records = ledger.map((entry) => JSON.parse(readFileSync(join(runsRoot, 'trials', entry.trialId, 'a0', 'terminal.json'), 'utf8')));
-  const existingHalt = stoppingHalt(records);
-  if (existingHalt) throw new Error(`study is safety-halted: ${existingHalt}`);
-  let executed = 0;
-  while (ledger.length < manifest.assignments.length && executed < limit) {
-    const assignment = manifest.assignments[ledger.length];
-    const record = await executeAssignment(assignment);
-    if (!record) throw new Error(`${assignment.trialId}: next frozen assignment was unexpectedly already terminal without reconciliation`);
-    executed += 1;
-    ledger = readLedger();
-    records.push(record);
-    const halt = stoppingHalt(records);
-    if (halt) {
-      writeAtomic(join(runsRoot, 'study-halt.json'), `${JSON.stringify({ schemaVersion: '1', studyId: protocol.studyId, status: 'safety-halt', reason: halt, committedTrials: ledger.length, ledgerHeadSha256: ledger.at(-1)?.entrySha256 ?? null, recordedAt: new Date().toISOString() }, null, 2)}\n`);
-      process.stderr.write(`model-evaluation controller safety halt: ${halt}\n`);
-      break;
+  if (preflightOnly) {
+    const reports = [];
+    for (const cell of protocol.clientModelCells) {
+      for (const arm of protocol.arms) {
+        const assignment = manifest.assignments.find((entry) => entry.cellId === cell.id && entry.arm === arm);
+        if (!assignment) throw new Error(`${cell.id}/${arm}: no representative assignment for preflight`);
+        reports.push(await executeAssignment(assignment));
+      }
     }
+    process.stdout.write(`${JSON.stringify({ preflight: 'passed-without-model-exposure', reports })}\n`);
+  } else {
+    let ledger = reconcileTerminalWithoutLedger();
+    const records = ledger.map((entry) => JSON.parse(readFileSync(join(runsRoot, 'trials', entry.trialId, 'a0', 'terminal.json'), 'utf8')));
+    const existingHalt = stoppingHalt(records);
+    if (existingHalt) throw new Error(`study is safety-halted: ${existingHalt}`);
+    let executed = 0;
+    while (ledger.length < manifest.assignments.length && executed < limit) {
+      const assignment = manifest.assignments[ledger.length];
+      const record = await executeAssignment(assignment);
+      if (!record) throw new Error(`${assignment.trialId}: next frozen assignment was unexpectedly already terminal without reconciliation`);
+      executed += 1;
+      ledger = readLedger();
+      records.push(record);
+      const halt = stoppingHalt(records);
+      if (halt) {
+        writeAtomic(join(runsRoot, 'study-halt.json'), `${JSON.stringify({ schemaVersion: '1', studyId: protocol.studyId, status: 'safety-halt', reason: halt, committedTrials: ledger.length, ledgerHeadSha256: ledger.at(-1)?.entrySha256 ?? null, recordedAt: new Date().toISOString() }, null, 2)}\n`);
+        process.stderr.write(`model-evaluation controller safety halt: ${halt}\n`);
+        break;
+      }
+    }
+    process.stdout.write(`model-evaluation controller: ${executed} new primary attempt(s); ${ledger.length}/${manifest.assignments.length} frozen assignments committed\n`);
   }
-  process.stdout.write(`model-evaluation controller: ${executed} new primary attempt(s); ${ledger.length}/${manifest.assignments.length} frozen assignments committed\n`);
 } finally {
   closeSync(lockFd);
   if (existsSync(lockPath)) unlinkSync(lockPath);

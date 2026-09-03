@@ -15,11 +15,12 @@ import { fileURLToPath } from 'node:url';
 export const ARMS = ['baseline-no-bce', 'bce-enabled'];
 export const ASSIGNMENT_ALGORITHM = 'bce-sha256-rank-paired-v1';
 
-const FROZEN_IMPLEMENTATIONS = {
+export const FROZEN_IMPLEMENTATIONS = {
   verifierSha256: fileURLToPath(import.meta.url),
   assignmentGeneratorSha256: fileURLToPath(new URL('../generate-model-evaluation-assignments.mjs', import.meta.url)),
   runnerSha256: fileURLToPath(new URL('../run-model-evaluation.mjs', import.meta.url)),
   analyzerSha256: fileURLToPath(new URL('../analyze-model-evaluation.mjs', import.meta.url)),
+  analysisCoreSha256: fileURLToPath(new URL('./model-evaluation-analysis.mjs', import.meta.url)),
 };
 
 export function canonical(value) {
@@ -83,12 +84,12 @@ function resolveSealedFile(root, path, label) {
   return canonical;
 }
 
-export function hashTree(root) {
+export function hashTree(root, { includeNodeModules = false } = {}) {
   const base = realpathSync(root);
   const entries = [];
   const walk = (dir) => {
     for (const name of readdirSync(dir).sort()) {
-      if (name === '.git' || name === 'node_modules' || name === 'coverage') continue;
+      if (name === '.git' || (!includeNodeModules && name === 'node_modules') || name === 'coverage') continue;
       const absolute = resolve(dir, name);
       const rel = posixRelative(base, absolute);
       const stat = lstatSync(absolute);
@@ -292,6 +293,12 @@ export function verifyBundle(bundleDir, { requireSealed = true } = {}) {
     if (typeof protocol.isolation.executionDriver !== 'string' || !/^[0-9a-f]{64}$/.test(protocol.isolation.executionDriverSha256 ?? '')) {
       refusals.push('execution isolation driver and digest are not frozen');
     }
+    for (const field of ['runtimeExecutable', 'runtimeVersion', 'runtimeArtifactSha256']) {
+      if (typeof protocol.isolation[field] !== 'string' || protocol.isolation[field].length === 0) refusals.push(`execution isolation ${field} is not frozen`);
+    }
+    try {
+      if (sha256Bytes(readFileSync(protocol.isolation.runtimeExecutable)) !== protocol.isolation.runtimeArtifactSha256) refusals.push('execution runtime artifact digest mismatch');
+    } catch (error) { refusals.push(`execution runtime artifact: ${error.message}`); }
   }
   if (protocol.matrix.clientModelCells !== protocol.clientModelCells.length) refusals.push('matrix clientModelCells does not equal declared cell count');
   if (protocol.matrix.repositories !== manifest.repositories.length) refusals.push('matrix repository count does not equal manifest');
@@ -372,6 +379,12 @@ export function verifyBundle(bundleDir, { requireSealed = true } = {}) {
       const bytes = readFileSync(resolveSealedFile(root, protocol.treatment.engineArtifact, 'BCE engine artifact'));
       if (sha256Bytes(bytes) !== protocol.treatment.engineArtifactSha256) refusals.push('BCE treatment artifact digest mismatch');
     } catch (error) { refusals.push(`BCE treatment artifact: ${error.message}`); }
+  }
+  if (!/^[0-9a-f]{64}$/.test(protocol.treatment.installedTreeSha256 ?? '') || !protocol.treatment.artifactProvenance) {
+    refusals.push('BCE treatment offline installed tree and source provenance are not frozen');
+  }
+  if (requireSealed && protocol.treatment.artifactProvenance?.sourceTreeState !== 'clean') {
+    refusals.push('sealed execution requires a treatment artifact built from a clean source tree');
   }
   const generated = regenerateAssignments(protocol, manifest);
   if (canonicalJson(manifest.assignments) !== canonicalJson(generated.assignments)) refusals.push('assignments do not regenerate exactly from the frozen seed and task/cell inventory');
@@ -491,7 +504,13 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
   if (assignment.arm === 'baseline-no-bce' && record.bindings.treatmentConfigSha256 !== sha256Json({ arm: 'baseline-no-bce', changes: [] })) {
     throw new Error(`${terminalPath}: baseline treatment binding is not the frozen no-BCE configuration`);
   }
-  if (isolation.driver !== bundle.protocol.isolation.executionDriver || isolation.driverSha256 !== bundle.protocol.isolation.executionDriverSha256 || isolation.oracleReadDenied !== true || isolation.protectedWriteDenied !== true) {
+  if (isolation.driver !== bundle.protocol.isolation.executionDriver || isolation.driverSha256 !== bundle.protocol.isolation.executionDriverSha256 || isolation.oracleReadDenied !== true || isolation.protectedWriteDenied !== true || isolation.clientExecutableStagedSha256 !== cell.clientArtifactSha256 ||
+      (bundle.protocol.isolation.runtimeExecutableStagingRequired === true && isolation.runtimeExecutableStagedSha256 !== bundle.protocol.isolation.runtimeArtifactSha256) ||
+      (bundle.protocol.isolation.readDefaultDeny === true && (isolation.readDefaultDeny !== true || isolation.hostCanaryReadDenied !== true || isolation.hostCanaryWriteDenied !== true)) ||
+      (bundle.protocol.isolation.positiveCapabilityProofRequired === true && (isolation.workspaceReadWriteAllowed !== true || isolation.stagedRuntimeVersionVerified !== true || isolation.stagedClientVersionVerified !== true)) ||
+      (assignment.arm === 'bce-enabled' && bundle.protocol.isolation.positiveCapabilityProofRequired === true && (isolation.mcpHandshakePassed !== true || !Array.isArray(isolation.mcpToolNames) || isolation.mcpToolNames.length === 0)) ||
+      (cell.client === 'codex' && isolation.clientSessionObserved === true && (isolation.credentialRetiredBeforeModelToolExecution !== true || isolation.modelToolExecutionObservedBeforeCredentialRetirement !== false)) ||
+      (cell.client === 'codex' && record.status === 'completed' && isolation.clientSessionObserved !== true)) {
     throw new Error(`${terminalPath}: OS isolation proof does not match the frozen driver or did not deny oracle reads and protected writes`);
   }
   if (functional.deterministic !== true || architecture.deterministic !== true) throw new Error(`${terminalPath}: hidden oracles were not repeat-deterministic`);

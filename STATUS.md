@@ -69,10 +69,12 @@ source tree.
   invalid or collateral mutants, and requires the real proof. This establishes that the current 38
   clauses can redden on real source changes; it does not establish specification completeness.
 - The model-evaluation controller has a no-model rehearsal over the exact eight-attempt pilot
-  topology. It proves ordered execution, host/protected-surface write denial, hidden-input read
-  denial, twice-run filesystem/network-isolated oracles, artifact-backed terminal records,
-  caught-failure terminalization, hard-crash recovery without denominator loss, and restricted
-  transcript exclusion from the public export. Synthetic rehearsal is machinery evidence only.
+  topology. It proves read-default-deny isolation, host/protected-surface write denial, hidden-input
+  read denial, exact client/Node staging, positive generated-config MCP negotiation, copied-auth
+  retirement before the fixture model-command phase, twice-run filesystem/network-isolated
+  oracles, artifact-backed terminal records, caught-failure terminalization, hard-crash recovery,
+  public aggregate recomputation, and restricted-transcript exclusion. Synthetic rehearsal is
+  machinery evidence only.
 
 ## What has not been established
 
@@ -86,13 +88,19 @@ source tree.
   isolation driver, BCE artifact, assignment proof, and public Sigstore seal are unset. Readiness
   therefore refuses and no comparative result is claimed.
 - Accelerated instrumentation pilot v1 was publicly sealed before exposure and retained all eight
-  attempts. All eight client launches failed because the outer sandbox also denied the NVM-installed
-  Codex artifact under the maintainer home. This is controller compatibility evidence, not an arm
+  attempts. All eight client invocations exited before a model response or task change was observed
+  because the outer sandbox also denied the NVM-installed Codex artifact under the maintainer home;
+  zero upstream inference is not observable. This is controller compatibility evidence, not an arm
   comparison; no task, cost, latency, defect, or policy-resistance benefit is inferred. The public
   result preserves the ledger and non-restricted artifacts while binding eight restricted
   transcripts by digest. A fix-forward pilot requires a new identifier and seal. Codex also exposes
   only requested model configuration, not a provider-returned model identity, so its rows cannot
-  receive safe-success identity credit.
+  receive safe-success identity credit. Pilot v2 inputs are generated but unsealed and unrun. They
+  add a staged standalone Node runtime, read-default-deny isolation, positive native
+  client/runtime/workspace/auth/MCP probes, event-ordered credential retirement, a sealed
+  offline BCE dependency closure, mechanism-use telemetry, and publicly recomputable aggregate
+  analysis. Those changes validate apparatus only; they do not turn the pilot into efficacy
+  evidence.
 - No conventional precision/recall study with independent annotation has been completed.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;

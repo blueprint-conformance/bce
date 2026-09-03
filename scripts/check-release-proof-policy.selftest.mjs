@@ -36,6 +36,14 @@ try {
   if (error.status !== 1 || !String(error.stderr).includes('extractor-real self-blueprint source mutations')) throw error;
 }
 
+writeFileSync(fixture, source.replace(/^\s*run:\s*npm run test:model-eval-controller\s*$/m, '        run: npm run test:model-eval-protocol'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a release without the macOS real-controller rehearsal');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('macOS real-controller rehearsal')) throw error;
+}
+
 const publishBlock = source.match(/      - name: npm publish --provenance --access public \(only after evidence verifies\)[\s\S]*?(?=\n      - name: Attach the evidence record)/)?.[0];
 if (!publishBlock) throw new Error('could not isolate npm publish block for ordering negative control');
 writeFileSync(fixture, source.replace(publishBlock, '').replace('      - name: Generate the evidence record of THIS release gate-run before publish', `${publishBlock}\n\n      - name: Generate the evidence record of THIS release gate-run before publish`));
@@ -50,4 +58,4 @@ writeFileSync(fixture, source);
 const accepted = execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`intact release policy did not pass:\n${accepted}`);
 
-process.stdout.write('release-proof-policy self-test: PASS (missing adoption/source-mutation proof, wrong issuer, and publish-before-evidence ordering rejected; intact gate accepted)\n');
+process.stdout.write('release-proof-policy self-test: PASS (missing adoption/source-mutation/controller proof, wrong issuer, and publish-before-evidence ordering rejected; intact gate accepted)\n');

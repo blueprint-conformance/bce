@@ -75,19 +75,41 @@ export interface ExtractorTeethReport {
 
 const sha256 = (value: string | Buffer): string => createHash('sha256').update(value).digest('hex');
 
-function sourceTreeSha256(repo: string): string {
+function selectedRoots(repo: string, roots: readonly string[]): Array<{ relative: string; absolute: string }> {
+  const root = fs.realpathSync(repo);
+  const selected = [...new Set(roots.map((value) => normalized(value).replace(/\/\*\*$/, '')))].sort();
+  const minimal = selected.filter((value) => !selected.some((other) => value !== other && value.startsWith(`${other}/`)));
+  return minimal.map((relative) => {
+    const absolute = path.resolve(root, relative);
+    if (absolute !== root && !absolute.startsWith(`${root}${path.sep}`)) throw new Error(`allowed mutation root '${relative}' escapes repository`);
+    return { relative, absolute };
+  });
+}
+
+function sourceTreeSha256(repo: string, roots: readonly string[]): string {
   const root = fs.realpathSync(repo);
   const entries: Array<{ path: string; sha256: string }> = [];
-  const walk = (dir: string): void => {
-    for (const name of fs.readdirSync(dir).sort()) {
+  const walk = (absolute: string): void => {
+    if (!fs.existsSync(absolute)) {
+      entries.push({ path: path.relative(root, absolute).split(path.sep).join('/'), sha256: sha256('missing') });
+      return;
+    }
+    const stat = fs.lstatSync(absolute);
+    if (stat.isSymbolicLink()) {
+      entries.push({ path: path.relative(root, absolute).split(path.sep).join('/'), sha256: sha256(`symlink:${fs.readlinkSync(absolute)}`) });
+      return;
+    }
+    if (stat.isFile()) {
+      entries.push({ path: path.relative(root, absolute).split(path.sep).join('/'), sha256: sha256(fs.readFileSync(absolute)) });
+      return;
+    }
+    if (!stat.isDirectory()) throw new Error(`governed source tree contains unsupported entry: ${path.relative(root, absolute)}`);
+    for (const name of fs.readdirSync(absolute).sort()) {
       if (['.git', 'node_modules', 'dist', 'coverage'].includes(name)) continue;
-      const absolute = path.join(dir, name);
-      const stat = fs.lstatSync(absolute);
-      if (stat.isDirectory()) walk(absolute);
-      else if (stat.isFile()) entries.push({ path: path.relative(root, absolute).split(path.sep).join('/'), sha256: sha256(fs.readFileSync(absolute)) });
+      walk(path.join(absolute, name));
     }
   };
-  walk(root);
+  for (const selected of selectedRoots(repo, roots)) walk(selected.absolute);
   return sha256(stableStringify(entries));
 }
 
@@ -136,11 +158,16 @@ function assertParseable(target: string, content: string): void {
   if (diagnostics.length > 0) throw new Error(`mutation is not parseable: ${diagnostics.join('; ')}`);
 }
 
-function copySourceTree(source: string, target: string): void {
-  fs.cpSync(source, target, {
-    recursive: true,
-    filter: (entry) => !entry.split(path.sep).some((part) => ['.git', 'node_modules', 'dist', 'coverage'].includes(part)),
-  });
+function copySourceTree(source: string, target: string, roots: readonly string[]): void {
+  for (const selected of selectedRoots(source, roots)) {
+    if (!fs.existsSync(selected.absolute)) continue;
+    const destination = path.join(target, selected.relative);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.cpSync(selected.absolute, destination, {
+      recursive: true,
+      filter: (entry) => !entry.split(path.sep).some((part) => ['.git', 'node_modules', 'dist', 'coverage'].includes(part)),
+    });
+  }
 }
 
 function applyOperation(repo: string, manifest: TeethMutationManifest, operation: z.infer<typeof MutationOperationSchema>): { before: string | null; after: string | null } {
@@ -217,7 +244,7 @@ export function assessExtractorTeethCorpus(input: {
     }
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), `bce-extractor-teeth-${testCase.id}-`));
     try {
-      copySourceTree(input.repoDir, scratch);
+      copySourceTree(input.repoDir, scratch, manifest.allowedMutationRoots);
       const mutation = applyOperation(scratch, manifest, testCase.operation);
       const mutatedGraph = extractor.extract(scratch, `extractor-teeth:${testCase.id}`);
       const mutatedReport = evaluate(input.blueprint, mutatedGraph, cfg.profile);
@@ -264,7 +291,7 @@ export function assessExtractorTeethCorpus(input: {
     unmappedConstraints,
     duplicateMappings,
     inputBindings: {
-      sourceTreeSha256: sourceTreeSha256(input.repoDir),
+      sourceTreeSha256: sourceTreeSha256(input.repoDir, manifest.allowedMutationRoots),
       blueprintSha256: sha256(stableStringify(input.blueprint)),
       mutationManifestSha256: sha256(stableStringify(manifest)),
       extractorIdentity: extractorKind === 'ast' ? 'bce-ast:ts-morph@23.0.0' : 'bce-line-scan:v1',

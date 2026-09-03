@@ -62,6 +62,18 @@ describe('extractor-real source mutation teeth', () => {
     expect(report.proofSha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it('binds and copies only declared mutation roots', () => {
+    const { repo, blueprint, manifest } = fixture();
+    const before = assessExtractorTeethCorpus({ repoDir: repo, blueprint, manifest });
+    fs.mkdirSync(path.join(repo, '.tmp-unrelated'));
+    fs.writeFileSync(path.join(repo, '.tmp-unrelated', 'transient.txt'), 'not governed by this corpus\n');
+    const after = assessExtractorTeethCorpus({ repoDir: repo, blueprint, manifest });
+
+    expect(before.verdict).toBe('extractor-real-proven');
+    expect(after.verdict).toBe('extractor-real-proven');
+    expect(after.inputBindings.sourceTreeSha256).toBe(before.inputBindings.sourceTreeSha256);
+  });
+
   it('refuses missing and duplicate one-to-one mappings', () => {
     const { repo, blueprint, manifest } = fixture();
     const one = structuredClone(manifest) as { cases: unknown[] };

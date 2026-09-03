@@ -63,6 +63,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  model-evaluation-controller-macos:
+    name: release-model-evaluation-controller-macos
+    runs-on: macos-15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: 22.22.2
+          cache: npm
+
+      - name: Install (clean, lockfile-exact)
+        run: npm ci
+
+      - name: Build the treatment artifact
+        run: npm run build
+
+      - name: Real controller rehearsal — strict isolation, staged runtime, MCP handshake, crash recovery, and public replay
+        run: npm run test:model-eval-controller
+
   # ----------------------------------------------------------------------------
   # GATE — every proof, re-executed at the tag. This job is the fail-closed wall
   # in front of publish: if any leg reds, the job fails, and the publish job
@@ -384,7 +406,7 @@ jobs:
   # ----------------------------------------------------------------------------
   publish:
     name: publish (provenance) + attach evidence record
-    needs: gate
+    needs: [gate, model-evaluation-controller-macos]
     if: ${{ github.event_name == 'push' && needs.gate.outputs.dry_run == 'false' }}
     runs-on: ubuntu-latest
     environment: release

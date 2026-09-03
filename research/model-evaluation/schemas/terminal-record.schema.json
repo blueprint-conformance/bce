@@ -3,7 +3,7 @@
   "title": "BCE model-evaluation terminal record v2",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "studyId", "trialId", "pairId", "attemptId", "primaryAttempt", "assignment", "bindings", "status", "exposure", "evidence", "derived", "telemetry", "recordSha256"],
+  "required": ["schemaVersion", "studyId", "trialId", "pairId", "attemptId", "primaryAttempt", "assignment", "bindings", "status", "exposure", "evidence", "derived", "mechanism", "telemetry", "recordSha256"],
   "properties": {
     "schemaVersion": { "const": "2" },
     "studyId": { "type": "string", "minLength": 3 },
@@ -90,6 +90,19 @@
         "productiveBlock": { "type": "boolean" },
         "falseBlock": { "type": "boolean" },
         "collateralRegression": { "type": "boolean" }
+      }
+    },
+    "mechanism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventEvidenceAvailable", "skillReadObserved", "mcpToolCalls", "bceGateCalls", "bceVerdictSequence", "redToGreenCorrectionObserved"],
+      "properties": {
+        "eventEvidenceAvailable": { "type": "boolean" },
+        "skillReadObserved": { "type": ["boolean", "null"] },
+        "mcpToolCalls": { "type": ["integer", "null"], "minimum": 0 },
+        "bceGateCalls": { "type": ["integer", "null"], "minimum": 0 },
+        "bceVerdictSequence": { "type": ["array", "null"], "items": { "enum": ["pass", "fail"] } },
+        "redToGreenCorrectionObserved": { "type": ["boolean", "null"] }
       }
     },
     "telemetry": {

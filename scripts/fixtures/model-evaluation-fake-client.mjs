@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** Deterministic no-model fixture client. It is accepted only by synthetic-self-test seals. */
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 if (process.argv.includes('--version')) {
@@ -8,6 +8,16 @@ if (process.argv.includes('--version')) {
   process.exit(0);
 }
 const prompt = process.argv.at(-1) ?? '';
+const codexLifecycleFixture = process.argv.includes('exec');
+if (codexLifecycleFixture) {
+  process.stdout.write(`${JSON.stringify({ type: 'thread.started', thread_id: 'credential-retirement-fixture' })}\n`);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  if (existsSync(`${process.env.CODEX_HOME}/auth.json`)) {
+    process.stderr.write('credential remained readable after client initialization\n');
+    process.exit(9);
+  }
+  process.stdout.write(`${JSON.stringify({ type: 'turn.started' })}\n`);
+}
 let target;
 let content;
 if (prompt.includes('Implement summarize')) {
@@ -27,4 +37,5 @@ if (prompt.includes('Implement summarize')) {
   process.exit(3);
 }
 writeFileSync(join(process.cwd(), target), content);
-process.stdout.write(`${JSON.stringify({ model: 'fixture-model-v1', num_turns: 1, input_tokens: 100, output_tokens: 20, cached_tokens: 0, cost_usd: 0 })}\n`);
+if (codexLifecycleFixture) process.stdout.write(`${JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 100, output_tokens: 20, cached_input_tokens: 0 } })}\n`);
+else process.stdout.write(`${JSON.stringify({ model: 'fixture-model-v1', num_turns: 1, input_tokens: 100, output_tokens: 20, cached_tokens: 0, cost_usd: 0 })}\n`);

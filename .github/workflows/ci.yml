@@ -289,5 +289,5 @@ jobs:
       - name: Build the treatment artifact
         run: npm run build
 
-      - name: Real controller rehearsal — isolation, both arms, caught failure, and hard-crash recovery
+      - name: Real controller rehearsal — strict isolation, staged runtime, MCP handshake, crash recovery, and public replay
         run: npm run test:model-eval-controller

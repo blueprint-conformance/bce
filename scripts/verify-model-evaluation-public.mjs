@@ -2,6 +2,8 @@
 /** Zero-credential verification of a public model-evaluation export. */
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { analyzeModelEvaluationRecords } from './lib/model-evaluation-analysis.mjs';
 import { canonicalJson, expectedSeal, sha256Bytes, sha256Json } from './lib/model-evaluation.mjs';
 
 const valueAfter = (flag) => {
@@ -85,7 +87,14 @@ for (let index = 0; index < manifest.assignments.length; index += 1) {
   const task = manifest.tasks.find((item) => item.id === assignment.taskId);
   const repository = manifest.repositories.find((item) => item.id === assignment.repositoryId);
   if (record.bindings.sealRootSha256 !== seal.rootSha256 || record.bindings.preparedTreeSha256 !== repository.preparedTreeSha256 || preparation.preparedTreeSha256 !== repository.preparedTreeSha256 || record.bindings.treatmentConfigSha256 !== preparation.treatmentConfigSha256) throw new Error(`${record.trialId}: frozen binding mismatch`);
-  if (isolation.driver !== protocol.isolation.executionDriver || isolation.driverSha256 !== protocol.isolation.executionDriverSha256 || !isolation.oracleReadDenied || !isolation.protectedWriteDenied) throw new Error(`${record.trialId}: client isolation proof mismatch`);
+  if (isolation.driver !== protocol.isolation.executionDriver || isolation.driverSha256 !== protocol.isolation.executionDriverSha256 || !isolation.oracleReadDenied || !isolation.protectedWriteDenied ||
+      (protocol.isolation.clientExecutableStagingRequired === true && isolation.clientExecutableStagedSha256 !== cell.clientArtifactSha256) ||
+      (protocol.isolation.runtimeExecutableStagingRequired === true && isolation.runtimeExecutableStagedSha256 !== protocol.isolation.runtimeArtifactSha256) ||
+      (protocol.isolation.readDefaultDeny === true && (!isolation.readDefaultDeny || !isolation.hostCanaryReadDenied || !isolation.hostCanaryWriteDenied)) ||
+      (protocol.isolation.positiveCapabilityProofRequired === true && (!isolation.workspaceReadWriteAllowed || !isolation.stagedRuntimeVersionVerified || !isolation.stagedClientVersionVerified)) ||
+      (assignment.arm === 'bce-enabled' && protocol.isolation.positiveCapabilityProofRequired === true && (!isolation.mcpHandshakePassed || !Array.isArray(isolation.mcpToolNames) || isolation.mcpToolNames.length === 0)) ||
+      (cell.client === 'codex' && isolation.clientSessionObserved === true && (isolation.credentialRetiredBeforeModelToolExecution !== true || isolation.modelToolExecutionObservedBeforeCredentialRetirement !== false)) ||
+      (cell.client === 'codex' && record.status === 'completed' && isolation.clientSessionObserved !== true)) throw new Error(`${record.trialId}: client isolation proof mismatch`);
   const withinBudget = record.telemetry.endToEndVisibleMs !== null && record.telemetry.endToEndVisibleMs <= task.budget.timeoutMs && record.telemetry.agentTurns !== null && record.telemetry.agentTurns <= task.budget.maxTurns && (task.budget.maxCostUsd === null || (record.telemetry.costUsd !== null && record.telemetry.costUsd <= task.budget.maxCostUsd));
   const modelIdentityVerified = record.bindings.resolvedModel === cell.resolvedModel && ['provider-response', 'synthetic-response'].includes(cell.modelIdentityEvidence);
   const expectedDerived = {
@@ -107,4 +116,14 @@ for (let index = 0; index < manifest.assignments.length; index += 1) {
 }
 if (previousLedger !== summary.publicReplay.ledgerHeadSha256) throw new Error('ledger head mismatch');
 if (summary.analysis.verifiedTrials !== records.length) throw new Error('analysis denominator mismatch');
+if (protocol.implementation.analysisCoreSha256) {
+  const analysisCorePath = fileURLToPath(new URL('./lib/model-evaluation-analysis.mjs', import.meta.url));
+  if (sha256Bytes(readFileSync(analysisCorePath)) !== protocol.implementation.analysisCoreSha256) throw new Error('public analysis core differs from sealed implementation');
+  const replayedAnalysis = analyzeModelEvaluationRecords(
+    { root: bundleRoot, protocol, manifest, seal },
+    records,
+    protocol.implementation.analyzerSha256,
+  );
+  if (canonicalJson(replayedAnalysis) !== canonicalJson(summary.analysis)) throw new Error('public aggregate analysis does not recompute from terminal records');
+}
 process.stdout.write(`public model-evaluation evidence verified: ${summary.studyId} (${records.length} terminal records; ${summary.resultSha256})\n`);

@@ -102,12 +102,25 @@
     "treatment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "allowedDeltaManifest", "engineArtifact", "engineArtifactSha256", "baselineReceivesWrittenPolicy", "bceArmReceivesSameWrittenPolicy", "agentMayEditPolicy"],
+      "required": ["kind", "allowedDeltaManifest", "engineArtifact", "engineArtifactSha256", "installedTreeSha256", "artifactProvenance", "baselineReceivesWrittenPolicy", "bceArmReceivesSameWrittenPolicy", "agentMayEditPolicy"],
       "properties": {
         "kind": { "const": "bce-adoption-bundle" },
         "allowedDeltaManifest": { "type": "string", "minLength": 1 },
         "engineArtifact": { "type": ["string", "null"] },
         "engineArtifactSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "installedTreeSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "artifactProvenance": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["sourceCommit", "sourceTreeState", "buildCommand", "classification", "publishedPackageByteMatch"],
+          "properties": {
+            "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "sourceTreeState": { "enum": ["clean", "dirty-development-only"] },
+            "buildCommand": { "type": "string", "minLength": 20 },
+            "classification": { "const": "exact-local-candidate-offline-runtime-closure" },
+            "publishedPackageByteMatch": { "type": "null" }
+          }
+        },
         "baselineReceivesWrittenPolicy": { "const": true },
         "bceArmReceivesSameWrittenPolicy": { "const": true },
         "agentMayEditPolicy": { "const": false }
@@ -129,12 +142,19 @@
     "isolation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["executionDriver", "executionDriverSha256", "freshWorkspacePerAttempt", "freshClientStatePerAttempt", "userPreferencesImported", "authenticationMountedSeparately", "sharedModelSession", "sharedRepositoryCache", "oracleOutsideAgentWorkspace", "oracleReadIsolationProofRequired", "networkPolicyRecorded", "sameNonBceToolsAndPermissions"],
+      "required": ["executionDriver", "executionDriverSha256", "freshWorkspacePerAttempt", "freshClientStatePerAttempt", "clientExecutableStagingRequired", "runtimeExecutableStagingRequired", "runtimeExecutable", "runtimeVersion", "runtimeArtifactSha256", "readDefaultDeny", "positiveCapabilityProofRequired", "userPreferencesImported", "authenticationMountedSeparately", "sharedModelSession", "sharedRepositoryCache", "oracleOutsideAgentWorkspace", "oracleReadIsolationProofRequired", "networkPolicyRecorded", "sameNonBceToolsAndPermissions"],
       "properties": {
         "executionDriver": { "type": ["string", "null"] },
         "executionDriverSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "freshWorkspacePerAttempt": { "const": true },
         "freshClientStatePerAttempt": { "const": true },
+        "clientExecutableStagingRequired": { "const": true },
+        "runtimeExecutableStagingRequired": { "const": true },
+        "runtimeExecutable": { "type": ["string", "null"] },
+        "runtimeVersion": { "type": ["string", "null"] },
+        "runtimeArtifactSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "readDefaultDeny": { "const": true },
+        "positiveCapabilityProofRequired": { "const": true },
         "userPreferencesImported": { "const": false },
         "authenticationMountedSeparately": { "const": true },
         "sharedModelSession": { "const": false },
@@ -160,12 +180,13 @@
     "implementation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["verifierSha256", "assignmentGeneratorSha256", "runnerSha256", "analyzerSha256"],
+      "required": ["verifierSha256", "assignmentGeneratorSha256", "runnerSha256", "analyzerSha256", "analysisCoreSha256"],
       "properties": {
         "verifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "assignmentGeneratorSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "runnerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
-        "analyzerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
+        "analyzerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "analysisCoreSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
       }
     },
     "stopping": {

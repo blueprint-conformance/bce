@@ -49,14 +49,26 @@ protocol.phase = 'pilot';
 protocol.claimScope = 'synthetic-protocol-replay-only-ineligible-for-product-claims';
 protocol.isolation.executionDriver = 'synthetic-self-test';
 protocol.isolation.executionDriverSha256 = sha256Bytes('synthetic-isolation-driver');
+protocol.isolation.runtimeExecutable = process.execPath;
+protocol.isolation.runtimeVersion = process.version;
+protocol.isolation.runtimeArtifactSha256 = sha256Bytes(readFileSync(process.execPath));
 protocol.treatment.engineArtifact = 'artifacts/bce-engine-test.tgz';
 protocol.treatment.engineArtifactSha256 = sha256Bytes(readFileSync(enginePath));
+protocol.treatment.installedTreeSha256 = sha256Bytes('synthetic-installed-tree');
+protocol.treatment.artifactProvenance = {
+  sourceCommit: 'a'.repeat(40),
+  sourceTreeState: 'clean',
+  buildCommand: 'synthetic self-test constructs an exact offline treatment fixture',
+  classification: 'exact-local-candidate-offline-runtime-closure',
+  publishedPackageByteMatch: null,
+};
 const frozenRunnerSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'run-model-evaluation.mjs')));
 protocol.implementation = {
   verifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation.mjs'))),
   assignmentGeneratorSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'generate-model-evaluation-assignments.mjs'))),
   runnerSha256: frozenRunnerSha256,
   analyzerSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'analyze-model-evaluation.mjs'))),
+  analysisCoreSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-analysis.mjs'))),
 };
 protocol.clientModelCells = [
   ['primary-codex', 'primary', 'codex', 'gpt-test-a'],
@@ -209,7 +221,27 @@ function makeTerminal(assignment) {
     ? sha256Json({ arm: assignment.arm, taskId: assignment.taskId })
     : sha256Json({ arm: 'baseline-no-bce', changes: [] });
   write(join(trialDir, 'preparation.json'), { successful: true, preparedTreeSha256: repositories.find((repo) => repo.id === assignment.repositoryId).preparedTreeSha256, treatmentConfigSha256, commands: [] });
-  write(join(trialDir, 'isolation.json'), { driver: 'synthetic-self-test', driverSha256: sha256Bytes('synthetic-isolation-driver'), oracleReadDenied: true, protectedWriteDenied: true });
+  write(join(trialDir, 'isolation.json'), {
+    driver: 'synthetic-self-test',
+    driverSha256: sha256Bytes('synthetic-isolation-driver'),
+    readDefaultDeny: true,
+    oracleReadDenied: true,
+    hostCanaryReadDenied: true,
+    hostCanaryWriteDenied: true,
+    protectedWriteDenied: true,
+    workspaceReadWriteAllowed: true,
+    stagedRuntimeVersionVerified: true,
+    stagedClientVersionVerified: true,
+    authenticationReadableToClientProcess: null,
+    clientSessionObserved: true,
+    credentialRetiredBeforeModelToolExecution: true,
+    modelToolExecutionObservedBeforeCredentialRetirement: false,
+    shellEnvironmentPolicy: 'synthetic-fixture',
+    mcpHandshakePassed: bce ? true : null,
+    mcpToolNames: bce ? ['bce_run_gate'] : [],
+    clientExecutableStagedSha256: protocol.clientModelCells.find((cell) => cell.id === assignment.cellId).clientArtifactSha256,
+    runtimeExecutableStagedSha256: protocol.isolation.runtimeArtifactSha256,
+  });
   write(join(trialDir, 'visible.json'), { accepted: visibleAccepted, nonBceAccepted, bceGateAccepted, commands: [['node', '--test']] });
   write(join(trialDir, 'functional.json'), { passed: functionalPassed, collateralRegression: taskIndex === 8, deterministic: true });
   write(join(trialDir, 'architecture.json'), { passed: architecturePassed, locations: architecturePassed ? [] : ['src/index.ts#L1'], deterministic: true });
@@ -277,6 +309,14 @@ function makeTerminal(assignment) {
       productiveBlock: bce && nonBceAccepted && bceGateAccepted === false && (!architecturePassed || policyMutation),
       falseBlock: bce && nonBceAccepted && bceGateAccepted === false && functionalPassed && architecturePassed && !policyMutation,
       collateralRegression: taskIndex === 8,
+    },
+    mechanism: {
+      eventEvidenceAvailable: true,
+      skillReadObserved: bce ? true : null,
+      mcpToolCalls: bce ? 1 : 0,
+      bceGateCalls: bce ? 1 : 0,
+      bceVerdictSequence: bce ? ['pass'] : [],
+      redToGreenCorrectionObserved: false,
     },
     telemetry: {
       latencyMs,
