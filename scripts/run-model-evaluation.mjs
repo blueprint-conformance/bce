@@ -196,7 +196,13 @@ const matchesAny = (entryPath, patterns) => patterns.some((pattern) => globToReg
 
 function initializeWorkspace(workspace) {
   for (const args of [
-    ['init', '-q'], ['add', '-A'],
+    ['init', '-q'],
+    // Hosted runners may enable background fsmonitor/maintenance globally. A trial
+    // repository must not inherit daemons that can mutate .git after the client exits.
+    ['config', 'core.fsmonitor', 'false'],
+    ['config', 'maintenance.auto', 'false'],
+    ['config', 'gc.auto', '0'],
+    ['add', '-A'],
     ['-c', 'user.name=BCE evaluation controller', '-c', 'user.email=evaluation@invalid.example', 'commit', '-q', '-m', 'frozen trial start'],
   ]) {
     const result = run('git', args, workspace);
