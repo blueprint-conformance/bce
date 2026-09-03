@@ -1,0 +1,2 @@
+Implement summarize(name). Trim the name and return the provider result. Preserve the provider boundary.
+Only edit src/service.mjs.

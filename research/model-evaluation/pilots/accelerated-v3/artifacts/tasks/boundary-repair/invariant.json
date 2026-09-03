@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1",
+  "writtenPolicyText": "src/service.mjs must never import or reference provider-sdk directly.",
+  "constraint": {
+    "id": "service-no-direct-provider-sdk",
+    "type": "forbiddenPattern",
+    "severity": "critical",
+    "path": "src/service.mjs",
+    "pattern": "provider-sdk"
+  }
+}
