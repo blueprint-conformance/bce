@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="1060" viewBox="0 0 760 1060" role="img" aria-labelledby="title desc">
+  <title id="title">The bce merge gate on a narrow screen</title>
+  <desc id="desc">Agent code is extracted and evaluated against a human-owned blueprint. One engine returns exit code zero to merge or exit code one to block with an exact violation and a code-fix loop.</desc>
+  <defs>
+    <marker id="steel" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#7890a3"/></marker>
+    <marker id="cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#61c9ef"/></marker>
+    <marker id="green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#48c99a"/></marker>
+    <marker id="red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#f05c67"/></marker>
+    <style>
+      .sans{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace}
+      .node{fill:#080919;stroke:#566274;stroke-width:2}
+      .route{fill:none;stroke:#7890a3;stroke-width:2.5;marker-end:url(#steel)}
+      .route-cyan{fill:none;stroke:#61c9ef;stroke-width:2.7;marker-end:url(#cyan)}
+      .route-red{fill:none;stroke:#f05c67;stroke-width:2.5;marker-end:url(#red)}
+    </style>
+  </defs>
+  <rect width="760" height="1060" fill="#080919"/>
+  <g class="sans">
+    <text x="34" y="66" font-size="48" font-weight="500" letter-spacing="-1.5" fill="#61c9ef">bce</text>
+    <text x="34" y="126" font-size="48" font-weight="700" letter-spacing="-1.2" fill="#e8ebed">THE AGENT WRITES.</text>
+    <text x="34" y="178" font-size="48" font-weight="700" letter-spacing="-1.2" fill="#e8ebed">BCE DECIDES WHAT MAY MERGE.</text>
+
+    <g font-size="19" font-weight="650" letter-spacing=".8" fill="#a9e6f8">
+      <rect x="34" y="222" width="202" height="58" rx="4" fill="#080919" stroke="#61c9ef" stroke-width="2"/>
+      <text x="135" y="259" text-anchor="middle">CLI · ACTION · MCP</text>
+    </g>
+    <path class="route-cyan" d="M236 251H278"/>
+    <rect class="node" x="292" y="222" width="178" height="58" rx="4"/>
+    <text class="mono" x="381" y="258" text-anchor="middle" font-size="22" fill="#e8ebed">runGate()</text>
+    <rect class="node" x="500" y="222" width="226" height="58" rx="4"/>
+    <text x="613" y="247" text-anchor="middle" font-size="14" font-weight="700" letter-spacing=".8" fill="#b8c1cc">HUMAN REVIEW</text>
+    <text class="mono" x="613" y="267" text-anchor="middle" font-size="11" fill="#7890a3">AMEND POLICY VISIBLY</text>
+
+    <rect class="node" x="34" y="326" width="320" height="64" rx="4"/>
+    <text x="194" y="352" text-anchor="middle" font-size="14" font-weight="700" letter-spacing="1" fill="#7890a3">AGENT CODE CHANGE</text>
+    <text class="mono" x="194" y="377" text-anchor="middle" font-size="18" fill="#e8ebed">resolveExtraction()</text>
+    <rect class="node" x="406" y="326" width="320" height="64" rx="4"/>
+    <text x="566" y="352" text-anchor="middle" font-size="14" font-weight="700" letter-spacing="1" fill="#7890a3">HUMAN-OWNED BLUEPRINT</text>
+    <text class="mono" x="566" y="377" text-anchor="middle" font-size="18" fill="#e8ebed">reviewed policy</text>
+    <path d="M694 326V304H613V290" fill="none" stroke="#7890a3" stroke-width="2" stroke-dasharray="7 7" marker-end="url(#steel)"/>
+    <path class="route-cyan" d="M381 280V306H194V316"/>
+    <path class="route-cyan" d="M566 390V418H381V438"/>
+    <path class="route-cyan" d="M194 390V418H381V438"/>
+
+    <rect class="node" x="238" y="450" width="286" height="64" rx="4"/>
+    <text class="mono" x="381" y="490" text-anchor="middle" font-size="23" fill="#e8ebed">evaluate()</text>
+    <path class="route" d="M381 514V544"/>
+    <rect class="node" x="194" y="556" width="374" height="64" rx="4"/>
+    <text class="mono" x="381" y="596" text-anchor="middle" font-size="22" fill="#e8ebed">ComplianceReport → exitCode</text>
+
+    <path d="M381 620V652H196V674" fill="none" stroke="#48c99a" stroke-width="2.7" marker-end="url(#green)"/>
+    <path class="route-red" d="M381 620V652H566V674"/>
+    <rect x="68" y="686" width="256" height="62" rx="4" fill="#080919" stroke="#48c99a" stroke-width="2"/>
+    <text class="mono" x="196" y="725" text-anchor="middle" font-size="24" font-weight="650" fill="#72ddb5">0 · MERGE</text>
+    <rect x="438" y="686" width="256" height="62" rx="4" fill="#080919" stroke="#f05c67" stroke-width="2"/>
+    <text class="mono" x="566" y="725" text-anchor="middle" font-size="24" font-weight="650" fill="#ff7d87">1 · BLOCK</text>
+
+    <path class="route-red" d="M566 748V774"/>
+    <rect x="68" y="786" width="626" height="126" rx="4" fill="#080919" stroke="#f05c67" stroke-width="2"/>
+    <g class="mono" font-size="21" fill="#d8757f">
+      <text x="94" y="822">no-direct-http-client</text>
+      <text x="94" y="855">extension:greeting.plugin -&gt; axios</text>
+      <text x="94" y="888">src/greeting.plugin.ts · line 16</text>
+    </g>
+    <path class="route-red" stroke-dasharray="8 7" d="M68 850H18V358H24"/>
+    <text class="mono" x="530" y="770" text-anchor="middle" font-size="17" fill="#d76672">FIX CODE · SAME GATE</text>
+
+    <line x1="34" y1="946" x2="726" y2="946" stroke="#454e5e" stroke-width="1.5"/>
+    <g class="mono" font-size="17">
+      <text x="42" y="986" fill="#61c9ef">$</text><text x="70" y="986" fill="#c5ccd3">npm install --save-dev --save-exact bce-engine@0.1.5</text>
+      <text x="42" y="1022" fill="#61c9ef">$</text><text x="70" y="1022" fill="#c5ccd3">npx --no-install bce demo</text>
+    </g>
+  </g>
+</svg>
