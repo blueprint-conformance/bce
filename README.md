@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(max-width: 600px)" srcset="assets/bce-banner-mobile.svg">
-    <img src="assets/bce-banner.svg" alt="The bce engine path. The CLI, GitHub Action, and MCP enter runGate. Agent code is extracted, then evaluated against a human-owned blueprint. The report returns exit code 0 to merge or exit code 1 to block with the violated rule, edge, file, and line. Code fixes loop back to the agent; policy amendments go through human review.">
+    <img src="assets/bce-banner.svg" alt="bce — architecture that holds while agents move fast. A human-owned blueprint and an agent code change enter the BCE gate. The gate catches a forbidden dependency, names its source line, and blocks the merge.">
   </picture>
 </p>
 

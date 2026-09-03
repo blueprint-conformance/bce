@@ -16,11 +16,11 @@ colors:
   docs-dark-fg: "#e6e9ee"
 typography:
   hero-display:
-    fontFamily: '"Avenir Next Condensed", ui-sans-serif, sans-serif'
-    fontSize: "54px"
-    fontWeight: 700
-    lineHeight: 1
-    letterSpacing: "-1.8px"
+    fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: "43px"
+    fontWeight: 760
+    lineHeight: 1.16
+    letterSpacing: "-1.2px"
   diagram-title:
     fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: "28px"
@@ -107,17 +107,17 @@ components:
 
 ## Overview
 
-**Creative North Star: "The Engine Is the Hero"**
+**Creative North Star: "Architecture That Holds"**
 
-bce presents itself as a real developer tool, not a campaign, a dashboard, or a research paper. The visual authority comes from executable artifacts: the shared engine path, literal function names, real commands, exact diagnostics, exit codes, and reproducible evidence. The main diagram is therefore product explanation, not decorative illustration.
+bce presents itself as a real developer tool, not a campaign, a dashboard, or a research paper. The header leads with the user promise, then proves it with one recognizable pull-request moment: human-owned policy and an agent change enter the gate; an exact violation blocks the merge. Executable artifacts, literal commands, diagnostics, exit codes, and reproducible evidence carry the rest of the page.
 
-The system pairs a flat deep-navy engine world with a compact, native documentation shell. It is precise, quiet, and diagram-led: cyan traces structure, green permits a merge, red blocks and returns a repair, and muted steel carries governance or secondary context. Familiar developer-tool conventions are used without copying another product's identity.
+The system pairs a dimensional deep-navy tool header with a compact, native documentation shell. It is precise, calm, and product-led: cyan identifies the blueprint and gate, green signals health, red blocks, and muted steel carries secondary context. Familiar developer-tool conventions are used without copying another product's identity.
 
 **Key Characteristics:**
 
-- One dominant execution spine instead of a grid of feature cards.
+- One direct promise paired with one concrete product moment.
 - Real labels, commands, verdicts, and diagnostics instead of metaphor or invented proof.
-- Flat fields, thin strokes, compact radii, system fonts, and no ornamental effects.
+- Restrained depth, thin strokes, compact radii, native fonts, and no ornamental effects.
 - Mechanism evidence first; efficacy limits and evidence provenance remain explicit.
 - Purpose-built desktop and mobile diagrams with equivalent meaning.
 
@@ -147,21 +147,21 @@ The terminal replay retains a slightly softer, terminal-specific palette: comman
 
 **The Semantic Accent Rule.** Cyan describes the route, green permits, red refuses, and steel governs; never exchange these roles for variety.
 
-**The One Canvas Rule.** Each explanatory SVG owns one uninterrupted engine canvas. Do not introduce gradients, glass, texture, glow, or shadow inside it.
+**The One Canvas Rule.** Each explanatory SVG owns one uninterrupted tool canvas. The header may use its restrained navy depth gradient and blueprint grid; do not introduce glass, glow, shadow, or unrelated texture.
 
 ## Typography
 
-**Display Font:** A narrow industrial sans (`Avenir Next Condensed`, with `Arial Narrow` and sans-serif fallbacks)
+**Display Font:** Native system sans, set firmly and compactly
 
 **Body Font:** Native system sans (`-apple-system`, BlinkMacSystemFont, `Segoe UI`, Roboto, Helvetica, Arial)
 
 **Label/Mono Font:** Native system monospace (`ui-monospace`, SFMono, Menlo, Consolas, Liberation Mono)
 
-**Character:** Condensed display type makes the opening claim firm without turning it into a poster. The system sans keeps prose and supporting labels neutral; monospace is reserved for executable names, commands, file paths, diagnostics, state labels, and exit codes.
+**Character:** A strong native sans makes the opening promise direct without turning it into a poster. The same family keeps prose and supporting labels familiar; monospace is reserved for executable names, commands, file paths, diagnostics, state labels, and exit codes.
 
 ### Hierarchy
 
-- **Hero Display:** A tightly set, uppercase headline at the top of the engine canvas. The desktop asset preserves the approved silhouette as vector paths; the mobile asset uses a bold system sans at a larger relative scale for legibility.
+- **Hero Display:** A tightly set sentence-case promise beside the pull-request panel. Desktop and mobile use the same native family at composition-specific sizes for legibility.
 - **Diagram Title:** Bold system sans for short explanatory statements such as the adoption-ratchet heading.
 - **Functional Label:** Compact, tracked sans or mono for ownership and state. Uppercase is permitted for graph labels such as `HUMAN REVIEW`; it is not a decorative eyebrow style.
 - **Function / Diagnostic:** Monospace for `runGate()`, report stages, exact rules, edges, files, lines, commands, and `0 · MERGE` / `1 · BLOCK`.
@@ -174,17 +174,17 @@ The terminal replay retains a slightly softer, terminal-specific palette: comman
 
 ## Layout
 
-The opening asset is a left-aligned, full-width execution graph on a `1672 × 941` desktop viewBox. CLI, GitHub Action, and MCP converge on `runGate()`, then the central spine proceeds through extraction, evaluation, report, and exit-code judgment. Human-owned policy and agent-produced code enter as distinct inputs. The merge branch is compact; the block branch expands into an exact diagnostic and a visible repair loop. A separate subdued branch keeps policy amendment under human review. The real two-command demo anchors the lower edge.
+The opening asset is a two-part product story on a `1280 × 420` desktop viewBox. The left half carries the bce mark, the promise “Architecture that holds while agents move fast,” one plain-language consequence, and the three supported surfaces. The right half is a compact pull-request check: a blueprint and agent change converge on the gate, which returns a named blocking diagnosis. The promise attracts attention; the product moment earns it.
 
-The README uses responsive `<picture>` elements at a `600px` threshold. The fallback `<img>` is the desktop asset; one preceding `<source media="(max-width: 600px)">` selects a separately composed mobile SVG. Mobile is not a scale-down: the `760 × 1060` hero consolidates the three adapters into one entry node, stacks extraction and policy inputs, keeps governance attached to human review, and preserves the full block-to-diagnosis-to-code-fix loop. The adoption diagram similarly moves from a `1280 × 330` horizontal progression to a `760 × 790` vertical progression. Meaning and sequence must remain equivalent across variants even when labels are shortened.
+The README uses responsive `<picture>` elements at a `600px` threshold. The fallback `<img>` is the desktop asset; one preceding `<source media="(max-width: 600px)">` selects a separately composed mobile SVG. Mobile is not a scale-down: the `760 × 1030` header stacks the promise above a larger version of the same pull-request check so the blueprint, agent change, gate, diagnosis, file, line, and exit code remain legible. The adoption diagram likewise moves from a `1280 × 330` horizontal progression to a `760 × 790` vertical progression. Meaning and sequence must remain equivalent across variants even when geometry changes.
 
-On the generated docs site, the first landing hero is lifted above the documentation shell and spans the viewport on the engine canvas, capped at `1672px`. Everything else stays in the centered `46rem` reading column with a `1.25rem` gutter, `2rem` section rhythm, and `4rem` lower breathing room. At `40rem`, navigation wraps and the main gutter tightens to `1rem`. Index cards use an auto-fitting grid with a `15rem` minimum; explanatory tables scroll horizontally when needed.
+On the generated docs site, the first landing hero is lifted above the documentation shell and spans the viewport on its tool canvas, capped at `1280px`. Everything else stays in the centered `46rem` reading column with a `1.25rem` gutter, `2rem` section rhythm, and `4rem` lower breathing room. At `40rem`, navigation wraps and the main gutter tightens to `1rem`. Index cards use an auto-fitting grid with a `15rem` minimum; explanatory tables scroll horizontally when needed.
 
 Copy follows an evidence-first sequence: mechanism image, plain-language H1, two-command run path, ownership model, real RED/GREEN replay plus selectable transcript, adapter choices, adoption ratchet, pull-request wiring, evidence boundary, credibility ledger, and deeper references. Keep “verified here” and “not established” adjacent; first-party mechanism evidence must never visually masquerade as independent validation.
 
 **The Recompose, Do Not Shrink Rule.** When graph labels or branches stop scanning comfortably, author a meaning-equivalent narrow composition and switch it with `<picture>`.
 
-**The One Spine Rule.** Related capabilities enter or branch from the shared engine path; do not scatter them into equal-weight feature tiles.
+**The One Product Moment Rule.** The header demonstrates one consequence completely; do not scatter the first viewport into equal-weight feature tiles or multiple competing demos.
 
 ## Elevation & Depth
 
@@ -202,9 +202,9 @@ Graph routes are orthogonal and functional. Default borders are approximately `1
 
 ## Components
 
-### Engine Spine
+### Header Product Moment
 
-The signature component is the complete architecture gate, not an isolated card. Preserve the actual API-stage order, the distinction between human policy and agent code, both outcome branches, the exact repair diagnostic, and the human-review path. Use the shared engine palette, low-radius nodes, and mono labels. New entry surfaces converge on the same `runGate()` node rather than creating a parallel engine.
+The signature component pairs one outcome-led promise with a compact, believable pull-request check. Preserve the distinction between the human-owned blueprint and agent-produced change, their convergence at the BCE gate, and the exact blocking diagnosis. Keep CLI, GitHub Action, and MCP visible as supported surfaces without turning them into competing calls to action.
 
 ### Responsive Diagram
 

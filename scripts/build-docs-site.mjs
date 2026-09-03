@@ -971,7 +971,7 @@ blockquote > :last-child { margin-bottom: 0; }
 .hero picture { display: block; }
 .hero img { max-width: 100%; height: auto; margin: .2rem .15rem; }
 .landing > .hero { margin: 0; background: #080919; }
-.landing > .hero picture, .landing > .hero img { display: block; width: 100%; max-width: 1672px; margin: 0 auto; }
+.landing > .hero picture, .landing > .hero img { display: block; width: 100%; max-width: 1280px; margin: 0 auto; }
 table { border-collapse: collapse; width: 100%; font-size: .93rem; }
 th, td { text-align: left; vertical-align: top; padding: .45rem .7rem; border: 1px solid var(--line); }
 th { background: var(--code-bg); font-weight: 600; }
