@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1",
+  "authority": "controller-before-after-inventory",
+  "changes": [
+    {
+      "path": "src/title.mjs",
+      "before": {
+        "path": "src/title.mjs",
+        "type": "file",
+        "mode": 420,
+        "bytes": 64,
+        "sha256": "aa560a3db1c525f92900d535267d06de754ba7c384c7355262779e9bf15d495e"
+      },
+      "after": {
+        "path": "src/title.mjs",
+        "type": "file",
+        "mode": 420,
+        "bytes": 187,
+        "sha256": "4a3a562002c93be36195eff3867be24e90b62f9a522aa4b322bd717463abff31"
+      }
+    }
+  ]
+}

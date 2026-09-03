@@ -1,0 +1,7 @@
+{
+  "neutralTreeSha256": "c9c454566c97bfd66be0ddd43bd5a96ba950465d5b2316dc027ee79df8b21c89",
+  "agentWorkspaceTreeSha256": "f032e3ecc60c8926bd4d39039606dd45b0e7f2835b55f1ea1ee572d555abe954",
+  "changedPaths": [
+    "src/worker.mjs"
+  ]
+}

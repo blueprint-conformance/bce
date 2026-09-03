@@ -102,7 +102,12 @@ source tree.
   aggregate replay all worked. V2 is apparatus-failure evidence only and requires a new identifier
   plus seal for any fix-forward run. The v3 builder makes the frozen deny-by-default outer profile
   the sole sandbox owner; Codex's inner sandbox is disabled only inside that inherited boundary,
-  and the deterministic client fixture fails if the adapter reintroduces nested sandboxing.
+  and the deterministic client fixture fails if the adapter reintroduces nested sandboxing. Pilot
+  v3 then completed 8/8 attempts with 4/4 hidden functional and architecture success in each arm,
+  zero escaped defects, and zero policy mutations. That is apparatus validation, not uplift: the
+  easy development tasks saturated both arms, no BCE skill/MCP use was observed, only one
+  model-initiated BCE gate call was observed, cost was unavailable, and model identity remained
+  requested configuration rather than provider-returned evidence.
 - No conventional precision/recall study with independent annotation has been completed.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;

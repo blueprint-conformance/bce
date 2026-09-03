@@ -63,8 +63,9 @@ npm run build
 npm run test:model-eval-controller
 ```
 
-The active fix-forward real-model pilot is v3; v1 and v2 and their complete failed-attempt
-denominators remain immutable beside it. The v3 lifecycle is:
+The latest fix-forward real-model pilot is v3; v1 and v2 and their complete failed-attempt
+denominators remain immutable beside it. V3 completed the apparatus path but saturated both arms,
+so it remains machinery evidence. Its reproducible lifecycle is:
 
 ```sh
 npm run build:model-eval-pilot                 # only before the generated path exists
