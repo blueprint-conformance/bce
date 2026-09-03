@@ -1,15 +1,11 @@
 <p align="center">
-  <img src="assets/bce-banner.svg" alt="bce — the blueprint conformance engine. A grid of calm blueprint cells with exactly one cell lit red, beside the wordmark bce and the tagline: Blueprints with Teeth.">
+  <img src="assets/bce-banner.svg" alt="bce — architecture that holds while agents move fast. A blueprint and an agent pull request converge on the BCE gate, which catches a forbidden dependency and blocks the merge.">
 </p>
 
-# bce — the blueprint conformance engine
+# Architecture rules your agents cannot quietly break
 
-> **Blueprints with Teeth.** Agents write fast. Something has to stay picky.
-
-**[Author a contract, catch a real violation, and go green on your own repo — in under 10 seconds.](tests/first-win-matrix.test.ts)**
-
-*The repository test suite times four local fixture journeys and enforces the ten-second ceiling.
-This is an internal regression measurement, not an independent performance benchmark.*
+> **bce turns architecture decisions into a deterministic merge gate.** Define the boundary once,
+> let agents move at full speed, and catch structural drift before it becomes your next refactor.
 
 <!-- award-slot: RESERVED, and deliberately inert.
      A chip goes live ONLY when the thing is actually won, in a PR that links the award —
@@ -21,10 +17,9 @@ This is an internal regression measurement, not an independent performance bench
 </p>
 -->
 
-[![self-gate](https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg)](https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml)
-[![ci](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg)](https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml)
-
 <p align="center">
+  <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
+  <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
   <img src="assets/badges/tests.svg" alt="tests: 788">
   <img src="assets/badges/license.svg" alt="license: Apache-2.0">
   <img src="assets/badges/docs.svg" alt="docs: zero-dep">
@@ -32,30 +27,53 @@ This is an internal regression measurement, not an independent performance bench
   <img src="assets/badges/any-agent.svg" alt="any agent: CLI · Action · MCP">
 </p>
 
-**[See it](#see-it) · [Try it](#try-it) · [Onboard the full stack](docs/onboarding.md) · [Learn](#what-is-measured-not-asserted) · [Docs](#docs-and-spec) · [License](#license)**
+**[Quick start](#get-your-first-red-in-seconds) · [Watch it work](#watch-the-gate-do-its-job) · [Choose your surface](#one-engine-every-surface) · [Adopt safely](#start-advisory-grow-teeth) · [Trust and evidence](#proof-not-promises) · [Docs](#go-deeper)**
 
-Agents write code faster than anyone can review it. **bce** is the merge gate that keeps what
-they write true to your architecture. You author a **blueprint** — a small, versioned JSON
-contract for a repository — and bce measures the code against it: a deterministic conformance
-score, a fail-closed verdict, and hash-chained evidence anyone can re-derive offline.
+## The agent writes. BCE decides what may merge.
 
-## See it
+| 1 · Define the shape | 2 · Let agents build | 3 · Keep the boundary |
+|---|---|---|
+| Write a small, versioned JSON blueprint for the architecture you intend. | Humans and agents keep using their normal tools. BCE does not sit in the generation path. | The same deterministic engine runs locally, through MCP, and on every pull request. |
+| Rules live beside the code and change by review. | No hosted service, prompt proxy, or model dependency. | Conforming changes can merge. Drift gets an exact file, line, violated rule, and non-zero exit. |
 
-One forbidden import, two ways the day can go:
+No architecture slide deck to keep synchronized. No second policy engine for agents. No green check
+that means “the command ran” while a forbidden edge slipped through.
 
-| Agent PR, no gate | Same PR, `bce` gate |
+<p align="center">
+  <img src="assets/bce-flow.svg" alt="How BCE fits into the agent loop: a human-owned blueprint and an agent code change enter the deterministic BCE gate. Conforming changes merge; drift gets a precise diagnosis and loops back for correction. Policy amendments return to human review.">
+</p>
+
+## Get your first RED in seconds
+
+Install the exact verified release on Node 22 or newer, then run the packaged offline proof:
+
+```bash
+npm install --save-dev --save-exact bce-engine@0.1.5
+npx --no-install bce demo
+```
+
+That is a real GREEN/RED discrimination with no repository setup, account, or API key. When you are
+ready to use your own code, **author a contract, catch a real violation, and go green on your own
+repo in under 10 seconds.** The four supported starting shapes are timed in CI; this is a regression
+ceiling on local fixtures, not an independent performance benchmark.
+
+[Pick your repository shape](docs/first-win.md) · [Run the five-minute walkthrough](docs/quickstart.md) · [Onboard the complete stack](docs/onboarding.md)
+
+## Watch the gate do its job
+
+One forbidden import, caught at the moment it matters:
+
+| Without BCE | With BCE |
 |---|---|
-| The agent adds `import axios` to a plugin. It compiles, the tests pass, CI goes green. | The gate reads the same tree and refuses — `no-direct-http-client`, score 60, exit code 1. |
-| Review sees a 400-line diff and a green tick. The forbidden edge is one line of it. | The refusal names the edge: `extension:greeting.plugin -> axios`, at `src/greeting.plugin.ts#L16`. |
-| It merges. The rule now exists only in whoever remembers it. | It blocks, and prints both ways out: fix the code, or amend the rule in the blueprint by PR. |
-| You find out months later, when the thing the rule protected breaks. | You find out in about a second, on the PR that introduced it. |
-
-A gate that cannot go red is not a gate. Here is this one refusing a real forbidden import,
-then passing the corrected tree — one contract, two trees, real exit codes:
+| The agent adds `import axios` to a plugin. It compiles and its tests pass. | BCE refuses `no-direct-http-client`, names `src/greeting.plugin.ts#L16`, and exits 1. |
+| A reviewer has to notice one architectural edge inside a large diff. | The pull request gets the violated rule, observed edge, expected shape, and both repair paths. |
+| The rule survives only while somebody remembers it. | Fix the code or amend the blueprint visibly. Nothing weakens in silence. |
 
 <p align="center">
   <img src="assets/hero-cast.svg" alt="Animated terminal replay: bce gate runs against the drifted tree and fails with exit code 1, naming the forbidden edge extension:greeting.plugin to axios at src/greeting.plugin.ts line 16; it then runs against the corrected tree and passes with exit code 0. The same transcript follows as selectable text.">
 </p>
+
+### Copyable, replayable, kept honest by CI
 
 ```console
 $ bce gate --repo drift --blueprint-dir blueprint --extractor ast --all
@@ -77,144 +95,45 @@ $ echo $?
 0
 ```
 
-Both runs are re-executed on every push and asserted byte-for-byte against this page by
-[`tests/root-readme-proof.test.ts`](tests/root-readme-proof.test.ts) — which also reads the
-transcript back out of the animation above, so neither the block nor the image can go stale
-without turning a check red. Regenerate them with
-[`scripts/hero-demo-record.mjs`](scripts/hero-demo-record.mjs) and
-[`scripts/hero-cast-svg.mjs`](scripts/hero-cast-svg.mjs).
+Both runs are re-executed on every push and checked byte-for-byte against this page. The animation
+contains the same selectable transcript, so neither the demo nor the drawing can quietly become
+marketing fiction. [See the proof test](tests/root-readme-proof.test.ts) or [regenerate the recording](scripts/hero-demo-record.mjs).
 
-## Try it
+## One engine, every surface
 
-Install the exact verified release on Node 22 or newer:
+| CLI | GitHub Action | MCP + Agent Skills |
+|---|---|---|
+| Author, validate, scan, prove teeth, and gate from a terminal or script. | Install one immutable action and make conformance a required pull-request check. | Give compatible agents six typed, read-only tools plus the workflow for using them correctly. |
+| Best for local feedback and CI outside GitHub. | Best for merge enforcement and a visible policy history. | Best for diagnosis and correction inside an agent loop; policy changes stay outside MCP. |
 
-```bash
-npm install --save-dev --save-exact bce-engine@0.1.5
-npx --no-install bce demo
-```
+The adapters do not reimplement policy. They all consume the same engine, blueprint, report
+contract, and exit codes.
 
-The package was published through npm Trusted Publishing with
-[provenance](https://www.npmjs.com/package/bce-engine/v/0.1.5), after the release workflow reran
-the full suite, corpus/recall proof, self-gate, leakage gate, and RED/GREEN discriminating pair.
+### Designed for agent-heavy repositories
 
-`bce demo` runs an offline packaged GREEN/RED discrimination proof with no repository setup.
-`npm run test:onboarding` creates clean external consumers and proves the packed and immutable-Git
-install paths, both binaries, author/onboard, advisory RED, fix/GREEN, evidence verification, and all
-six MCP tools. CI and the release gate rerun that black-box journey.
-`npm run test:ai-adoption` separately exercises the first AI-agent session across all four harness
-layouts: project skill discovery, project-local MCP wiring, zero-argument readiness/gate calls, and
-a live GREEN → planted RED → corrected GREEN loop. Its timings are local regression observations,
-not a model-quality or cross-machine performance claim.
-`npm run eval:ai-adoption` is the opt-in sampled layer: an authenticated Codex first session must
-implicitly load the project BCE skill, choose MCP `run_gate` for RED and GREEN, change only the
-named source file, and preserve every policy surface. It is deliberately not required CI; one model
-sample is behavioral evidence, not a success-rate, cost, or comparative-quality claim.
-The full walkthrough — RED, the fix, GREEN, and what each verdict means — is
-[docs/quickstart.md](docs/quickstart.md) · [examples/quickstart](examples/quickstart). A second
-worked example, on a config surface rather than code, is
-[examples/config-guard](examples/config-guard).
+| Fail closed | Works offline | Evidence you can replay |
+|---|---|---|
+| Missing rules, unsupported critical analysis, unsafe paths, and unknown constraints refuse instead of passing. | After installation, validation, extraction, gating, evidence verification, and MCP discovery need no network. | Optional hash-chained records can be re-derived with a zero-dependency verifier. |
+| **Brownfield friendly** | **Language-aware** | **Self-hosted** |
+| Start advisory, baseline existing debt without hiding it, then graduate one way to enforcement. | Full TypeScript/JavaScript AST extraction plus a Python import-graph MVP behind one provider seam. | BCE gates its own repository with the same public action and engine path adopters receive. |
 
-Starting from your own repository instead of a fixture? [docs/first-win.md](docs/first-win.md)
-covers four starting shapes — empty repo, plain JS, TypeScript, monorepo — each a real
-`bce author` → RED → fix → GREEN loop, and each one wall-clock measured on every push by
-[`tests/first-win-matrix.test.ts`](tests/first-win-matrix.test.ts). That measurement is where
-the speed claim at the top of this page comes from: the test parses the number out of this
-README and refuses to pass if any shape misses it, so the page cannot claim a figure the loop
-does not actually meet.
+## Start advisory. Grow teeth.
 
-Want the complete repository wiring rather than only the CLI demonstration? The
-[full-stack onboarding](docs/onboarding.md) installs a draft contract, immutable CI, agent context,
-MCP, skills, lifecycle checks, and reproducible evidence without conflating those surfaces.
+Existing repositories should not receive an unreviewed wall of red on day one. BCE makes adoption
+a visible progression:
 
-## What is measured, not asserted
+1. **Advisory** — score and report everything while the team learns the boundary.
+2. **Shrink-only baseline** — accept known debt explicitly; new violations block and old debt can
+   disappear but cannot silently grow.
+3. **Enforced** — `bce graduate` records the decision and turns the same verdict into a merge gate.
 
-- **Seeded-corpus regression** — the engine is graded against 34 author-designed planted
-  architecture defects. This measures regression performance on known fixtures; it is not
-  external validity, conventional recall, or evidence of benefit to agentic systems.
-  [corpus/CORPUS-MAP.md](corpus/CORPUS-MAP.md)
-- **Self-hosting** — bce gates its own tree on every push with the same fail-closed verdict its
-  users get. [docs/self-hosting.md](docs/self-hosting.md)
-<!-- fleet-record:begin -->
-<!-- Private fleet telemetry is intentionally excluded from public capability claims. -->
-<!-- fleet-record:end -->
-- **RED/GREEN discrimination** — CI proves, offline, that one blueprint yields opposite verdicts
-  on a conformant vs a seeded-drift tree, by real exit codes.
-- **Agent-surface adoption mechanics** — a deterministic clean-repository simulation proves both
-  shipped skills are discoverable and the six read-only MCP tools can drive a live correction loop
-  without post-onboarding copy/config commands. It does not score an LLM or count as an independent
-  human witness. [docs/ai-adoption-benchmark.md](docs/ai-adoption-benchmark.md)
-- **Sampled skill-to-MCP routing** — an author-operated paired Codex run found the released
-  CLI-biased wording selected the CLI, while the MCP-first candidate selected `run_gate {}` twice
-  under the same generic repair prompt and completed the same source-only RED → GREEN correction.
-  This is one reproducible sample, not an agent-uplift study or independent witness.
-  [evidence record](evidence/model-adoption/2026-09-02.json)
-- **Optional integrity records** — `bce run --emit` emits hash-chained records;
-  [tools/verify-chain.mjs](tools/verify-chain.mjs) verifies a chain with zero dependencies and
-  no bce install required. [docs/evidence-format.md](docs/evidence-format.md)
-- **This page** — the terminal block and the animation are recorded from a live engine run, and
-  every shield above is re-derived from the tree by
-  [`scripts/gen-badges.mjs`](scripts/gen-badges.mjs): the test count from the runner's own
-  enumeration, the licence from `package.json` cross-checked against `LICENSE`, the Node floor
-  from `.nvmrc` cross-checked against every workflow that pins one. A badge that cannot be
-  re-derived is refused rather than drawn.
+The mode is committed policy, never a convenient CLI flag. A downgrade requires a recorded
+rationale. [Adopt BCE on a living repository](docs/adopt-existing-repo.md).
 
-## Credibility
+## Put it on every pull request
 
-Every proof above is produced by machinery in this repository, run on infrastructure its authors
-control, from code its authors wrote. That is the strongest claim this project can make by
-itself, and it is not the same thing as independent confirmation. Two records track what is still
-missing, and both are deliberately unfinished in the open:
-
-- **Independent witnesses: 0.** [ATTESTATIONS.md](ATTESTATIONS.md) is the witness ledger and it
-  is empty. Nobody outside the authors has yet run the RED → fix → GREEN loop on a machine the
-  authors do not control and filed what they saw. Shipping the ledger at zero is the point: an
-  absent ledger lets a reader assume attestations exist somewhere, while one that reads 0 cannot
-  be misread. The loop takes about a minute, offline, with no keys and no accounts —
-  [docs/launch/witness-kit.md](docs/launch/witness-kit.md) is the entire procedure, and a run
-  that contradicts the doc is recorded too, because a witnessed contradiction is worth more than
-  another confirmation. An
-  [open independent-beta request](https://github.com/blueprint-conformance/bce/issues/9) asks an
-  uncoached OSS user to run the full external-repository journey and report every point of
-  friction.
-- **External Action execution exists, but is not independent.** A creator-maintained
-  [public consumer repository](https://github.com/blueprint-conformance/bce-action-witness) installed BCE
-  from immutable commit `5d8a3d9`, merged its generated Action through
-  [PR #1](https://github.com/blueprint-conformance/bce-action-witness/pull/1), and records clean GREEN,
-  planted-drift detection, and corrected GREEN runs. This proves the Action crosses repository
-  boundaries; it does not prove that an unfamiliar user can adopt BCE without help.
-- **Citation metadata is software-only.** [CITATION.cff](CITATION.cff) does not invent a paper,
-  arXiv identifier, or DOI. [`scripts/check-release-citation.mjs`](scripts/check-release-citation.mjs)
-  refuses provisional placeholder identifiers; a preferred paper citation is added only after a
-  real manuscript and archival record exist.
-
-If the engine turns out to be useful to you, star the repository — it is the one signal here that
-its authors cannot manufacture.
-
-## Adopting on a living repository: advisory → enforced, one way
-
-Adopting a conformance gate on a repository that already has code is a graduation, not a switch
-you toggle. bce ships two modes with a one-way ratchet:
-
-- **advisory** — the gate runs, scores, and reports every violation, but never blocks a merge.
-  The score and violation set are byte-identical to enforced mode; only the exit code differs.
-  This is where a brownfield repository starts, usually together with `bce baseline` (a
-  shrink-only baseline: new violations always block once enforced, baselined ones burn down
-  over time).
-- **enforced** — the gate fails the build. `bce graduate` performs the flip and records the
-  rationale in-repo (`.blueprints/GRADUATION.md`); a downgrade is refused unless the same
-  rationale record is written, so a quiet weakening cannot happen silently.
-
-The mode lives in a committed config file, never a CLI flag — the gate's strictness is part of
-the repository's contract, not of whoever invoked it. Details:
-[docs/adopt-existing-repo.md](docs/adopt-existing-repo.md).
-
-## Use it in your repo
-
-The npm engine is released. GitHub release immutability was enabled after `v0.1.5`, so executable
-examples pin that release's source commit directly instead of trusting its historical mutable tag.
-`bce onboard` generates this workflow and wires agent context plus MCP at the same time:
-
-The generated workflow is equivalent to:
+`bce onboard` generates the full workflow plus agent context, project skills, and project-local MCP
+configuration. The core Action wiring is deliberately small:
 
 ```yaml
 # .github/workflows/blueprint-conformance.yml
@@ -225,52 +144,69 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with: { fetch-depth: 0 }        # the gate diffs against the merge base
-      # BCE v0.1.5 source commit; the SHA, not the comment, is executable.
+        with: { fetch-depth: 0 }
       - uses: blueprint-conformance/bce@3611709acf0dace4698dd1876f835a73ec44837b
         with:
           repo: .
           engine: bce-engine@0.1.5
 ```
 
-Blueprints live in `.blueprints/*.blueprint.json` by default (`blueprint-dir` to override). Both
-the Action and engine are exact pins; ranges and `latest` are deliberately avoided.
+Both executable surfaces are exact pins. The comment may be readable; the SHA and package version
+are what run. [Follow the ordered onboarding path](docs/onboarding.md).
 
-## Docs and spec
+## Proof, not promises
 
-- **Specification** (`blueprint-conformance/v1alpha1`): [spec/SPEC.md](spec/SPEC.md) · schemas
-  in [spec/schemas/](spec/schemas)
-- **Extraction** is TypeScript/JavaScript (full AST) plus a Python import-graph MVP behind the
-  same provider registry; the blueprint graph model itself is language-neutral and the
-  extractor seam is documented:
-  [docs/extending-extractors.md](docs/extending-extractors.md)
-- **Agents**: the [MCP server](docs/agent-loop.md) and loop snippets in
-  [integrations/](integrations) · the [Agent Skill](skills/README.md) carries the whole
-  author → validate → run → teeth → gate lifecycle; `bce onboard` installs both project skills
-  and project-local MCP configuration for the selected harness
-- **Complete onboarding**: [one ordered CLI → context → MCP → CI → lifecycle → evidence path](docs/onboarding.md)
-- **How it compares** to structural rule engines, policy engines, and spec-driven development
-  tools: [docs/comparison.md](docs/comparison.md)
-- **Exit codes** and the machine-readable report:
-  [docs/exit-codes.md](docs/exit-codes.md) · [docs/report-contract.md](docs/report-contract.md)
-- **FAQ**, including the adoption levers: [docs/faq.md](docs/faq.md)
-- **Where it is going**, honesty-labeled: [ROADMAP.md](ROADMAP.md)
-- **Citing this work**: [CITATION.cff](CITATION.cff)
-- **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
+| Verified in this repository | Deliberately not claimed |
+|---|---|
+| 788 tests; GREEN/RED fixtures; 38/38 self-blueprint mutants killed through the production path. | Completeness against every possible architectural defect. |
+| Self-gating, clean-consumer installs, deterministic reports, restricted-network operation, and Ubuntu/macOS/Windows × Node 22/24 CI. | Independent confirmation merely because author-controlled automation is green. |
+| A sealed eight-attempt model-evaluation pilot whose public evidence replays exactly. Both arms completed and both scored 4/4 on the easy pilot tasks. | That BCE makes agents more successful, cheaper, faster, or safer than a baseline. The pilot saturated and cannot estimate uplift. |
+| Agent Skills and MCP discovery, routing, and correction mechanics. | A model success rate or proof that agents reliably choose the BCE mechanism in the wild. |
 
-**Status: v0.1.5 released.** The functional npm package, GitHub Release, provenance, and release
-evidence are verified. Its historical tag is mutable; repository-level release immutability now
-protects future releases, and executable examples pin the v0.1.5 commit SHA. Independent witnesses
-remain at 0. The schema is
-`blueprint-conformance/v1alpha1`; compatibility remains pre-1.0.
+The product-efficacy line is explicit: the evaluation apparatus now works, but the held-out,
+provider-identified 240-trial confirmatory study has not run. The accelerated pilot observed no
+skill reads, no MCP calls, one model-initiated BCE gate call, and no trustworthy cost data. Read the
+[pilot result](research/model-evaluation/pilots/accelerated-v3/RESULTS.md), the [canonical study contract](research/model-evaluation/README.md), or the complete [claim ledger](STATUS.md).
 
-## Links
+<!-- fleet-record:begin -->
+<!-- Private fleet telemetry is intentionally excluded from public capability claims. -->
+<!-- fleet-record:end -->
 
-- Current capability and claim ledger: [STATUS.md](STATUS.md)
-- Specification (`blueprint-conformance/v1alpha1`): [spec/SPEC.md](spec/SPEC.md)
-- Docs site + published JSON schemas: <https://blueprint-conformance.github.io/bce/>
+## Credibility
+
+Every proof above is produced by machinery in this repository, run on infrastructure its authors
+control, from code its authors wrote. That is useful first-party evidence. It is not independent
+confirmation.
+
+- **Independent witnesses: 0.** [ATTESTATIONS.md](ATTESTATIONS.md) is intentionally public at zero.
+  The [one-minute witness kit](docs/launch/witness-kit.md) records contradictions too, because a
+  falsifying run is more valuable than another self-issued badge.
+- **External execution exists, but remains creator-maintained.** The public
+  [consumer repository](https://github.com/blueprint-conformance/bce-action-witness) records clean
+  GREEN, planted drift blocking the enforced workflow, and GREEN after correction. That proves the
+  Action crosses repository boundaries; it is not an independent adoption.
+- **Citation metadata is software-only.** [CITATION.cff](CITATION.cff) invents no paper, DOI, or
+  arXiv identifier. Those appear only after real archival records exist.
+
+If BCE is useful in your repository, star it. That is one signal its authors cannot manufacture.
+
+## Go deeper
+
+| Goal | Start here |
+|---|---|
+| Understand the contract model | [Specification](spec/SPEC.md) · [JSON Schemas](spec/schemas) · [Conformance vectors](spec/conformance-vectors) |
+| Put BCE inside an agent loop | [Agent loop](docs/agent-loop.md) · [MCP compatibility](docs/mcp-compatibility.md) · [Agent Skills](skills/README.md) |
+| Read and verify evidence | [Evidence format](docs/evidence-format.md) · [Report contract](docs/report-contract.md) · [Exit codes](docs/exit-codes.md) |
+| Compare alternatives honestly | [Comparison](docs/comparison.md) · [FAQ](docs/faq.md) · [Roadmap](ROADMAP.md) |
+| Contribute or report a problem | [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Governance](GOVERNANCE.md) |
+
+Docs site: <https://blueprint-conformance.github.io/bce/>
+
+**Status: v0.1.5 released.** The npm package has provenance and the release evidence is verified.
+Its historical tag is mutable; repository-level release immutability now protects future releases,
+so executable examples pin the v0.1.5 source commit. The schema remains
+`blueprint-conformance/v1alpha1` and compatibility remains pre-1.0.
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE), [NOTICE](NOTICE), and
-[TRADEMARKS.md](TRADEMARKS.md). Governance: [GOVERNANCE.md](GOVERNANCE.md).
+Apache-2.0 — see [LICENSE](LICENSE), [NOTICE](NOTICE), and [TRADEMARKS.md](TRADEMARKS.md).

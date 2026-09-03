@@ -10,8 +10,8 @@ conservative: a known relaxation is labelled explicitly; an ambiguous protected-
 requires owner review. Ratification and amendment are attended CLI ceremonies and are not exposed
 through the MCP server. A weakening amendment additionally requires `--accept-weakening`.
 
-Repository files cannot turn on GitHub branch protection themselves. Before calling a branch
-governed, an administrator must apply and verify these settings on the default branch:
+Repository files cannot turn on GitHub branch protection themselves. A team with at least two
+available reviewers should apply and verify these settings on the default branch:
 
 - require a pull request and at least one approval;
 - require review from CODEOWNERS and dismiss stale approvals;
@@ -22,8 +22,9 @@ governed, an administrator must apply and verify these settings on the default b
 Until those settings are externally verified, CODEOWNERS and workflows are enforcement intent,
 not proof that the hosting platform enforces review. Evidence bundles must state that distinction.
 
-Current state (verified through GitHub's API on 2026-09-02): `main` requires the repository's six CI
-checks, enforces them for admins, and prevents force-push and deletion. Required approving reviews,
+Current state (verified through GitHub's API on 2026-09-03): `main` requires the repository's seven CI
+checks, requires the branch to be current, enforces the checks for admins, requires conversation
+resolution, and prevents force-push and deletion. Required approving reviews,
 CODEOWNER review, and release-environment reviewers are disabled because the project has one human
 maintainer. This is the operable solo-safe state: automation cannot be bypassed, but the repository
 does not pretend a second human exists or configure a guard that prevents all releases.
