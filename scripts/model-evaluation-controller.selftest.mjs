@@ -20,6 +20,8 @@ chmodSync(fixtureClient, 0o755);
 function prepareBundle(name) {
   const bundle = join(scratch, name, 'bundle');
   cpSync(sourceBundle, bundle, { recursive: true });
+  copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'protocol.schema.json'), join(bundle, 'schemas', 'protocol.schema.json'));
+  copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'terminal-record.schema.json'), join(bundle, 'schemas', 'terminal-record.schema.json'));
   const protocolPath = join(bundle, 'protocol.v2.json');
   const manifestPath = join(bundle, 'task-manifest.json');
   const protocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
@@ -31,6 +33,7 @@ function prepareBundle(name) {
   protocol.implementation.analyzerSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'analyze-model-evaluation.mjs')));
   protocol.implementation.analysisCoreSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-analysis.mjs')));
   protocol.treatment.artifactProvenance.sourceTreeState = 'clean';
+  protocol.isolation.clientSandboxMode = 'outer-controller-profile-only';
   protocol.clientModelCells[0] = {
     ...protocol.clientModelCells[0],
     client: 'fixture-agent',
@@ -170,5 +173,5 @@ for (const arm of Object.values(faulted.analysis.cells['primary-codex-mini'].arm
 }
 executeHardCrashRecovery();
 executeCredentialRetirement();
-process.stdout.write('model-evaluation controller self-test: PASS (strict sandbox + MCP preflight; 8/8 normal rows; 8/8 caught faults terminalized; hard crash recovered; credential retired before model command; aggregate tamper refused; pilot recommendation impossible)\n');
+process.stdout.write('model-evaluation controller self-test: PASS (outer-only strict sandbox + MCP preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before model command; aggregate tamper refused; pilot recommendation impossible)\n');
 rmSync(scratch, { recursive: true, force: true });

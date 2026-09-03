@@ -284,7 +284,9 @@ function adapterCommand(cell, workspace, prompt, clientEnv, task) {
   }
   if (cell.client === 'codex') return {
     file: cell.executable,
-    args: ['-a', 'never', 'exec', '--ephemeral', '--ignore-user-config', '--json', '--sandbox', 'workspace-write', '--model', cell.requestedModel, '-c', `model_reasoning_effort=${JSON.stringify(cell.reasoningEffort)}`, '-c', 'shell_environment_policy.inherit="none"', '-C', workspace, prompt],
+    args: ['-a', 'never', 'exec', '--ephemeral', '--ignore-user-config', '--json', '--sandbox',
+      protocol.isolation.clientSandboxMode === 'outer-controller-profile-only' ? 'danger-full-access' : 'workspace-write',
+      '--model', cell.requestedModel, '-c', `model_reasoning_effort=${JSON.stringify(cell.reasoningEffort)}`, '-c', 'shell_environment_policy.inherit="none"', '-C', workspace, prompt],
     env: clientEnv,
   };
   if (cell.client === 'claude-code') {
@@ -408,6 +410,7 @@ function proveIsolation(profile, controllerRoot, workspace, cell, toolchain, cli
   if (existsSync(hostWriteProbe)) unlinkSync(hostWriteProbe);
   return {
     driver: 'macos-sandbox-exec', driverSha256: executableDigest('/usr/bin/sandbox-exec'), profileSha256: sha256Bytes(profile),
+    clientSandboxMode: protocol.isolation.clientSandboxMode ?? 'nested-client-sandbox',
     readDefaultDeny: true,
     oracleReadDenied: readResult.status === 0, hostCanaryReadDenied: readResult.status === 0,
     hostCanaryWriteDenied: hostWriteResult.status === 0, protectedWriteDenied: writeResult.status === 0,

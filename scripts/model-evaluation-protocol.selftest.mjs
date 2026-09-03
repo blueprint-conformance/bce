@@ -52,6 +52,7 @@ protocol.isolation.executionDriverSha256 = sha256Bytes('synthetic-isolation-driv
 protocol.isolation.runtimeExecutable = process.execPath;
 protocol.isolation.runtimeVersion = process.version;
 protocol.isolation.runtimeArtifactSha256 = sha256Bytes(readFileSync(process.execPath));
+protocol.isolation.clientSandboxMode = 'outer-controller-profile-only';
 protocol.treatment.engineArtifact = 'artifacts/bce-engine-test.tgz';
 protocol.treatment.engineArtifactSha256 = sha256Bytes(readFileSync(enginePath));
 protocol.treatment.installedTreeSha256 = sha256Bytes('synthetic-installed-tree');
@@ -224,6 +225,7 @@ function makeTerminal(assignment) {
   write(join(trialDir, 'isolation.json'), {
     driver: 'synthetic-self-test',
     driverSha256: sha256Bytes('synthetic-isolation-driver'),
+    clientSandboxMode: 'outer-controller-profile-only',
     readDefaultDeny: true,
     oracleReadDenied: true,
     hostCanaryReadDenied: true,

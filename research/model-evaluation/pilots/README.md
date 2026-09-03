@@ -8,6 +8,7 @@ Every exposed attempt remains in its original denominator.
 |---|---:|---|---|
 | [`accelerated-v1`](accelerated-v1/RESULTS.md) | 8/8 retained | All client launches failed | The real sealed-order controller, isolation canaries, external oracles, terminal ledger, verifier, analyzer, and public exporter operated. It exposed an overly broad home-directory read denial that also blocked the installed Codex artifact. |
 | [`accelerated-v2`](accelerated-v2/RESULTS.md) | 8/8 retained | Client sessions completed; 0/8 task success | The staged native client launched, but its inner `workspace-write` sandbox could not initialize inside the outer macOS sandbox. No task changed and no BCE mechanism use was observed. This is apparatus-failure evidence, not an arm comparison. |
+| `accelerated-v3` | Builder ready; unsealed | Not run | Fix-forward candidate: the frozen deny-by-default outer profile remains the sole confinement boundary and the client fixture refuses any adapter that reintroduces a nested sandbox. |
 
 Fix-forward rule: a controller defect found after exposure creates a new pilot identifier, new
 inputs, new public pre-run seal, and new denominator. It never rewrites or retries the earlier

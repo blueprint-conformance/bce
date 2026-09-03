@@ -10,6 +10,11 @@ if (process.argv.includes('--version')) {
 const prompt = process.argv.at(-1) ?? '';
 const codexLifecycleFixture = process.argv.includes('exec');
 if (codexLifecycleFixture) {
+  const sandboxIndex = process.argv.indexOf('--sandbox');
+  if (process.argv[sandboxIndex + 1] !== 'danger-full-access') {
+    process.stderr.write('nested client sandbox was not disabled inside the outer controller profile\n');
+    process.exit(10);
+  }
   process.stdout.write(`${JSON.stringify({ type: 'thread.started', thread_id: 'credential-retirement-fixture' })}\n`);
   await new Promise((resolve) => setTimeout(resolve, 50));
   if (existsSync(`${process.env.CODEX_HOME}/auth.json`)) {

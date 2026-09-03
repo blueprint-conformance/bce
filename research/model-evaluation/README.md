@@ -63,17 +63,17 @@ npm run build
 npm run test:model-eval-controller
 ```
 
-The active fix-forward real-model pilot lives under `pilots/accelerated-v2/`; v1 and its complete
-failed-launch denominator remain immutable beside it. The v2 lifecycle is:
+The active fix-forward real-model pilot is v3; v1 and v2 and their complete failed-attempt
+denominators remain immutable beside it. The v3 lifecycle is:
 
 ```sh
 npm run build:model-eval-pilot                 # only before the generated path exists
-node scripts/run-model-evaluation.mjs --bundle research/model-evaluation/pilots/accelerated-v2 --runs "$(mktemp -d)" --preflight-only
-node scripts/verify-model-evaluation-bundle.mjs --bundle research/model-evaluation/pilots/accelerated-v2
-npm run model-eval:run -- --bundle research/model-evaluation/pilots/accelerated-v2 --execute-sealed-study
-npm run model-eval:analyze -- --bundle research/model-evaluation/pilots/accelerated-v2 --runs "$RESTRICTED_RUNS"
-npm run model-eval:export-public -- --bundle research/model-evaluation/pilots/accelerated-v2 --runs "$RESTRICTED_RUNS" --out research/model-evaluation/pilots/accelerated-v2/results
-npm run model-eval:verify-public -- --bundle research/model-evaluation/pilots/accelerated-v2 --results research/model-evaluation/pilots/accelerated-v2/results
+node scripts/run-model-evaluation.mjs --bundle research/model-evaluation/pilots/accelerated-v3 --runs "$(mktemp -d)" --preflight-only
+node scripts/verify-model-evaluation-bundle.mjs --bundle research/model-evaluation/pilots/accelerated-v3
+npm run model-eval:run -- --bundle research/model-evaluation/pilots/accelerated-v3 --execute-sealed-study
+npm run model-eval:analyze -- --bundle research/model-evaluation/pilots/accelerated-v3 --runs "$RESTRICTED_RUNS"
+npm run model-eval:export-public -- --bundle research/model-evaluation/pilots/accelerated-v3 --runs "$RESTRICTED_RUNS" --out research/model-evaluation/pilots/accelerated-v3/results
+npm run model-eval:verify-public -- --bundle research/model-evaluation/pilots/accelerated-v3 --results research/model-evaluation/pilots/accelerated-v3/results
 ```
 
 Sealing is intentionally omitted from the copy-paste block because it requires a public pre-run
@@ -96,6 +96,12 @@ state, proves initialization access, then deletes that file on the first
 The sealed adapter also sets shell environment inheritance to none. A dedicated spend-capped
 credential remains the confirmatory-study standard; this pilot does not claim credential-broker
 isolation.
+
+The controller owns the macOS confinement boundary. It therefore invokes Codex with its inner
+sandbox disabled (`danger-full-access` in Codex CLI terminology) *inside* the frozen outer
+deny-by-default profile. This does not grant host access: the inherited outer profile still denies
+host reads/writes and protected writes while allowing the task workspace. Pilot v2 retained the
+failure that demonstrated why nested macOS sandboxes cannot be used here.
 
 ## Canonical files
 

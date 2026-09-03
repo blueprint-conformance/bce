@@ -142,7 +142,7 @@
     "isolation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["executionDriver", "executionDriverSha256", "freshWorkspacePerAttempt", "freshClientStatePerAttempt", "clientExecutableStagingRequired", "runtimeExecutableStagingRequired", "runtimeExecutable", "runtimeVersion", "runtimeArtifactSha256", "readDefaultDeny", "positiveCapabilityProofRequired", "userPreferencesImported", "authenticationMountedSeparately", "sharedModelSession", "sharedRepositoryCache", "oracleOutsideAgentWorkspace", "oracleReadIsolationProofRequired", "networkPolicyRecorded", "sameNonBceToolsAndPermissions"],
+      "required": ["executionDriver", "executionDriverSha256", "freshWorkspacePerAttempt", "freshClientStatePerAttempt", "clientExecutableStagingRequired", "runtimeExecutableStagingRequired", "runtimeExecutable", "runtimeVersion", "runtimeArtifactSha256", "clientSandboxMode", "readDefaultDeny", "positiveCapabilityProofRequired", "userPreferencesImported", "authenticationMountedSeparately", "sharedModelSession", "sharedRepositoryCache", "oracleOutsideAgentWorkspace", "oracleReadIsolationProofRequired", "networkPolicyRecorded", "sameNonBceToolsAndPermissions"],
       "properties": {
         "executionDriver": { "type": ["string", "null"] },
         "executionDriverSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
@@ -153,6 +153,7 @@
         "runtimeExecutable": { "type": ["string", "null"] },
         "runtimeVersion": { "type": ["string", "null"] },
         "runtimeArtifactSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "clientSandboxMode": { "type": ["string", "null"], "enum": ["outer-controller-profile-only", null] },
         "readDefaultDeny": { "const": true },
         "positiveCapabilityProofRequired": { "const": true },
         "userPreferencesImported": { "const": false },

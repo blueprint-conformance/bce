@@ -141,6 +141,7 @@
     "runtimeExecutable": null,
     "runtimeVersion": null,
     "runtimeArtifactSha256": null,
+    "clientSandboxMode": null,
     "readDefaultDeny": true,
     "positiveCapabilityProofRequired": true,
     "userPreferencesImported": false,

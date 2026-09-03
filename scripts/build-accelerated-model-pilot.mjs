@@ -17,7 +17,7 @@ const sourceStatusResult = spawnSync('git', ['status', '--porcelain', '--untrack
 if (sourceCommitResult.status !== 0 || sourceStatusResult.status !== 0) throw new Error('pilot builder could not establish source Git provenance');
 const sourceCommit = sourceCommitResult.stdout.trim();
 const sourceTreeState = sourceStatusResult.stdout.trim() === '' ? 'clean' : 'dirty-development-only';
-const pilotVersion = valueAfter('--pilot-version') ?? 'v2';
+const pilotVersion = valueAfter('--pilot-version') ?? 'v3';
 if (!/^v[1-9][0-9]*$/.test(pilotVersion)) throw new Error('--pilot-version must be v1, v2, and so on');
 const output = resolve(valueAfter('--out') ?? join(root, 'research', 'model-evaluation', 'pilots', `accelerated-${pilotVersion}`));
 if (existsSync(output)) throw new Error(`pilot builder refuses to overwrite existing path: ${output}`);
@@ -31,17 +31,27 @@ for (const name of ['protocol.schema.json', 'task-manifest.schema.json', 'termin
 }
 if (pilotVersion === 'v1') copyFileSync(join(canonicalRoot, 'protocol-amendments.jsonl'), join(output, 'protocol-amendments.jsonl'));
 else {
+  const amendments = {
+    v2: {
+      amendmentId: 'v2-pretrial-isolation-fix-forward',
+      recordedAt: '2026-09-03T01:15:00Z',
+      supersedesPilot: 'bce-accelerated-instrumentation-pilot-2026-09-03',
+      retainedPriorResultSha256: 'c1ac3958d670dab11e895edc0167e5eb31f569227b89cf32217f61da88244985',
+      reason: 'Pilot v1 retained 8/8 failed launches because home-directory read denial blocked the NVM-installed Codex launcher. V2 freezes and stages native Codex plus a standalone Node runtime, positively probes the generated MCP path, and seals the BCE treatment as an offline installed dependency closure.',
+    },
+    v3: {
+      amendmentId: 'v3-client-sandbox-ownership-fix-forward',
+      recordedAt: '2026-09-03T02:14:14Z',
+      supersedesPilot: 'bce-accelerated-instrumentation-pilot-v2-2026-09-03',
+      retainedPriorResultSha256: 'e66be3c2ddfba870922933866e7e20bbf37a805a1a2c385f502dad5b28fff022',
+      reason: 'Pilot v2 retained 8/8 completed client sessions but 0/8 task successes because Codex could not initialize its inner workspace-write sandbox inside the active outer macOS sandbox. V3 makes the frozen deny-by-default outer profile the sole confinement boundary and disables nested client sandboxing.',
+    },
+  };
+  const amendment = amendments[pilotVersion];
+  if (!amendment) throw new Error(`${pilotVersion}: no explicit fix-forward amendment is defined`);
   writeFileSync(join(output, 'protocol-amendments.jsonl'), `${JSON.stringify({
-    schemaVersion: '1',
-    amendmentId: `${pilotVersion}-pretrial-isolation-fix-forward`,
-    recordedAt: '2026-09-03T01:15:00Z',
-    beforeFirstModelExposure: true,
-    supersedesPilot: 'bce-accelerated-instrumentation-pilot-2026-09-03',
-    retainedPriorResultSha256: 'c1ac3958d670dab11e895edc0167e5eb31f569227b89cf32217f61da88244985',
-    reason: 'Pilot v1 retained 8/8 failed launches because home-directory read denial blocked the NVM-installed Codex launcher. V2 freezes and stages native Codex plus a standalone Node runtime, positively probes the generated MCP path, and seals the BCE treatment as an offline installed dependency closure.',
-    resultsInspected: true,
-    changesOutcomeDefinition: false,
-    eligibleForConfirmatoryPooling: false,
+    schemaVersion: '1', ...amendment, beforeFirstModelExposure: true, resultsInspected: true,
+    changesOutcomeDefinition: false, eligibleForConfirmatoryPooling: false,
   })}\n`);
 }
 for (const name of ['treatment-delta.v1.json', 'protected-paths.v1.json']) {
@@ -158,6 +168,7 @@ protocol.isolation.executionDriverSha256 = sha256Bytes(readFileSync('/usr/bin/sa
 protocol.isolation.runtimeExecutable = runtimePath;
 protocol.isolation.runtimeVersion = `${runtimeVersion.stdout}${runtimeVersion.stderr}`.trim().split('\n')[0];
 protocol.isolation.runtimeArtifactSha256 = sha256Bytes(readFileSync(runtimePath));
+protocol.isolation.clientSandboxMode = 'outer-controller-profile-only';
 protocol.stopping.stopAfterConsecutivePostExposureInfrastructureFailures = 8;
 protocol.stopping.failureRateMinimumExposed = 8;
 writeFileSync(join(output, 'protocol.v2.json'), `${JSON.stringify(protocol, null, 2)}\n`);

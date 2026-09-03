@@ -88,6 +88,7 @@ for (let index = 0; index < manifest.assignments.length; index += 1) {
   const repository = manifest.repositories.find((item) => item.id === assignment.repositoryId);
   if (record.bindings.sealRootSha256 !== seal.rootSha256 || record.bindings.preparedTreeSha256 !== repository.preparedTreeSha256 || preparation.preparedTreeSha256 !== repository.preparedTreeSha256 || record.bindings.treatmentConfigSha256 !== preparation.treatmentConfigSha256) throw new Error(`${record.trialId}: frozen binding mismatch`);
   if (isolation.driver !== protocol.isolation.executionDriver || isolation.driverSha256 !== protocol.isolation.executionDriverSha256 || !isolation.oracleReadDenied || !isolation.protectedWriteDenied ||
+      (protocol.isolation.clientSandboxMode !== undefined && isolation.clientSandboxMode !== protocol.isolation.clientSandboxMode) ||
       (protocol.isolation.clientExecutableStagingRequired === true && isolation.clientExecutableStagedSha256 !== cell.clientArtifactSha256) ||
       (protocol.isolation.runtimeExecutableStagingRequired === true && isolation.runtimeExecutableStagedSha256 !== protocol.isolation.runtimeArtifactSha256) ||
       (protocol.isolation.readDefaultDeny === true && (!isolation.readDefaultDeny || !isolation.hostCanaryReadDenied || !isolation.hostCanaryWriteDenied)) ||

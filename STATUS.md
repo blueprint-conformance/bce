@@ -100,7 +100,9 @@ source tree.
   controller's outer macOS sandbox, so no task changed and no BCE mechanism use was observed. Its
   staged runtime, read-default-deny probes, offline BCE closure, ledger, oracles, public export, and
   aggregate replay all worked. V2 is apparatus-failure evidence only and requires a new identifier
-  plus seal for any fix-forward run.
+  plus seal for any fix-forward run. The v3 builder makes the frozen deny-by-default outer profile
+  the sole sandbox owner; Codex's inner sandbox is disabled only inside that inherited boundary,
+  and the deterministic client fixture fails if the adapter reintroduces nested sandboxing.
 - No conventional precision/recall study with independent annotation has been completed.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;

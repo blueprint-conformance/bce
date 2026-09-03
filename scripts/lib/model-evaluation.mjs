@@ -296,6 +296,9 @@ export function verifyBundle(bundleDir, { requireSealed = true } = {}) {
     for (const field of ['runtimeExecutable', 'runtimeVersion', 'runtimeArtifactSha256']) {
       if (typeof protocol.isolation[field] !== 'string' || protocol.isolation[field].length === 0) refusals.push(`execution isolation ${field} is not frozen`);
     }
+    if (protocol.isolation.clientSandboxMode !== undefined && protocol.isolation.clientSandboxMode !== 'outer-controller-profile-only') {
+      refusals.push('execution client sandbox ownership is not frozen to the outer controller profile');
+    }
     try {
       if (sha256Bytes(readFileSync(protocol.isolation.runtimeExecutable)) !== protocol.isolation.runtimeArtifactSha256) refusals.push('execution runtime artifact digest mismatch');
     } catch (error) { refusals.push(`execution runtime artifact: ${error.message}`); }
@@ -505,6 +508,7 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
     throw new Error(`${terminalPath}: baseline treatment binding is not the frozen no-BCE configuration`);
   }
   if (isolation.driver !== bundle.protocol.isolation.executionDriver || isolation.driverSha256 !== bundle.protocol.isolation.executionDriverSha256 || isolation.oracleReadDenied !== true || isolation.protectedWriteDenied !== true || isolation.clientExecutableStagedSha256 !== cell.clientArtifactSha256 ||
+      (bundle.protocol.isolation.clientSandboxMode !== undefined && isolation.clientSandboxMode !== bundle.protocol.isolation.clientSandboxMode) ||
       (bundle.protocol.isolation.runtimeExecutableStagingRequired === true && isolation.runtimeExecutableStagedSha256 !== bundle.protocol.isolation.runtimeArtifactSha256) ||
       (bundle.protocol.isolation.readDefaultDeny === true && (isolation.readDefaultDeny !== true || isolation.hostCanaryReadDenied !== true || isolation.hostCanaryWriteDenied !== true)) ||
       (bundle.protocol.isolation.positiveCapabilityProofRequired === true && (isolation.workspaceReadWriteAllowed !== true || isolation.stagedRuntimeVersionVerified !== true || isolation.stagedClientVersionVerified !== true)) ||
