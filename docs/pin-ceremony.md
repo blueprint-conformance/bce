@@ -11,7 +11,7 @@ Lane A exists to close a trusting-trust hole: a change that simultaneously break
 engine's ability to notice the break must not be able to self-grade green. That property only holds if
 the grader is **fixed** — a published artifact the PR under review cannot influence.
 
-- `bce-engine@0.1.2` — never `^0.1.2`, `~0.1.2`, or `@latest`. A range would let a *later* publish
+- `bce-engine@0.1.5` — never `^0.1.5`, `~0.1.5`, or `@latest`. A range would let a *later* publish
   silently change the gate every contributor is measured against, reintroducing the exact hole Lane A
   removes.
 - The **caret-0.x incident** is the recorded reason ranges are forbidden even when they look harmless:
@@ -51,7 +51,7 @@ lands in two governed steps, never one:
 This is the same widen-only ratchet the format itself follows: expressive power is added, never silently
 relaxed.
 
-## Bootstrap-0: the pin is dormant until 0.1.0 publishes
+## Bootstrap-0 history (completed)
 
 `.engine-pin.json` originally shipped with `"published": false`. While it was false there was nothing
 published to pin, so:
@@ -61,9 +61,10 @@ published to pin, so:
 - Lane B (HEAD gating its own tree) is the only lane — the **bootstrap-0 exception**, recorded in
   [`docs/self-hosting.md`](./self-hosting.md).
 
-The `v0.1.0` release completed this bootstrap. Its post-release PR flips `"published": true`, activates
-the Lane-A step, and makes it a **required** branch-protection check. Later releases follow the
-predecessor-gated ceremony above.
+The `v0.1.0` release completed this bootstrap. The current pin is the published, registry-resolvable
+`bce-engine@0.1.5`, so Lane A runs on every self-gate. Later releases follow the predecessor-gated
+ceremony above. The conditional remains solely as a fail-closed generic bootstrap state, not as a
+description of the current repository.
 
 ## What this ceremony is NOT
 

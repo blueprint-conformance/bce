@@ -14,8 +14,9 @@
  * newline-delimited JSON-RPC 2.0 (one message per line, no embedded newlines, stdout is
  * MCP-messages-ONLY, stderr is for logs). That is ~120 lines of framing implemented below with
  * only the Node stdlib — no `@modelcontextprotocol/sdk`, no `zod` at the transport layer. DECISION
- * RECORDED: hand-rolled minimal JSON-RPC stdio; revisit only if the protocol surface grows beyond
- * initialize / tools/list / tools/call.
+ * RECORDED: hand-rolled minimal JSON-RPC stdio, compatibility-gated by the exact Inspector version
+ * locked in npm-shrinkwrap.json plus boundary tests; revisit if the protocol surface grows beyond
+ * initialize / tools/list / tools/call / ping.
  *
  * FAIL-CLOSED (the brand): there are NO skip flags. A malformed `.bce-mode.json` or a hand-broken
  * baseline still THROWS through the engine and becomes a JSON-RPC error result (`isError: true`) —
@@ -104,6 +105,7 @@ const PARSE_ERROR = -32700;
 const INVALID_REQUEST = -32600;
 const METHOD_NOT_FOUND = -32601;
 const INVALID_PARAMS = -32602;
+const MAX_INBOUND_MESSAGE_BYTES = 1024 * 1024;
 
 /** stderr is the ONLY channel this server may log to — stdout is reserved for MCP messages. */
 function log(msg: string): void {
@@ -404,6 +406,10 @@ function callTool(name: string, rawArgs: unknown): Record<string, unknown> {
 // ── Method dispatch ─────────────────────────────────────────────────────────────────────────────
 
 function handleRequest(req: JsonRpcRequest): void {
+  // JSON-RPC notifications never receive a response. BCE's only relevant MCP
+  // notifications are lifecycle/cancellation signals; tools are synchronous and
+  // read-only, so a cancellation arriving between calls is acknowledged by silence.
+  if (req.id === undefined) return;
   const id = req.id ?? null;
   switch (req.method) {
     case 'initialize': {
@@ -453,40 +459,58 @@ function handleRequest(req: JsonRpcRequest): void {
 
 function main(): void {
   let buffer = '';
+  const processLine = (raw: string): void => {
+    const line = raw.trim();
+    if (line.length === 0) return;
+    if (Buffer.byteLength(line, 'utf8') > MAX_INBOUND_MESSAGE_BYTES) {
+      sendError(null, { code: INVALID_REQUEST, message: `message exceeds ${MAX_INBOUND_MESSAGE_BYTES} byte limit` });
+      return;
+    }
+    let req: JsonRpcRequest;
+    try {
+      req = JSON.parse(line) as JsonRpcRequest;
+    } catch {
+      sendError(null, { code: PARSE_ERROR, message: 'invalid JSON on stdin' });
+      return;
+    }
+    if (req.jsonrpc !== '2.0' || typeof req.method !== 'string') {
+      // A response has no `method`; per JSON-RPC we only receive requests/notifications here.
+      if (req.id !== undefined) {
+        sendError(req.id ?? null, { code: INVALID_REQUEST, message: 'not a valid JSON-RPC 2.0 request' });
+      }
+      return;
+    }
+    try {
+      handleRequest(req);
+    } catch (e) {
+      // A handler throw must never crash the server (fail-closed availability) — surface it.
+      if (req.id !== undefined) {
+        sendError(req.id ?? null, { code: -32603, message: `internal error: ${(e as Error).message}` });
+      }
+      log(`internal error handling ${req.method}: ${(e as Error).message}`);
+    }
+  };
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', (chunk: string) => {
     buffer += chunk;
+    if (!buffer.includes('\n') && Buffer.byteLength(buffer, 'utf8') > MAX_INBOUND_MESSAGE_BYTES) {
+      sendError(null, { code: INVALID_REQUEST, message: `message exceeds ${MAX_INBOUND_MESSAGE_BYTES} byte limit` });
+      buffer = '';
+      return;
+    }
     let nl: number;
     while ((nl = buffer.indexOf('\n')) !== -1) {
-      const line = buffer.slice(0, nl).trim();
+      const line = buffer.slice(0, nl);
       buffer = buffer.slice(nl + 1);
-      if (line.length === 0) continue;
-      let req: JsonRpcRequest;
-      try {
-        req = JSON.parse(line) as JsonRpcRequest;
-      } catch {
-        sendError(null, { code: PARSE_ERROR, message: 'invalid JSON on stdin' });
-        continue;
-      }
-      if (req.jsonrpc !== '2.0' || typeof req.method !== 'string') {
-        // A response has no `method`; per JSON-RPC we only receive requests/notifications here.
-        if (req.id !== undefined) {
-          sendError(req.id ?? null, { code: INVALID_REQUEST, message: 'not a valid JSON-RPC 2.0 request' });
-        }
-        continue;
-      }
-      try {
-        handleRequest(req);
-      } catch (e) {
-        // A handler throw must never crash the server (fail-closed availability) — surface it.
-        if (req.id !== undefined) {
-          sendError(req.id ?? null, { code: -32603, message: `internal error: ${(e as Error).message}` });
-        }
-        log(`internal error handling ${req.method}: ${(e as Error).message}`);
-      }
+      processLine(line);
     }
   });
-  process.stdin.on('end', () => process.exit(0));
+  process.stdin.on('end', () => {
+    // Clients normally newline-terminate stdio messages. Processing a complete
+    // final frame at EOF is cheap interoperability insurance; malformed tails
+    // still receive the normal parse error.
+    if (buffer.trim().length > 0) processLine(buffer);
+  });
   log('ready (stdio, newline-delimited JSON-RPC 2.0)');
 }
 

@@ -21,6 +21,7 @@ import { createHash } from 'node:crypto';
 import type { ComplianceReport, Violation } from './report.js';
 import type { Severity } from './schema.js';
 import { stableStringify } from './report.js';
+import type { ToolchainIdentity } from './runtime-identity.js';
 
 /* -------------------------------------------------------------------------- */
 /* Evidence record (the append-only hash-chain)                               */
@@ -39,6 +40,8 @@ export interface EvidenceRecord {
   violationCount: number;
   /** the report's own content-addressed evidence pointer (the graph hash). */
   reportEvidenceRef: string;
+  /** Producer/parser identity. Optional only so historical pre-0.1.6 records remain verifiable. */
+  toolchain?: ToolchainIdentity;
   /** SHA-256 of the PREVIOUS record in the chain, or the genesis sentinel. */
   previousHash: string;
   /** SHA-256 of THIS record's canonical body (previousHash included) — the chain link. */
@@ -57,7 +60,11 @@ function sha256(s: string): string {
  * (EVIDENCE_GENESIS_HASH for the first run). Deterministic: no wall-clock — the record's identity
  * is the content hash, so the same report + same previousHash always yields the same record.
  */
-export function toEvidenceRecord(report: ComplianceReport, previousHash: string = EVIDENCE_GENESIS_HASH): EvidenceRecord {
+export function toEvidenceRecord(
+  report: ComplianceReport,
+  previousHash: string = EVIDENCE_GENESIS_HASH,
+  toolchain?: ToolchainIdentity,
+): EvidenceRecord {
   const body = {
     schemaVersion: '1' as const,
     traceId: report.blueprintRef.split('@')[0] ?? report.blueprintRef,
@@ -67,6 +74,7 @@ export function toEvidenceRecord(report: ComplianceReport, previousHash: string 
     verdict: report.verdict,
     violationCount: report.violations.length,
     reportEvidenceRef: report.evidenceRef,
+    ...(toolchain ? { toolchain } : {}),
     previousHash,
   };
   const canonical = stableStringify(body);
@@ -167,6 +175,10 @@ export interface RunEmission {
   workOrders: RemediationWorkOrder[];
 }
 
-export function emitRun(report: ComplianceReport, previousHash: string = EVIDENCE_GENESIS_HASH): RunEmission {
-  return { evidence: toEvidenceRecord(report, previousHash), workOrders: toWorkOrders(report) };
+export function emitRun(
+  report: ComplianceReport,
+  previousHash: string = EVIDENCE_GENESIS_HASH,
+  toolchain?: ToolchainIdentity,
+): RunEmission {
+  return { evidence: toEvidenceRecord(report, previousHash, toolchain), workOrders: toWorkOrders(report) };
 }

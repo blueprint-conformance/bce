@@ -48,8 +48,9 @@
  *   1 — (--check) drift: the README or the transcript no longer matches the engine.
  *   2 — harness failure (missing engine, missing fixtures).
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { closeSync, readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, openSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -94,21 +95,29 @@ export function resolveEngine() {
   throw new Error('no engine found — neither dist/cli.js nor src/cli.ts exists');
 }
 
-const shellQuote = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
-
 /**
- * Merge stdout and stderr AT THE OS LEVEL (`2>&1`) rather than concatenating two captured
+ * Merge stdout and stderr at the OS level by wiring both streams to the same file descriptor,
+ * rather than concatenating two captured
  * buffers. The gate writes its summary to stdout and its failure report to stderr; a reader
  * sees them INTERLEAVED in emission order in one terminal. Concatenating the two buffers
  * reorders them and would record a transcript no human ever sees — the exact bug
  * witness-kit-replay.mjs documents having hit.
  */
 function runInterleaved(engineArgv, args) {
-  const cmd = `${[...engineArgv, ...args].map(shellQuote).join(' ')} 2>&1`;
+  const scratch = mkdtempSync(path.join(tmpdir(), 'bce-hero-output-'));
+  const output = path.join(scratch, 'combined.log');
+  const fd = openSync(output, 'w');
   try {
-    return { out: execSync(cmd, { cwd: quickstart, encoding: 'utf8' }), code: 0 };
-  } catch (e) {
-    return { out: e.stdout ?? '', code: typeof e.status === 'number' ? e.status : 1 };
+    const result = spawnSync(engineArgv[0], [...engineArgv.slice(1), ...args], {
+      cwd: quickstart,
+      stdio: ['ignore', fd, fd],
+    });
+    closeSync(fd);
+    if (result.error) throw result.error;
+    return { out: readFileSync(output, 'utf8'), code: result.status ?? 1 };
+  } finally {
+    try { closeSync(fd); } catch { /* already closed after a successful spawn */ }
+    rmSync(scratch, { recursive: true, force: true });
   }
 }
 
@@ -135,7 +144,9 @@ export function renderTranscript(commands, engine = resolveEngine()) {
   return `${commands
     .map((args) => {
       const r = runInterleaved(engine.argv, args);
-      const body = stripAnsi(r.out).replace(/\n+$/, '');
+      // A generated public transcript has one canonical byte representation;
+      // Windows console newlines must not rewrite the proof artifact.
+      const body = stripAnsi(r.out).replace(/\r\n/g, '\n').replace(/\n+$/, '');
       return `$ bce ${args.join(' ')}\n${body}\n$ echo $?\n${r.code}\n`;
     })
     .join('\n')}`;

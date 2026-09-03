@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCE model-evaluation pre-run seal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "studyId", "status", "sealedAt", "entries", "rootSha256", "publicTimestamp", "attestation"],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "studyId": { "type": "string", "minLength": 3 },
+    "status": { "enum": ["unsealed", "sealed-before-first-trial", "terminated"] },
+    "sealedAt": { "type": ["string", "null"], "format": "date-time" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "bytes"],
+        "properties": {
+          "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "bytes": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "rootSha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "publicTimestamp": { "type": ["string", "null"], "pattern": "^https://" },
+    "attestation": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "subjectRootSha256", "uri", "identity", "eligibleForProductClaim"],
+          "properties": {
+            "kind": { "enum": ["local-git-commit", "sigstore-github-oidc", "synthetic-self-test"] },
+            "subjectRootSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "uri": { "type": "string", "pattern": "^https://" },
+            "identity": { "type": "string", "minLength": 3 },
+            "eligibleForProductClaim": { "type": "boolean" }
+            ,"gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+            ,"bundlePath": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+" }
+            ,"subjectPath": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+" }
+            ,"certificateIssuer": { "type": "string", "pattern": "^https://" }
+            ,"certificateIdentityURI": { "type": "string", "pattern": "^https://" }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -13,6 +13,7 @@ import {
   EVIDENCE_GENESIS_HASH,
   type EvidenceRecord,
 } from '../src/emit.js';
+import type { ToolchainIdentity } from '../src/runtime-identity.js';
 import type { ComplianceReport } from '../src/report.js';
 
 const passReport: ComplianceReport = {
@@ -37,6 +38,13 @@ const failReport: ComplianceReport = {
   ],
 };
 
+const toolchain: ToolchainIdentity = {
+  engine: { name: 'bce-engine', version: '0.1.6' },
+  dependencyLock: { file: 'npm-shrinkwrap.json', sha256: 'a'.repeat(64) },
+  runtime: { node: '22.18.0', npm: '11.5.2', platform: 'linux', arch: 'x64' },
+  extractor: { kind: 'ast', profile: 'plugin-surface', provider: 'typescript-ts-morph', version: '0.1.6' },
+};
+
 describe('evidence record + hash chain', () => {
   it('a genesis record chains from EVIDENCE_GENESIS_HASH and self-verifies', () => {
     const r = toEvidenceRecord(passReport);
@@ -47,6 +55,17 @@ describe('evidence record + hash chain', () => {
 
   it('is DETERMINISTIC — same report + prev → byte-identical record', () => {
     expect(JSON.stringify(toEvidenceRecord(failReport))).toBe(JSON.stringify(toEvidenceRecord(failReport)));
+  });
+
+  it('binds complete toolchain identity into current records and their hash', () => {
+    const record = toEvidenceRecord(passReport, EVIDENCE_GENESIS_HASH, toolchain);
+    expect(record.toolchain).toEqual(toolchain);
+    const changed = toEvidenceRecord(passReport, EVIDENCE_GENESIS_HASH, {
+      ...toolchain,
+      runtime: { ...toolchain.runtime, npm: '11.6.0' },
+    });
+    expect(changed.hash).not.toBe(record.hash);
+    expect(verifyEvidenceChain([record])).toBe(-1);
   });
 
   it('a two-record chain verifies when correctly linked', () => {

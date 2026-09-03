@@ -27,7 +27,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Project, SyntaxKind, type CallExpression, type FunctionDeclaration, type NewExpression, type Node } from 'ts-morph';
+import { Project, SyntaxKind, ts, type CallExpression, type FunctionDeclaration, type NewExpression, type Node } from 'ts-morph';
 import type {
   ArchitectureGraph,
   ObservedComponent,
@@ -99,6 +99,20 @@ export interface ResolvedExtraction {
    * and `coverage.patternScan` is OMITTED (pre-0.9.0 graphs serialize byte-unchanged).
    */
   patterns: readonly string[];
+}
+
+/**
+ * Parse-only diagnostics for a real source mutation before it is credited as extractor evidence.
+ * This helper deliberately lives in the extractor module so ts-morph/TypeScript remains isolated
+ * behind the one facts-production seam. Semantic/module-resolution errors are not included: a
+ * mutation may intentionally import a forbidden package that is absent from node_modules.
+ */
+export function sourceSyntaxDiagnostics(pathname: string, text: string): string[] {
+  const kind = pathname.endsWith('.tsx') ? ts.ScriptKind.TSX : pathname.endsWith('.jsx') ? ts.ScriptKind.JSX :
+    pathname.endsWith('.js') || pathname.endsWith('.mjs') || pathname.endsWith('.cjs') ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(pathname, text, ts.ScriptTarget.Latest, true, kind);
+  const diagnostics = (source as unknown as { parseDiagnostics?: readonly ts.Diagnostic[] }).parseDiagnostics ?? [];
+  return diagnostics.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
 }
 
 /**
@@ -363,7 +377,7 @@ export function scanPatterns(
   const hits: Array<{ pattern: string; file: string; line: number }> = [];
   for (const abs of [...absFiles].sort()) {
     const rel = path.relative(repoDir, abs).split(path.sep).join('/');
-    const lines = fs.readFileSync(abs, 'utf8').split('\n');
+    const lines = fs.readFileSync(abs, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
       for (const { pattern, re } of compiled) {
         if (re.test(lines[i] ?? '')) hits.push({ pattern, file: rel, line: i + 1 });
@@ -736,6 +750,11 @@ export class AstExtractor implements RepositoryFactsExtractor {
       if (this.cfg.egressEnabled) {
         this.extractEgress(source, relPath, components, guardEdges, egressCoverage);
       }
+      // This extractor explicitly does not perform cross-module resolution. Retaining every
+      // parsed SourceFile makes ts-morph rebuild an ever-growing program as the scan advances,
+      // turning large trees into quadratic work. All facts needed from this file have now been
+      // materialized, so release it before parsing the next one.
+      project.removeSourceFile(source);
     }
 
     components.sort(compareComponents);
@@ -1020,7 +1039,11 @@ export class AstExtractor implements RepositoryFactsExtractor {
         break;
       }
     }
-    if (factoryNode === null) {
+    // getDefaultExportSymbol() asks the TypeScript checker to resolve a symbol. Avoid that cost for
+    // the overwhelmingly common no-default-export file; on a large tree, invoking the checker for
+    // every plain module dominates extraction time. The syntax guard preserves the fallback for
+    // actual `export default ...` shapes.
+    if (factoryNode === null && source.getExportAssignments().length > 0) {
       const def = source.getDefaultExportSymbol();
       const d = def?.getDeclarations()[0];
       if (d) {
@@ -1324,7 +1347,7 @@ export class LineScanExtractor implements RepositoryFactsExtractor {
 
     for (const absPath of files) {
       const relPath = path.relative(repoDir, absPath).split(path.sep).join('/');
-      const lines = fs.readFileSync(absPath, 'utf8').split('\n');
+      const lines = fs.readFileSync(absPath, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/);
       if (this.cfg.profile === 'plugin-surface') {
         this.scanExtension(relPath, lines, guardRe, components, guardEdges);
       } else {

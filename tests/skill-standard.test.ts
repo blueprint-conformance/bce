@@ -86,7 +86,7 @@ function skillDirs(): string[] {
 
 /** The format's frontmatter surface: a leading `---` block of `key: value` lines. */
 function readFrontmatter(text: string): { keys: Record<string, string>; bodyLines: number } {
-  const lines = text.split('\n');
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
   if (lines[0] !== '---') throw new Error('does not open with a `---` frontmatter fence on line 1');
   const end = lines.indexOf('---', 1);
   if (end === -1) throw new Error('frontmatter fence is never closed');

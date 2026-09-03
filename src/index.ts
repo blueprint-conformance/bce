@@ -85,6 +85,8 @@ export type { ComplianceReport, Violation } from './report.js';
 
 export { assessTeeth, ConstraintTeeth } from './teeth.js';
 export type { TeethReport, RefutabilityWitness } from './teeth.js';
+export { assessExtractorTeethCorpus, TeethMutationManifestSchema } from './extractor-teeth.js';
+export type { TeethMutationManifest, ExtractorTeethReport, ExtractorTeethCaseResult } from './extractor-teeth.js';
 export { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 export type { TeethWaiver } from './teeth-waiver.js';
 
@@ -148,6 +150,8 @@ export {
   EVIDENCE_GENESIS_HASH,
 } from './emit.js';
 export type { EvidenceRecord, RemediationWorkOrder, RunEmission, ApprovalState } from './emit.js';
+export { resolveToolchainIdentity } from './runtime-identity.js';
+export type { ToolchainIdentity } from './runtime-identity.js';
 
 export {
   subsystemScore,

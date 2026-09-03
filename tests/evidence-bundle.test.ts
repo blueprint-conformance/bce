@@ -21,7 +21,14 @@ describe('self-contained evidence bundle', () => {
   }
 
   it('re-hashes and re-evaluates all bundled artifacts while declining authenticity claims', () => {
-    expect(verifyEvidenceBundle(bundle())).toEqual({ valid: true, integrity: 'verified', authenticity: 'not-established', failures: [] });
+    const evidence = bundle();
+    expect(evidence.toolchain).toMatchObject({
+      engine: { name: 'bce-engine', version: '0.1.0' },
+      dependencyLock: { file: 'npm-shrinkwrap.json', sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
+      runtime: { node: process.versions.node, npm: expect.any(String), platform: process.platform, arch: process.arch },
+      extractor: { kind: 'ast', profile: 'plugin-surface', provider: 'typescript-ts-morph', version: '0.1.0' },
+    });
+    expect(verifyEvidenceBundle(evidence)).toEqual({ valid: true, integrity: 'verified', authenticity: 'not-established', failures: [] });
   });
 
   it.each(['blueprint', 'graph', 'report'] as const)('detects %s tampering', (part) => {

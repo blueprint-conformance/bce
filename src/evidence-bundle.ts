@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { ArchitectureGraph } from './graph.js';
 import { evaluate, stableStringify, type ComplianceReport } from './report.js';
 import { parseBlueprint, type EngineeringBlueprint, type ExtractionProfile } from './schema.js';
+import { resolveToolchainIdentity, type ToolchainIdentity } from './runtime-identity.js';
 
 const sha256 = (value: unknown): string => createHash('sha256').update(stableStringify(value)).digest('hex');
 const detached = <T>(value: T): T => JSON.parse(stableStringify(value)) as T;
@@ -11,7 +12,8 @@ export interface EvidenceBundle {
   kind: 'BceEvidenceBundle';
   claim: 'self-contained-integrity-not-origin-authenticity';
   engine: { name: 'bce-engine'; version: string };
-  environment: { node: string; platform: string; arch: string };
+  environment: { node: string; npm: string; platform: string; arch: string };
+  toolchain: ToolchainIdentity;
   invocation: { command: string; extractionProfile: ExtractionProfile };
   artifacts: { blueprint: EngineeringBlueprint; graph: ArchitectureGraph; report: ComplianceReport };
   hashes: { blueprint: string; graph: string; report: string; bundle: string };
@@ -32,10 +34,16 @@ export function createEvidenceBundle(args: {
   const blueprint = detached(args.blueprint);
   const graph = detached(args.graph);
   const report = detached(args.report);
+  const toolchain = resolveToolchainIdentity({
+    engineVersion: args.engineVersion,
+    extractorKind: report.coverage.extractor,
+    extractionProfile: args.extractionProfile,
+  });
   const body: WithoutBundleHash = {
     schemaVersion: '1', kind: 'BceEvidenceBundle', claim: 'self-contained-integrity-not-origin-authenticity',
     engine: { name: 'bce-engine', version: args.engineVersion },
-    environment: { node: process.versions.node, platform: process.platform, arch: process.arch },
+    environment: { ...toolchain.runtime },
+    toolchain,
     invocation: { command: args.command, extractionProfile: args.extractionProfile },
     artifacts: { blueprint, graph, report },
     hashes: { blueprint: sha256(blueprint), graph: sha256(graph), report: sha256(report) },

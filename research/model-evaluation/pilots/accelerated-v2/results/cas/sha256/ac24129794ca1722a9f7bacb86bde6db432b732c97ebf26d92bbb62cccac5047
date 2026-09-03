@@ -1,0 +1,78 @@
+{
+  "passed": false,
+  "collateralRegression": false,
+  "locations": [
+    "TODO"
+  ],
+  "deterministic": true,
+  "executed": true,
+  "inputTreeSha256": "63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701",
+  "runs": [
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "TODO"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"boundary-feature\",\"inputTreeSha256\":\"63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"TODO\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "boundary-feature",
+        "inputTreeSha256": "63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "TODO"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "3febf532a3bb8bc35660eea5ffe9f945375880b8f09c5c5c60c7fe2754bd451a",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    },
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "TODO"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"boundary-feature\",\"inputTreeSha256\":\"63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"TODO\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "boundary-feature",
+        "inputTreeSha256": "63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "TODO"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "3febf532a3bb8bc35660eea5ffe9f945375880b8f09c5c5c60c7fe2754bd451a",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    }
+  ]
+}

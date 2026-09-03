@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "1",
+  "status": "superseded-before-first-trial",
+  "results": null,
+  "canonicalProtocol": "research/model-evaluation/protocol.v2.json",
+  "amendmentRecord": "research/model-evaluation/protocol-amendments.jsonl",
+  "reason": "The v1 scaffold trusted author-supplied outcome booleans and did not implement its claimed randomization or artifact checks. No real trial was run. V2 derives safe success from frozen external oracles and controller evidence."
+}

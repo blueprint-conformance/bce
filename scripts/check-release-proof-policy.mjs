@@ -1,0 +1,56 @@
+#!/usr/bin/env node
+
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const workflowArg = process.argv.indexOf('--workflow');
+const workflow = resolve(workflowArg >= 0 ? process.argv[workflowArg + 1] ?? '' : '.github/workflows/release.yml');
+const text = readFileSync(workflow, 'utf8');
+const gateStart = text.indexOf('\n  gate:\n');
+const publishStart = text.indexOf('\n  publish:\n');
+
+if (gateStart < 0 || publishStart < 0 || publishStart <= gateStart) {
+  process.stderr.write('release-proof-policy: FAIL — could not isolate gate and publish jobs\n');
+  process.exit(1);
+}
+
+const gate = text.slice(gateStart, publishStart);
+const publish = text.slice(publishStart);
+const requirements = [
+  ['full test suite', /^\s*run:\s*npm test\s*$/m],
+  ['fresh-consumer onboarding proof', /^\s*run:\s*npm run test:onboarding\s*$/m],
+  ['deterministic Agent Skills + MCP adoption proof', /^\s*run:\s*npm run test:ai-adoption\s*$/m],
+  ['independent adoption denominator policy', /^\s*run:\s*npm run test:adoption-program\s*$/m],
+  ['extractor-real self-blueprint source mutations', /npm run test:self-teeth-mutations/],
+];
+const missing = requirements.filter(([, pattern]) => !pattern.test(gate)).map(([name]) => name);
+
+const signingRequirements = [
+  ['publish job OIDC permission', /^\s*id-token:\s*write\b/m],
+  ['Sigstore evidence attestation', /@sigstore\/cli\/bin\/run attest[\s\\]*\n\s*release-evidence-record\.json/],
+  ['Sigstore issuer constraint', /--certificate-issuer https:\/\/token\.actions\.githubusercontent\.com/],
+  ['Sigstore workflow identity constraint', /--certificate-identity-uri "\$identity"/],
+  ['Sigstore bundle release asset', /^\s*release-evidence-record\.sigstore \\/m],
+];
+missing.push(...signingRequirements.filter(([, pattern]) => !pattern.test(publish)).map(([name]) => name));
+
+if (!/^  model-evaluation-controller-macos:\s*$/m.test(text) || !/^\s*run:\s*npm run test:model-eval-controller\s*$/m.test(text)) {
+  missing.push('macOS real-controller rehearsal');
+}
+if (!/^\s*needs:\s*\[gate, model-evaluation-controller-macos\]\s*$/m.test(publish)) {
+  missing.push('publish depends on macOS real-controller rehearsal');
+}
+
+const generateIndex = publish.indexOf('Generate the evidence record of THIS release gate-run before publish');
+const verifyIndex = publish.indexOf('release evidence signature verifies');
+const npmPublishIndex = publish.indexOf('npm publish --provenance --access public\n');
+if (generateIndex < 0 || verifyIndex < 0 || npmPublishIndex < 0 || !(generateIndex < verifyIndex && verifyIndex < npmPublishIndex)) {
+  missing.push('verified release evidence before npm publish');
+}
+
+if (missing.length > 0) {
+  process.stderr.write(`release-proof-policy: FAIL — release gate omits ${missing.join(', ')}\n`);
+  process.exit(1);
+}
+
+process.stdout.write('release-proof-policy: PASS (proofs rerun; extractor-real self teeth; macOS controller rehearsed; evidence generated, verified, and keyless-signed before publish)\n');

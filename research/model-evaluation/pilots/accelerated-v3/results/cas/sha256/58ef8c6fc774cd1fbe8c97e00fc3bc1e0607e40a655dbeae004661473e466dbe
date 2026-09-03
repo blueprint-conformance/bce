@@ -1,0 +1,7 @@
+{
+  "neutralTreeSha256": "038f6b74da6cefee88b3d61929f3f042de509aa8f2b01d0eb5a7264252e79648",
+  "agentWorkspaceTreeSha256": "9dbcd753fe29530282feb98d000bf78cf2f534bd3870a6a78b1d89c953ee3df5",
+  "changedPaths": [
+    "src/title.mjs"
+  ]
+}

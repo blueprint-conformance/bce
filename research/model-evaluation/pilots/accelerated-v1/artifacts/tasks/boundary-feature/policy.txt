@@ -1,0 +1,1 @@
+src/title.mjs must remain a pure formatting module and must never call process.exit.

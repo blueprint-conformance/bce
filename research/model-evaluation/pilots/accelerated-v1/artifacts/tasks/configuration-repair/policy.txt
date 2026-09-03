@@ -1,0 +1,1 @@
+src/worker.mjs must obtain region configuration only through src/config.mjs and must never access process.env directly.

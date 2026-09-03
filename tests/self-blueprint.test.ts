@@ -27,11 +27,22 @@ import { parseBlueprint } from '../src/schema.js';
 import type { EngineeringBlueprint } from '../src/schema.js';
 import { runGate } from '../src/gate.js';
 import { assessTeeth, ConstraintTeeth } from '../src/teeth.js';
+import { assessExtractorTeethCorpus } from '../src/extractor-teeth.js';
 import { makeExtractor, resolveExtraction } from '../src/extractors.js';
 import type { ArchitectureGraph } from '../src/graph.js';
 
 const ROOT = path.join(__dirname, '..');
 const BLUEPRINT_PATH = path.join(ROOT, '.blueprints', 'engine.blueprint.json');
+const EXTRACTOR_TEETH_MANIFEST = JSON.parse(
+  fs.readFileSync(path.join(ROOT, '.blueprints', 'engine.teeth-mutations.json'), 'utf8'),
+) as { cases: unknown[] };
+// Each case materializes a fresh real-source mutation and runs the AST extractor.
+// Supported runtimes differ materially here, so scale this one proof's finite ceiling
+// with its declared corpus instead of weakening the global timeout or the assertions.
+const EXTRACTOR_TEETH_TIMEOUT_MS = Math.min(
+  180_000,
+  Math.max(60_000, EXTRACTOR_TEETH_MANIFEST.cases.length * 4_000),
+);
 
 function loadBlueprint(): EngineeringBlueprint {
   return parseBlueprint(JSON.parse(fs.readFileSync(BLUEPRINT_PATH, 'utf8')));
@@ -106,7 +117,7 @@ describe('self-blueprint: the engine gates its own architecture', () => {
     const cfg = resolveExtraction(bp.extraction, bp.constraints);
     const graph = makeExtractor('ast', cfg).extract(ROOT, 'selftest');
     const teeth = assessTeeth(bp, graph, 'plugin-surface');
-    // The self-blueprint is 29 forbiddenPattern + 1 forbiddenDependency — all synthetic-evidence
+    // The graph-level proof remains explicit: these classes use synthetic evidence here.
     // classes, so with zero extractor-real teeth its honest verdict is `evaluator-refutable`
     // (refutable in principle, exit-0 class). The property this test guards is unchanged: NOTHING
     // is trivially-green or indeterminate.
@@ -116,6 +127,17 @@ describe('self-blueprint: the engine gates its own architecture', () => {
     );
     expect(nonRefutable, JSON.stringify(nonRefutable, null, 2)).toEqual([]);
   });
+
+  it('EXTRACTOR TEETH: every constraint is killed by one separately materialized real source mutation', () => {
+    const bp = loadBlueprint();
+    const report = assessExtractorTeethCorpus({ blueprint: bp, repoDir: ROOT, manifest: EXTRACTOR_TEETH_MANIFEST, extractor: 'ast' });
+    expect(report.verdict, JSON.stringify(report.cases.filter((entry) => entry.status !== 'killed'), null, 2)).toBe('extractor-real-proven');
+    expect(report.mapped).toBe(bp.constraints.length);
+    expect(report.killed).toBe(bp.constraints.length);
+    expect(report.survived).toBe(0);
+    expect(report.refused).toBe(0);
+    expect(report.inputBindings.extractorIdentity).toBe('bce-ast:ts-morph@23.0.0');
+  }, EXTRACTOR_TEETH_TIMEOUT_MS);
 });
 
 describe('teeth: forbiddenDependency reddening mutation respects scopePaths (self-hosting regression)', () => {

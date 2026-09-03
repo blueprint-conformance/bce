@@ -1,0 +1,55 @@
+{
+  "successful": true,
+  "preparedTreeSha256": "9a17d276e7502aea82c4de6560f568e5eef9c3db90fb80d63acbb36c66e2bea5",
+  "commands": [],
+  "treatmentDelta": {
+    "arm": "bce-enabled",
+    "changes": [
+      {
+        "path": ".bce-mode.json",
+        "before": null,
+        "after": {
+          "path": ".bce-mode.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 25,
+          "sha256": "bb8b675ac0f7c0d441e2dcc1927b35e3b95dd25599e816d40f5cbc401099f232"
+        }
+      },
+      {
+        "path": ".blueprints/configuration-repair.blueprint.json",
+        "before": null,
+        "after": {
+          "path": ".blueprints/configuration-repair.blueprint.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 784,
+          "sha256": "ce992bec2df5e7d30c7e7679a1925098ef7fda82e0355da73285ca7f37a63e30"
+        }
+      },
+      {
+        "path": ".codex/config.toml",
+        "before": null,
+        "after": {
+          "path": ".codex/config.toml",
+          "type": "file",
+          "mode": 420,
+          "bytes": 376,
+          "sha256": "96a11b8da07f8f4ac21aa1aa5818f49331623591b8b5ec3588ed85a67e8e1dae"
+        }
+      },
+      {
+        "path": "AGENTS.md",
+        "before": null,
+        "after": {
+          "path": "AGENTS.md",
+          "type": "file",
+          "mode": 420,
+          "bytes": 217,
+          "sha256": "60184406f1f25017fda3a48be8efb1052f0fa48da26d6fae874b4f33dcf74f2a"
+        }
+      }
+    ]
+  },
+  "treatmentConfigSha256": "7950d299688b38d8bd59ab221bd158ad02678a0e07a7039e6a7dd5d8a9365745"
+}

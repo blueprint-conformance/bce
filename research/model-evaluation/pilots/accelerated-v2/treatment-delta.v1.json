@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1",
+  "studyId": "bce-accelerated-instrumentation-pilot-v2-2026-09-03",
+  "allowedPathPatterns": [
+    ".bce-runtime/**",
+    ".bce-mode.json",
+    ".blueprints/**",
+    ".agents/skills/bce/**",
+    ".agents/skills/skill-tuning/**",
+    ".claude/skills/bce/**",
+    ".claude/skills/skill-tuning/**",
+    ".cursor/skills/bce/**",
+    ".cursor/skills/skill-tuning/**",
+    ".codex/config.toml",
+    ".cursor/mcp.json",
+    ".mcp.json",
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".cursorrules"
+  ],
+  "onlyAllowedArmDifferences": [
+    "exact BCE engine artifact installed in the trial workspace",
+    "task-specific EngineeringBlueprint encoding the same written policy both arms receive",
+    "project-scoped BCE Agent Skill",
+    "project-scoped BCE MCP configuration",
+    "visible pipeline includes the BCE done-check"
+  ],
+  "mustRemainByteIdentical": [
+    "base task tree before treatment materialization",
+    "task prompt and written architecture rule",
+    "client executable and client version",
+    "requested and resolved model identity",
+    "reasoning effort and model parameters",
+    "non-BCE tools and permissions",
+    "network policy",
+    "time, token, turn, and cost ceilings",
+    "visible functional tests",
+    "hidden functional oracle",
+    "independent architecture oracle",
+    "protected-path classifier"
+  ],
+  "forbiddenTreatmentDifferences": [
+    "additional architecture facts unavailable to baseline",
+    "different task wording",
+    "different resource budgets",
+    "different repository revision",
+    "different non-BCE tools",
+    "outcome-dependent retry or stopping"
+  ]
+}

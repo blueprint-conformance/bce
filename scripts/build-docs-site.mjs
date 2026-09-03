@@ -102,14 +102,20 @@ const PAGES = [
   { route: 'guides/adoption-lifecycle', source: 'docs/adoption-lifecycle.md', section: 'Guides' },
   { route: 'guides/agent-loop', source: 'docs/agent-loop.md', section: 'Guides' },
   { route: 'guides/self-hosting', source: 'docs/self-hosting.md', section: 'Guides' },
+  { route: 'guides/accelerated-dogfooding', source: 'docs/accelerated-dogfooding.md', section: 'Guides' },
   { route: 'guides/agent-estate', source: 'docs/fleet-dogfooding.md', section: 'Guides' },
   { route: 'guides/exit-codes', source: 'docs/exit-codes.md', section: 'Guides' },
   { route: 'guides/report-contract', source: 'docs/report-contract.md', section: 'Guides' },
   { route: 'guides/evidence-format', source: 'docs/evidence-format.md', section: 'Guides' },
+  { route: 'guides/mcp-compatibility', source: 'docs/mcp-compatibility.md', section: 'Guides' },
+  { route: 'guides/portability', source: 'docs/portability.md', section: 'Guides' },
+  { route: 'guides/scale-and-detection', source: 'docs/scale-and-detection.md', section: 'Guides' },
   { route: 'guides/extending-extractors', source: 'docs/extending-extractors.md', section: 'Guides' },
   { route: 'guides/pin-ceremony', source: 'docs/pin-ceremony.md', section: 'Guides' },
   { route: 'guides/comparison', source: 'docs/comparison.md', section: 'Guides' },
   { route: 'guides/governance-enforcement', source: 'docs/governance-enforcement.md', section: 'Guides' },
+  { route: 'guides/credibility-hardening', source: 'docs/credibility-hardening-plan-2026-09-02.md', section: 'Guides' },
+  { route: 'guides/credibility-hardening-closeout', source: 'docs/credibility-hardening-closeout-2026-09-02.md', section: 'Guides' },
 
   { route: 'agents', kind: 'section-index', section: 'For Agents', nav: 'For Agents' },
   // `title` overrides the source's own H1 for NAVIGATION only — the page still
@@ -231,6 +237,7 @@ const UNPUBLISHED = {
   'docs/launch/witness-kit.md': 'launch-preparation material, not documentation',
   'docs/launch/landscape-reverify-2026-08-27.md': 'dated launch-verification record, not documentation',
   'docs/launch/skill-listing-drafts.md': 'launch-preparation material, not documentation',
+  'docs/launch/openai-plugin-submission.md': 'launch-preparation material, not documentation',
 };
 
 // Directories swept for publishable markdown when checking IA completeness.

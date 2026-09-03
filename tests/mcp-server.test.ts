@@ -19,15 +19,16 @@
  * exercises the SAME code the `bce-mcp` bin ships (dist/mcp-server.js is that source, tsup-built).
  */
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const TSX_LOADER = join(ROOT, 'node_modules', 'tsx', 'dist', 'loader.mjs');
+const TSX_LOADER_URL = pathToFileURL(TSX_LOADER).href;
 const SERVER = join(HERE, '..', 'src', 'mcp-server.ts');
 const CLI = join(HERE, '..', 'src', 'cli.ts');
 const FIXROOT = join(HERE, '..', 'fixtures');
@@ -52,7 +53,7 @@ function rpcRoundTrip(
   cwd?: string,
 ): Promise<Map<number | string, RpcResponse>> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['--import', TSX_LOADER, SERVER], {
+    const child = spawn(process.execPath, ['--import', TSX_LOADER_URL, SERVER], {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -92,6 +93,23 @@ function rpcRoundTrip(
     for (const req of requests) child.stdin.write(JSON.stringify(req) + '\n');
     child.stdin.end();
   });
+}
+
+/** Drive exact stdin bytes through the real server. Unlike rpcRoundTrip this retains parse errors
+ * (id:null), which is required to test framing recovery and notification silence. */
+function rawRpc(stdin: string): { responses: RpcResponse[]; stderr: string; status: number | null } {
+  const result = spawnSync(process.execPath, ['--import', TSX_LOADER_URL, SERVER], {
+    input: stdin,
+    encoding: 'utf8',
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  if (result.error) throw result.error;
+  const responses = result.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as RpcResponse);
+  return { responses, stderr: result.stderr, status: result.status };
 }
 
 /** A single tools/call, returning the parsed structuredContent (or throwing with the isError text). */
@@ -213,6 +231,54 @@ describe('bce-mcp — protocolVersion negotiation (MCP lifecycle spec)', () => {
   it('a missing or non-string protocolVersion field gets the server latest back', async () => {
     expect(await initWith({})).toBe(LATEST);
     expect(await initWith({ protocolVersion: 42 })).toBe(LATEST);
+  });
+});
+
+describe('bce-mcp — framing, notification, and payload boundaries', () => {
+  it('recovers after malformed JSON and processes a final non-newline frame at EOF', () => {
+    const { responses, status } = rawRpc(
+      '{not-json}\n' + JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'ping', params: {} }),
+    );
+    expect(status).toBe(0);
+    expect(responses).toHaveLength(2);
+    expect(responses[0].error?.code).toBe(-32700);
+    expect(responses[0].id).toBeNull();
+    expect(responses[1]).toMatchObject({ jsonrpc: '2.0', id: 7, result: {} });
+  });
+
+  it('rejects an oversized request without poisoning the next valid frame', () => {
+    const oversized = JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'ping',
+      params: { padding: 'x'.repeat(1024 * 1024) },
+    });
+    const valid = JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'ping', params: {} });
+    const { responses, status } = rawRpc(`${oversized}\n${valid}\n`);
+    expect(status).toBe(0);
+    expect(responses[0].error?.code).toBe(-32600);
+    expect(responses[0].id).toBeNull();
+    expect(responses[1]).toMatchObject({ id: 2, result: {} });
+  });
+
+  it('emits no response for lifecycle or cancellation notifications', () => {
+    const frames = [
+      { jsonrpc: '2.0', method: 'notifications/initialized', params: {} },
+      { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 99, reason: 'test' } },
+      { jsonrpc: '2.0', id: 3, method: 'ping', params: {} },
+    ];
+    const { responses, status } = rawRpc(frames.map((frame) => JSON.stringify(frame)).join('\n') + '\n');
+    expect(status).toBe(0);
+    expect(responses).toEqual([{ jsonrpc: '2.0', id: 3, result: {} }]);
+  });
+
+  it('returns a multi-megabyte report without truncating outbound structuredContent', async () => {
+    const reportPath = join(tmp, 'large-report.json');
+    const expected = { schemaVersion: '1', payload: 'e'.repeat(2 * 1024 * 1024) };
+    writeFileSync(reportPath, JSON.stringify(expected));
+    const result = await callTool('get_report', { reportPath });
+    expect(result.isError).toBe(false);
+    expect(toolStructured(result)).toEqual(expected);
   });
 });
 

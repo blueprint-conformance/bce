@@ -1,6 +1,6 @@
 ---
 name: skill-tuning
-description: Grade an Agent Skill — or a whole skills/ tree — against the enforceable skill-standard and drive it green: frontmatter portability, description discipline, no credential material, no author-machine paths, size budgets. Use when authoring a new SKILL.md, when adopting the standard across an existing skill library, before publishing a plugin or a marketplace entry, or when a skill loads but never fires and nobody can say why.
+description: "Grade an Agent Skill — or a whole skills/ tree — against the enforceable skill-standard and drive it green: frontmatter portability, description discipline, no credential material, no author-machine paths, size budgets. Use when authoring a new SKILL.md, when adopting the standard across an existing skill library, before publishing a plugin or a marketplace entry, or when a skill loads but never fires and nobody can say why."
 license: Apache-2.0
 ---
 

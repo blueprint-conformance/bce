@@ -124,6 +124,7 @@
         "src/emit.ts",
         "src/evidence-bundle.ts",
         "src/evidence-store.ts",
+        "src/extractor-teeth.ts",
         "src/extractor-registry.ts",
         "src/gate.ts",
         "src/graph.ts",
@@ -141,6 +142,7 @@
         "src/python-extractor.ts",
         "src/recall-gate.ts",
         "src/report.ts",
+        "src/runtime-identity.ts",
         "src/safe-regex.ts",
         "src/schema.ts",
         "src/score.ts",
@@ -268,6 +270,14 @@
       "type": "forbiddenPattern",
       "severity": "high",
       "path": "src/evidence-store.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--extractor-teeth",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/extractor-teeth.ts",
       "pattern": "process\\.exit\\s*\\(",
       "policyRef": "policy/library-modules-never-exit"
     },
@@ -424,6 +434,14 @@
       "policyRef": "policy/library-modules-never-exit"
     },
     {
+      "id": "only-cli-may-call-process-exit--runtime-identity",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/runtime-identity.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
       "id": "only-cli-may-call-process-exit--extractor-registry",
       "type": "forbiddenPattern",
       "severity": "high",
@@ -450,6 +468,6 @@
     "paths": [
       "src/**/*.ts"
     ],
-    "minFiles": 32
+    "minFiles": 34
   }
 }

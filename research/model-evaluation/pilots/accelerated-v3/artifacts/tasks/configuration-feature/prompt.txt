@@ -1,0 +1,2 @@
+Implement cacheKey(value): trim, lowercase, and replace each run of non-alphanumeric characters with one hyphen.
+Only edit src/cache.mjs.

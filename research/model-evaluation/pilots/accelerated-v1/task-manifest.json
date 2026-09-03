@@ -1,0 +1,464 @@
+{
+  "schemaVersion": "2",
+  "studyId": "bce-accelerated-instrumentation-pilot-2026-09-03",
+  "phase": "pilot",
+  "status": "frozen-ready-not-run",
+  "sealed": true,
+  "repositories": [
+    {
+      "id": "boundary-microcosm",
+      "sourceUrl": "generated-development-microcosm:boundary-microcosm",
+      "revision": "2ae456ea4bad5095183806a4c04a1d94cd59aa91",
+      "treePath": "repos/boundary-microcosm",
+      "treeSha256": "63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701",
+      "setupCommands": [],
+      "preparedTreeSha256": "63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701",
+      "license": "CC0-1.0",
+      "redistribution": "allowed",
+      "language": "JavaScript ESM",
+      "toolchain": "Node 22.22.2, dependency-free",
+      "developmentExposed": true
+    },
+    {
+      "id": "configuration-microcosm",
+      "sourceUrl": "generated-development-microcosm:configuration-microcosm",
+      "revision": "d35af332b7490b543b9a9fe6287e1c445e689676",
+      "treePath": "repos/configuration-microcosm",
+      "treeSha256": "9a17d276e7502aea82c4de6560f568e5eef9c3db90fb80d63acbb36c66e2bea5",
+      "setupCommands": [],
+      "preparedTreeSha256": "9a17d276e7502aea82c4de6560f568e5eef9c3db90fb80d63acbb36c66e2bea5",
+      "license": "CC0-1.0",
+      "redistribution": "allowed",
+      "language": "JavaScript ESM",
+      "toolchain": "Node 22.22.2, dependency-free",
+      "developmentExposed": true
+    }
+  ],
+  "tasks": [
+    {
+      "id": "boundary-repair",
+      "repositoryId": "boundary-microcosm",
+      "taskType": "repair",
+      "classification": "pilot-development-only",
+      "constraintClass": "provider-boundary",
+      "prompt": {
+        "path": "artifacts/tasks/boundary-repair/prompt.txt",
+        "sha256": "e4b223959072ac4ac61dbf5de0714e04815320c3e3544346e1ba604dfb51c05b",
+        "bytes": 132,
+        "mediaType": "text/plain"
+      },
+      "writtenPolicy": {
+        "path": "artifacts/tasks/boundary-repair/policy.txt",
+        "sha256": "f8b74ba6ce2acd6df5bf2a63d4a46b2f6bda657f93b4c341bf93b44fc8d1336c",
+        "bytes": 135,
+        "mediaType": "text/plain"
+      },
+      "invariant": {
+        "path": "artifacts/tasks/boundary-repair/invariant.json",
+        "sha256": "21e6c921d93af29b9659dc49e1a090f79e6e744e8f32dd23f39d9095929b2ddb",
+        "bytes": 376,
+        "mediaType": "application/json"
+      },
+      "visibleCommands": [
+        [
+          "node",
+          "visible-tests/service.check.mjs"
+        ]
+      ],
+      "functionalOracle": {
+        "artifact": {
+          "path": "artifacts/tasks/boundary-repair/functional-oracle.mjs",
+          "sha256": "9cd0e3def02085b562d95aad5719aea935e027bfb46ee2f9e9d4aa4522920c61",
+          "bytes": 689,
+          "mediaType": "text/javascript"
+        },
+        "command": [
+          "node",
+          "artifacts/tasks/boundary-repair/functional-oracle.mjs"
+        ],
+        "implementation": "functional"
+      },
+      "architectureOracle": {
+        "artifact": {
+          "path": "artifacts/tasks/boundary-repair/architecture-oracle.mjs",
+          "sha256": "5a3fa3764c25dc411cbd380b6617fc57c9d08663f25e2364de76272e4f4e32cf",
+          "bytes": 559,
+          "mediaType": "text/javascript"
+        },
+        "command": [
+          "node",
+          "artifacts/tasks/boundary-repair/architecture-oracle.mjs"
+        ],
+        "implementation": "bce-independent"
+      },
+      "blueprint": {
+        "path": "artifacts/tasks/boundary-repair/blueprint.json",
+        "sha256": "7ebe3227dbb5d94934c672c4d4df3f502033d64c32603a507c8556557fbc92c8",
+        "bytes": 771,
+        "mediaType": "application/json"
+      },
+      "allowedPaths": [
+        "src/service.mjs"
+      ],
+      "protectedPaths": [
+        "visible-tests/**",
+        "package.json"
+      ],
+      "budget": {
+        "timeoutMs": 360000,
+        "maxTurns": 10,
+        "maxCostUsd": null
+      },
+      "provenance": {
+        "source": "generated from public BCE development fixture patterns",
+        "selectionRule": "two heterogeneous development microcosms, each with one hazard-bearing repair and one conformant feature; selected before pilot outcomes",
+        "developmentExposed": true,
+        "invariantSource": "normalized invariant artifact artifacts/tasks/boundary-repair/invariant.json"
+      },
+      "referencePatchSha256": null
+    },
+    {
+      "id": "boundary-feature",
+      "repositoryId": "boundary-microcosm",
+      "taskType": "feature",
+      "classification": "pilot-development-only",
+      "constraintClass": "process-lifecycle",
+      "prompt": {
+        "path": "artifacts/tasks/boundary-feature/prompt.txt",
+        "sha256": "94fa495811d7072fa1a252e3a5e9859c7822239d851196362dd86576edb9b872",
+        "bytes": 127,
+        "mediaType": "text/plain"
+      },
+      "writtenPolicy": {
+        "path": "artifacts/tasks/boundary-feature/policy.txt",
+        "sha256": "1786660b05aaa6f2e21b6d33023b453a86da95b02136901d7daf0b457eb1882d",
+        "bytes": 85,
+        "mediaType": "text/plain"
+      },
+      "invariant": {
+        "path": "artifacts/tasks/boundary-feature/invariant.json",
+        "sha256": "26ca0884d9fc341793b5e644e19e8de9005a82351ee33bd7fde77bc6713422a7",
+        "bytes": 324,
+        "mediaType": "application/json"
+      },
+      "visibleCommands": [
+        [
+          "node",
+          "visible-tests/title.check.mjs"
+        ]
+      ],
+      "functionalOracle": {
+        "artifact": {
+          "path": "artifacts/tasks/boundary-feature/functional-oracle.mjs",
+          "sha256": "ab488713fce71d6272d0d2c1eaf42d0c750ad5873b28122868229db97a9cf1ef",
+          "bytes": 687,
+          "mediaType": "text/javascript"
+        },
+        "command": [
+          "node",
+          "artifacts/tasks/boundary-feature/functional-oracle.mjs"
+        ],
+        "implementation": "functional"
+      },
+      "architectureOracle": {
+        "artifact": {
+          "path": "artifacts/tasks/boundary-feature/architecture-oracle.mjs",
+          "sha256": "e0812af63a14a3a80d1297bc392799b8d9119bda6b47194a2a36d661ad7cdfdb",
+          "bytes": 533,
+          "mediaType": "text/javascript"
+        },
+        "command": [
+          "node",
+          "artifacts/tasks/boundary-feature/architecture-oracle.mjs"
+        ],
+        "implementation": "bce-independent"
+      },
+      "blueprint": {
+        "path": "artifacts/tasks/boundary-feature/blueprint.json",
+        "sha256": "e334c4345a66a16288b08df2c0f3caaa17dac6867ec4ee29cba470c3d94210af",
+        "bytes": 771,
+        "mediaType": "application/json"
+      },
+      "allowedPaths": [
+        "src/title.mjs"
+      ],
+      "protectedPaths": [
+        "visible-tests/**",
+        "package.json"
+      ],
+      "budget": {
+        "timeoutMs": 360000,
+        "maxTurns": 10,
+        "maxCostUsd": null
+      },
+      "provenance": {
+        "source": "generated from public BCE development fixture patterns",
+        "selectionRule": "two heterogeneous development microcosms, each with one hazard-bearing repair and one conformant feature; selected before pilot outcomes",
+        "developmentExposed": true,
+        "invariantSource": "normalized invariant artifact artifacts/tasks/boundary-feature/invariant.json"
+      },
+      "referencePatchSha256": null
+    },
+    {
+      "id": "configuration-repair",
+      "repositoryId": "configuration-microcosm",
+      "taskType": "repair",
+      "classification": "pilot-development-only",
+      "constraintClass": "configuration-boundary",
+      "prompt": {
+        "path": "artifacts/tasks/configuration-repair/prompt.txt",
+        "sha256": "d0ec7ff5b7da9f09693437fd3e0902c986fa86b4fd9862eff61b141fc8d0ed98",
+        "bytes": 136,
+        "mediaType": "text/plain"
+      },
+      "writtenPolicy": {
+        "path": "artifacts/tasks/configuration-repair/policy.txt",
+        "sha256": "327bb5246e84a47b4222c0ae8e536a05bdf36773e59631ff20ba5320e76b3d5c",
+        "bytes": 120,
+        "mediaType": "text/plain"
+      },
+      "invariant": {
+        "path": "artifacts/tasks/configuration-repair/invariant.json",
+        "sha256": "a30c770cd61226bd3119445ee86ae771425245241b000e29b2a883c3744d1cc7",
+        "bytes": 359,
+        "mediaType": "application/json"
+      },
+      "visibleCommands": [
+        [
+          "node",
+          "visible-tests/worker.check.mjs"
+        ]
+      ],
+      "functionalOracle": {
+        "artifact": {
+          "path": "artifacts/tasks/configuration-repair/functional-oracle.mjs",
+          "sha256": "c32c607159eda93c6247e72f6db1d4b7c0dd51f8bc290206ee25bb2ab5c0b81f",
+          "bytes": 659,
+          "mediaType": "text/javascript"
+        },
+        "command": [
+          "node",
+          "artifacts/tasks/configuration-repair/functional-oracle.mjs"
+        ],
+        "implementation": "functional"
+      },
+      "architectureOracle": {
+        "artifact": {
+          "path": "artifacts/tasks/configuration-repair/architecture-oracle.mjs",
+          "sha256": "6d070448a7a5ac1aa3e0184f9ba15a54e5e55f4addd5dd572b5dafe14bfc60d9",
+          "bytes": 564,
+          "mediaType": "text/javascript"
+        },
+        "command": [
+          "node",
+          "artifacts/tasks/configuration-repair/architecture-oracle.mjs"
+        ],
+        "implementation": "bce-independent"
+      },
+      "blueprint": {
+        "path": "artifacts/tasks/configuration-repair/blueprint.json",
+        "sha256": "ce992bec2df5e7d30c7e7679a1925098ef7fda82e0355da73285ca7f37a63e30",
+        "bytes": 784,
+        "mediaType": "application/json"
+      },
+      "allowedPaths": [
+        "src/worker.mjs"
+      ],
+      "protectedPaths": [
+        "visible-tests/**",
+        "package.json"
+      ],
+      "budget": {
+        "timeoutMs": 360000,
+        "maxTurns": 10,
+        "maxCostUsd": null
+      },
+      "provenance": {
+        "source": "generated from public BCE development fixture patterns",
+        "selectionRule": "two heterogeneous development microcosms, each with one hazard-bearing repair and one conformant feature; selected before pilot outcomes",
+        "developmentExposed": true,
+        "invariantSource": "normalized invariant artifact artifacts/tasks/configuration-repair/invariant.json"
+      },
+      "referencePatchSha256": null
+    },
+    {
+      "id": "configuration-feature",
+      "repositoryId": "configuration-microcosm",
+      "taskType": "feature",
+      "classification": "pilot-development-only",
+      "constraintClass": "library-purity",
+      "prompt": {
+        "path": "artifacts/tasks/configuration-feature/prompt.txt",
+        "sha256": "f5a318a92ed30e523e53988d522b97909ffd6cda425dbd239a9d0cfe54ec7615",
+        "bytes": 138,
+        "mediaType": "text/plain"
+      },
+      "writtenPolicy": {
+        "path": "artifacts/tasks/configuration-feature/policy.txt",
+        "sha256": "0f27b7de5303dc5b539c73f8793a75ac02a9db11e3aeee640847c11eb92a9f0a",
+        "bytes": 117,
+        "mediaType": "text/plain"
+      },
+      "invariant": {
+        "path": "artifacts/tasks/configuration-feature/invariant.json",
+        "sha256": "06705dfad4d1cb3a6a818a12b47755ae9c398c7ff4c7709c746f9243ed2b8380",
+        "bytes": 372,
+        "mediaType": "application/json"
+      },
+      "visibleCommands": [
+        [
+          "node",
+          "visible-tests/cache.check.mjs"
+        ]
+      ],
+      "functionalOracle": {
+        "artifact": {
+          "path": "artifacts/tasks/configuration-feature/functional-oracle.mjs",
+          "sha256": "65ea474dffa1bf2daa654fc1d2ed065aa68e932660549c559d4cedb03b61d542",
+          "bytes": 665,
+          "mediaType": "text/javascript"
+        },
+        "command": [
+          "node",
+          "artifacts/tasks/configuration-feature/functional-oracle.mjs"
+        ],
+        "implementation": "functional"
+      },
+      "architectureOracle": {
+        "artifact": {
+          "path": "artifacts/tasks/configuration-feature/architecture-oracle.mjs",
+          "sha256": "5648dbb4b01c1d0c46bc717864d0cf584cae47f8bbccfdfe638bd7b39f589fc4",
+          "bytes": 552,
+          "mediaType": "text/javascript"
+        },
+        "command": [
+          "node",
+          "artifacts/tasks/configuration-feature/architecture-oracle.mjs"
+        ],
+        "implementation": "bce-independent"
+      },
+      "blueprint": {
+        "path": "artifacts/tasks/configuration-feature/blueprint.json",
+        "sha256": "7f181e7728a518ac3a6ff55d3946a5489bf320922108dd1ecaf28b630c332b17",
+        "bytes": 802,
+        "mediaType": "application/json"
+      },
+      "allowedPaths": [
+        "src/cache.mjs"
+      ],
+      "protectedPaths": [
+        "visible-tests/**",
+        "package.json"
+      ],
+      "budget": {
+        "timeoutMs": 360000,
+        "maxTurns": 10,
+        "maxCostUsd": null
+      },
+      "provenance": {
+        "source": "generated from public BCE development fixture patterns",
+        "selectionRule": "two heterogeneous development microcosms, each with one hazard-bearing repair and one conformant feature; selected before pilot outcomes",
+        "developmentExposed": true,
+        "invariantSource": "normalized invariant artifact artifacts/tasks/configuration-feature/invariant.json"
+      },
+      "referencePatchSha256": null
+    }
+  ],
+  "assignments": [
+    {
+      "trialId": "primary-codex-mini-configuration-feature-r0-base",
+      "pairId": "primary-codex-mini-configuration-feature-r0",
+      "cellId": "primary-codex-mini",
+      "repositoryId": "configuration-microcosm",
+      "taskId": "configuration-feature",
+      "replicate": 0,
+      "arm": "baseline-no-bce",
+      "withinPairOrder": 0,
+      "orderIndex": 0
+    },
+    {
+      "trialId": "primary-codex-mini-configuration-feature-r0-bce",
+      "pairId": "primary-codex-mini-configuration-feature-r0",
+      "cellId": "primary-codex-mini",
+      "repositoryId": "configuration-microcosm",
+      "taskId": "configuration-feature",
+      "replicate": 0,
+      "arm": "bce-enabled",
+      "withinPairOrder": 1,
+      "orderIndex": 1
+    },
+    {
+      "trialId": "primary-codex-mini-boundary-feature-r0-base",
+      "pairId": "primary-codex-mini-boundary-feature-r0",
+      "cellId": "primary-codex-mini",
+      "repositoryId": "boundary-microcosm",
+      "taskId": "boundary-feature",
+      "replicate": 0,
+      "arm": "baseline-no-bce",
+      "withinPairOrder": 0,
+      "orderIndex": 2
+    },
+    {
+      "trialId": "primary-codex-mini-boundary-feature-r0-bce",
+      "pairId": "primary-codex-mini-boundary-feature-r0",
+      "cellId": "primary-codex-mini",
+      "repositoryId": "boundary-microcosm",
+      "taskId": "boundary-feature",
+      "replicate": 0,
+      "arm": "bce-enabled",
+      "withinPairOrder": 1,
+      "orderIndex": 3
+    },
+    {
+      "trialId": "primary-codex-mini-boundary-repair-r0-bce",
+      "pairId": "primary-codex-mini-boundary-repair-r0",
+      "cellId": "primary-codex-mini",
+      "repositoryId": "boundary-microcosm",
+      "taskId": "boundary-repair",
+      "replicate": 0,
+      "arm": "bce-enabled",
+      "withinPairOrder": 0,
+      "orderIndex": 4
+    },
+    {
+      "trialId": "primary-codex-mini-boundary-repair-r0-base",
+      "pairId": "primary-codex-mini-boundary-repair-r0",
+      "cellId": "primary-codex-mini",
+      "repositoryId": "boundary-microcosm",
+      "taskId": "boundary-repair",
+      "replicate": 0,
+      "arm": "baseline-no-bce",
+      "withinPairOrder": 1,
+      "orderIndex": 5
+    },
+    {
+      "trialId": "primary-codex-mini-configuration-repair-r0-base",
+      "pairId": "primary-codex-mini-configuration-repair-r0",
+      "cellId": "primary-codex-mini",
+      "repositoryId": "configuration-microcosm",
+      "taskId": "configuration-repair",
+      "replicate": 0,
+      "arm": "baseline-no-bce",
+      "withinPairOrder": 0,
+      "orderIndex": 6
+    },
+    {
+      "trialId": "primary-codex-mini-configuration-repair-r0-bce",
+      "pairId": "primary-codex-mini-configuration-repair-r0",
+      "cellId": "primary-codex-mini",
+      "repositoryId": "configuration-microcosm",
+      "taskId": "configuration-repair",
+      "replicate": 0,
+      "arm": "bce-enabled",
+      "withinPairOrder": 1,
+      "orderIndex": 7
+    }
+  ],
+  "assignmentProof": {
+    "algorithm": "bce-sha256-rank-paired-v1",
+    "seed": "sha256:9adf3d222970a4c8a346a1bbb1a56070b14f16e8a7c9f62ef0829a0b21c3cf3f",
+    "inputSha256": "0e0de8a44fae6ff4b7424e998628a23ccc0d2a917df6fa4479737b1f6e7f56b5",
+    "assignmentsSha256": "015dcbf83a8fd401dc2312bb459ddf0bf50d3a7ba9e9182443bab767cc8e01b4"
+  },
+  "results": null
+}

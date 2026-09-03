@@ -1,0 +1,186 @@
+{
+  "$id": "https://blueprint-conformance.github.io/bce/schemas/teeth-mutation-manifest.schema.json",
+  "$ref": "#/definitions/TeethMutationManifest",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "TeethMutationManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "allowedMutationRoots": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "blueprintRef": {
+          "minLength": 3,
+          "type": "string"
+        },
+        "cases": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "allowedCollateralConstraints": {
+                "default": [],
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "constraintId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "expectedEvidencePath": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "id": {
+                "pattern": "^[a-z0-9][a-z0-9-]{2,127}$",
+                "type": "string"
+              },
+              "operation": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "content": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "appendText",
+                        "type": "string"
+                      },
+                      "preconditionSha256": {
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "target": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "target",
+                      "preconditionSha256",
+                      "content"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "find": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "replaceText",
+                        "type": "string"
+                      },
+                      "preconditionSha256": {
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "replacement": {
+                        "type": "string"
+                      },
+                      "target": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "target",
+                      "preconditionSha256",
+                      "find",
+                      "replacement"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "content": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "createFile",
+                        "type": "string"
+                      },
+                      "preconditionSha256": {
+                        "type": "null"
+                      },
+                      "target": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "target",
+                      "preconditionSha256",
+                      "content"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "deleteFile",
+                        "type": "string"
+                      },
+                      "preconditionSha256": {
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "target": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "target",
+                      "preconditionSha256"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "constraintId",
+              "operation",
+              "expectedEvidencePath"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "schemaVersion": {
+          "const": "1",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "blueprintRef",
+        "allowedMutationRoots",
+        "cases"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "A closed, digest-preconditioned set of real repository source mutations. The extractor-real teeth runner materializes every case in a fresh copy and requires the mapped constraint to redden at the mutated file.",
+  "title": "TeethMutationManifest"
+}

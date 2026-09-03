@@ -51,8 +51,9 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
 9. **[agent]** Verify every schema `$id` resolves 200:
    `for s in spec/schemas/*.schema.json; do curl -fsI "$(jq -r '."$id"' "$s")" >/dev/null && echo "OK $s"; done`
 10. **[agent]** Branch protection + required checks on `main`: `build-test-prove`,
-    `lane-b-self-gate`, `leakage-gate`, `banned-phrases`, and `lane-a-pinned-gate`
-    once Lane A is live (post-publish).
+    `lane-b-self-gate`, `leakage-gate`, `banned-phrases`, and `lane-a-pinned-gate`.
+    Lane A is live at the published 0.1.5 pin; this item now concerns required-check enforcement,
+    not activation.
     `gh api -X PUT repos/blueprint-conformance/bce/branches/main/protection ...`
 
     **These are JOB names, not workflow FILE names.** An earlier revision of this
@@ -132,18 +133,17 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
     (`gh api -X PATCH repos/blueprint-conformance/bce -F has_discussions=true`)
     and seed: welcome post, "corpus methodology — poke holes here" post,
     Python-extractor interest thread.
-12. **[agent]** Activate the README badge block (remove the
-    `badge-placeholder` comment markers).
+12. ~~**[agent]** Activate the README badge block.~~ **DONE** — badges are generated from tree state
+    and drift-gated by CI.
 
-## Phase 3 — 0.1.0 publish (operator-attended by design)
+## Phase 3 — initial publish (completed historically; operator-attended by design)
 
 13. **[operator]** npm auth: Trusted Publishing entry on npmjs.com for
     `blueprint-conformance/bce` → `release.yml` (preferred, zero tokens) OR
     a granular `NPM_TOKEN` repo secret (see `release.yml` header's honest
     auth note).
-14. **[operator]** Replace CITATION.cff placeholders (`ARXIV-ID-PENDING`,
-    `DOI-PENDING`) with the real identifiers — the release gate refuses a
-    tag while they remain (`scripts/check-release-citation.mjs`).
+14. ~~**[operator]** Remove provisional citation identifiers.~~ **DONE** — `CITATION.cff` is
+    software-only and does not invent an arXiv or DOI; the release gate refuses placeholder tokens.
 14b. **[agent]** **Enumerate the npm tarball before the tag.** `npm publish` is
     the least reversible step in this ceremony — npm unpublish is restricted
     after 72h, whereas the repo flip (item 5) can be undone. Nobody had ever
@@ -184,15 +184,11 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
     rename them, the corpus baseline must be re-run and the paper's numbers
     re-bound in the same change.
 
-15. **[operator]** Tag `v0.1.0` on main → `release.yml` re-executes every
-    gate at the tag and publishes with provenance.
-16. **[agent]** Post-publish: verify `npm view bce-engine version` → 0.1.0;
-    smoke the quickstart from the published package; flip
-    `.engine-pin.json` `published: true` + wire Lane A
-    (`lane-a-pinned-gate`) as a required check — same PR, per
-    `docs/self-hosting.md`.
-17. **[agent]** Replace README `_placeholder_` links (paper, artifacts,
-    spec URLs) — citation gate + this checklist are the reminder.
+15. ~~**[operator]** Publish the first tag through `release.yml`.~~ **DONE** — current public release
+    is `v0.1.5`, with npm provenance; that historical GitHub release predates immutable-release enforcement.
+16. ~~**[agent]** Verify npm, smoke the packed/published path, and activate Lane A.~~ **DONE** —
+    `.engine-pin.json` is live at exact `bce-engine@0.1.5`, and `lane-a-pinned-gate` is required.
+17. ~~**[agent]** Replace README placeholder links.~~ **DONE** — guarded by launch-readiness checks.
 
 ## Phase 4 — launch post
 

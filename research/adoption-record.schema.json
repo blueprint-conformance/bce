@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/blueprint-conformance/bce/research/adoption-record.schema.json",
+  "title": "Independent BCE adoption record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "participantId", "relationship", "source", "environment", "journey", "evidence", "consent", "adjudication"],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "participantId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$" },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disclosed", "authorControlledMachine", "authorOperatedRun"],
+      "properties": {
+        "disclosed": { "type": "string", "minLength": 1 },
+        "authorControlledMachine": { "type": "boolean" },
+        "authorOperatedRun": { "type": "boolean" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "identity"],
+      "properties": {
+        "kind": { "enum": ["git-commit", "source-archive"] },
+        "identity": { "type": "string", "pattern": "^([0-9a-f]{40}|sha256:[0-9a-f]{64})$" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "architecture", "node", "installSource"],
+      "properties": {
+        "os": { "type": "string", "minLength": 1 },
+        "architecture": { "type": "string", "minLength": 1 },
+        "node": { "type": "string", "pattern": "^v22\\." },
+        "installSource": { "enum": ["source", "npm-exact", "github-action-commit"] }
+      }
+    },
+    "journey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "startedAt", "endedAt", "minutes", "stages", "helpRequests", "unexpectedFailures"],
+      "properties": {
+        "outcome": { "enum": ["success", "failure", "abandoned"] },
+        "startedAt": { "type": "string", "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}T" },
+        "endedAt": { "type": "string", "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}T" },
+        "minutes": { "type": "number", "minimum": 0 },
+        "stages": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["install", "initialize", "authorBlueprint", "green", "plantDrift", "red", "fix", "greenAgain"],
+          "properties": {
+            "install": { "$ref": "#/definitions/stage" },
+            "initialize": { "$ref": "#/definitions/stage" },
+            "authorBlueprint": { "$ref": "#/definitions/stage" },
+            "green": { "$ref": "#/definitions/stage" },
+            "plantDrift": { "$ref": "#/definitions/stage" },
+            "red": { "$ref": "#/definitions/stage" },
+            "fix": { "$ref": "#/definitions/stage" },
+            "greenAgain": { "$ref": "#/definitions/stage" }
+          }
+        },
+        "helpRequests": { "type": "integer", "minimum": 0 },
+        "unexpectedFailures": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "abandonmentReason": { "type": ["string", "null"] }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publicUrl", "transcriptSha256"],
+      "properties": {
+        "publicUrl": { "type": "string", "pattern": "^https://" },
+        "transcriptSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publishRecord", "quoteParticipant"],
+      "properties": {
+        "publishRecord": { "const": true },
+        "quoteParticipant": { "type": "boolean" }
+      }
+    },
+    "adjudication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewer", "reviewedAt", "notes"],
+      "properties": {
+        "status": { "enum": ["pending", "accepted-independent", "rejected-not-independent", "rejected-insufficient-evidence"] },
+        "reviewer": { "type": ["string", "null"] },
+        "reviewedAt": { "type": ["string", "null"] },
+        "notes": { "type": "string" }
+      }
+    }
+  },
+  "definitions": {
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "minutes"],
+      "properties": {
+        "status": { "enum": ["completed", "failed", "not-reached"] },
+        "minutes": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

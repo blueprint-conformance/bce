@@ -1,1 +1,5 @@
+# BCE's generated artifacts and executable contracts are byte-sensitive. Keep
+# text checkouts LF-stable on every runner, including Windows; `text=auto`
+# leaves binary files untouched.
+* text=auto eol=lf
 *.ts text diff

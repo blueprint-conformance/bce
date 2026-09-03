@@ -1,10 +1,16 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
 const root = process.cwd();
 const read = (name: string): Record<string, unknown> => JSON.parse(fs.readFileSync(path.join(root, 'research', name), 'utf8')) as Record<string, unknown>;
-const phase = process.argv.includes('--study') ? 'study' : 'benchmark';
+const phase = process.argv.includes('--model-eval') ? 'model-eval' : process.argv.includes('--study') ? 'study' : 'benchmark';
 const refusals: string[] = [];
+const manifestDigest = (manifest: Record<string, unknown>): string => {
+  const payload = { ...manifest, manifestSha256: null };
+  return `sha256:${createHash('sha256').update(JSON.stringify(payload)).digest('hex')}`;
+};
 
 if (phase === 'benchmark') {
   const prereg = read('benchmark-preregistration.json');
@@ -13,13 +19,23 @@ if (phase === 'benchmark') {
   if (heldout.sealed !== true) refusals.push('held-out manifest is not sealed');
   if (typeof heldout.corpusDigest !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(heldout.corpusDigest)) refusals.push('held-out corpus SHA-256 digest is absent');
   if (!Array.isArray(heldout.cases) || heldout.cases.length === 0) refusals.push('held-out manifest has zero cases');
-} else {
+} else if (phase === 'study') {
   const study = read('study-preregistration.json');
   if (study.status !== 'frozen-not-run') refusals.push('study preregistration status must be frozen-not-run');
   if ((study as { results?: unknown }).results !== null) refusals.push('study input must not contain results');
   const families = study.modelFamilies as { minimum?: number; versionsFrozen?: boolean } | undefined;
   if (!families || (families.minimum ?? 0) < 2 || families.versionsFrozen !== true) refusals.push('at least two frozen model families are required');
   if (!String(study.blinding ?? '').includes('blinded')) refusals.push('outcome-assessor blinding is required');
+} else {
+  const verification = spawnSync(
+    process.execPath,
+    ['scripts/verify-model-evaluation-bundle.mjs', '--bundle', 'research/model-evaluation'],
+    { cwd: root, encoding: 'utf8' },
+  );
+  if (verification.status !== 0) {
+    const detail = String(verification.stderr || verification.stdout).trim();
+    refusals.push(detail || `canonical v2 bundle verifier exited ${verification.status}`);
+  }
 }
 
 if (refusals.length) {

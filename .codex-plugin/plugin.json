@@ -1,0 +1,38 @@
+{
+  "name": "blueprint",
+  "version": "0.2.0",
+  "description": "Turn architectural rules into enforced merge contracts with BCE, and tune Agent Skills against an enforceable standard.",
+  "author": {
+    "name": "BCE maintainers",
+    "url": "https://github.com/blueprint-conformance"
+  },
+  "homepage": "https://github.com/blueprint-conformance/bce",
+  "repository": "https://github.com/blueprint-conformance/bce",
+  "license": "Apache-2.0",
+  "keywords": [
+    "architecture",
+    "conformance",
+    "governance",
+    "agent-skills",
+    "code-review"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Blueprint Conformance",
+    "shortDescription": "Make architecture rules enforceable",
+    "longDescription": "Author and adopt fail-closed architecture contracts with BCE, prove that constraints can detect drift, and tune Agent Skills against a checked standard.",
+    "developerName": "BCE maintainers",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read"
+    ],
+    "websiteURL": "https://github.com/blueprint-conformance/bce",
+    "defaultPrompt": [
+      "Turn this repository's architecture rule into a BCE merge gate.",
+      "Diagnose this BCE failure and fix the code without weakening policy.",
+      "Grade these Agent Skills against BCE's enforceable skill standard."
+    ],
+    "brandColor": "#4F46E5",
+    "screenshots": []
+  }
+}

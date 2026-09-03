@@ -1,18 +1,19 @@
 # Project status
 
-Last reviewed: 2026-09-02. This file is the authoritative public claim ledger for the current
+Last reviewed: 2026-09-03. This file is the authoritative public claim ledger for the current
 source tree.
 
 ## Distribution
 
 | Surface | Status | What a user may rely on |
 |---|---|---|
-| Source checkout | Working, internally tested | Node 22, `npm ci`, `npm run build`, then `node dist/cli.js` |
+| Source checkout | Working, internally tested | Node 22.22.2, `npm ci`, `npm run build`, then `node dist/cli.js`; published runtime remains Node 22+ |
 | Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree and runs `bce demo` |
 | npm | Released | [`bce-engine@0.1.5`](https://www.npmjs.com/package/bce-engine/v/0.1.5) is public with npm provenance; install the exact version on Node 22+ |
-| Git tag / GitHub Release | Released | [`v0.1.5`](https://github.com/blueprint-conformance/bce/releases/tag/v0.1.5) is immutable and carries the release compliance report plus verified evidence record |
-| GitHub Action | Released | Pin `blueprint-conformance/bce@v0.1.5` and `engine: bce-engine@0.1.5`; creator-maintained external RED/GREEN evidence is linked below |
-| GitLab template | Dormant | It deliberately exits 2 until an exact real release is supplied |
+| Git tag / GitHub Release | Released, historical tag mutable | [`v0.1.5`](https://github.com/blueprint-conformance/bce/releases/tag/v0.1.5) carries the release compliance report plus verified evidence record, but was published before repository release immutability was enabled and remains mutable |
+| GitHub Action | Released | Pin `blueprint-conformance/bce@3611709acf0dace4698dd1876f835a73ec44837b` (the v0.1.5 source commit), not the mutable tag; creator-maintained external RED/GREEN evidence is linked below |
+| GitLab template | Unsupported reference | It uses exact `bce-engine@0.1.5` and is fail-closed, but no real GitLab runner/client matrix has been completed; GitLab is not a supported integration |
+| OpenAI plugin | Packaged, unsubmitted | `.codex-plugin/plugin.json` validates as a skills-only ChatGPT/Codex plugin; there is no portal submission, public listing URL, or clean-account directory install |
 
 ## What the engine currently proves
 
@@ -26,6 +27,15 @@ source tree.
   probe definition, stimulus set, collector, and environment before they can affect a verdict.
 - `bce run --emit` can emit hash-chained integrity records. Ordinary gate runs do not emit them,
   and a local hash chain is not authenticated provenance.
+- Current source embeds the exact dependency-lock digest and extractor/provider identity in new
+  evidence records. Its reproducibility proof obtains the same production graph and report hash
+  from two clean installs. Historical 0.1.5 records predate this additive field.
+- The built MCP server passes strict discovery through locked Inspector 2.5.0, boundary/framing
+  tests, and a 2-second startup/discovery p95 gate. This is Inspector compatibility, not proof of
+  every named host client.
+- The synthetic scale track scans 2,000 TypeScript files, enforces a 30-second p95 ceiling, and
+  requires a planted final-package import to redden at its exact line. It is a regression budget,
+  not real-monorepo generalization evidence.
 - The generated GitHub Action runs outside this repository: the public
   [`blueprint-conformance/bce-action-witness`](https://github.com/blueprint-conformance/bce-action-witness) consumer
   produced a [clean GREEN](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497921200),
@@ -47,10 +57,24 @@ source tree.
   discovery of both skills, project-local MCP configuration, read-only tool affordances,
   zero-argument repository calls, and live GREEN → RED → GREEN correction. This is a deterministic
   agent-harness simulation, not an LLM comparison or independent-human usability evidence.
+- The restricted-network proof blocks Node network APIs and supplies hostile proxy and registry
+  settings while validation, GREEN/RED gating, evidence verification, and MCP discovery run. It
+  establishes local operation after installation, not cold installation from a private registry.
 - The opt-in model-adoption eval samples an authenticated Codex session and scores observable JSONL
   skill reads, MCP calls, the git diff, policy preservation, and RED → GREEN. The 2026-09-02 paired
   author-operated sample changed tool selection from CLI to MCP after the routing instructions were
   corrected. One sample is not a success-rate estimate, model comparison, or independent witness.
+- The engine self-blueprint has 38/38 separately materialized source mutants killed through the
+  production extractor/evaluator path. CI regenerates and freshness-checks the mapping, rejects
+  invalid or collateral mutants, and requires the real proof. This establishes that the current 38
+  clauses can redden on real source changes; it does not establish specification completeness.
+- The model-evaluation controller has a no-model rehearsal over the exact eight-attempt pilot
+  topology. It proves read-default-deny isolation, host/protected-surface write denial, hidden-input
+  read denial, exact client/Node staging, positive generated-config MCP negotiation, copied-auth
+  retirement before the fixture model-command phase, twice-run filesystem/network-isolated
+  oracles, artifact-backed terminal records, caught-failure terminalization, hard-crash recovery,
+  public aggregate recomputation, and restricted-transcript exclusion. Synthetic rehearsal is
+  machinery evidence only.
 
 ## What has not been established
 
@@ -59,9 +83,48 @@ source tree.
 - The author-designed seeded corpus is a regression suite, not a held-out benchmark.
 - No controlled study shows that BCE improves autonomous-agent outcomes, completion rate, cost,
   or escaped-defect rate relative to a baseline.
+- The canonical four-cell, baseline/BCE 240-attempt confirmatory design exists, but its exact
+  provider-identified clients/models, ten held-out repositories, thirty tasks/reference patches,
+  isolation driver, BCE artifact, assignment proof, and public Sigstore seal are unset. Readiness
+  therefore refuses and no comparative result is claimed.
+- Accelerated instrumentation pilot v1 was publicly sealed before exposure and retained all eight
+  attempts. All eight client invocations exited before a model response or task change was observed
+  because the outer sandbox also denied the NVM-installed Codex artifact under the maintainer home;
+  zero upstream inference is not observable. This is controller compatibility evidence, not an arm
+  comparison; no task, cost, latency, defect, or policy-resistance benefit is inferred. The public
+  result preserves the ledger and non-restricted artifacts while binding eight restricted
+  transcripts by digest. A fix-forward pilot requires a new identifier and seal. Codex also exposes
+  only requested model configuration, not a provider-returned model identity, so its rows cannot
+  receive safe-success identity credit. Pilot v2 then retained 8/8 completed client sessions but
+  0/8 task successes: Codex's inner `workspace-write` sandbox could not initialize inside the
+  controller's outer macOS sandbox, so no task changed and no BCE mechanism use was observed. Its
+  staged runtime, read-default-deny probes, offline BCE closure, ledger, oracles, public export, and
+  aggregate replay all worked. V2 is apparatus-failure evidence only and requires a new identifier
+  plus seal for any fix-forward run. The v3 builder makes the frozen deny-by-default outer profile
+  the sole sandbox owner; Codex's inner sandbox is disabled only inside that inherited boundary,
+  and the deterministic client fixture fails if the adapter reintroduces nested sandboxing. Pilot
+  v3 then completed 8/8 attempts with 4/4 hidden functional and architecture success in each arm,
+  zero escaped defects, and zero policy mutations. That is apparatus validation, not uplift: the
+  easy development tasks saturated both arms, no BCE skill/MCP use was observed, only one
+  model-initiated BCE gate call was observed, cost was unavailable, and model identity remained
+  requested configuration rather than provider-returned evidence.
 - No conventional precision/recall study with independent annotation has been completed.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
-- Branch protection and policy-owner enforcement must still be configured by each adopter.
+- No external implementation has submitted a complete run against the digest-frozen 12-vector set;
+  the accepted implementation count remains zero.
+- The release workflow in current source keyless-signs future release evidence with GitHub OIDC and
+  verifies issuer plus workflow identity before upload. Historical v0.1.5 has no such signature, so
+  authenticated release-evidence identity is not yet established for a published release.
+- Ubuntu/macOS/Windows × Node 22/24 portability CI is configured in the current source tree, but no
+  public run of that new matrix exists yet; platform support beyond the existing Ubuntu/Node 22
+  release path is therefore not yet established.
+- The OpenAI skills-only plugin archive validates locally, but required operator identity/legal
+  materials and portal review are incomplete; it is not publicly listed.
+- This repository's `main` requires six CI contexts, enforces them for admins, and blocks force-push
+  and deletion. It requires zero human approvals and has no release-environment reviewer because the
+  project currently has one human maintainer; configuring a second-person gate would deadlock it.
+  Independent review is not claimed. Adopters must configure policy owners appropriate to their own
+  team size.
 
 ## Claim-change rule
 

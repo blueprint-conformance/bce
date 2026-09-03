@@ -43,6 +43,7 @@ import { makeExtractor } from './extractor-registry.js';
 import { safeCompilePattern, UnsafePatternError } from './safe-regex.js';
 import { evaluate, stableStringify, type ComplianceReport } from './report.js';
 import { assessTeeth } from './teeth.js';
+import { assessExtractorTeethCorpus } from './extractor-teeth.js';
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 import { resolveRevision, materializeAtRevision } from './pin.js';
 import { runGate, assembleGateReportDoc } from './gate.js';
@@ -79,6 +80,12 @@ import { loadObservations, observationBinding } from './observations.js';
 import { doctorRepository, checkEngineUpgrade } from './lifecycle.js';
 import { ratifyBlueprint, amendBlueprint, PolicyHistoryError, type ReviewInput, type PolicyHistoryEntry } from './policy-history.js';
 import { createEvidenceBundle, verifyEvidenceBundle, type EvidenceBundle } from './evidence-bundle.js';
+import { resolveToolchainIdentity } from './runtime-identity.js';
+
+// Reviewed upstream Action commits. Generated workflows execute these exact objects;
+// the major versions are comments for human update tooling, never executable refs.
+const CHECKOUT_ACTION = 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262'; // v4
+const SETUP_NODE_ACTION = 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020'; // v4
 
 interface Args {
   _: string[];
@@ -136,6 +143,11 @@ function writableRepoTarget(repoDir: string, rel: string, label: string): string
     if (!real.startsWith(`${root}${path.sep}`)) die(`${label} resolves outside --repo: ${rel}`, 2);
   }
   return target;
+}
+
+/** Persisted and user-facing repository paths are platform-independent contracts. */
+function repoRelative(repoDir: string, target: string): string {
+  return path.relative(repoDir, target).split(path.sep).join('/');
 }
 
 function packageRoot(): string {
@@ -446,7 +458,7 @@ function main(): void {
     init: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'min-files', 'repo', 'out'],
     scan: ['ct-repo', 'blueprint', 'ref', 'extractor', 'no-pin', 'out'],
     run: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'out', 'observations', 'emit-bundle', 'emit', 'prev-hash', 'emit-evidence-out', 'emit-wo-out'],
-    teeth: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'require-extractor-real', 'reviewed-waiver', 'out'],
+    teeth: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'require-extractor-real', 'reviewed-waiver', 'mutation-manifest', 'require-all-extractor-real', 'out'],
     gate: ['repo', 'ct-repo', 'blueprint-dir', 'changed', 'extractor', 'repo-name', 'all', 'report-json'],
     baseline: ['repo', 'ct-repo', 'blueprint-dir', 'changed', 'extractor', 'repo-name', 'dry-run', 'check', 'out', 'patch-out'],
     graduate: ['repo', 'ct-repo', 'downgrade', 'rationale'],
@@ -580,7 +592,7 @@ function main(): void {
     }
     const occupiedSkills = skillTargets.filter(({ target }) => fs.existsSync(target));
     if (occupiedSkills.length > 0) {
-      die(`onboard refuses to overwrite existing skills: ${occupiedSkills.map(({ target }) => path.relative(repoDir, target)).join(', ')}`, 2);
+      die(`onboard refuses to overwrite existing skills: ${occupiedSkills.map(({ target }) => repoRelative(repoDir, target)).join(', ')}`, 2);
     }
     const targets = {
       blueprint: path.join(repoDir, '.blueprints', `${sourceBlueprint.metadata.id}.blueprint.json`),
@@ -589,14 +601,14 @@ function main(): void {
       manifest: path.join(repoDir, '.bce-adoption.json'),
     };
     const occupied = Object.values(targets).filter((p) => fs.existsSync(p));
-    if (occupied.length > 0) die(`adopt refuses to overwrite existing policy files: ${occupied.map((p) => path.relative(repoDir, p)).join(', ')}`, 2);
+    if (occupied.length > 0) die(`adopt refuses to overwrite existing policy files: ${occupied.map((p) => repoRelative(repoDir, p)).join(', ')}`, 2);
     fs.mkdirSync(path.dirname(targets.blueprint), { recursive: true });
     fs.mkdirSync(path.dirname(targets.workflow), { recursive: true });
     fs.writeFileSync(targets.blueprint, stableStringify(sourceBlueprint));
     writeModeConfig(repoDir, 'advisory');
     fs.writeFileSync(targets.workflow, packageEngine
-      ? `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n      - uses: actions/setup-node@v4\n        with:\n          node-version: "22"\n      - run: npx --yes --package ${engine} bce gate --repo . --report-json bce-report.json\n`
-      : `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n      - uses: ${engine}\n        with:\n          engine: local\n          repo: .\n          comment: "false"\n`);
+      ? `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: ${CHECKOUT_ACTION} # v4\n        with:\n          fetch-depth: 0\n      - uses: ${SETUP_NODE_ACTION} # v4\n        with:\n          node-version: "22"\n      - run: npx --yes --package ${engine} bce gate --repo . --report-json bce-report.json\n`
+      : `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: ${CHECKOUT_ACTION} # v4\n        with:\n          fetch-depth: 0\n      - uses: ${engine}\n        with:\n          engine: local\n          repo: .\n          comment: "false"\n`);
     const contextMarker = '<!-- bce-agent-context -->';
     const context = `${contextMarker}\n# BCE done-check\n\nPrefer MCP \`run_gate {}\` for diagnosis and the final live-tree done-check; if BCE MCP is unavailable, run \`npx --no-install bce gate --repo .\`. ` +
       `Read the substantive verdict: advisory mode can exit 0 while reports remain RED. Fix code on violations. Treat refusals and CLI exits 1 and 2 as red. Blueprint, baseline, mode, workflow, waiver, agent/MCP configuration, installed-skill, and engine-pin changes are policy changes and require human-owner review.\n`;
@@ -614,7 +626,7 @@ function main(): void {
     const installedSkillFiles = skillTargets.flatMap(({ target }) => filesUnder(target));
     const generatedFiles = [...Object.values(targets), agentTarget, ...(mcpTarget ? [mcpTarget] : []), ...installedSkillFiles]
       .filter((p, i, all) => p !== targets.manifest && all.indexOf(p) === i)
-      .map((p) => path.relative(repoDir, p)).sort();
+      .map((p) => repoRelative(repoDir, p)).sort();
     fs.writeFileSync(targets.manifest, stableStringify({
       schemaVersion: '1',
       state: 'proposed',
@@ -627,9 +639,9 @@ function main(): void {
     }));
     process.stdout.write(`bce ${cmd}: PROPOSED advisory adoption with draft ${sourceBlueprint.metadata.id}; human ratification still required\n`);
     if (cmd === 'onboard') {
-      process.stdout.write(`agent context: ${path.relative(repoDir, agentTarget)}\n`);
+      process.stdout.write(`agent context: ${repoRelative(repoDir, agentTarget)}\n`);
       process.stdout.write(`skills: ${skillRootRel}/bce, ${skillRootRel}/skill-tuning\n`);
-      process.stdout.write(`MCP config: ${path.relative(repoDir, mcpTarget!)} (doctor_repository, check_baseline, validate_blueprint, run_gate, assess_teeth, get_report)\n`);
+      process.stdout.write(`MCP config: ${repoRelative(repoDir, mcpTarget!)} (doctor_repository, check_baseline, validate_blueprint, run_gate, assess_teeth, get_report)\n`);
       process.stdout.write(`next: run 'npx --no-install bce doctor --repo .' and review/commit the proposal; ratification remains attended\n`);
     }
     return;
@@ -921,7 +933,11 @@ function main(): void {
     // evidence record (chained onto --prev-hash if given) + proposed remediation WOs. Deterministic.
     if (args.emit === true || args.emit === 'true') {
       const prev = typeof args['prev-hash'] === 'string' ? (args['prev-hash'] as string) : EVIDENCE_GENESIS_HASH;
-      const emission = emitRun(report, prev);
+      const emission = emitRun(report, prev, resolveToolchainIdentity({
+        engineVersion: resolveEngineVersion(),
+        extractorKind: report.coverage.extractor,
+        extractionProfile: cfg.profile,
+      }));
       const evOut = (args['emit-evidence-out'] as string) || 'evidence-record.json';
       const woOut = (args['emit-wo-out'] as string) || 'remediation-work-orders.json';
       fs.writeFileSync(evOut, stableStringify(emission.evidence));
@@ -948,6 +964,42 @@ function main(): void {
     //       explicitly NOT evidence of real teeth)
     //   2 = TOOTHLESS (every constraint trivially-green or indeterminate — a green run proves nothing)
     const bp = readBlueprint(args.blueprint as string);
+    if (typeof args['mutation-manifest'] === 'string') {
+      if (args['require-all-extractor-real'] !== true && args['require-all-extractor-real'] !== 'true') {
+        die('--mutation-manifest requires --require-all-extractor-real; partial source-mutation credit is refused', 2);
+      }
+      let manifest: unknown;
+      try { manifest = JSON.parse(fs.readFileSync(args['mutation-manifest'], 'utf8')); }
+      catch (e) { die(`mutation manifest is not valid JSON: ${(e as Error).message}`, 2); }
+      let report;
+      try {
+        report = assessExtractorTeethCorpus({
+          blueprint: bp,
+          repoDir: args['ct-repo'] as string,
+          manifest,
+          extractor: extractorKind,
+        });
+      } catch (e) {
+        die(`extractor-real mutation proof refused: ${(e as Error).message}`, 2);
+      }
+      const out = (args.out as string) || 'extractor-teeth-report.json';
+      fs.writeFileSync(out, stableStringify(report));
+      if (report.verdict !== 'extractor-real-proven') {
+        process.stderr.write(
+          `::error::extractor-real mutation proof REFUSED — ${report.killed}/${report.constraints} constraints killed; ` +
+          `${report.survived} survived, ${report.refused} refused, ${report.unmappedConstraints.length} unmapped\n`,
+        );
+        for (const entry of report.cases.filter((item) => item.status !== 'killed')) {
+          process.stderr.write(`::error::  [${entry.constraintId}/${entry.id}] ${entry.status}: ${entry.detail}\n`);
+        }
+        process.exit(2);
+      }
+      process.stdout.write(
+        `ExtractorTeethReport: ${report.blueprintRef} -> extractor-real-proven — ` +
+        `${report.killed}/${report.constraints} separately materialized source mutants killed\n`,
+      );
+      return;
+    }
     const cfg = resolveExtraction(bp.extraction, bp.constraints);
     const graph = buildGraph(args['ct-repo'] as string, args.ref as string | undefined, extractorKind, noPin, cfg);
     const teeth = assessTeeth(bp, graph, cfg.profile);
@@ -1446,6 +1498,8 @@ function main(): void {
       `  bce run   --blueprint <path> --ct-repo <dir> [--ref <sha|ref>] [--extractor ast|line-scan] --out <path> [--emit-bundle <json>]\n` +
       `  bce teeth --blueprint <path> --ct-repo <dir> [--require-extractor-real] [--reviewed-waiver] [--out <path>]\n` +
       `       --reviewed-waiver accepts evaluator-only proof only via committed ${TEETH_WAIVER_RELPATH}.\n` +
+      `       --mutation-manifest <json> [--require-all-extractor-real] materializes each declared source mutant\n` +
+      `       in a fresh copy and requires the real extractor to redden every mapped constraint.\n` +
       `  bce gate  [--repo <dir>] [--blueprint-dir <dir>] [--changed a,b,c] [--extractor ast|line-scan] [--repo-name <org/repo>] [--all] [--report-json <path>]\n` +
       `       --report-json <path> ADDITIVELY writes the machine-parseable gate result (verdict, exit code,\n` +
       `       mode, counts, full graded reports) — a pure output side-channel; the verdict + exit + streams\n` +

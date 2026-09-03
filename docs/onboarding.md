@@ -64,7 +64,7 @@ project-local format.
 npx --no-install bce onboard \
   --repo . \
   --blueprint bce-draft.json \
-  --engine blueprint-conformance/bce@v0.1.5 \
+  --engine blueprint-conformance/bce@3611709acf0dace4698dd1876f835a73ec44837b \
   --harness agents
 ```
 
@@ -81,9 +81,10 @@ Override paths with `--agent-file` or `--mcp-config`. Paths are confined to the 
 existing context and unrelated MCP servers/settings are preserved. The command refuses to overwrite
 existing policy files, either installed skill, or an existing MCP server named `bce`.
 
-The generated Action uses the immutable `v0.1.5` Action source and can build that source locally.
-Pass `--engine bce-engine@0.1.5` instead when you want the generated workflow to install the exact
-published package independently.
+The generated Action uses the full commit SHA for the `v0.1.5` Action source and can build that
+source locally. The repository's immutable-release setting was enabled after `v0.1.5` was published,
+so the tag itself is not treated as an executable trust anchor. Pass `--engine bce-engine@0.1.5`
+instead when you want the generated workflow to install the exact published package independently.
 
 ## 4. Diagnose, prove RED, and go GREEN
 
@@ -118,8 +119,11 @@ On a first session, launch the harness after onboarding, ask it to list BCE tool
 `doctor_repository` with no arguments. If onboarding changed configuration in an already-running
 session, restart that session first.
 
-Onboarding has already installed both project skills. The Claude plugin marketplace is an
-alternative distribution path when you want user-level installation and plugin updates:
+Onboarding has already installed both project skills. The repository also contains a validated
+OpenAI skills-only plugin manifest at `.codex-plugin/plugin.json`, but it has not been submitted to
+the universal plugin directory. Do not present it as a public install path until a listing URL and a
+clean-account install are recorded. The Claude plugin marketplace is an alternative distribution
+path when you want user-level installation and plugin updates:
 
 ```text
 # Claude Code plugin marketplace

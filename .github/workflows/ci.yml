@@ -33,9 +33,18 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
+      - name: Action supply-chain policy (negative control + full-tree check)
+        run: node scripts/check-action-pins.selftest.mjs && node scripts/check-action-pins.mjs
+
+      - name: Release proof policy (negative control + gate check)
+        run: node scripts/check-release-proof-policy.selftest.mjs && node scripts/check-release-proof-policy.mjs
+
+      - name: Cross-document release claims (negative controls + truth check)
+        run: node scripts/check-release-claims.selftest.mjs && node scripts/check-release-claims.mjs
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: 22
+          node-version: 22.22.2
           cache: npm
 
       - name: Install (clean, lockfile-exact)
@@ -43,6 +52,9 @@ jobs:
 
       - name: Build the distributable engine
         run: npm run build
+
+      - name: Self-hosted extractor teeth — fresh manifest + 38 separately materialized source mutants
+        run: npm run test:self-teeth-mutations
 
       - name: Typecheck (tsc --noEmit, full tree)
         run: npm run typecheck
@@ -53,8 +65,32 @@ jobs:
       - name: Fresh-consumer full-stack onboarding proof
         run: npm run test:onboarding
 
+      - name: Two-clean-install runtime graph + report reproducibility proof
+        run: npm run test:reproducibility
+
       - name: Agent Skills + MCP first-session adoption proof
         run: npm run test:ai-adoption
+
+      - name: Independent adoption denominator + adjudication policy
+        run: npm run test:adoption-program
+
+      - name: MCP Inspector compatibility + startup SLO proof
+        run: npm run test:mcp-compatibility
+
+      - name: Synthetic 2,000-file scale budget + planted RED control
+        run: npm run test:scale
+
+      - name: External implementation intake contract + negative control
+        run: npm run test:external-contract
+
+      - name: Synthetic sealed v2 model-evaluation replay + causal-integrity controls (not efficacy evidence)
+        run: npm run test:model-eval-protocol
+
+      - name: Restricted-network runtime + hostile proxy/registry proof
+        run: npm run test:restricted-network
+
+      - name: OpenAI plugin archive validates with negative controls
+        run: npm run test:codex-plugin
 
       # The README's shields are generated from ground truth, and this is what makes
       # that true rather than merely intended. It re-derives every badge value from
@@ -235,3 +271,23 @@ jobs:
           repo: "."
           repo-name: blueprint-conformance/bce
           comment: "false"
+
+  model-evaluation-controller-macos:
+    name: model-evaluation-controller-macos
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: 22.22.2
+          cache: npm
+
+      - name: Install (clean, lockfile-exact)
+        run: npm ci
+
+      - name: Build the treatment artifact
+        run: npm run build
+
+      - name: Real controller rehearsal — strict isolation, staged runtime, MCP handshake, crash recovery, and public replay
+        run: npm run test:model-eval-controller

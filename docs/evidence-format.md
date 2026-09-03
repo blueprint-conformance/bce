@@ -25,6 +25,12 @@ verify/tamper transcripts).
   "verdict": "pass | fail",
   "violationCount": 0,
   "reportEvidenceRef": "architecture-graph.json@sha256:<graph hash>",
+  "toolchain": {
+    "engine": { "name": "bce-engine", "version": "<exact version>" },
+    "dependencyLock": { "file": "npm-shrinkwrap.json", "sha256": "<64 hex>" },
+    "runtime": { "node": "<version>", "npm": "<version>", "platform": "<os>", "arch": "<architecture>" },
+    "extractor": { "kind": "ast", "profile": "plugin-surface", "provider": "typescript-ts-morph", "version": "<engine version>" }
+  },
   "previousHash": "<sha256 of the PREVIOUS record, or the genesis sentinel>",
   "hash": "<sha256 of THIS record's canonical body>"
 }
@@ -37,6 +43,11 @@ verify/tamper transcripts).
   record commits to the *observed facts*, not just the summary numbers.
 - The genesis sentinel for `previousHash` is 64 zeros
   (`EVIDENCE_GENESIS_HASH` in `src/emit.ts`).
+- Current CLI emissions include `toolchain`, binding the exact engine, published
+  dependency-lock digest, Node/npm runtime, platform, architecture, and extractor
+  provider to the record. The field is optional in the schema only so historical
+  records emitted before 0.1.6 remain verifiable; absence means that identity was
+  not recorded, never that it can be inferred.
 
 ## 2. Content hash: derived-field stripping
 
@@ -51,7 +62,7 @@ Everything else, **including `previousHash`**, is hashed:
 ```
 hash = sha256( stableStringify({ schemaVersion, traceId, blueprintRef,
                                  ctRepoRevision, score, verdict, violationCount,
-                                 reportEvidenceRef, previousHash }) )
+                                 reportEvidenceRef, toolchain, previousHash }) )
 ```
 
 Because `previousHash` is inside the hashed body, each link commits to its whole
@@ -61,10 +72,10 @@ verifier fail-closes on unknown keys), so nothing volatile can ride along
 outside the hash.
 
 There is deliberately **no timestamp and no hostname/user field** anywhere in
-the record. Volatile, environment-dependent values are excluded from the format
-itself — not merely stripped before hashing — so the same inputs produce the
-same bytes on any machine, any day. Wall-clock provenance, where needed, belongs
-to the transport (git commit metadata, CI run logs), never to the record.
+the record. Current records do include the reproducibility-relevant toolchain
+environment, so record hashes can differ across platforms even when the underlying
+report hash is identical. Wall-clock and operator identity, where needed, belong
+to signed transport/provenance rather than being guessed from a local record.
 
 ## 3. Stable serialization
 
@@ -78,6 +89,8 @@ verbatim in `tools/verify-chain.mjs`):
 
 Two records with equal contents therefore have byte-identical canonical forms,
 independent of key insertion order — which is what makes the hash meaningful.
+For a fixed report, previous hash, and toolchain identity, the evidence record is
+byte-identical.
 
 ## 4. Re-derivation contract
 
@@ -106,9 +119,30 @@ bce run --blueprint <blueprint> --ct-repo <repo> --ref <ctRepoRevision> \
   --emit --prev-hash <previousHash> --emit-evidence-out rederived.json
 ```
 
-against the same revision yields a **byte-identical** record. No wall-clock, no
-randomness, no environment leakage anywhere in the pipeline
+against the same revision and declared toolchain yields a **byte-identical** record.
+The report remains content-deterministic across supported environments; the outer
+record intentionally identifies the environment rather than hiding it. No wall-clock
+or randomness enters the pipeline
 (`tests/determinism-proof.test.ts` and `tests/emit.test.ts` lock this).
+
+### Release producer identity
+
+The hash chain above proves integrity and ordering; by itself it does not prove who produced the
+record. Release workflows additionally attach `release-evidence-record.sigstore`, a keyless Sigstore
+bundle created with GitHub Actions OIDC after the release gate passes. Verify both layers:
+
+```bash
+node tools/verify-chain.mjs release-evidence-record.json
+sigstore verify release-evidence-record.sigstore \
+  --certificate-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-uri \
+  https://github.com/blueprint-conformance/bce/.github/workflows/release.yml@refs/tags/vX.Y.Z
+```
+
+Use the exact release tag in the identity URI. The issuer and workflow constraints are mandatory:
+verification without them establishes that some accepted Sigstore identity signed the attestation,
+not that this repository's release workflow did. Local evidence remains unsigned by default and
+must not be described as authenticated producer provenance.
 
 ## 5. Redaction: whole-record exclusion, never field editing
 

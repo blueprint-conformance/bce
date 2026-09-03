@@ -38,14 +38,17 @@ import {
   EngineeringBlueprintSchema,
   PortfolioBlueprintSchema,
   SeveritySchema,
+  ExtractionProfileSchema,
 } from '../src/schema.js';
 import { stableStringify, SEVERITY_WEIGHT } from '../src/report.js';
 import { APPROVAL_FLOOR } from '../src/emit.js';
+import { TeethMutationManifestSchema } from '../src/extractor-teeth.js';
 
 export const SCHEMA_ID_BASE = 'https://blueprint-conformance.github.io/bce/schemas/';
 const DRAFT = 'http://json-schema.org/draft-07/schema#';
 
 const SEVERITIES = SeveritySchema.options;
+const EXTRACTION_PROFILES = ExtractionProfileSchema.options;
 const HEX64 = '^[0-9a-f]{64}$';
 
 /** Wrap a zod-derived or hand-authored body with the published-schema envelope. */
@@ -100,6 +103,21 @@ function portfolioBlueprintSchema(): Record<string, unknown> {
     'The authored fleet-level blueprint artifact (apiVersion blueprint-conformance/v1alpha1), ' +
       'lowered by `bce portfolio compile` into per-member EngineeringBlueprint overlays. ' +
       'Mechanically derived from the normative Zod schema in src/schema.ts.',
+    body,
+  );
+}
+
+function teethMutationManifestSchema(): Record<string, unknown> {
+  const body = zodToJsonSchema(TeethMutationManifestSchema, {
+    name: 'TeethMutationManifest',
+    target: 'jsonSchema7',
+    $refStrategy: 'none',
+  }) as Record<string, unknown>;
+  delete body.$schema;
+  return envelope(
+    'teeth-mutation-manifest.schema.json',
+    'TeethMutationManifest',
+    'A closed, digest-preconditioned set of real repository source mutations. The extractor-real teeth runner materializes every case in a fresh copy and requires the mapped constraint to redden at the mutated file.',
     body,
   );
 }
@@ -222,6 +240,37 @@ function evidenceRecordSchema(): Record<string, unknown> {
         verdict: { type: 'string', enum: ['pass', 'fail'] },
         violationCount: { type: 'integer', minimum: 0 },
         reportEvidenceRef: { type: 'string' },
+        toolchain: {
+          type: 'object',
+          additionalProperties: false,
+          description: 'Producer/parser identity. Optional only for compatibility with historical pre-0.1.6 records; current CLI emissions always include it.',
+          required: ['engine', 'dependencyLock', 'runtime', 'extractor'],
+          properties: {
+            engine: {
+              type: 'object', additionalProperties: false, required: ['name', 'version'],
+              properties: { name: { const: 'bce-engine' }, version: { type: 'string' } },
+            },
+            dependencyLock: {
+              type: 'object', additionalProperties: false, required: ['file', 'sha256'],
+              properties: { file: { const: 'npm-shrinkwrap.json' }, sha256: { type: 'string', pattern: HEX64 } },
+            },
+            runtime: {
+              type: 'object', additionalProperties: false, required: ['node', 'npm', 'platform', 'arch'],
+              properties: {
+                node: { type: 'string' }, npm: { type: 'string' }, platform: { type: 'string' }, arch: { type: 'string' },
+              },
+            },
+            extractor: {
+              type: 'object', additionalProperties: false, required: ['kind', 'profile', 'provider', 'version'],
+              properties: {
+                kind: { type: 'string', enum: ['ast', 'line-scan'] },
+                profile: { type: 'string', enum: [...EXTRACTION_PROFILES] },
+                provider: { type: 'string', enum: ['typescript-ts-morph', 'typescript-line-scan', 'python-line-scan'] },
+                version: { type: 'string' },
+              },
+            },
+          },
+        },
         previousHash: { type: 'string', pattern: HEX64 },
         hash: { type: 'string', pattern: HEX64 },
       },
@@ -367,6 +416,7 @@ export function generateSchemas(): Record<string, Record<string, unknown>> {
     'evidence-record.schema.json': evidenceRecordSchema(),
     'architecture-graph.schema.json': architectureGraphSchema(),
     'remediation-work-order.schema.json': remediationWorkOrderSchema(),
+    'teeth-mutation-manifest.schema.json': teethMutationManifestSchema(),
   };
 }
 

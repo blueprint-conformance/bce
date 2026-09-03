@@ -1,0 +1,68 @@
+name: Independent adoption journey
+description: Record a full BCE onboarding attempt, including failures or abandonment.
+title: "independent adoption: <success, failure, or abandoned>"
+labels: ["independent-adoption"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form records the denominator, not just success stories. File it if you succeeded,
+        failed, or stopped. Never paste credentials or private repository content.
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Outcome
+      options: [Success, Failure, Abandoned]
+    validations:
+      required: true
+  - type: textarea
+    id: independence
+    attributes:
+      label: Independence and relationship disclosure
+      description: State your relationship to the project and confirm whether an author controlled the machine or operated the run.
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Exact source identity
+      description: A 40-character commit SHA, or source archive SHA-256.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, Node version, and install source.
+    validations:
+      required: true
+  - type: textarea
+    id: stages
+    attributes:
+      label: Stage timings and results
+      description: Record install, initialize, blueprint authoring, initial GREEN, planted drift, RED, fix, and final GREEN as completed, failed, or not reached, with minutes.
+    validations:
+      required: true
+  - type: textarea
+    id: problems
+    attributes:
+      label: Help requests, unexpected failures, or abandonment reason
+      description: Zero is a valid answer. Do not omit friction.
+    validations:
+      required: true
+  - type: input
+    id: evidence
+    attributes:
+      label: Public evidence URL and transcript SHA-256
+      description: Link participant-controlled evidence and include its digest. Redact secrets before publishing.
+    validations:
+      required: true
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Publication consent
+      options:
+        - label: I consent to publication of a structured record derived from this issue.
+          required: true
+        - label: I consent to being quoted; unchecked means do not quote me.
+          required: false

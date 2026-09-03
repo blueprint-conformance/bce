@@ -62,6 +62,10 @@ moved from 301 lines / 2,655 words to 99 lines / 745 words; lifecycle detail rem
 
 The structured comparison is committed at
 [`evidence/model-adoption/2026-09-02.json`](../evidence/model-adoption/2026-09-02.json).
+An attempted Claude Code arm is recorded separately at
+[`evidence/model-adoption/claude-2026-09-02-attempt.json`](../evidence/model-adoption/claude-2026-09-02-attempt.json):
+the installed default-client/model combination was version-refused and an explicit `sonnet` attempt
+was quota-refused before inference. It is therefore an attempted-but-unexecuted arm, not a result.
 
 ## What this proves
 

@@ -33,6 +33,114 @@
       "minimum": 0,
       "type": "integer"
     },
+    "toolchain": {
+      "additionalProperties": false,
+      "description": "Producer/parser identity. Optional only for compatibility with historical pre-0.1.6 records; current CLI emissions always include it.",
+      "properties": {
+        "dependencyLock": {
+          "additionalProperties": false,
+          "properties": {
+            "file": {
+              "const": "npm-shrinkwrap.json"
+            },
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "file",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "engine": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "const": "bce-engine"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "version"
+          ],
+          "type": "object"
+        },
+        "extractor": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "ast",
+                "line-scan"
+              ],
+              "type": "string"
+            },
+            "profile": {
+              "enum": [
+                "next-route-handler",
+                "plugin-surface",
+                "python-import-surface"
+              ],
+              "type": "string"
+            },
+            "provider": {
+              "enum": [
+                "typescript-ts-morph",
+                "typescript-line-scan",
+                "python-line-scan"
+              ],
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "profile",
+            "provider",
+            "version"
+          ],
+          "type": "object"
+        },
+        "runtime": {
+          "additionalProperties": false,
+          "properties": {
+            "arch": {
+              "type": "string"
+            },
+            "node": {
+              "type": "string"
+            },
+            "npm": {
+              "type": "string"
+            },
+            "platform": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "node",
+            "npm",
+            "platform",
+            "arch"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "engine",
+        "dependencyLock",
+        "runtime",
+        "extractor"
+      ],
+      "type": "object"
+    },
     "traceId": {
       "description": "the chain key (blueprint id — one chain per subsystem)",
       "type": "string"

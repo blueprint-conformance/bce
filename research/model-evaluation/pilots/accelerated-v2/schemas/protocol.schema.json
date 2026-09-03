@@ -1,0 +1,271 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCE product-efficacy protocol v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "studyId",
+    "canonical",
+    "phase",
+    "status",
+    "operatorModel",
+    "results",
+    "researchQuestion",
+    "claimScope",
+    "unit",
+    "arms",
+    "primaryOutcome",
+    "secondaryOutcomes",
+    "outcomeAuthority",
+    "matrix",
+    "clientModelCells",
+    "treatment",
+    "randomization",
+    "isolation",
+    "attemptPolicy",
+    "implementation",
+    "stopping",
+    "analysis",
+    "decisionRules",
+    "taskManifest",
+    "protectedPaths",
+    "seal"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "2" },
+    "studyId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,127}$" },
+    "canonical": { "const": true },
+    "phase": { "enum": ["pilot", "confirmatory"] },
+    "status": { "enum": ["design-inputs-unset", "frozen-ready-not-run", "running", "complete", "terminated"] },
+    "operatorModel": { "enum": ["author-operated-machine-adjudicated", "independent-replication"] },
+    "results": { "type": "null" },
+    "researchQuestion": { "type": "string", "minLength": 40 },
+    "claimScope": { "type": "string", "minLength": 10 },
+    "unit": { "type": "string", "minLength": 20 },
+    "arms": {
+      "type": "array",
+      "const": ["baseline-no-bce", "bce-enabled"]
+    },
+    "primaryOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "formula", "failureHandling"],
+      "properties": {
+        "id": { "const": "safe-successful-completion" },
+        "formula": { "type": "string", "minLength": 40 },
+        "failureHandling": { "type": "string", "minLength": 40 }
+      }
+    },
+    "secondaryOutcomes": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 3 }
+    },
+    "outcomeAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agentFinalMessage", "bceVerdict", "hiddenFunctionalOracle", "architectureOracle", "policyMutation"],
+      "properties": {
+        "agentFinalMessage": { "const": "diagnostic-only" },
+        "bceVerdict": { "const": "mediator-and-visible-pipeline-only" },
+        "hiddenFunctionalOracle": { "const": "frozen-controller-run" },
+        "architectureOracle": { "const": "frozen-bce-independent-controller-run" },
+        "policyMutation": { "const": "controller-derived-from-final-tree-and-observed-write-events" }
+      }
+    },
+    "matrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clientModelCells", "repositories", "tasksPerRepository", "taskTypes", "trialsPerArmPerCell", "totalRandomizedTrials", "exactCartesianPairing"],
+      "properties": {
+        "clientModelCells": { "type": "integer", "minimum": 1 },
+        "repositories": { "type": "integer", "minimum": 1 },
+        "tasksPerRepository": { "type": "integer", "minimum": 1 },
+        "taskTypes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["repair", "feature", "refactor"] }
+        },
+        "trialsPerArmPerCell": { "type": "integer", "minimum": 1 },
+        "totalRandomizedTrials": { "type": "integer", "minimum": 2 },
+        "exactCartesianPairing": { "const": true }
+      }
+    },
+    "clientModelCells": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/clientModelCell" }
+    },
+    "treatment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "allowedDeltaManifest", "engineArtifact", "engineArtifactSha256", "installedTreeSha256", "artifactProvenance", "baselineReceivesWrittenPolicy", "bceArmReceivesSameWrittenPolicy", "agentMayEditPolicy"],
+      "properties": {
+        "kind": { "const": "bce-adoption-bundle" },
+        "allowedDeltaManifest": { "type": "string", "minLength": 1 },
+        "engineArtifact": { "type": ["string", "null"] },
+        "engineArtifactSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "installedTreeSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "artifactProvenance": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["sourceCommit", "sourceTreeState", "buildCommand", "classification", "publishedPackageByteMatch"],
+          "properties": {
+            "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "sourceTreeState": { "enum": ["clean", "dirty-development-only"] },
+            "buildCommand": { "type": "string", "minLength": 20 },
+            "classification": { "const": "exact-local-candidate-offline-runtime-closure" },
+            "publishedPackageByteMatch": { "type": "null" }
+          }
+        },
+        "baselineReceivesWrittenPolicy": { "const": true },
+        "bceArmReceivesSameWrittenPolicy": { "const": true },
+        "agentMayEditPolicy": { "const": false }
+      }
+    },
+    "randomization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "seed", "membership", "withinPairArmOrderRandomized", "globalPairOrderInterleaved", "orderFrozenBeforeFirstModelExposure"],
+      "properties": {
+        "algorithm": { "const": "bce-sha256-rank-paired-v1" },
+        "seed": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "membership": { "type": "string", "minLength": 20 },
+        "withinPairArmOrderRandomized": { "const": true },
+        "globalPairOrderInterleaved": { "const": true },
+        "orderFrozenBeforeFirstModelExposure": { "const": true }
+      }
+    },
+    "isolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executionDriver", "executionDriverSha256", "freshWorkspacePerAttempt", "freshClientStatePerAttempt", "clientExecutableStagingRequired", "runtimeExecutableStagingRequired", "runtimeExecutable", "runtimeVersion", "runtimeArtifactSha256", "readDefaultDeny", "positiveCapabilityProofRequired", "userPreferencesImported", "authenticationMountedSeparately", "sharedModelSession", "sharedRepositoryCache", "oracleOutsideAgentWorkspace", "oracleReadIsolationProofRequired", "networkPolicyRecorded", "sameNonBceToolsAndPermissions"],
+      "properties": {
+        "executionDriver": { "type": ["string", "null"] },
+        "executionDriverSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "freshWorkspacePerAttempt": { "const": true },
+        "freshClientStatePerAttempt": { "const": true },
+        "clientExecutableStagingRequired": { "const": true },
+        "runtimeExecutableStagingRequired": { "const": true },
+        "runtimeExecutable": { "type": ["string", "null"] },
+        "runtimeVersion": { "type": ["string", "null"] },
+        "runtimeArtifactSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "readDefaultDeny": { "const": true },
+        "positiveCapabilityProofRequired": { "const": true },
+        "userPreferencesImported": { "const": false },
+        "authenticationMountedSeparately": { "const": true },
+        "sharedModelSession": { "const": false },
+        "sharedRepositoryCache": { "const": false },
+        "oracleOutsideAgentWorkspace": { "const": true },
+        "oracleReadIsolationProofRequired": { "const": true },
+        "networkPolicyRecorded": { "const": true },
+        "sameNonBceToolsAndPermissions": { "const": true }
+      }
+    },
+    "attemptPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["states", "transparentRetryBeforeExposureOnly", "postExposureRetry", "primaryAttemptMayNotBeReplaced", "terminalRecordsImmutable"],
+      "properties": {
+        "states": { "const": ["planned", "leased", "prepared", "exposed", "terminal"] },
+        "transparentRetryBeforeExposureOnly": { "const": true },
+        "postExposureRetry": { "const": "new-linked-diagnostic-attempt-only" },
+        "primaryAttemptMayNotBeReplaced": { "const": true },
+        "terminalRecordsImmutable": { "const": true }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verifierSha256", "assignmentGeneratorSha256", "runnerSha256", "analyzerSha256", "analysisCoreSha256"],
+      "properties": {
+        "verifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "assignmentGeneratorSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "runnerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "analyzerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "analysisCoreSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
+      }
+    },
+    "stopping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcomeDependentStopping", "stopAfterConsecutivePostExposureInfrastructureFailures", "failureRateMinimumExposed", "abortCellWhenInfrastructureFailureRateExceeds", "safetyHaltRetainsAllExposedAttempts"],
+      "properties": {
+        "outcomeDependentStopping": { "const": false },
+        "stopAfterConsecutivePostExposureInfrastructureFailures": { "type": "integer", "minimum": 1 },
+        "failureRateMinimumExposed": { "type": "integer", "minimum": 1 },
+        "abortCellWhenInfrastructureFailureRateExceeds": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "safetyHaltRetainsAllExposedAttempts": { "const": true }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["population", "primaryByCell", "pooledConfirmatoryEstimate", "pairWeighting", "interval", "bootstrapDraws", "missingTelemetry", "humanAdjudication", "multiplicity"],
+      "properties": {
+        "population": { "const": "intention-to-treat" },
+        "primaryByCell": { "const": true },
+        "pooledConfirmatoryEstimate": { "const": false },
+        "pairWeighting": { "const": "equal-task-with-repository-cluster-uncertainty" },
+        "interval": { "const": "deterministic-repository-cluster-bootstrap-95" },
+        "bootstrapDraws": { "type": "integer", "minimum": 1000 },
+        "missingTelemetry": { "type": "string", "minLength": 20 },
+        "humanAdjudication": { "type": "string", "minLength": 20 },
+        "multiplicity": { "type": "string", "minLength": 20 }
+      }
+    },
+    "decisionRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recommendDefaultOnlyIfAll", "frictionExceptionRequiresSafeSuccessGain", "p0Conditions", "inconclusiveRule"],
+      "properties": {
+        "recommendDefaultOnlyIfAll": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["safeSuccessRiskDifferenceMinimum", "escapedDefectAbsoluteReductionMinimum", "escapedDefectRelativeReductionMinimum", "falseBlockRateMaximum", "worstCellSafeSuccessRiskDifferenceMinimum", "medianPairedCostRatioMaximum", "medianPairedWallTimeRatioMaximum", "policyMutationRiskDifferenceMaximum"],
+          "properties": {
+            "safeSuccessRiskDifferenceMinimum": { "type": "number", "minimum": 0, "maximum": 1 },
+            "escapedDefectAbsoluteReductionMinimum": { "type": "number", "minimum": 0, "maximum": 1 },
+            "escapedDefectRelativeReductionMinimum": { "type": "number", "minimum": 0, "maximum": 1 },
+            "falseBlockRateMaximum": { "type": "number", "minimum": 0, "maximum": 1 },
+            "worstCellSafeSuccessRiskDifferenceMinimum": { "type": "number", "minimum": -1, "maximum": 1 },
+            "medianPairedCostRatioMaximum": { "type": "number", "minimum": 1 },
+            "medianPairedWallTimeRatioMaximum": { "type": "number", "minimum": 1 },
+            "policyMutationRiskDifferenceMaximum": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "frictionExceptionRequiresSafeSuccessGain": { "type": "number", "minimum": 0, "maximum": 1 },
+        "p0Conditions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 3 } },
+        "inconclusiveRule": { "type": "string", "minLength": 20 }
+      }
+    },
+    "taskManifest": { "type": "string", "minLength": 1 },
+    "protectedPaths": { "type": "string", "minLength": 1 },
+    "seal": { "type": "string", "minLength": 1 }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "clientModelCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "client", "executable", "clientVersion", "clientArtifactSha256", "adapterSha256", "requestedModel", "resolvedModel", "modelIdentitySource", "modelIdentityEvidence", "reasoningEffort"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "role": { "enum": ["primary", "transportability"] },
+        "client": { "type": "string", "minLength": 2 },
+        "executable": { "type": ["string", "null"] },
+        "clientVersion": { "type": ["string", "null"] },
+        "clientArtifactSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "adapterSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "requestedModel": { "type": ["string", "null"] },
+        "resolvedModel": { "type": ["string", "null"] },
+        "modelIdentitySource": { "type": ["string", "null"] },
+        "modelIdentityEvidence": { "type": ["string", "null"], "enum": ["provider-response", "client-request-configuration", "synthetic-response", null] },
+        "reasoningEffort": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

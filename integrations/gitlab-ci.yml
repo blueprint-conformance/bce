@@ -6,12 +6,10 @@
 # `bce gate` exit 1 → the job fails. There is no skip variable and no allow_failure here;
 # advisory is a COMMITTED `.bce-mode.json` mode the engine reads on its own.
 #
-# This template is intentionally DORMANT until a real engine release exists. After publication,
-# paste it into your .gitlab-ci.yml and make two edits:
-#   1. Replace VERSION_NOT_PUBLISHED with an exact verified release. Ranges are refused
-#      by convention — pin exactly (a caret range on a 0.x line silently excludes the next
-#      minor, so `^0.6.0` never picks up 0.7.0).
-#   2. Adjust `stage:` to match your pipeline.
+# SUPPORT STATUS: UNSUPPORTED REFERENCE TEMPLATE. It has not been exercised by a real GitLab
+# runner/client matrix, so GitLab is not a supported BCE integration today. The snippet uses the
+# exact public 0.1.5 engine and remains fail-closed for evaluators, but adopters must validate it in
+# their own GitLab environment. Adjust `stage:` to match the target pipeline. Ranges are refused.
 #
 # What runs, exactly:
 #   - On a merge-request pipeline: the gate is scoped to the MR's changed files
@@ -34,11 +32,7 @@ bce-gate:
       set -eu
       # --package is required: the package ships two bins (bce, bce-mcp), so npx must be told
       # which one to run. Pin EXACTLY (see header).
-      BCE_VERSION="VERSION_NOT_PUBLISHED"
-      if [ "$BCE_VERSION" = "VERSION_NOT_PUBLISHED" ]; then
-        echo "bce GitLab template is dormant: set BCE_VERSION only after verifying a real npm release"
-        exit 2
-      fi
+      BCE_VERSION="0.1.5"
       BCE="npx --yes --package bce-engine@$BCE_VERSION bce"
       if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
         CHANGED="$(git diff --name-only "$CI_MERGE_REQUEST_DIFF_BASE_SHA" HEAD | tr '\n' ',')"

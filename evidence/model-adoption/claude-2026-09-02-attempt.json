@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1",
+  "kind": "bce-model-adoption-attempt",
+  "client": "Claude Code 2.1.123",
+  "operatedBy": "project author",
+  "recordedAt": "2026-09-02",
+  "status": "not-executed",
+  "attempts": [
+    {
+      "modelSelection": "account default",
+      "result": "client-version-refusal",
+      "detail": "The service required Claude Code 2.1.251 or newer; no model tokens were consumed."
+    },
+    {
+      "modelSelection": "sonnet alias",
+      "result": "account-quota-refusal",
+      "detail": "The account reported its usage limit reached; no model tokens were consumed."
+    }
+  ],
+  "claimBoundary": "This record proves only that a second-client execution was attempted and refused before inference. It is not an adoption result, failure-rate observation, or cross-model comparison."
+}

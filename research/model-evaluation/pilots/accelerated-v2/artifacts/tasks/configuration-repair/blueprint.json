@@ -1,0 +1,39 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "configuration-repair",
+    "version": "1.0.0",
+    "status": "approved"
+  },
+  "intentRefs": [
+    "pilot-policy/configuration-repair"
+  ],
+  "scope": {
+    "repositories": [
+      "pilot/configuration-microcosm"
+    ]
+  },
+  "architecture": {
+    "components": [],
+    "relationships": []
+  },
+  "constraints": [
+    {
+      "id": "worker-no-direct-environment",
+      "type": "forbiddenPattern",
+      "severity": "critical",
+      "path": "src/worker.mjs",
+      "pattern": "process\\.env"
+    }
+  ],
+  "evidenceRequirements": [],
+  "approvals": [],
+  "extraction": {
+    "profile": "plugin-surface",
+    "paths": [
+      "src/**/*.mjs"
+    ],
+    "minFiles": 4
+  }
+}

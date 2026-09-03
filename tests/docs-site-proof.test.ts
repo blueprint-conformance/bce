@@ -37,6 +37,18 @@ import * as os from 'node:os';
 const repoRoot = path.resolve(__dirname, '..');
 const builder = path.join(repoRoot, 'scripts', 'build-docs-site.mjs');
 const selftest = path.join(repoRoot, 'scripts', 'docs-site-selftest.mjs');
+const probeCountResult = spawnSync(process.execPath, [selftest, '--print-probe-count'], {
+  cwd: repoRoot, encoding: 'utf8',
+});
+if (probeCountResult.status !== 0 || !/^\d+$/.test(probeCountResult.stdout.trim())) {
+  throw new Error(`docs self-test did not expose its probe count: ${probeCountResult.stderr}`);
+}
+// Each negative control stages and rebuilds the complete site. Keep the proof finite,
+// but scale its deadline with the workload so supported slower runners remain valid.
+const DOCS_SELFTEST_TIMEOUT_MS = Math.min(
+  240_000,
+  Math.max(60_000, Number(probeCountResult.stdout.trim()) * 8_000),
+);
 
 let out: string;
 let build: ReturnType<typeof spawnSync>;
@@ -97,7 +109,7 @@ describe('docs-site build (always-on, unfiltered by CI paths)', () => {
   it('can go red — every builder check refuses its own planted probe', () => {
     const r = spawnSync(process.execPath, [selftest], { cwd: repoRoot, encoding: 'utf8' });
     expect(r.status, `selftest stderr:\n${r.stderr}\nstdout:\n${r.stdout}`).toBe(0);
-  });
+  }, DOCS_SELFTEST_TIMEOUT_MS);
 });
 
 describe('the post-flip deploy activation is intact', () => {

@@ -61,7 +61,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: 22
+          node-version: 22.22.2
 
       # ----------------------------------------------------------------------
       # NEGATIVE SELF-TEST — before the real build's verdict is trusted, prove
@@ -123,8 +123,8 @@ jobs:
             fi
           done
 
-          tree_count="$(ls -1 spec/schemas/*.schema.json | wc -l | tr -d ' ')"
-          site_count="$(ls -1 _site/schemas/*.schema.json | wc -l | tr -d ' ')"
+          tree_count="$(find spec/schemas -maxdepth 1 -type f -name '*.schema.json' | wc -l | tr -d ' ')"
+          site_count="$(find _site/schemas -maxdepth 1 -type f -name '*.schema.json' | wc -l | tr -d ' ')"
           if [ "$tree_count" != "$site_count" ]; then
             echo "::error::schema count mismatch — tree ${tree_count}, site ${site_count}"
             missing=1

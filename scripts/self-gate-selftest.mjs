@@ -12,7 +12,7 @@
  * Three properties, each proven by a targeted violation in a throwaway copy:
  *
  *   1. gate refuses a real violation of the self-blueprint
- *   2. teeth refuses a blueprint that cannot fail (vacuity, exit 2)
+ *   2. source-mutation teeth proves every clean constraint and refuses vacuity
  *   3. the sync test refuses a new src file with no blueprint coverage
  *
  * A baseline asserts the unmutated copy passes all three first, so a refusal
@@ -35,6 +35,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const die = (m) => { console.error(`self-gate-selftest: ${m}`); process.exit(2); };
 const BP = '.blueprints/engine.blueprint.json';
+const MUTATIONS = '.blueprints/engine.teeth-mutations.json';
 
 const tmpBase = mkdtempSync(path.join(os.tmpdir(), 'sg-selftest-'));
 const mkCopy = (name) => {
@@ -74,7 +75,7 @@ if (!existsSync(path.join(repoRoot, 'dist/cli.js'))) die('dist/cli.js missing �
 // ---------------------------------------------------------------------------
 const clean = mkCopy('clean');
 const baseGate = run(clean, ['gate', '--repo', '.', '--repo-name', 'blueprint-conformance/bce']);
-const baseTeeth = run(clean, ['teeth', '--blueprint', BP, '--ct-repo', '.']);
+const baseTeeth = run(clean, ['teeth', '--blueprint', BP, '--ct-repo', '.', '--mutation-manifest', MUTATIONS, '--require-all-extractor-real']);
 if (baseGate.code !== 0 || baseTeeth.code !== 0) {
   console.error(baseGate.out.slice(0, 1200));
   die(`clean copy does not pass (gate=${baseGate.code} teeth=${baseTeeth.code}) — fix real drift before trusting a control`);
@@ -112,8 +113,8 @@ const report = (ok, label, detail) => {
   const bp = JSON.parse(readFileSync(p, 'utf8'));
   bp.constraints = [];
   writeFileSync(p, JSON.stringify(bp, null, 2));
-  const r = run(d, ['teeth', '--blueprint', BP, '--ct-repo', '.']);
-  report(r.code !== 0, '2 teeth refuses a vacuous blueprint',
+  const r = run(d, ['teeth', '--blueprint', BP, '--ct-repo', '.', '--mutation-manifest', MUTATIONS, '--require-all-extractor-real']);
+  report(r.code !== 0, '2 source-mutation teeth refuses a vacuous blueprint',
     `constraints emptied -> exit ${r.code}`);
 }
 
@@ -135,4 +136,4 @@ if (failures) {
   console.error('The claim "bce gates its own repository" is only worth what these refusals prove.');
   process.exit(1);
 }
-console.log('self-gate-selftest: PASS — gate, teeth and the sync test each refused their own violation.');
+console.log('self-gate-selftest: PASS — gate, all-constraint source-mutation teeth, and the sync test refused their controls.');

@@ -56,7 +56,7 @@ const cliSource = fs.readFileSync(CLI_SRC, 'utf8');
 // construct should be a red test, not a silently-different parse.
 // ---------------------------------------------------------------------------
 function readFrontmatter(text: string): { keys: Record<string, string>; body: string } {
-  const lines = text.split('\n');
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
   if (lines[0] !== '---') {
     throw new Error('SKILL.md does not open with a `---` frontmatter fence');
   }

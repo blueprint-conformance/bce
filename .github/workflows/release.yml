@@ -8,9 +8,8 @@ name: release
 # corpus/recall + self-gate (Lane B) + leakage-gate + the RED/GREEN dist pair —
 # and REFUSES to publish unless ALL of them are green HERE. Citation of a prior
 # green run is never accepted as the proof (the same discipline ci.yml applies on
-# every push). Only after the gate legs pass does it `npm publish --provenance
-# --access public`, then attach the evidence record of THIS gate-run to the
-# GitHub Release.
+# every push). The release evidence is generated, verified, and signed before the
+# irreversible registry write; only then does npm publish run.
 #
 # There is no skip flag. `dry_run` (workflow_dispatch only, default true) runs
 # every gate leg and then STOPS BEFORE publish — it proves the gate legs green
@@ -64,6 +63,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  model-evaluation-controller-macos:
+    name: release-model-evaluation-controller-macos
+    runs-on: macos-15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: 22.22.2
+          cache: npm
+
+      - name: Install (clean, lockfile-exact)
+        run: npm ci
+
+      - name: Build the treatment artifact
+        run: npm run build
+
+      - name: Real controller rehearsal — strict isolation, staged runtime, MCP handshake, crash recovery, and public replay
+        run: npm run test:model-eval-controller
+
   # ----------------------------------------------------------------------------
   # GATE — every proof, re-executed at the tag. This job is the fail-closed wall
   # in front of publish: if any leg reds, the job fails, and the publish job
@@ -79,9 +100,18 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
+      - name: Action supply-chain policy (negative control + full-tree check)
+        run: node scripts/check-action-pins.selftest.mjs && node scripts/check-action-pins.mjs
+
+      - name: Release proof policy (negative control + gate check)
+        run: node scripts/check-release-proof-policy.selftest.mjs && node scripts/check-release-proof-policy.mjs
+
+      - name: Cross-document release claims (negative controls + truth check)
+        run: node scripts/check-release-claims.selftest.mjs && node scripts/check-release-claims.mjs
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: 22
+          node-version: 22.22.2
           cache: npm
           # registry-url writes the .npmrc that makes NODE_AUTH_TOKEN usable, so the
           # publish-auth gate leg below can PROVE the credential against the registry
@@ -147,20 +177,47 @@ jobs:
       - name: Fresh-consumer full-stack onboarding proof
         run: npm run test:onboarding
 
+      - name: Agent Skills + MCP first-session adoption proof (deterministic, no paid model)
+        run: npm run test:ai-adoption
+
+      - name: Independent adoption denominator + adjudication policy
+        run: npm run test:adoption-program
+
+      - name: MCP Inspector compatibility + startup SLO proof
+        run: npm run test:mcp-compatibility
+
+      - name: Synthetic 2,000-file scale budget + planted RED control
+        run: npm run test:scale
+
+      - name: External implementation intake contract + negative control
+        run: npm run test:external-contract
+
+      - name: Synthetic sealed v2 model-evaluation replay + causal-integrity controls (not efficacy evidence)
+        run: npm run test:model-eval-protocol
+
+      - name: Restricted-network runtime + hostile proxy/registry proof
+        run: npm run test:restricted-network
+
+      - name: OpenAI plugin archive validates with negative controls
+        run: npm run test:codex-plugin
+
+      - name: Two-clean-install runtime graph + report reproducibility proof
+        run: npm run test:reproducibility
+
       - name: Corpus / measured-recall run (recall arithmetic + real-engine e2e proof)
         run: npx vitest run tests/recall-gate.test.ts tests/recall-e2e-proof.test.ts
 
-      - name: Self-gate (Lane B) — validate + teeth + self-blueprint sync + evidence chain, fail-closed
+      - name: Self-gate (Lane B) — validate + real-source teeth + self-blueprint sync + evidence chain, fail-closed
         shell: bash
         run: |
           set -euo pipefail
           node dist/cli.js validate --blueprint .blueprints/engine.blueprint.json
           node dist/cli.js gate --repo . --repo-name blueprint-conformance/bce
-          node dist/cli.js teeth --blueprint .blueprints/engine.blueprint.json --ct-repo . --out teeth-report.json
+          npm run test:self-teeth-mutations
           npx vitest run tests/self-blueprint.test.ts
           node tools/verify-chain.mjs evidence/example-chain
           echo "--- teeth report (surfaced in the run log) ---"
-          cat teeth-report.json
+          cat extractor-teeth-report.json
 
       - name: Leakage gate — NUL-proof banned-string scan (re-run at the tag)
         shell: bash
@@ -173,6 +230,7 @@ jobs:
           NAME="${o1}${o2}"
           NAME_PAT="(^|[^a-zA-Z])${NAME}"
           STEWARD="${c1}d${o2} Labs"
+          PUBLIC_SECURITY_CONTACT="mitchell@${o1}${o2}-labs.ai"
           sn="blueprintconformance"".dev"
           t1="redro""cket"; t2="3d""3d"; t3="h""es"; t4="open""value"; t5="hazel""man"; t6="la""rs"; t7="techre""bels"
           gp="gh""p_"; gs="gh""s_"; go="gh""o_"; gpat="git""hub_pat_"; pk="PRIV""ATE KEY"
@@ -198,6 +256,8 @@ jobs:
             for p in "${PATTERNS[@]}"; do
               if [ "$allow" -eq 1 ] && [ "$p" = "$NAME_PAT" ]; then
                 hits="$(tr -d '\000' < "$f" | sed "s/${STEWARD}//g" | { grep -a -i -n -E -- "$p" || true; })"
+              elif [ "$rel" = "SECURITY.md" ] && [ "$p" = "$NAME_PAT" ]; then
+                hits="$(tr -d '\000' < "$f" | sed "s/${PUBLIC_SECURITY_CONTACT}//g" | { grep -a -i -n -E -- "$p" || true; })"
               else
                 hits="$(tr -d '\000' < "$f" | { grep -a -i -n -E -- "$p" || true; })"
               fi
@@ -341,12 +401,12 @@ jobs:
   # ----------------------------------------------------------------------------
   # PUBLISH — runs ONLY on a real tag push with the gate green and dry_run false.
   # Re-installs + re-builds from a clean tree (never trusts the gate job's
-  # artifacts), then npm publish --provenance --access public, then generates and
-  # attaches the evidence record of the release gate-run to the GitHub Release.
+  # artifacts), generates/verifies/signs the release evidence, then executes npm
+  # publish --provenance --access public and attaches the pre-publish proof.
   # ----------------------------------------------------------------------------
   publish:
     name: publish (provenance) + attach evidence record
-    needs: gate
+    needs: [gate, model-evaluation-controller-macos]
     if: ${{ github.event_name == 'push' && needs.gate.outputs.dry_run == 'false' }}
     runs-on: ubuntu-latest
     environment: release
@@ -358,7 +418,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: 22
+          node-version: 22.22.2
           registry-url: https://registry.npmjs.org
           cache: npm
 
@@ -387,20 +447,7 @@ jobs:
       - name: Build the distributable engine
         run: npm run build
 
-      - name: npm publish --provenance --access public
-        shell: bash
-        env:
-          # Present only if the operator provisioned it (auth path A). Absent → npm
-          # falls through to the OIDC Trusted-Publishing path (B) enabled by the
-          # id-token:write permission on this job. If neither is usable, npm fails
-          # here with a clear auth error — never a silent success.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          npm publish --provenance --access public
-          echo "published $(node -p "require('./package.json').name")@$(node -p "require('./package.json').version") with provenance."
-
-      - name: Generate the evidence record of THIS release gate-run
+      - name: Generate the evidence record of THIS release gate-run before publish
         shell: bash
         run: |
           set -euo pipefail
@@ -423,6 +470,33 @@ jobs:
           node tools/verify-chain.mjs release-evidence-chain
           echo "release evidence record verifies (zero-dep verifier)."
 
+      - name: Keyless-sign and verify the release evidence record
+        shell: bash
+        run: |
+          set -euo pipefail
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}"
+          node node_modules/@sigstore/cli/bin/run attest \
+            release-evidence-record.json \
+            --output-file release-evidence-record.sigstore
+          node node_modules/@sigstore/cli/bin/run verify \
+            release-evidence-record.sigstore \
+            --certificate-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-uri "$identity"
+          echo "release evidence signature verifies for ${identity}."
+
+      - name: npm publish --provenance --access public (only after evidence verifies)
+        shell: bash
+        env:
+          # Present only if the operator provisioned it (auth path A). Absent → npm
+          # falls through to the OIDC Trusted-Publishing path (B) enabled by the
+          # id-token:write permission on this job. If neither is usable, npm fails
+          # here with a clear auth error — never a silent success.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          npm publish --provenance --access public
+          echo "published $(node -p "require('./package.json').name")@$(node -p "require('./package.json').version") with provenance."
+
       - name: Attach the evidence record to the GitHub Release
         shell: bash
         env:
@@ -434,10 +508,11 @@ jobs:
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" \
               --title "$tag" \
-              --notes "Automated release of $(node -p "require('./package.json').name")@${tag#v}. The attached release-evidence-record.json is the EvidenceRecord of this release's gate-run — re-derivable with \`node tools/verify-chain.mjs\`. Published with npm provenance."
+              --notes "Automated release of $(node -p "require('./package.json').name")@${tag#v}. The attached release-evidence-record.json is the EvidenceRecord of this release's gate-run — re-derivable with \`node tools/verify-chain.mjs\` and keyless-signed in release-evidence-record.sigstore. Published with npm provenance."
           fi
           gh release upload "$tag" \
             release-evidence-record.json \
+            release-evidence-record.sigstore \
             release-compliance-report.json \
             --clobber
-          echo "attached release-evidence-record.json + release-compliance-report.json to Release $tag"
+          echo "attached evidence record + Sigstore bundle + compliance report to Release $tag"

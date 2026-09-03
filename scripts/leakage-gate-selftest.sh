@@ -99,6 +99,7 @@ scan() {  # scan <dir> -> prints hit filenames, exit 0 if any hit
   # allowlisted files tripped the baseline. Fragment assembly is what keeps this
   # file out of its own scan, and it is also how a typo hides in plain sight.
   local STEWARD="O""d${o2} Labs"
+  local PUBLIC_SECURITY_CONTACT="mitchell@${o1}${o2}-labs.ai"
   local CRED=(
     "(^|[^a-zA-Z0-9])sk_[a-zA-Z0-9]{8,}"
     "${gp}[A-Za-z0-9]{10,}" "${gs}[A-Za-z0-9]{10,}" "${go}[A-Za-z0-9]{10,}" "$gpat"
@@ -106,7 +107,9 @@ scan() {  # scan <dir> -> prints hit filenames, exit 0 if any hit
     "-----BEGIN [A-Z ]*${pk}-----" 'eyJ[A-Za-z0-9_-]{20,}\.eyJ'
   )
   local PATS=(
-    "$NAME_PAT" "$t1" "$t2" "$t4" "$t5" "$t7" "$t8" "$t9"
+    "$NAME_PAT" "$t1"
+    "(^|[^a-z0-9_])${t2}([^a-z0-9_]|$)"
+    "$t4" "$t5" "$t7" "$t8" "$t9"
     "(^|[^a-z0-9_])${t3}([^a-z0-9_]|$)"
     "(^|[^a-z0-9_])${t6}([^a-z0-9_]|$)"
     "(^|[^a-z0-9_])${n1}([^a-z0-9_]|$)"
@@ -117,6 +120,30 @@ scan() {  # scan <dir> -> prints hit filenames, exit 0 if any hit
     "$reg" "$sn" "${dfA}[-_. ]?${dfB}" "${ocA}${ocB}" "${CRED[@]}"
   )
   local ALLOW=("NOTICE" "GOVERNANCE.md" "TRADEMARKS.md")
+  # These are immutable, publicly sealed pilot bytes. Three v1-v3 oracles contain
+  # a legacy dummy word that collides with the steward-name rule, and the v3 gzip
+  # stream has an accidental binary collision. The exception is content-addressed:
+  # changing one byte makes the file go through the normal scan again.
+  local PINNED_EVIDENCE=(
+    "research/model-evaluation/pilots/accelerated-v1/artifacts/tasks/boundary-feature/functional-oracle.mjs|ab488713fce71d6272d0d2c1eaf42d0c750ad5873b28122868229db97a9cf1ef"
+    "research/model-evaluation/pilots/accelerated-v2/artifacts/tasks/boundary-feature/functional-oracle.mjs|ab488713fce71d6272d0d2c1eaf42d0c750ad5873b28122868229db97a9cf1ef"
+    "research/model-evaluation/pilots/accelerated-v3/artifacts/tasks/boundary-feature/functional-oracle.mjs|ab488713fce71d6272d0d2c1eaf42d0c750ad5873b28122868229db97a9cf1ef"
+    "research/model-evaluation/pilots/accelerated-v3/artifacts/bce-treatment-runtime-v3.tgz|db2a215679f89bdb76cce65f88e88b529a799ec2b880487315d908c78576d4e7"
+  )
+  sha256_file() {
+    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
+    else shasum -a 256 "$1" | awk '{print $1}'
+    fi
+  }
+  pinned_evidence() {
+    local rel="$1" file="$2" entry
+    for entry in "${PINNED_EVIDENCE[@]}"; do
+      [ "$rel" = "${entry%%|*}" ] || continue
+      [ "$(sha256_file "$file")" = "${entry#*|}" ] && return 0
+      return 1
+    done
+    return 1
+  }
   # The whole walk runs INSIDE the target dir. The first version cd'd only in the
   # find subshell, so the loop body read `./PROBE.txt` relative to the ORIGINAL
   # cwd — every read failed and every probe reported MISS. A harness that cannot
@@ -125,13 +152,16 @@ scan() {  # scan <dir> -> prints hit filenames, exit 0 if any hit
   local hit=""
   while IFS= read -r -d '' f; do
     local rel="${f#./}" allow=0
+    if pinned_evidence "$rel" "$f"; then continue; fi
     for a in "${ALLOW[@]}"; do [ "$rel" = "$a" ] && allow=1; done
     for p in "${PATS[@]}"; do
       local h
       if [ "$allow" -eq 1 ] && [ "$p" = "$NAME_PAT" ]; then
-        h="$(tr -d '\000' < "$f" | sed "s/${STEWARD}//g" | { grep -a -i -E -- "$p" || true; })"
+        h="$(LC_ALL=C tr -d '\000' < "$f" | sed "s/${STEWARD}//g" | { grep -a -i -E -- "$p" || true; })"
+      elif [ "$rel" = "SECURITY.md" ] && [ "$p" = "$NAME_PAT" ]; then
+        h="$(LC_ALL=C tr -d '\000' < "$f" | sed "s/${PUBLIC_SECURITY_CONTACT}//g" | { grep -a -i -E -- "$p" || true; })"
       else
-        h="$(tr -d '\000' < "$f" | { grep -a -i -E -- "$p" || true; })"
+        h="$(LC_ALL=C tr -d '\000' < "$f" | { grep -a -i -E -- "$p" || true; })"
       fi
       [ -n "$h" ] && { hit="${hit}${rel} "; break; }
     done
@@ -151,6 +181,35 @@ if [ -n "$base_hits" ]; then
   exit 2
 fi
 echo "  baseline: clean tree is silent"
+echo
+
+# Prove the sealed-evidence exception is a byte pin, not a path exemption.
+pinned_rel="research/model-evaluation/pilots/accelerated-v1/artifacts/tasks/boundary-feature/functional-oracle.mjs"
+pinned_dir="$TMP/pinned_exception"
+mkdir -p "$pinned_dir/$(dirname "$pinned_rel")"
+cp "$TMP/base/$pinned_rel" "$pinned_dir/$pinned_rel"
+[ -z "$(scan "$pinned_dir")" ] || { echo "  MISS  exact sealed evidence was not recognized"; fails=$((fails+1)); }
+printf '\n%s\n' "$t1" >> "$pinned_dir/$pinned_rel"
+case "$(scan "$pinned_dir")" in
+  *"$pinned_rel"*) ;;
+  *) echo "  MISS  changed sealed evidence escaped its digest pin"; fails=$((fails+1));;
+esac
+[ "$fails" -eq 0 ] && echo "  OK    sealed-evidence exception is path- and digest-scoped"
+echo
+
+# The public security-address exception is exact in both content and location. It must not become
+# a file-wide exemption, and the same address outside SECURITY.md must remain a leak.
+contact="mitchell@${o1}${o2}-labs.ai"
+exception_dir="$TMP/security_exception"
+mkdir -p "$exception_dir"
+printf 'Fallback: %s\n' "$contact" > "$exception_dir/SECURITY.md"
+[ -z "$(scan "$exception_dir")" ] || { echo "  MISS  exact security contact was not allowlisted"; fails=$((fails+1)); }
+printf 'Fallback: %s\n%s Systems\n' "$contact" "$NAME" > "$exception_dir/SECURITY.md"
+case "$(scan "$exception_dir")" in *SECURITY.md*) ;; *) echo "  MISS  SECURITY.md exception hid another steward reference"; fails=$((fails+1));; esac
+rm -f "$exception_dir/SECURITY.md"
+printf 'Fallback: %s\n' "$contact" > "$exception_dir/README.md"
+case "$(scan "$exception_dir")" in *README.md*) ;; *) echo "  MISS  security contact escaped its file-scoped allowlist"; fails=$((fails+1));; esac
+[ "$fails" -eq 0 ] && echo "  OK    exact SECURITY.md contact exception is content- and file-scoped"
 echo
 
 for entry in "${PROBES[@]}"; do

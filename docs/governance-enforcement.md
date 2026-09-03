@@ -21,3 +21,13 @@ governed, an administrator must apply and verify these settings on the default b
 
 Until those settings are externally verified, CODEOWNERS and workflows are enforcement intent,
 not proof that the hosting platform enforces review. Evidence bundles must state that distinction.
+
+Current state (verified through GitHub's API on 2026-09-02): `main` requires the repository's six CI
+checks, enforces them for admins, and prevents force-push and deletion. Required approving reviews,
+CODEOWNER review, and release-environment reviewers are disabled because the project has one human
+maintainer. This is the operable solo-safe state: automation cannot be bypassed, but the repository
+does not pretend a second human exists or configure a guard that prevents all releases.
+
+Independent review remains unestablished. The fix-forward activation condition is a distinct human
+who accepts code-owner and release-review responsibility. At that point, add CODEOWNERS and enable
+one non-author approval plus release-environment review together, then record an exercised review.

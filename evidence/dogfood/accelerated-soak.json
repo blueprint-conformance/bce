@@ -1,0 +1,338 @@
+{
+  "schemaVersion": "1",
+  "evidenceClass": "author-operated-accelerated-soak",
+  "generatedBy": "scripts/accelerated-dogfood-soak.mjs",
+  "startedAt": "2026-09-02T22:30:26.642Z",
+  "finishedAt": "2026-09-02T22:37:05.006Z",
+  "source": {
+    "commit": "55806f1fe43679a7dc80059d9b4e38be841b8c47",
+    "tree": "e7eb1fd711ae1ec762fb9527df99a352ea302a59",
+    "dirtyAtStart": false
+  },
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v22.22.2"
+  },
+  "plan": {
+    "trials": 20,
+    "journey": "fresh packed consumer + demo + author + onboard + RED + advisory + fix + GREEN + bundle verification + MCP + immutable Git install",
+    "isolation": "a new mkdtemp-owned consumer tree per trial"
+  },
+  "claims": {
+    "repeatedJourneyReliability": true,
+    "temporalStability": false,
+    "independentValidation": false,
+    "productionValidation": false,
+    "note": "Compressed repetitions detect nondeterminism and lifecycle failures. They do not simulate elapsed days, independent operators, or production tenants."
+  },
+  "summary": {
+    "passed": 20,
+    "failed": 0,
+    "passRatePct": 100,
+    "totalDurationMs": 398345,
+    "medianDurationMs": 20000
+  },
+  "attempts": [
+    {
+      "trial": 1,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 20506,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 2,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 19721,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 3,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 18682,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 4,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 18286,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 5,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 18325,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 6,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 18412,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 7,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 20268,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 8,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 18923,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 9,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 19499,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 10,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 19761,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 11,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 20000,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 12,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 20616,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 13,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 20157,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 14,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 21531,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 15,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 22250,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 16,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 22828,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 17,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 20143,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 18,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 18893,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 19,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 18919,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    },
+    {
+      "trial": 20,
+      "outcome": "pass",
+      "exitCode": 0,
+      "durationMs": 20625,
+      "stdoutSha256": "91139cea8e8f19b817271bed06627729177f481d4d7e7304f8961d6cf80ad0f5",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "terminalMarkers": [
+        "packed binaries: bce + bce-mcp PASS",
+        "cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS",
+        "MCP: six tools listed and called successfully PASS",
+        "Git install: prepare build + bce + bce-mcp PASS",
+        "onboarding consumer proof: PASS"
+      ]
+    }
+  ]
+}

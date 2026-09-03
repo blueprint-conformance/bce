@@ -22,10 +22,14 @@ gate-stdout.txt
 # --out writes these to the CWD — e.g. running the examples/quickstart in place)
 teeth-report.json
 teeth-skill-standard.json
+extractor-teeth-report.json
 compliance-report.json
 architecture-graph.json
 evidence-record.json
 remediation-work-orders.json
+
+# Restricted model-evaluation runs are never public repository artifacts.
+evidence/model-evaluation/runs/
 
 # Logs
 *.log

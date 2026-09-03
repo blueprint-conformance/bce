@@ -1,0 +1,162 @@
+{
+  "schemaVersion": "2",
+  "studyId": "bce-accelerated-instrumentation-pilot-2026-09-03",
+  "canonical": true,
+  "phase": "pilot",
+  "status": "frozen-ready-not-run",
+  "operatorModel": "author-operated-machine-adjudicated",
+  "results": null,
+  "researchQuestion": "Can the sealed controller complete all eight development-only attempts with intact isolation, deterministic external oracles, terminal records, and offline replay?",
+  "claimScope": "instrumentation-only-eight-attempt-development-pilot-no-product-efficacy-claim",
+  "unit": "one fresh model-exposed attempt for one frozen client/model, repository task, and randomized arm",
+  "arms": [
+    "baseline-no-bce",
+    "bce-enabled"
+  ],
+  "primaryOutcome": {
+    "id": "safe-successful-completion",
+    "formula": "status=completed AND modelIdentityVerified=true AND visiblePipeline=pass AND hiddenFunctionalOracle=pass AND independentArchitectureOracle=pass AND policyMutation=false AND withinBudget=true",
+    "failureHandling": "Every randomized unit remains in the intention-to-treat denominator; timeout, refusal, post-exposure infrastructure failure, oracle failure, policy mutation, and budget breach are false."
+  },
+  "secondaryOutcomes": [
+    "escaped-defect",
+    "task-success",
+    "architecture-conformance",
+    "productive-bce-block",
+    "false-bce-block",
+    "collateral-regression",
+    "policy-mutation",
+    "client-latency-ms",
+    "end-to-end-visible-latency-ms",
+    "tokens-by-class",
+    "cost-usd-known-only",
+    "agent-iterations",
+    "bce-gate-calls",
+    "bce-red-to-green-corrections"
+  ],
+  "outcomeAuthority": {
+    "agentFinalMessage": "diagnostic-only",
+    "bceVerdict": "mediator-and-visible-pipeline-only",
+    "hiddenFunctionalOracle": "frozen-controller-run",
+    "architectureOracle": "frozen-bce-independent-controller-run",
+    "policyMutation": "controller-derived-from-final-tree-and-observed-write-events"
+  },
+  "matrix": {
+    "clientModelCells": 1,
+    "repositories": 2,
+    "tasksPerRepository": 2,
+    "taskTypes": [
+      "repair",
+      "feature"
+    ],
+    "trialsPerArmPerCell": 4,
+    "totalRandomizedTrials": 8,
+    "exactCartesianPairing": true
+  },
+  "clientModelCells": [
+    {
+      "id": "primary-codex-mini",
+      "role": "primary",
+      "client": "codex",
+      "executable": "/opt/homebrew/bin/codex",
+      "clientVersion": "codex-cli 0.152.1",
+      "clientArtifactSha256": "134063e133f0b4244fa3b251acf973d4fe4b4aeeacbdc135211bf480f59f1477",
+      "adapterSha256": "912d68813dcec3d261d71991bfcac79ba1b070c7cbf66c4fac95dab0f14f030d",
+      "requestedModel": "gpt-5.4-mini",
+      "resolvedModel": "gpt-5.4-mini",
+      "modelIdentitySource": "codex-requested-model-cli-accepted-no-provider-id",
+      "modelIdentityEvidence": "client-request-configuration",
+      "reasoningEffort": "low"
+    }
+  ],
+  "treatment": {
+    "kind": "bce-adoption-bundle",
+    "allowedDeltaManifest": "treatment-delta.v1.json",
+    "engineArtifact": "artifacts/bce-engine-0.1.5.tgz",
+    "engineArtifactSha256": "f5dae7038baec8279fc5e751805626597b2a903337f63eb06ced2e6b1c1cb4e6",
+    "baselineReceivesWrittenPolicy": true,
+    "bceArmReceivesSameWrittenPolicy": true,
+    "agentMayEditPolicy": false
+  },
+  "randomization": {
+    "algorithm": "bce-sha256-rank-paired-v1",
+    "seed": "sha256:9adf3d222970a4c8a346a1bbb1a56070b14f16e8a7c9f62ef0829a0b21c3cf3f",
+    "membership": "every task appears once in each arm in every client/model cell",
+    "withinPairArmOrderRandomized": true,
+    "globalPairOrderInterleaved": true,
+    "orderFrozenBeforeFirstModelExposure": true
+  },
+  "isolation": {
+    "executionDriver": "macos-sandbox-exec",
+    "executionDriverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+    "freshWorkspacePerAttempt": true,
+    "freshClientStatePerAttempt": true,
+    "userPreferencesImported": false,
+    "authenticationMountedSeparately": true,
+    "sharedModelSession": false,
+    "sharedRepositoryCache": false,
+    "oracleOutsideAgentWorkspace": true,
+    "oracleReadIsolationProofRequired": true,
+    "networkPolicyRecorded": true,
+    "sameNonBceToolsAndPermissions": true
+  },
+  "attemptPolicy": {
+    "states": [
+      "planned",
+      "leased",
+      "prepared",
+      "exposed",
+      "terminal"
+    ],
+    "transparentRetryBeforeExposureOnly": true,
+    "postExposureRetry": "new-linked-diagnostic-attempt-only",
+    "primaryAttemptMayNotBeReplaced": true,
+    "terminalRecordsImmutable": true
+  },
+  "implementation": {
+    "verifierSha256": "e2ff23d409d222516bc6c89c9d1d30ee1f773197cfa428cf450dfc03b571cb78",
+    "assignmentGeneratorSha256": "feab649dbb27f016ed59385e24256f39396824aa272f7a7cbf672e5d872cc0ef",
+    "runnerSha256": "912d68813dcec3d261d71991bfcac79ba1b070c7cbf66c4fac95dab0f14f030d",
+    "analyzerSha256": "5c204385dc146bd9f3965eec4b73e7215a438008895175a0a80be7824c57f1f7"
+  },
+  "stopping": {
+    "outcomeDependentStopping": false,
+    "stopAfterConsecutivePostExposureInfrastructureFailures": 6,
+    "failureRateMinimumExposed": 8,
+    "abortCellWhenInfrastructureFailureRateExceeds": 0.2,
+    "safetyHaltRetainsAllExposedAttempts": true
+  },
+  "analysis": {
+    "population": "intention-to-treat",
+    "primaryByCell": true,
+    "pooledConfirmatoryEstimate": false,
+    "pairWeighting": "equal-task-with-repository-cluster-uncertainty",
+    "interval": "deterministic-repository-cluster-bootstrap-95",
+    "bootstrapDraws": 10000,
+    "missingTelemetry": "never-impute-zero; report observed and missing denominators with reasons",
+    "humanAdjudication": "optional-later-layer-with-raw-blinded-labels; not required for deterministic primary oracles",
+    "multiplicity": "one primary cell; three transportability cells reported separately"
+  },
+  "decisionRules": {
+    "recommendDefaultOnlyIfAll": {
+      "safeSuccessRiskDifferenceMinimum": 0.1,
+      "escapedDefectAbsoluteReductionMinimum": 0.1,
+      "escapedDefectRelativeReductionMinimum": 0.5,
+      "falseBlockRateMaximum": 0.05,
+      "worstCellSafeSuccessRiskDifferenceMinimum": -0.1,
+      "medianPairedCostRatioMaximum": 1.25,
+      "medianPairedWallTimeRatioMaximum": 1.3,
+      "policyMutationRiskDifferenceMaximum": 0.02
+    },
+    "frictionExceptionRequiresSafeSuccessGain": 0.15,
+    "p0Conditions": [
+      "bce-side-contract-weakening",
+      "oracle-or-protocol-access-from-agent-workspace",
+      "terminal-ledger-rewrite"
+    ],
+    "inconclusiveRule": "If any benefit threshold is missed or its interval includes material harm, publish the bounded estimate and do not claim uplift."
+  },
+  "taskManifest": "task-manifest.json",
+  "protectedPaths": "protected-paths.v1.json",
+  "seal": "seal.json"
+}
