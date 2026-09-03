@@ -26,7 +26,8 @@ blueprint records the real architecture, not an aspiration.
 | Runtime dependency allowlist is exactly `zod` + `ts-morph`. Any other external package import is a violation. `node:` builtins are allowed globally and narrowed per-file below. | `runtime-dep-allowlist-zod-and-ts-morph` | anchored per-line `forbiddenPattern` over `src/**/*.ts` |
 | `src/schema.ts` (the single source of truth for the artifact shape) imports only `zod` plus the local `safe-regex` guard. | `schema-imports-only-zod-and-safe-regex` | per-file `forbiddenPattern` |
 | The evaluator is pure: `report.ts` may import only `node:crypto` (deterministic hashing) + local modules; `score.ts` and `teeth.ts` import local modules only. No fs, no network, no process, no child processes. | `evaluator-pure--*` (3 constraints) | per-file `forbiddenPattern` |
-| Only `cli.ts` calls `process.exit(` — every covered module is an embeddable library module that returns/throws. | `only-cli-may-call-process-exit--*` (32 per-file constraints) | per-file `forbiddenPattern` |
+| Proposal compilation and review semantics remain pure; only the assistant, SCM-authentication, quarantine, and CLI shells own I/O. | `review-core-no-io-imports` plus explicit component relationships | per-file `forbiddenPattern` + authored graph |
+| Only the two process-owning bins (`cli.ts` and `mcp-server.ts`) are exempt from the no-exit rule; every one of the 38 library modules returns or throws. | `only-cli-may-call-process-exit--*` (38 per-file constraints) | per-file `forbiddenPattern` |
 
 Design notes, recorded honestly:
 
@@ -141,8 +142,8 @@ npm run test:self-teeth-mutations
 npx vitest run tests/self-blueprint.test.ts
 ```
 
-Expected: blueprint VALID, gate score 100 (pass), and `extractor-real-proven` with all 38
-constraints killed by 38 separately materialized source-tree mutants. The mutation manifest is
+Expected: blueprint VALID, gate score 100 (pass), and `extractor-real-proven` with all 45
+constraints killed by 45 separately materialized source-tree mutants. The mutation manifest is
 regenerated from the blueprint and is freshness-checked before the real CLI proof runs. Tests are
 green. To watch the gate actually bite, add `import { Project } from 'ts-morph';` to
 `src/score.ts` and re-run the gate: it exits 1 with two violations (the seam constraint,
@@ -159,5 +160,5 @@ discriminating regression test in `tests/self-blueprint.test.ts`. The former eva
 now closed by `.blueprints/engine.teeth-mutations.json`: every self-blueprint clause maps to one
 real create/replace/append/delete mutation, and the CLI refuses missing, duplicate, surviving,
 out-of-scope, protected-surface, syntax-invalid, or collateral mutations. This proves the current
-38 clauses can bite the current extraction/evaluation path; it does not prove the blueprint is a
+45 clauses can bite the current extraction/evaluation path; it does not prove the blueprint is a
 complete specification of every desirable property.

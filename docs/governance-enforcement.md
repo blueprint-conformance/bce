@@ -8,7 +8,11 @@ lowering severity, or deleting a governance workflow is a policy relaxation.
 `classifyPolicyChanges()` provides the deterministic classifier used by automation. It is
 conservative: a known relaxation is labelled explicitly; an ambiguous protected-file edit still
 requires owner review. Ratification and amendment are attended CLI ceremonies and are not exposed
-through the MCP server. A weakening amendment additionally requires `--accept-weakening`.
+through the MCP server. Both require a fresh deterministic review packet and an approving decision
+derived from a live GitHub pull-request review and a current `maintain`/`admin` permission lookup.
+Relaxation requires an explicit digest-bound weakening acknowledgement in that review; there is no
+approve-anyway flag. The packet also classifies the protected-file diff from the PR base and blocks
+when the base cannot be established.
 
 Repository files cannot turn on GitHub branch protection themselves. A team with at least two
 available reviewers should apply and verify these settings on the default branch:

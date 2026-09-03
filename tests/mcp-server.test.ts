@@ -1,13 +1,13 @@
 /**
  * mcp-server.test.ts — the THIN MCP stdio server (`bce-mcp`) round-trips against real fixture trees.
  *
- * The server is spec-churn insurance: EXACTLY six tools, each a logic-free shell over the SAME
+ * The server is spec-churn insurance: EXACTLY ten tools, each a logic-free shell over the SAME
  * exported engine API the `bce` CLI calls. These
  * tests SPAWN the real server (source, via tsx — the project convention) and drive newline-delimited
  * JSON-RPC 2.0 over its stdin/stdout, asserting:
  *
  *   1. HANDSHAKE — initialize returns the server identity + protocolVersion; tools/list returns
- *      EXACTLY the six tools (an extra tool, or a missing one, is a surface regression).
+ *      EXACTLY the ten tools (an extra tool, or a missing one, is a surface regression).
  *   2. run_gate is BYTE-IDENTICAL to `bce gate --report-json` — RED and GREEN produce OPPOSITE
  *      machine verdicts (gateFailed / exitCode) matching the CLI's, over the same fixtures.
  *   3. validate_blueprint / assess_teeth round-trip a real blueprint against a real tree.
@@ -24,6 +24,7 @@ import { cpSync, readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } f
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { makeReviewFixture } from './review-fixture.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -174,8 +175,12 @@ describe('bce-mcp — handshake + tool surface', () => {
     const list = responses.get(2);
     const tools = (list!.result!.tools as Array<{ name: string; inputSchema: unknown; annotations?: Record<string, unknown> }>);
     const names = tools.map((t) => t.name).sort();
-    expect(names).toEqual(['assess_teeth', 'check_baseline', 'doctor_repository', 'get_report', 'run_gate', 'validate_blueprint']);
-    expect(names).not.toEqual(expect.arrayContaining(['adopt', 'ratify', 'amend', 'graduate', 'baseline']));
+    expect(names).toEqual([
+      'assess_teeth', 'check_baseline', 'compare_blueprint_policy', 'doctor_repository',
+      'explain_constraint', 'get_report', 'inspect_blueprint', 'run_gate',
+      'validate_blueprint', 'verify_review_packet',
+    ]);
+    expect(names).not.toEqual(expect.arrayContaining(['adopt', 'propose', 'review_decide', 'ratify', 'amend', 'graduate', 'baseline']));
     // every tool declares an input schema (an agent needs it to call correctly)
     for (const t of tools) {
       expect(t.inputSchema).toBeDefined();
@@ -305,6 +310,65 @@ describe('bce-mcp — validate_blueprint (thin over parseBlueprint)', () => {
     const result = await callTool('validate_blueprint', { blueprintPath: join(tmp, 'nope.json') });
     expect(result.isError).toBe(true);
     expect((result.content as Array<{ text: string }>)[0].text).toContain('file not found');
+  });
+});
+
+describe('bce-mcp — review tools are read-only shells over the public review API', () => {
+  it('inspects and explains the same live blueprint without changing the repository', async () => {
+    const inspected = await callTool('inspect_blueprint', {
+      blueprintPath: BLUEPRINT,
+      repoDir: CONFORMANT,
+      extractor: 'ast',
+    });
+    expect(inspected.isError).toBe(false);
+    const inspection = toolStructured(inspected);
+    expect(inspection.blueprintRef).toBe('luna-chat-extension@0.1.0');
+    expect((inspection.clauses as Array<{ promise: string; lens: unknown; proof: unknown; limits: string[] }>))
+      .toEqual(expect.arrayContaining([expect.objectContaining({
+        promise: expect.any(String),
+        lens: expect.any(Object),
+        proof: expect.any(Object),
+        limits: expect.any(Array),
+      })]));
+
+    const explained = await callTool('explain_constraint', {
+      blueprintPath: BLUEPRINT,
+      constraintId: 'no-direct-provider-sdk',
+      repoDir: CONFORMANT,
+      extractor: 'ast',
+    });
+    expect(explained.isError).toBe(false);
+    expect(toolStructured(explained)).toMatchObject({
+      constraintId: 'no-direct-provider-sdk',
+      promise: expect.any(String),
+      lens: expect.any(Object),
+      proof: expect.any(Object),
+      limits: expect.any(Array),
+    });
+  });
+
+  it('compares exact policy and replays packet integrity without a mutation capability', async () => {
+    const compared = await callTool('compare_blueprint_policy', {
+      baseBlueprintPath: BLUEPRINT,
+      candidateBlueprintPath: BLUEPRINT,
+    });
+    expect(compared.isError).toBe(false);
+    expect(toolStructured(compared)).toMatchObject({ classification: 'neutral', blocksApproval: false });
+
+    const packetPath = join(tmp, 'mcp-review-packet.json');
+    const packet = makeReviewFixture().packet;
+    writeFileSync(packetPath, JSON.stringify(packet));
+    const verified = await callTool('verify_review_packet', { packetPath });
+    expect(verified.isError).toBe(false);
+    expect(toolStructured(verified)).toMatchObject({ valid: true, integrity: 'verified' });
+
+    const tamperedPath = join(tmp, 'mcp-review-packet-tampered.json');
+    const tampered = structuredClone(packet);
+    tampered.contract.plainLanguageContract = 'tampered';
+    writeFileSync(tamperedPath, JSON.stringify(tampered));
+    const rejected = await callTool('verify_review_packet', { packetPath: tamperedPath });
+    expect(rejected.isError).toBe(false);
+    expect(toolStructured(rejected)).toMatchObject({ valid: false, integrity: 'failed' });
   });
 });
 

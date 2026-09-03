@@ -1,0 +1,180 @@
+{
+  "$id": "https://blueprint-conformance.github.io/bce/schemas/blueprint-decision-record.schema.json",
+  "$ref": "#/definitions/BlueprintDecisionRecord",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "BlueprintDecisionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "binding": {
+          "additionalProperties": false,
+          "properties": {
+            "candidateDigest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "engineArtifactDigest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "extractorArtifactDigest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "packetDigest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "repositoryRevision": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "toolchainDigest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "worktreeDigest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "packetDigest",
+            "candidateDigest",
+            "repositoryRevision",
+            "worktreeDigest",
+            "engineArtifactDigest",
+            "extractorArtifactDigest",
+            "toolchainDigest"
+          ],
+          "type": "object"
+        },
+        "decidedAt": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "approve",
+            "reject",
+            "request-changes"
+          ],
+          "type": "string"
+        },
+        "decisionDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "BlueprintDecisionRecord",
+          "type": "string"
+        },
+        "proposalId": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,127}$",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "reviewer": {
+          "additionalProperties": false,
+          "properties": {
+            "authentication": {
+              "additionalProperties": false,
+              "properties": {
+                "assertionDigest": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "issuer": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "method": {
+                  "enum": [
+                    "scm",
+                    "sso"
+                  ],
+                  "type": "string"
+                },
+                "reference": {
+                  "format": "uri",
+                  "pattern": "^https:\\/\\/",
+                  "type": "string"
+                },
+                "subject": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "method",
+                "issuer",
+                "subject",
+                "assertionDigest",
+                "reference"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "authentication"
+          ],
+          "type": "object"
+        },
+        "satisfiedRequirement": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "properties": {
+                "role": {
+                  "type": "string"
+                },
+                "stage": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "role",
+                "stage"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schemaVersion": {
+          "const": "1",
+          "type": "string"
+        },
+        "weakeningAccepted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "kind",
+        "proposalId",
+        "decision",
+        "binding",
+        "reviewer",
+        "satisfiedRequirement",
+        "weakeningAccepted",
+        "rationale",
+        "decidedAt",
+        "decisionDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "A human decision bound to the exact candidate, packet, repository, engine, extractor, and toolchain identities.",
+  "title": "BlueprintDecisionRecord"
+}

@@ -1,0 +1,148 @@
+{
+  "$id": "https://blueprint-conformance.github.io/bce/schemas/proposal-context.schema.json",
+  "$ref": "#/definitions/ProposalContext",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ProposalContext": {
+      "additionalProperties": false,
+      "properties": {
+        "authoritativeIntentRefs": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "type": "string"
+              },
+              "ref": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "ref",
+              "content",
+              "sha256"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "contextDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "excluded": {
+          "additionalProperties": false,
+          "properties": {
+            "classes": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "paths": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "paths",
+            "classes"
+          ],
+          "type": "object"
+        },
+        "files": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "bytes": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "content": {
+                "type": "string"
+              },
+              "mediaType": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "path": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "content",
+              "bytes",
+              "sha256"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "humanIntent": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "const": "ProposalContext",
+          "type": "string"
+        },
+        "repository": {
+          "additionalProperties": false,
+          "properties": {
+            "identity": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "revision": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "worktreeDigest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "identity",
+            "revision",
+            "worktreeDigest"
+          ],
+          "type": "object"
+        },
+        "schemaVersion": {
+          "const": "1",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "kind",
+        "repository",
+        "files",
+        "humanIntent",
+        "authoritativeIntentRefs",
+        "excluded",
+        "contextDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "The bounded, disclosed, content-addressed repository and intent context supplied to an untrusted proposal assistant.",
+  "title": "ProposalContext"
+}

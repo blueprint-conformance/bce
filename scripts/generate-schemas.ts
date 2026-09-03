@@ -43,6 +43,14 @@ import {
 import { stableStringify, SEVERITY_WEIGHT } from '../src/report.js';
 import { APPROVAL_FLOOR } from '../src/emit.js';
 import { TeethMutationManifestSchema } from '../src/extractor-teeth.js';
+import {
+  BlueprintDecisionRecordSchema,
+  BlueprintDraftPlanSchema,
+  BlueprintProposalSchema,
+  BlueprintReviewPacketSchema,
+  ProposalContextSchema,
+} from '../src/review-contracts.js';
+import { AssistantGenerationRecordSchema } from '../src/assistant-adapter.js';
 
 export const SCHEMA_ID_BASE = 'https://blueprint-conformance.github.io/bce/schemas/';
 const DRAFT = 'http://json-schema.org/draft-07/schema#';
@@ -120,6 +128,17 @@ function teethMutationManifestSchema(): Record<string, unknown> {
     'A closed, digest-preconditioned set of real repository source mutations. The extractor-real teeth runner materializes every case in a fresh copy and requires the mapped constraint to redden at the mutated file.',
     body,
   );
+}
+
+function zodReviewArtifactSchema(
+  file: string,
+  title: string,
+  description: string,
+  schema: Parameters<typeof zodToJsonSchema>[0],
+): Record<string, unknown> {
+  const body = zodToJsonSchema(schema, { name: title, target: 'jsonSchema7', $refStrategy: 'none' }) as Record<string, unknown>;
+  delete body.$schema;
+  return envelope(file, title, description, body);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -417,6 +436,36 @@ export function generateSchemas(): Record<string, Record<string, unknown>> {
     'architecture-graph.schema.json': architectureGraphSchema(),
     'remediation-work-order.schema.json': remediationWorkOrderSchema(),
     'teeth-mutation-manifest.schema.json': teethMutationManifestSchema(),
+    'proposal-context.schema.json': zodReviewArtifactSchema(
+      'proposal-context.schema.json', 'ProposalContext',
+      'The bounded, disclosed, content-addressed repository and intent context supplied to an untrusted proposal assistant.',
+      ProposalContextSchema,
+    ),
+    'blueprint-draft-plan.schema.json': zodReviewArtifactSchema(
+      'blueprint-draft-plan.schema.json', 'BlueprintDraftPlan',
+      'Untrusted assistant output whose assertions carry source basis, anchors, uncertainty, alternatives, and blind spots.',
+      BlueprintDraftPlanSchema,
+    ),
+    'blueprint-proposal.schema.json': zodReviewArtifactSchema(
+      'blueprint-proposal.schema.json', 'BlueprintProposal',
+      'A deterministic draft-only blueprint compiled from an exact context and draft plan, with content bindings.',
+      BlueprintProposalSchema,
+    ),
+    'blueprint-review-packet.schema.json': zodReviewArtifactSchema(
+      'blueprint-review-packet.schema.json', 'BlueprintReviewPacket',
+      'The deterministic, content-addressed semantic, conformance, scope, proof, and provenance review packet.',
+      BlueprintReviewPacketSchema,
+    ),
+    'blueprint-decision-record.schema.json': zodReviewArtifactSchema(
+      'blueprint-decision-record.schema.json', 'BlueprintDecisionRecord',
+      'A human decision bound to the exact candidate, packet, repository, engine, extractor, and toolchain identities.',
+      BlueprintDecisionRecordSchema,
+    ),
+    'assistant-generation.schema.json': zodReviewArtifactSchema(
+      'assistant-generation.schema.json', 'AssistantGenerationRecord',
+      'Truthful provider request identity, returned model identity, telemetry, outcome, and raw-response binding.',
+      AssistantGenerationRecordSchema,
+    ),
   };
 }
 

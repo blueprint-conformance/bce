@@ -5,7 +5,9 @@ import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { doctorRepository, checkEngineUpgrade } from '../src/lifecycle.js';
-import { readPolicyHistory } from '../src/policy-history.js';
+import { amendBlueprint, ratifyBlueprint, readPolicyHistory } from '../src/policy-history.js';
+import { stableStringify } from '../src/report.js';
+import { reviewDigest } from '../src/review.js';
 
 const ROOT = path.join(__dirname, '..');
 const CLI = path.join(ROOT, 'src', 'cli.ts');
@@ -200,38 +202,134 @@ describe('ratify/amend — attended policy ceremonies', () => {
     const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'fixtures', 'luna-chat-extension.blueprint.json'), 'utf8'));
     raw.metadata.status = 'draft';
     const blueprint = path.join(dir, '.blueprints', 'luna-chat-extension.blueprint.json');
-    fs.writeFileSync(blueprint, JSON.stringify(raw));
+    fs.writeFileSync(blueprint, stableStringify(raw));
     return { dir, blueprint };
   }
 
-  const review = ['--human-reviewer', '--reviewer', 'release-steward', '--rationale',
-    'Reviewed the candidate policy and its falsification proof.', '--recorded-at', '2026-09-01T12:00:00Z'];
+  const review = (candidateDigest: string, baseDigest: string | null) => ({
+    reviewer: 'release-steward',
+    rationale: 'Reviewed the candidate policy and its falsification proof.',
+    recordedAt: '2026-09-01T12:00:00Z',
+    authentication: {
+      method: 'scm' as const,
+      issuer: 'https://github.com',
+      subject: 'github:user:42',
+      assertionDigest: 'a'.repeat(64),
+      reference: 'https://github.com/example/repo/pull/1#pullrequestreview-1',
+    },
+    evidence: {
+      packetDigest: 'b'.repeat(64), decisionDigest: 'c'.repeat(64), candidateDigest, baseDigest,
+      repositoryRevision: 'revision-1', worktreeDigest: 'd'.repeat(64),
+    },
+  });
 
   it('ratifies only with explicit human attestation, proof, version bump, and append-only history', () => {
     const { dir, blueprint } = governedRepo();
-    const denied = cli(['ratify', '--repo', dir, '--blueprint', blueprint]);
-    expect(denied.status).toBe(2);
-    expect(denied.out).toContain('human-reviewer');
+    const candidate = JSON.parse(fs.readFileSync(blueprint, 'utf8'));
+    const candidateDigest = reviewDigest(candidate);
+    expect(() => ratifyBlueprint({
+      repoDir: dir,
+      blueprintPath: blueprint,
+      review: { ...review(candidateDigest, null), authentication: { ...review(candidateDigest, null).authentication, subject: '' } },
+      proof: 'extractor-real',
+      assertFresh: () => {},
+      expectedCandidateDigest: candidateDigest,
+      expectedBaseDigest: null,
+    })).toThrow(/authentication metadata/);
 
-    const approved = cli(['ratify', '--repo', dir, '--blueprint', blueprint, ...review]);
-    expect(approved.status, approved.out).toBe(0);
+    ratifyBlueprint({ repoDir: dir, blueprintPath: blueprint, review: review(candidateDigest, null), proof: 'extractor-real', assertFresh: () => {}, expectedCandidateDigest: candidateDigest, expectedBaseDigest: null });
     expect(JSON.parse(fs.readFileSync(blueprint, 'utf8')).metadata).toMatchObject({ status: 'approved', version: '0.1.1' });
     expect(readPolicyHistory(dir)).toEqual([
       expect.objectContaining({ operation: 'ratify', fromRef: 'luna-chat-extension@0.1.0', toRef: 'luna-chat-extension@0.1.1', proof: 'extractor-real' }),
     ]);
   });
 
+  it('runs the final repository-freshness assertion under the transition lock before writing policy', () => {
+    const { dir, blueprint } = governedRepo();
+    const candidate = JSON.parse(fs.readFileSync(blueprint, 'utf8'));
+    const candidateDigest = reviewDigest(candidate);
+    expect(() => ratifyBlueprint({
+      repoDir: dir,
+      blueprintPath: blueprint,
+      review: review(candidateDigest, null),
+      proof: 'extractor-real',
+      assertFresh: () => {
+        expect(fs.existsSync(path.join(dir, '.blueprints', '.bce-policy-transition.lock'))).toBe(true);
+        throw new Error('repository changed after authentication');
+      },
+      expectedCandidateDigest: candidateDigest,
+      expectedBaseDigest: null,
+    })).toThrow(/repository changed after authentication/);
+    expect(JSON.parse(fs.readFileSync(blueprint, 'utf8')).metadata.status).toBe('draft');
+    expect(fs.existsSync(path.join(dir, '.blueprints', 'POLICY-HISTORY.jsonl'))).toBe(false);
+    expect(fs.existsSync(path.join(dir, '.blueprints', '.bce-policy-transition.lock'))).toBe(false);
+  });
+
+  it('retains the transition lock when a visible policy target cannot be proven rolled back', () => {
+    const { dir, blueprint } = governedRepo();
+    const candidate = JSON.parse(fs.readFileSync(blueprint, 'utf8'));
+    const candidateDigest = reviewDigest(candidate);
+    const displaced = `${blueprint}.displaced`;
+    expect(() => ratifyBlueprint({
+      repoDir: dir,
+      blueprintPath: blueprint,
+      review: review(candidateDigest, null),
+      proof: 'extractor-real',
+      assertFresh: () => {
+        fs.renameSync(blueprint, displaced);
+        fs.writeFileSync(blueprint, stableStringify({
+          ...candidate,
+          metadata: { ...candidate.metadata, status: 'approved' },
+        }));
+      },
+      expectedCandidateDigest: candidateDigest,
+      expectedBaseDigest: null,
+    })).toThrow(/rollback is incomplete.*lock retained/);
+    expect(JSON.parse(fs.readFileSync(blueprint, 'utf8')).metadata.status).toBe('approved');
+    expect(fs.existsSync(path.join(dir, '.blueprints', '.bce-policy-transition.lock'))).toBe(true);
+  });
+
   it('amends only to a higher approved same-id version and records compatibility', () => {
     const { dir, blueprint } = governedRepo();
-    expect(cli(['ratify', '--repo', dir, '--blueprint', blueprint, ...review]).status).toBe(0);
+    const draftDigest = reviewDigest(JSON.parse(fs.readFileSync(blueprint, 'utf8')));
+    ratifyBlueprint({ repoDir: dir, blueprintPath: blueprint, review: review(draftDigest, null), proof: 'extractor-real', assertFresh: () => {}, expectedCandidateDigest: draftDigest, expectedBaseDigest: null });
     const replacement = path.join(dir, 'replacement.json');
     const raw = JSON.parse(fs.readFileSync(blueprint, 'utf8'));
     raw.metadata.version = '0.2.0';
-    fs.writeFileSync(replacement, JSON.stringify(raw));
-    const result = cli(['amend', '--repo', dir, '--blueprint', blueprint, '--replacement', replacement,
-      '--compatibility', 'tightening', ...review]);
-    expect(result.status, result.out).toBe(0);
+    fs.writeFileSync(replacement, stableStringify(raw));
+    const baseDigest = reviewDigest(JSON.parse(fs.readFileSync(blueprint, 'utf8')));
+    const replacementDigest = reviewDigest(raw);
+    amendBlueprint({
+      repoDir: dir,
+      blueprintPath: blueprint,
+      replacementPath: replacement,
+      compatibility: 'tightening',
+      review: review(replacementDigest, baseDigest),
+      proof: 'extractor-real',
+      assertFresh: () => {},
+      expectedCandidateDigest: replacementDigest,
+      expectedBaseDigest: baseDigest,
+    });
     expect(readPolicyHistory(dir).at(-1)).toMatchObject({ operation: 'amend', compatibility: 'tightening', toRef: 'luna-chat-extension@0.2.0' });
     expect(JSON.parse(fs.readFileSync(blueprint, 'utf8')).metadata.version).toBe('0.2.0');
+  });
+
+  it('refuses a symlinked governed directory without writing outside the repository', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-policy-link-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-policy-outside-'));
+    fs.symlinkSync(outside, path.join(dir, '.blueprints'), 'dir');
+    const proposalDir = path.join(dir, '.bce', 'proposals', 'candidate');
+    fs.mkdirSync(proposalDir, { recursive: true });
+    const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'fixtures', 'luna-chat-extension.blueprint.json'), 'utf8'));
+    raw.metadata.status = 'draft';
+    const candidate = path.join(proposalDir, 'candidate.blueprint.json');
+    fs.writeFileSync(candidate, stableStringify(raw));
+    const candidateDigest = reviewDigest(raw);
+    expect(() => ratifyBlueprint({
+      repoDir: dir, blueprintPath: candidate, review: review(candidateDigest, null), proof: 'extractor-real',
+      assertFresh: () => {},
+      expectedCandidateDigest: candidateDigest, expectedBaseDigest: null,
+    })).toThrow(/symbolic link|real in-repository/);
+    expect(fs.readdirSync(outside)).toEqual([]);
   });
 });

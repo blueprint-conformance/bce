@@ -95,6 +95,9 @@ function cliFlags(): Set<string> {
   for (const m of cliSource.matchAll(/collectRepeatable\(rawArgv, '([a-z0-9][a-z0-9-]*)'\)/g)) {
     flags.add(m[1] as string);
   }
+  for (const m of cliSource.matchAll(/required(?:String|PositiveInteger)Arg\(args, '([a-z0-9][a-z0-9-]*)'/g)) {
+    flags.add(m[1] as string);
+  }
   flags.delete('_'); // the positional bucket, not a flag
   return flags;
 }

@@ -1,0 +1,189 @@
+{
+  "$id": "https://blueprint-conformance.github.io/bce/schemas/assistant-generation.schema.json",
+  "$ref": "#/definitions/AssistantGenerationRecord",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "AssistantGenerationRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "const": "openai-responses",
+          "type": "string"
+        },
+        "contextDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "disclosureDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "const": "AssistantGenerationRecord",
+          "type": "string"
+        },
+        "promptDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "provider": {
+          "additionalProperties": false,
+          "properties": {
+            "modelIdentity": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "const": "unknown",
+                  "type": "string"
+                }
+              ]
+            },
+            "requestId": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "const": "unknown",
+                  "type": "string"
+                }
+              ]
+            },
+            "serviceTier": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "const": "unknown",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "required": [
+            "requestId",
+            "modelIdentity",
+            "serviceTier"
+          ],
+          "type": "object"
+        },
+        "rawResponseDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "requestedModel": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": "1",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "success",
+            "refusal",
+            "failure"
+          ],
+          "type": "string"
+        },
+        "telemetry": {
+          "additionalProperties": false,
+          "properties": {
+            "billingSource": {
+              "const": "unavailable",
+              "type": "string"
+            },
+            "cost": {
+              "const": "unknown",
+              "type": "string"
+            },
+            "inputTokens": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "const": "unknown",
+                  "type": "string"
+                }
+              ]
+            },
+            "latencyMs": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "outputTokens": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "const": "unknown",
+                  "type": "string"
+                }
+              ]
+            },
+            "totalTokens": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "const": "unknown",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "required": [
+            "inputTokens",
+            "outputTokens",
+            "totalTokens",
+            "latencyMs",
+            "billingSource",
+            "cost"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "kind",
+        "adapter",
+        "status",
+        "contextDigest",
+        "promptDigest",
+        "disclosureDigest",
+        "requestedModel",
+        "provider",
+        "telemetry",
+        "rawResponseDigest",
+        "error"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "Truthful provider request identity, returned model identity, telemetry, outcome, and raw-response binding.",
+  "title": "AssistantGenerationRecord"
+}

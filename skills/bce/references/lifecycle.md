@@ -14,10 +14,30 @@ npx --no-install bce demo
 
 The demo must produce GREEN and RED. A gate no one has seen fail is not evidence.
 
-## Author
+## Propose first
 
-Derive the contract from the real tree. Never hand-write blueprint JSON: `author` owns schema,
-canonical serialization, and the non-empty scope check.
+When the installed exact release exposes `bce propose`, start from a committed repository state and
+an authoritative intent file:
+
+```bash
+bce propose \
+  --repo . \
+  --intent-file docs/architecture-intent.md \
+  --assistant openai-responses \
+  --assistant-model '<exact provider model id>' \
+  --new
+```
+
+Use `--base <path>` instead of `--new` for an existing policy. Inspect the disclosure preview before
+the network call. Treat the model plan as untrusted: only the deterministic review packet is a
+reviewable artifact, and it is still draft-only. Read `docs/ai-first-review.md` for the GitHub-bound
+decision and ratify/amend ceremony.
+
+## Manual author fallback
+
+If no proposal adapter is available or the user explicitly requires an offline draft, derive the
+contract from the real tree. Never hand-write blueprint JSON: `author` owns schema, canonical
+serialization, and the non-empty scope check.
 
 ```bash
 bce author \
@@ -112,7 +132,11 @@ bce graduate --repo . --downgrade --rationale "reviewed reason"
 ```
 
 Ratification, amendments, mode changes, baseline changes, waivers, workflows, and engine pins are
-policy changes. Keep them separate from code repairs and require human-owner review.
+policy changes. Keep them separate from code repairs. Ratify/amend require the exact review packet,
+an approving decision derived from a GitHub pull-request review, current maintain/admin permission,
+and live SCM re-authentication; do not supply or invent reviewer identity locally. After ratify/amend
+prepares the policy commit, obtain the repository's normal fresh CODEOWNER/required review before
+merge; the packet decision is not a substitute for final branch protection.
 
 ## CI invariants
 

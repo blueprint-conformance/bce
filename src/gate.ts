@@ -29,6 +29,8 @@ import { resolveFiles } from './extractors.js';
 import { resolveMode, exitCodeForGate, type GateMode, type ResolvedMode } from './mode.js';
 import { readBaseline, partitionAgainstBaseline, type BaselineFile } from './baseline.js';
 
+const POLICY_TRANSITION_LOCK_BASENAME = '.bce-policy-transition.lock';
+
 export interface GateResult {
   blueprintsDiscovered: number;
   blueprintsSelected: number;
@@ -250,6 +252,12 @@ export function runGate(
   const repoTag = repoName !== undefined ? { repo: repoName } : {};
   // FIX-E b: this engine's own version, resolved ONCE per gate run (one engine, one fact).
   const engineVersion = resolveEngineVersion();
+
+  if (fs.existsSync(path.join(blueprintDir, POLICY_TRANSITION_LOCK_BASENAME))) {
+    refusals.push(
+      `fail-closed: ${POLICY_TRANSITION_LOCK_BASENAME} exists — a policy transition may have been interrupted; inspect and recover before gating`,
+    );
+  }
 
   if (files.length === 0) {
     refusals.push(

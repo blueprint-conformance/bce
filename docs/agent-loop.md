@@ -66,7 +66,7 @@ the named `file#L<line>` on a red, fixes the code, and re-gates until green.
 
 ### Generic MCP
 
-For an agent that speaks MCP, the `bce-mcp` stdio server exposes the same engine as the CLI as six
+For an agent that speaks MCP, the `bce-mcp` stdio server exposes the same engine as the CLI as ten
 read-only tools:
 
 | Tool | Does |
@@ -76,6 +76,10 @@ read-only tools:
 | `validate_blueprint` | parse + schema-check a blueprint |
 | `run_gate` | the done-check — grade a repo, return verdict + violations |
 | `assess_teeth` | confirm a blueprint is not vacuous (a realistic change could redden it) |
+| `inspect_blueprint` | render the canonical Promise/Lens/Proof/Limits contract model |
+| `explain_constraint` | explain one constraint through the same review grammar |
+| `compare_blueprint_policy` | classify exact base/candidate policy direction conservatively |
+| `verify_review_packet` | replay packet and optional decision integrity without writing |
 | `get_report` | fetch the deterministic compliance report |
 
 Point your agent's MCP client at the `bce-mcp` bin (it ships in the same package, `bin: bce-mcp`). The
@@ -93,15 +97,13 @@ The MCP surface cannot approve or weaken policy. `adopt`, `ratify`, `amend`, `gr
 growth remain attended CLI/review acts. [`onboarding.md`](onboarding.md) shows the generated project
 skill and MCP configurations for every harness.
 
-## Having an agent draft the first blueprint (experimental)
+## Having an agent draft the first blueprint
 
-If the repo has no blueprint yet, an agent can propose one from the existing code. The
-[`prompts/blueprint-author.md`](../prompts/blueprint-author.md) pack drives a coding agent to survey a
-repo, pick one real architectural invariant, express it as a blueprint, and prove it is **valid** and
-**toothed** — always ending in `bce teeth` and a human PR review. The engine never writes your contract
-unattended. The pack was validated on five public repositories
-([`prompts/VALIDATION.md`](../prompts/VALIDATION.md)); treat its output as a starting draft to review,
-never a ratified contract.
+Use [`bce propose`](ai-first-review.md) when the installed release exposes it. The command sends only
+the previewed bounded context to a registered adapter, compiles draft-only output, and emits a
+deterministic review packet automatically. The older
+[`prompts/blueprint-author.md`](../prompts/blueprint-author.md) pack remains a manual harness fallback;
+its output is likewise only a starting draft and never a ratified contract.
 
 ## Recommended next step
 

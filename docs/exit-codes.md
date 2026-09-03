@@ -30,9 +30,11 @@ is not duplicated here to avoid drift:
 
 **→ [`spec/SPEC.md` §13 "Exit-code contract"](../spec/SPEC.md#13-exit-code-contract-reference-cli)**
 
-That table covers `validate`, `author`, `scan`, `run`, `teeth`, `gate` (enforced and advisory),
-`baseline`, `graduate`, and `portfolio`, including the exact conditions under which each returns `0`,
-`1`, or `2`.
+That table covers the original deterministic gate verbs. The AI-first additions follow the same
+rule: `propose` and `review verify` return `0` only for a complete reviewable/verified result, usage
+errors return `1`, and provider refusal, invalid output, stale inputs, failed deterministic review,
+tampering, or failed SCM authentication return `2`. `review decide`, `ratify`, and `amend` return `0`
+only after their exact packet and SCM bindings verify; they refuse with `2` otherwise.
 
 ## Recommended next step
 

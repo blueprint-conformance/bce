@@ -24,7 +24,7 @@ actionable reason why it cannot merge.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 788">
+  <img src="assets/badges/tests.svg" alt="tests: 851">
   <img src="assets/badges/license.svg" alt="license: Apache-2.0">
   <img src="assets/badges/docs.svg" alt="docs: zero-dep">
   <img src="assets/badges/node.svg" alt="node: >=22">
@@ -43,16 +43,41 @@ npx --no-install bce demo
 ```
 
 The packaged demo makes one conforming tree go GREEN and one drifted tree go RED. When you are
-ready for your own code, **author a contract, catch a real violation, and go green on your own repo
-in under 10 seconds.** The four supported starting shapes are timed in CI; that number is a
-regression ceiling on local fixtures, not a performance benchmark.
+ready for your own code, **author or propose a contract, catch a real violation, and go green on
+your own repo in under 10 seconds.** The four supported starting shapes are timed in CI; that number
+is a regression ceiling on local fixtures, not a performance benchmark.
 
-[Pick your repository shape](docs/first-win.md) · [Take the five-minute path](docs/quickstart.md) · [Onboard the complete stack](docs/onboarding.md)
+[Create an AI-first proposal](docs/ai-first-review.md) · [Pick your repository shape](docs/first-win.md) · [Run the five-minute walkthrough](docs/quickstart.md) · [Onboard the complete stack](docs/onboarding.md)
+
+## Make the first repository action a proposal
+
+On a release that includes the AI-first review surface, commit the repository state you want
+reviewed, write the intent, and select exactly one semantic baseline:
+
+```bash
+export OPENAI_API_KEY='<credential supplied outside BCE>'
+npx --no-install bce propose \
+  --repo . \
+  --intent-file docs/architecture-intent.md \
+  --assistant openai-responses \
+  --assistant-model '<exact provider model id>' \
+  --new
+```
+
+Use `--base <repository-relative-blueprint>` instead of `--new` for an amendment. BCE previews the
+exact disclosure manifest before the fixed-endpoint provider call, preserves the raw first response,
+and writes only to quarantine. The model cannot approve or land policy. A successful call produces a
+content-addressed packet only after BCE runs schema validation, scope resolution, current
+conformance, teeth, and semantic comparison, including the protected-file diff from the PR base. The
+GitHub adapter accepts only a current human-typed `maintain`/`admin` identity and binds the packet's
+declared role/stage; ratify/amend then prepares a new commit that still needs normal fresh
+branch-protection review. [Read the complete review and SCM decision ceremony](docs/ai-first-review.md).
 
 ## The contract is simple
 
 - **Humans own policy.** Architecture rules live in reviewed JSON beside the code.
-- **Agents own changes.** BCE stays outside generation, prompts, and model choice.
+- **Agents propose and build.** Assistant output stays untrusted until deterministic review and a
+  human decision; ordinary code generation remains independent of BCE.
 - **The engine owns the verdict.** The same extraction, evaluation, report, and exit-code path runs
   locally, through MCP, and on pull requests.
 
@@ -99,9 +124,9 @@ with live engine output, so the front page cannot quietly become a staged demo.
 
 | Surface | Use it when | What you get |
 |---|---|---|
-| **CLI** | You want local feedback or CI outside GitHub. | Author, validate, scan, prove teeth, and gate from a terminal or script. |
+| **CLI** | You want local feedback, AI-first proposal/review, or CI outside GitHub. | Propose, review, validate, scan, prove teeth, and gate from a terminal or script. |
 | **GitHub Action** | Conformance must be a required pull-request check. | A deterministic verdict and visible policy history at the merge boundary. |
-| **MCP + Agent Skills** | An agent should diagnose and correct drift in its own loop. | Six typed, read-only tools; policy changes remain outside MCP. |
+| **MCP + Agent Skills** | An agent should inspect policy or diagnose and correct drift. | Ten typed, read-only tools; policy changes remain outside MCP. |
 
 These are adapters, not separate implementations. They consume the same engine, blueprint, report
 contract, and exit codes.
@@ -154,7 +179,7 @@ are what run. [Follow the ordered onboarding path](docs/onboarding.md).
 
 | Verified here | Not established |
 |---|---|
-| 788 tests, replayed RED/GREEN fixtures, and 38/38 self-blueprint mutants killed through the production path. | Completeness against every possible architectural defect. |
+| 851 tests, replayed RED/GREEN fixtures, and 45/45 self-blueprint mutants killed through the production path. | Completeness against every possible architectural defect. |
 | Self-gating, clean-consumer installs, deterministic reports, restricted-network operation, and Ubuntu/macOS/Windows × Node 22/24 CI. | Independent confirmation merely because author-controlled automation is green. |
 | A sealed eight-attempt model-evaluation pilot that replays exactly. Both arms scored 4/4 on its easy tasks. | That BCE makes agents more successful, cheaper, faster, or safer than a baseline. |
 
@@ -188,6 +213,7 @@ If BCE is useful in your repository, star it. That is one signal its authors can
 |---|---|
 | Build your first blueprint | [First win](docs/first-win.md) · [Quickstart](docs/quickstart.md) · [Onboarding](docs/onboarding.md) |
 | Understand the contract | [Specification](spec/SPEC.md) · [JSON Schemas](spec/schemas) · [Conformance vectors](spec/conformance-vectors) |
+| Propose and review a blueprint | [AI-first review](docs/ai-first-review.md) · [JSON Schemas](spec/schemas) |
 | Put BCE inside an agent loop | [Agent loop](docs/agent-loop.md) · [MCP compatibility](docs/mcp-compatibility.md) · [Agent Skills](skills/README.md) |
 | Verify the evidence | [Evidence format](docs/evidence-format.md) · [Report contract](docs/report-contract.md) · [Exit codes](docs/exit-codes.md) |
 | Compare or contribute | [Comparison](docs/comparison.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) |

@@ -543,6 +543,10 @@ evidence anchor), so identical runs yield identical proposals.
 |---|---|---|---|
 | `bce validate` | blueprint valid | not found / bad JSON / schema-invalid | — |
 | `bce author` | draft written + self-validated | usage / flag error | author sanity: authored scope matches 0 files (draft left on disk for editing) |
+| `bce propose` | draft-only candidate and deterministic review packet written to quarantine | usage / flag error | provider failure/refusal, invalid plan, stale context, unsafe path, or deterministic review refusal (failed attempt retained) |
+| `bce review show` | fresh canonical packet and optional bound decision render | usage / format error | packet schema, canonical-byte, integrity, live-repository, or tool-identity verification fails |
+| `bce review verify` | packet and optional decision integrity plus live repository/tool identity verify | usage error | tampered, stale, malformed, or unreproducible packet/decision |
+| `bce review decide` | SCM-authenticated decision record written beside the packet; no policy mutation | usage error | GitHub review authentication, binding, state, identity, or freshness fails |
 | `bce scan` | graph written | usage error | fail-closed scan floor (files scanned < minimum) |
 | `bce run` | verdict `pass` | verdict `fail`; usage error; extractor capability refusal; invalid observations | fail-closed scan floor |
 | `bce teeth` | TOOTHED (≥ 1 constraint has extractor-real teeth) or EVALUATOR-REFUTABLE (refutable in principle only — synthetic-evidence mutations, explicitly NOT evidence of real teeth; surfaced as a warning, never a falsification) | usage error | TOOTHLESS (a green run proves nothing) |
@@ -552,7 +556,7 @@ evidence anchor), so identical runs yield identical proposals.
 | `bce graduate` | advisory → enforced recorded + config flipped (or an idempotent no-op) | enforced → advisory without `--rationale`; usage error | — |
 | `bce doctor` | repository is ready | repository is gradeable but needs a lifecycle action | repository cannot yet be honestly graded |
 | `bce adopt` / `bce onboard` | advisory proposal written; still unratified | malformed input / usage error | unsafe path, overwrite, non-draft blueprint, or mutable/unsupported engine reference refused |
-| `bce ratify` / `bce amend` | attended policy ceremony recorded | malformed input / usage error | missing human-review evidence or unsafe policy transition refused |
+| `bce ratify` / `bce amend` | attended packet-bound policy ceremony recorded | malformed input / usage error | stale/invalid packet, non-approving or unreproducible SCM decision, missing extractor-real teeth, or unsafe policy transition refused |
 | `bce upgrade --check` | candidate is compatible | — | mutable/malformed candidate or incompatible engine floor refused |
 | `bce verify-bundle` | hashes and verdict reproduce | bundle malformed or integrity/reproduction check fails | — |
 | `bce portfolio compile` | overlays written | validation / usage error | — |

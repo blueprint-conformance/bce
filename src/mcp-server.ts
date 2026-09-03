@@ -29,6 +29,10 @@
  *   validate_blueprint  → parseBlueprint      (schema-validate an authored blueprint)
  *   run_gate            → computeGateReport    (the machine gate doc — identical to `gate --report-json`)
  *   assess_teeth        → assessTeeth          (the toothlessness/refutability grade)
+ *   inspect_blueprint   → inspectBlueprint     (Promise/Lens/Proof/Limits review)
+ *   explain_constraint  → explainConstraint    (one canonical review card)
+ *   compare_blueprint_policy → compareBlueprintPolicy (semantic direction, read-only)
+ *   verify_review_packet → verifyReviewPacket  (integrity replay; no decision write)
  *   get_report          → (read a serialized report file the CLI already wrote — logic-free)
  */
 import * as fs from 'node:fs';
@@ -45,6 +49,12 @@ import {
   runGate,
   readBaseline,
   assessBaselineMaintenance,
+  inspectBlueprint,
+  explainConstraint,
+  compareBlueprintPolicy,
+  verifyReviewPacket,
+  BlueprintReviewPacketSchema,
+  BlueprintDecisionRecordSchema,
 } from './index.js';
 
 // ── JSON-RPC 2.0 framing (newline-delimited, per MCP stdio transport spec) ──────────────────────
@@ -85,7 +95,7 @@ function negotiateProtocolVersion(requested: unknown): string {
 }
 
 const SERVER_NAME = 'bce-mcp';
-const SERVER_VERSION = '2';
+const SERVER_VERSION = '3';
 
 interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -285,6 +295,65 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: 'inspect_blueprint',
+    description: 'Read-only Promise/Lens/Proof/Limits inspection of an authored blueprint against a live repository tree.',
+    annotations: { title: 'Inspect BCE blueprint', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        blueprintPath: { type: 'string' },
+        repoDir: { type: 'string' },
+        extractor: { type: 'string', enum: ['ast', 'line-scan'] },
+      },
+      required: ['blueprintPath'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'explain_constraint',
+    description: 'Read-only Promise/Lens/Proof/Limits explanation for one constraint using the canonical review function.',
+    annotations: { title: 'Explain BCE constraint', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        blueprintPath: { type: 'string' },
+        constraintId: { type: 'string' },
+        repoDir: { type: 'string' },
+        extractor: { type: 'string', enum: ['ast', 'line-scan'] },
+      },
+      required: ['blueprintPath', 'constraintId'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'compare_blueprint_policy',
+    description: 'Read-only semantic comparison of a human-selected base and exact candidate blueprint; unknown direction blocks approval.',
+    annotations: { title: 'Compare BCE policy', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        baseBlueprintPath: { type: 'string', description: 'Omit only for an explicitly new policy.' },
+        candidateBlueprintPath: { type: 'string' },
+      },
+      required: ['candidateBlueprintPath'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'verify_review_packet',
+    description: 'Read-only replay of every deterministic packet binding and optional human decision binding; mutates nothing.',
+    annotations: { title: 'Verify BCE review packet', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        packetPath: { type: 'string' },
+        decisionPath: { type: 'string' },
+      },
+      required: ['packetPath'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'get_report',
     description:
       'Read a serialized report JSON document the engine already wrote (a compliance-report.json, a ' +
@@ -388,6 +457,50 @@ function callTool(name: string, rawArgs: unknown): Record<string, unknown> {
         const teeth = assessTeeth(bp, graph, cfg.profile); // the engine's authoritative grade
         return toolResult(teeth);
       }
+      case 'inspect_blueprint': {
+        const p = requireString(args, 'blueprintPath');
+        const repoDir = optionalString(args, 'repoDir') ?? process.cwd();
+        const extractor = (optionalString(args, 'extractor') ?? 'ast') as 'ast' | 'line-scan';
+        if (extractor !== 'ast' && extractor !== 'line-scan') return toolError(`extractor must be 'ast' or 'line-scan'`);
+        const bp = parseBlueprint(readJsonFile(p));
+        const graph = buildLiveGraph(bp, repoDir, extractor);
+        const cfg = resolveExtraction(bp.extraction, bp.constraints);
+        const teeth = assessTeeth(bp, graph, cfg.profile);
+        return toolResult(inspectBlueprint({ blueprint: bp, graph, teeth }));
+      }
+      case 'explain_constraint': {
+        const p = requireString(args, 'blueprintPath');
+        const constraintId = requireString(args, 'constraintId');
+        const repoDir = optionalString(args, 'repoDir') ?? process.cwd();
+        const extractor = (optionalString(args, 'extractor') ?? 'ast') as 'ast' | 'line-scan';
+        if (extractor !== 'ast' && extractor !== 'line-scan') return toolError(`extractor must be 'ast' or 'line-scan'`);
+        const bp = parseBlueprint(readJsonFile(p));
+        const constraint = bp.constraints.find((item) => item.id === constraintId);
+        if (!constraint) return toolError(`constraint not found: ${constraintId}`);
+        const graph = buildLiveGraph(bp, repoDir, extractor);
+        const cfg = resolveExtraction(bp.extraction, bp.constraints);
+        const teeth = assessTeeth(bp, graph, cfg.profile);
+        const witness = teeth.witnesses.find((item) => item.constraintId === constraintId);
+        return toolResult(explainConstraint({
+          constraint,
+          blueprint: bp,
+          graph,
+          ...(witness !== undefined ? { teethWitness: witness } : {}),
+          matchedScope: graph.coverage.scannedFiles ?? [],
+        }));
+      }
+      case 'compare_blueprint_policy': {
+        const candidate = parseBlueprint(readJsonFile(requireString(args, 'candidateBlueprintPath')));
+        const basePath = optionalString(args, 'baseBlueprintPath');
+        const base = basePath === undefined ? null : parseBlueprint(readJsonFile(basePath));
+        return toolResult(compareBlueprintPolicy({ baseBlueprint: base, candidateBlueprint: candidate }));
+      }
+      case 'verify_review_packet': {
+        const packet = BlueprintReviewPacketSchema.parse(readJsonFile(requireString(args, 'packetPath')));
+        const decisionPath = optionalString(args, 'decisionPath');
+        const decision = decisionPath === undefined ? undefined : BlueprintDecisionRecordSchema.parse(readJsonFile(decisionPath));
+        return toolResult(verifyReviewPacket(packet, decision));
+      }
       case 'get_report': {
         const p = requireString(args, 'reportPath');
         const doc = readJsonFile(p); // logic-free: re-read a graded fact, never re-derive it
@@ -422,7 +535,9 @@ function handleRequest(req: JsonRpcRequest): void {
           'it defaults to the server working directory and scans the live tree. On RED, fix the ' +
           'named code violation and rerun—never silently edit a blueprint or baseline. Use ' +
           'validate_blueprint for contract syntax, assess_teeth to prove a contract can fail, ' +
-          'check_baseline for debt maintenance, and get_report only to reread an existing report. ' +
+          'inspect_blueprint / explain_constraint for review, compare_blueprint_policy for semantic ' +
+          'direction, verify_review_packet for integrity, check_baseline for debt maintenance, and ' +
+          'get_report only to reread an existing report. ' +
           'All tools are read-only; policy changes require attended CLI review.',
       });
       return;

@@ -69,9 +69,9 @@ source tree.
   skill reads, MCP calls, the git diff, policy preservation, and RED → GREEN. The 2026-09-02 paired
   author-operated sample changed tool selection from CLI to MCP after the routing instructions were
   corrected. One sample is not a success-rate estimate, model comparison, or independent witness.
-- The engine self-blueprint has 38/38 separately materialized source mutants killed through the
+- The engine self-blueprint has 45/45 separately materialized source mutants killed through the
   production extractor/evaluator path. CI regenerates and freshness-checks the mapping, rejects
-  invalid or collateral mutants, and requires the real proof. This establishes that the current 38
+  invalid or collateral mutants, and requires the real proof. This establishes that the current 45
   clauses can redden on real source changes; it does not establish specification completeness.
 - The model-evaluation controller has a no-model rehearsal over the exact eight-attempt pilot
   topology. It proves read-default-deny isolation, host/protected-surface write denial, hidden-input
@@ -83,6 +83,9 @@ source tree.
 
 ## What has not been established
 
+- The AI-first `propose`/review surface exists in the current source and passes packed-candidate
+  tests, but it has not been released to npm. No exact release version, npm integrity, published
+  source commit, or installed-tree digest exists for this feature yet.
 - No independent user witness has completed the adoption journey. The external consumer above
   is creator-maintained and therefore does not change the independent-witness count.
 - The author-designed seeded corpus is a regression suite, not a held-out benchmark.

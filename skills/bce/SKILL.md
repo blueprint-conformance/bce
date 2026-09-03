@@ -1,6 +1,6 @@
 ---
 name: bce
-description: Diagnose and repair architecture-conformance failures with BCE, preferring the repository's read-only MCP tools for readiness, exact violations, and live-tree done-checks. Use when a BCE gate is red, advisory output reports violations despite exit 0, architectural drift must be fixed without weakening policy, a blueprint needs validation or teeth evidence, or a new architectural rule must become a reviewed merge contract. Do not use for ordinary lint, formatting, or type errors.
+description: Propose, review, diagnose, and repair architecture contracts with BCE, preferring its read-only MCP tools for inspection, exact violations, and live-tree done-checks. Use when an AI-first blueprint proposal or policy comparison is requested, a BCE gate is red, advisory output reports violations despite exit 0, architectural drift must be fixed without weakening policy, or a blueprint needs validation or teeth evidence. Do not use for ordinary lint, formatting, or type errors.
 license: Apache-2.0
 ---
 
@@ -17,9 +17,11 @@ from MCP.
   authoring material.
 - **Readiness or setup looks broken:** call `doctor_repository {}` before the gate.
 - **A blueprint or gate may be vacuous:** call `validate_blueprint`, then `assess_teeth`.
+- **The user asks to inspect or compare policy:** call `inspect_blueprint`, `explain_constraint`, or
+  `compare_blueprint_policy`; replay supplied evidence with `verify_review_packet`.
 - **The user asks to create or adopt a new rule:** read
-  `references/lifecycle.md` before acting. Authoring and governance changes use the CLI and require
-  human review.
+  `references/lifecycle.md` before acting. Prefer the AI-first `bce propose` flow when available;
+  governance changes use the CLI and require an authenticated human review.
 - **The user asks to tune an Agent Skill:** use the separate `skill-tuning` skill.
 
 ## MCP-first repair loop
@@ -39,7 +41,7 @@ from MCP.
 6. Report the exact violation fixed, changed code files, final score/verdict, and whether policy
    changed. A normal repair must say policy did not change.
 
-The MCP server exposes six read-only tools:
+The MCP server exposes ten read-only tools:
 
 | Tool | Use it for |
 |---|---|
@@ -48,10 +50,14 @@ The MCP server exposes six read-only tools:
 | `validate_blueprint` | schema and safe-pattern validation |
 | `assess_teeth` | non-vacuity evidence |
 | `check_baseline` | new debt and shrink opportunities without changing policy |
+| `inspect_blueprint` | the canonical Promise/Lens/Proof/Limits review model |
+| `explain_constraint` | one clause through the same review grammar |
+| `compare_blueprint_policy` | conservative semantic direction for an exact base/candidate pair |
+| `verify_review_packet` | packet and optional decision integrity replay |
 | `get_report` | a deterministic report already written by the engine |
 
-MCP cannot ratify, amend, graduate, create a baseline, or weaken policy. That absence is a security
-boundary, not missing functionality.
+MCP cannot generate a proposal, record a decision, ratify, amend, graduate, create a baseline, or
+weaken policy. That absence is a security boundary, not missing functionality.
 
 ## CLI fallback
 
