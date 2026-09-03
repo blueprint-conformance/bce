@@ -33,6 +33,13 @@ function prepareBundle(name) {
   protocol.implementation.analyzerSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'analyze-model-evaluation.mjs')));
   protocol.implementation.analysisCoreSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-analysis.mjs')));
   protocol.treatment.artifactProvenance.sourceTreeState = 'clean';
+  const nvmRuntime = process.env.NVM_BIN ? join(process.env.NVM_BIN, 'node') : null;
+  const runtimeExecutable = nvmRuntime && existsSync(nvmRuntime) ? nvmRuntime : process.execPath;
+  protocol.isolation.executionDriver = 'macos-sandbox-exec';
+  protocol.isolation.executionDriverSha256 = sha256Bytes(readFileSync('/usr/bin/sandbox-exec'));
+  protocol.isolation.runtimeExecutable = runtimeExecutable;
+  protocol.isolation.runtimeVersion = `${spawnSync(runtimeExecutable, ['--version'], { encoding: 'utf8' }).stdout}`.trim();
+  protocol.isolation.runtimeArtifactSha256 = sha256Bytes(readFileSync(runtimeExecutable));
   protocol.isolation.clientSandboxMode = 'outer-controller-profile-only';
   protocol.clientModelCells[0] = {
     ...protocol.clientModelCells[0],
