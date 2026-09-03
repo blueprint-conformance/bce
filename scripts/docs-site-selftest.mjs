@@ -46,7 +46,12 @@ function stage() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-docs-site-'));
   fs.cpSync(repoRoot, dir, {
     recursive: true,
-    filter: (src) => !SKIP.has(path.basename(src)),
+    // Other parallel tests briefly create repo-local .tmp-* harness roots. They
+    // are not part of the committed tree and may disappear during cpSync.
+    filter: (src) => {
+      const basename = path.basename(src);
+      return !SKIP.has(basename) && !basename.startsWith('.tmp-');
+    },
   });
   if (!fs.existsSync(path.join(dir, 'scripts/build-docs-site.mjs'))) {
     harness('staged tree is missing scripts/build-docs-site.mjs');
@@ -356,4 +361,8 @@ function main() {
   console.log(`docs-site-selftest: PASS — all ${PROBES.length} checks refuse their own probe.`);
 }
 
-main();
+if (process.argv.includes('--print-probe-count')) {
+  console.log(PROBES.length);
+} else {
+  main();
+}
