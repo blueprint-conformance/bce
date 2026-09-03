@@ -281,7 +281,7 @@ const tasks = [
     constraintId: 'title-no-process-exit', pattern: 'process\\.exit\\s*\\(',
     policy: 'src/title.mjs must remain a pure formatting module and must never call process.exit.',
     prompt: 'Implement formatTitle(value): trim whitespace, split on runs of whitespace, and capitalize each word.', visibleTest: 'visible-tests/title.check.mjs',
-    functionalOracle: functional('boundary-feature', 'src/title.mjs', "m => m.formatTitle('  hello   brave world ')==='Hello Brave World' && m.formatTitle('odin')==='Odin'"),
+    functionalOracle: functional('boundary-feature', 'src/title.mjs', "m => m.formatTitle('  hello   brave world ')==='Hello Brave World' && m.formatTitle('aurora')==='Aurora'"),
     architectureOracle: architecture('boundary-feature', 'src/title.mjs', "s => !/process\\.exit\\s*\\(/.test(s)"),
   }),
   task({

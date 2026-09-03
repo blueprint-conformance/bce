@@ -1049,7 +1049,10 @@ async function executeAssignment(assignment) {
       exitCode: clientResult?.status ?? null, bindings, documents, telemetry: missingTelemetry(assignment, clientResult?.latencyMs ?? null),
     });
   } finally {
-    rmSync(scratch, { recursive: true, force: true });
+    // APFS can report a transient ENOTEMPTY while a just-exited sandboxed git
+    // process releases directory entries. Retry only this mkdtemp-owned tree;
+    // never turn a cleanup race into a lost terminal record or an unbounded delete.
+    rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 }
 
