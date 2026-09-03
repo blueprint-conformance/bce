@@ -1,0 +1,78 @@
+{
+  "passed": false,
+  "collateralRegression": false,
+  "locations": [
+    "TODO"
+  ],
+  "deterministic": true,
+  "executed": true,
+  "inputTreeSha256": "9a17d276e7502aea82c4de6560f568e5eef9c3db90fb80d63acbb36c66e2bea5",
+  "runs": [
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "TODO"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"configuration-feature\",\"inputTreeSha256\":\"9a17d276e7502aea82c4de6560f568e5eef9c3db90fb80d63acbb36c66e2bea5\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"TODO\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "configuration-feature",
+        "inputTreeSha256": "9a17d276e7502aea82c4de6560f568e5eef9c3db90fb80d63acbb36c66e2bea5",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "TODO"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "1c9efcd8d26a3e3778c5b612880d8f08c6caa4d7edb6dda485a5ff56b73c469a",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    },
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "TODO"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"configuration-feature\",\"inputTreeSha256\":\"9a17d276e7502aea82c4de6560f568e5eef9c3db90fb80d63acbb36c66e2bea5\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"TODO\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "configuration-feature",
+        "inputTreeSha256": "9a17d276e7502aea82c4de6560f568e5eef9c3db90fb80d63acbb36c66e2bea5",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "TODO"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "1c9efcd8d26a3e3778c5b612880d8f08c6caa4d7edb6dda485a5ff56b73c469a",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    }
+  ]
+}

@@ -95,12 +95,12 @@ source tree.
   result preserves the ledger and non-restricted artifacts while binding eight restricted
   transcripts by digest. A fix-forward pilot requires a new identifier and seal. Codex also exposes
   only requested model configuration, not a provider-returned model identity, so its rows cannot
-  receive safe-success identity credit. Pilot v2 inputs are generated but unsealed and unrun. They
-  add a staged standalone Node runtime, read-default-deny isolation, positive native
-  client/runtime/workspace/auth/MCP probes, event-ordered credential retirement, a sealed
-  offline BCE dependency closure, mechanism-use telemetry, and publicly recomputable aggregate
-  analysis. Those changes validate apparatus only; they do not turn the pilot into efficacy
-  evidence.
+  receive safe-success identity credit. Pilot v2 then retained 8/8 completed client sessions but
+  0/8 task successes: Codex's inner `workspace-write` sandbox could not initialize inside the
+  controller's outer macOS sandbox, so no task changed and no BCE mechanism use was observed. Its
+  staged runtime, read-default-deny probes, offline BCE closure, ledger, oracles, public export, and
+  aggregate replay all worked. V2 is apparatus-failure evidence only and requires a new identifier
+  plus seal for any fix-forward run.
 - No conventional precision/recall study with independent annotation has been completed.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;

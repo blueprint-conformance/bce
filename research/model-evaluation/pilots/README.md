@@ -7,7 +7,7 @@ Every exposed attempt remains in its original denominator.
 | Pilot | Frozen trials | Outcome | What it established |
 |---|---:|---|---|
 | [`accelerated-v1`](accelerated-v1/RESULTS.md) | 8/8 retained | All client launches failed | The real sealed-order controller, isolation canaries, external oracles, terminal ledger, verifier, analyzer, and public exporter operated. It exposed an overly broad home-directory read denial that also blocked the installed Codex artifact. |
-| `accelerated-v2` | 8 inputs generated; unsealed | Not run | Fix-forward candidate: freezes and stages native Codex plus standalone Node, uses read-default-deny isolation, positively probes the generated BCE MCP path without model exposure, and installs BCE from a sealed offline dependency closure. |
+| [`accelerated-v2`](accelerated-v2/RESULTS.md) | 8/8 retained | Client sessions completed; 0/8 task success | The staged native client launched, but its inner `workspace-write` sandbox could not initialize inside the outer macOS sandbox. No task changed and no BCE mechanism use was observed. This is apparatus-failure evidence, not an arm comparison. |
 
 Fix-forward rule: a controller defect found after exposure creates a new pilot identifier, new
 inputs, new public pre-run seal, and new denominator. It never rewrites or retries the earlier

@@ -1,0 +1,27 @@
+{
+  "accepted": false,
+  "nonBceAccepted": false,
+  "bceGateAccepted": true,
+  "nonBceRuns": [
+    {
+      "command": [
+        "node",
+        "visible-tests/cache.check.mjs"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "stdout": "TAP version 13\n# Subtest: cache\nnot ok 1 - cache\n  ---\n  duration_ms: 0.448583\n  type: 'test'\n  location: '/private/var/folders/83/ztvdqz3j63b44vnqx4rl493h0000gn/T/bce-eval-primary-codex-mini-configuration-feature-r0-bce-gXCJiv/controller-neutral/visible-tests/cache.check.mjs:1:117'\n  failureType: 'testCodeFailure'\n  error: 'TODO'\n  code: 'ERR_TEST_FAILURE'\n  stack: |-\n    cacheKey (file:///private/var/folders/83/ztvdqz3j63b44vnqx4rl493h0000gn/T/bce-eval-primary-codex-mini-configuration-feature-r0-bce-gXCJiv/controller-neutral/src/cache.mjs:1:41)\n    TestContext.<anonymous> (file:///private/var/folders/83/ztvdqz3j63b44vnqx4rl493h0000gn/T/bce-eval-primary-codex-mini-configuration-feature-r0-bce-gXCJiv/controller-neutral/visible-tests/cache.check.mjs:1:150)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.start (node:internal/test_runner/test:944:17)\n    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)\n  ...\n1..1\n# tests 1\n# suites 0\n# pass 0\n# fail 1\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 3.482958\n",
+      "stderr": ""
+    }
+  ],
+  "bceRun": {
+    "command": [
+      "bce",
+      "gate"
+    ],
+    "exitCode": 0,
+    "signal": null,
+    "stdout": "  ✓ configuration-feature@1.0.0 — score 100 (pass)\nbce gate [enforced]: 1/1 blueprint(s) evaluated, 0 failing.\n",
+    "stderr": ""
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "successful": true,
+  "preparedTreeSha256": "63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701",
+  "commands": [],
+  "treatmentDelta": {
+    "arm": "bce-enabled",
+    "changes": [
+      {
+        "path": ".bce-mode.json",
+        "before": null,
+        "after": {
+          "path": ".bce-mode.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 25,
+          "sha256": "bb8b675ac0f7c0d441e2dcc1927b35e3b95dd25599e816d40f5cbc401099f232"
+        }
+      },
+      {
+        "path": ".blueprints/boundary-repair.blueprint.json",
+        "before": null,
+        "after": {
+          "path": ".blueprints/boundary-repair.blueprint.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 771,
+          "sha256": "7ebe3227dbb5d94934c672c4d4df3f502033d64c32603a507c8556557fbc92c8"
+        }
+      },
+      {
+        "path": ".codex/config.toml",
+        "before": null,
+        "after": {
+          "path": ".codex/config.toml",
+          "type": "file",
+          "mode": 420,
+          "bytes": 366,
+          "sha256": "9eb77fcf70921954950711edca72b5c6a673c5324e6d79dba88a3f1b28654db6"
+        }
+      },
+      {
+        "path": "AGENTS.md",
+        "before": null,
+        "after": {
+          "path": "AGENTS.md",
+          "type": "file",
+          "mode": 420,
+          "bytes": 217,
+          "sha256": "60184406f1f25017fda3a48be8efb1052f0fa48da26d6fae874b4f33dcf74f2a"
+        }
+      }
+    ]
+  },
+  "treatmentConfigSha256": "0d8229f251d97112f7832dd39913332c7579f9cc4e60409a4558295319405ce5"
+}
