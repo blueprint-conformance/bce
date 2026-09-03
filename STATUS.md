@@ -36,6 +36,11 @@ source tree.
 - The synthetic scale track scans 2,000 TypeScript files, enforces a 30-second p95 ceiling, and
   requires a planted final-package import to redden at its exact line. It is a regression budget,
   not real-monorepo generalization evidence.
+- The current source and packed candidate passed the public Ubuntu/macOS/Windows × Node 22/24
+  [portability matrix](https://github.com/blueprint-conformance/bce/actions/runs/33709587798), including
+  build, typecheck, cross-platform engine/CLI/evidence/MCP tests, restricted-network operation, and
+  a packed-consumer proof. This establishes the current source path, not a retrospective claim that
+  every platform executed the historical `v0.1.5` release workflow.
 - The generated GitHub Action runs outside this repository: the public
   [`blueprint-conformance/bce-action-witness`](https://github.com/blueprint-conformance/bce-action-witness) consumer
   produced a [clean GREEN](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497921200),
@@ -115,12 +120,9 @@ source tree.
 - The release workflow in current source keyless-signs future release evidence with GitHub OIDC and
   verifies issuer plus workflow identity before upload. Historical v0.1.5 has no such signature, so
   authenticated release-evidence identity is not yet established for a published release.
-- Ubuntu/macOS/Windows × Node 22/24 portability CI is configured in the current source tree, but no
-  public run of that new matrix exists yet; platform support beyond the existing Ubuntu/Node 22
-  release path is therefore not yet established.
 - The OpenAI skills-only plugin archive validates locally, but required operator identity/legal
   materials and portal review are incomplete; it is not publicly listed.
-- This repository's `main` requires six CI contexts, enforces them for admins, and blocks force-push
+- This repository's `main` requires seven CI contexts, enforces them for admins, and blocks force-push
   and deletion. It requires zero human approvals and has no release-environment reviewer because the
   project currently has one human maintainer; configuring a second-person gate would deadlock it.
   Independent review is not claimed. Adopters must configure policy owners appropriate to their own
