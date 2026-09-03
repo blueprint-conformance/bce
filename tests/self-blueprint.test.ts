@@ -33,6 +33,16 @@ import type { ArchitectureGraph } from '../src/graph.js';
 
 const ROOT = path.join(__dirname, '..');
 const BLUEPRINT_PATH = path.join(ROOT, '.blueprints', 'engine.blueprint.json');
+const EXTRACTOR_TEETH_MANIFEST = JSON.parse(
+  fs.readFileSync(path.join(ROOT, '.blueprints', 'engine.teeth-mutations.json'), 'utf8'),
+) as { cases: unknown[] };
+// Each case materializes a fresh real-source mutation and runs the AST extractor.
+// Supported runtimes differ materially here, so scale this one proof's finite ceiling
+// with its declared corpus instead of weakening the global timeout or the assertions.
+const EXTRACTOR_TEETH_TIMEOUT_MS = Math.min(
+  180_000,
+  Math.max(60_000, EXTRACTOR_TEETH_MANIFEST.cases.length * 4_000),
+);
 
 function loadBlueprint(): EngineeringBlueprint {
   return parseBlueprint(JSON.parse(fs.readFileSync(BLUEPRINT_PATH, 'utf8')));
@@ -120,15 +130,14 @@ describe('self-blueprint: the engine gates its own architecture', () => {
 
   it('EXTRACTOR TEETH: every constraint is killed by one separately materialized real source mutation', () => {
     const bp = loadBlueprint();
-    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, '.blueprints', 'engine.teeth-mutations.json'), 'utf8'));
-    const report = assessExtractorTeethCorpus({ blueprint: bp, repoDir: ROOT, manifest, extractor: 'ast' });
+    const report = assessExtractorTeethCorpus({ blueprint: bp, repoDir: ROOT, manifest: EXTRACTOR_TEETH_MANIFEST, extractor: 'ast' });
     expect(report.verdict, JSON.stringify(report.cases.filter((entry) => entry.status !== 'killed'), null, 2)).toBe('extractor-real-proven');
     expect(report.mapped).toBe(bp.constraints.length);
     expect(report.killed).toBe(bp.constraints.length);
     expect(report.survived).toBe(0);
     expect(report.refused).toBe(0);
     expect(report.inputBindings.extractorIdentity).toBe('bce-ast:ts-morph@23.0.0');
-  });
+  }, EXTRACTOR_TEETH_TIMEOUT_MS);
 });
 
 describe('teeth: forbiddenDependency reddening mutation respects scopePaths (self-hosting regression)', () => {
