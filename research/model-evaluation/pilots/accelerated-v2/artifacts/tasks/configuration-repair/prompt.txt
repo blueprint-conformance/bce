@@ -1,0 +1,2 @@
+Implement runJob(id) so it returns job:<trimmed-id>:<configured-region>. Preserve the configuration boundary.
+Only edit src/worker.mjs.
