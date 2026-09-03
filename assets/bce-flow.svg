@@ -1,68 +1,46 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="410" viewBox="0 0 1280 410" role="img" aria-labelledby="title desc">
-  <title id="title">How BCE fits into the agent development loop</title>
-  <desc id="desc">A human-owned blueprint and an agent code change enter the same deterministic BCE gate. Conforming changes merge. Drift receives a precise diagnosis and loops back to the agent for correction. Policy changes return to human review.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="330" viewBox="0 0 1280 330" role="img" aria-labelledby="title desc">
+  <title id="title">The BCE adoption ratchet</title>
+  <desc id="desc">Advisory mode reveals the current architecture drift. A shrink-only baseline records known debt and prevents it from growing. Enforced mode blocks new violations. Moving backward requires a reviewed rationale.</desc>
 
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#091522"/>
-      <stop offset="1" stop-color="#0d1c2a"/>
-    </linearGradient>
-    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M0 0L10 5L0 10Z" fill="#5f7e94"/>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#61c9ef"/>
     </marker>
-    <marker id="green-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M0 0L10 5L0 10Z" fill="#4ed3a3"/>
+    <marker id="return-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#7890a3"/>
     </marker>
-    <marker id="red-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M0 0L10 5L0 10Z" fill="#ff6b73"/>
-    </marker>
+    <style>
+      .sans { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace; }
+    </style>
   </defs>
 
-  <rect width="1280" height="410" rx="16" fill="url(#bg)"/>
-  <rect x="1" y="1" width="1278" height="408" rx="15" fill="none" stroke="#294359"/>
+  <rect width="1280" height="330" fill="#080919"/>
 
-  <g font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif">
-    <text x="48" y="45" font-size="13" font-weight="700" fill="#6dd6ff" letter-spacing="2">ONE LOOP · ONE SOURCE OF TRUTH</text>
-    <text x="48" y="76" font-size="20" font-weight="700" fill="#eef7ff">BCE stays out of generation and owns the decision boundary.</text>
+  <g class="sans">
+    <text x="40" y="58" font-size="28" font-weight="700" letter-spacing="-.4" fill="#e8ebed">MOVE FORWARD WITHOUT HIDING DEBT.</text>
+    <text class="mono" x="1240" y="57" text-anchor="end" font-size="14" font-weight="550" letter-spacing="1.1" fill="#7890a3">COMMITTED POLICY · VISIBLE HISTORY</text>
 
-    <g transform="translate(48 116)">
-      <rect width="224" height="108" rx="14" fill="#102537" stroke="#38718f"/>
-      <text x="18" y="29" font-size="11" font-weight="700" fill="#6dd6ff" letter-spacing="1.4">HUMAN-OWNED</text>
-      <text x="18" y="56" font-size="18" font-weight="700" fill="#eef7ff">Blueprint</text>
-      <text x="18" y="80" font-size="13" fill="#9db1c2">What the architecture</text>
-      <text x="18" y="98" font-size="13" fill="#9db1c2">is allowed to become</text>
+    <g>
+      <rect x="40" y="100" width="300" height="104" rx="4" fill="#080919" stroke="#566274" stroke-width="1.5"/>
+      <text class="mono" x="64" y="139" font-size="13" font-weight="650" letter-spacing="1.2" fill="#61c9ef">ADVISORY</text>
+      <text x="64" y="174" font-size="20" font-weight="600" fill="#e8ebed">See the current drift</text>
 
-      <rect y="134" width="224" height="74" rx="14" fill="#121d2b" stroke="#33495b"/>
-      <text x="18" y="163" font-size="11" font-weight="700" fill="#9db1c2" letter-spacing="1.4">VISIBLE GOVERNANCE</text>
-      <text x="18" y="188" font-size="13" fill="#c9d8e3">Amend policy by review</text>
-      <path d="M112 134V118" fill="none" stroke="#5f7e94" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arrow)"/>
+      <path d="M340 152H456" fill="none" stroke="#61c9ef" stroke-width="2.2" marker-end="url(#arrow)"/>
 
-      <rect x="298" width="224" height="108" rx="14" fill="#102537" stroke="#38718f"/>
-      <text x="316" y="29" font-size="11" font-weight="700" fill="#6dd6ff" letter-spacing="1.4">FAST PATH</text>
-      <text x="316" y="56" font-size="18" font-weight="700" fill="#eef7ff">Agent change</text>
-      <text x="316" y="80" font-size="13" fill="#9db1c2">Normal tools, prompts,</text>
-      <text x="316" y="98" font-size="13" fill="#9db1c2">and pull requests</text>
+      <rect x="470" y="100" width="340" height="104" rx="4" fill="#080919" stroke="#566274" stroke-width="1.5"/>
+      <text class="mono" x="494" y="139" font-size="13" font-weight="650" letter-spacing="1.2" fill="#61c9ef">SHRINK-ONLY BASELINE</text>
+      <text x="494" y="174" font-size="20" font-weight="600" fill="#e8ebed">Debt may fall, never grow</text>
 
-      <path d="M234 54H288" fill="none" stroke="#5f7e94" stroke-width="2.2" marker-end="url(#arrow)"/>
-      <path d="M532 54H586" fill="none" stroke="#5f7e94" stroke-width="2.2" marker-end="url(#arrow)"/>
+      <path d="M810 152H886" fill="none" stroke="#61c9ef" stroke-width="2.2" marker-end="url(#arrow)"/>
 
-      <rect x="596" y="10" width="188" height="88" rx="44" fill="#153047" stroke="#6dd6ff" stroke-width="1.5"/>
-      <text x="690" y="49" text-anchor="middle" font-size="17" font-weight="750" fill="#eef7ff" letter-spacing="1.6">BCE GATE</text>
-      <text x="690" y="72" text-anchor="middle" font-size="12" fill="#9db1c2">same engine everywhere</text>
-
-      <path d="M794 38H860" fill="none" stroke="#4ed3a3" stroke-width="2.5" marker-end="url(#green-arrow)"/>
-      <rect x="870" width="224" height="74" rx="14" fill="#102a25" stroke="#3da77f"/>
-      <text x="888" y="29" font-size="11" font-weight="700" fill="#4ed3a3" letter-spacing="1.4">CONFORMS</text>
-      <text x="888" y="55" font-size="17" font-weight="700" fill="#d9f8ea">Merge with confidence</text>
-
-      <path d="M690 108V142H860" fill="none" stroke="#ff6b73" stroke-width="2.5" marker-end="url(#red-arrow)"/>
-      <rect x="870" y="114" width="224" height="94" rx="14" fill="#2a171f" stroke="#a83e4d"/>
-      <text x="888" y="143" font-size="11" font-weight="700" fill="#ff6b73" letter-spacing="1.4">DRIFT</text>
-      <text x="888" y="169" font-size="17" font-weight="700" fill="#ffdadd">Block + name the fix</text>
-      <text x="888" y="190" font-size="12" fill="#c9a9ad">rule · edge · file · line</text>
-
-      <path d="M870 190H815V246H410V118" fill="none" stroke="#ff6b73" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#red-arrow)"/>
-      <text x="615" y="265" text-anchor="middle" font-size="12" font-weight="650" fill="#ff959a" letter-spacing="0.8">FIX CODE → RE-RUN THE SAME GATE</text>
+      <rect x="900" y="100" width="340" height="104" rx="4" fill="#080919" stroke="#48c99a" stroke-width="1.8"/>
+      <text class="mono" x="924" y="139" font-size="13" font-weight="650" letter-spacing="1.2" fill="#48c99a">ENFORCED</text>
+      <text x="924" y="174" font-size="20" font-weight="600" fill="#e8ebed">New violations block</text>
     </g>
+
+    <path d="M1070 220V262H222Q206 262 206 246V218" fill="none" stroke="#7890a3" stroke-width="1.8" stroke-dasharray="8 8" marker-end="url(#return-arrow)"/>
+    <rect x="462" y="238" width="356" height="48" rx="4" fill="#080919"/>
+    <text class="mono" x="640" y="268" text-anchor="middle" font-size="14" font-weight="550" letter-spacing="1" fill="#94a5b3">DOWNGRADE REQUIRES REVIEWED RATIONALE</text>
   </g>
 </svg>

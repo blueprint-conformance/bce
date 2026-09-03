@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="790" viewBox="0 0 760 790" role="img" aria-labelledby="title desc">
+  <title id="title">The BCE adoption ratchet on a narrow screen</title>
+  <desc id="desc">Move from advisory to a shrink-only baseline to enforced mode. Known debt may fall but never grow. Any downgrade requires a reviewed rationale.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#61c9ef"/></marker>
+    <marker id="return" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#7890a3"/></marker>
+    <style>
+      .sans{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace}
+    </style>
+  </defs>
+  <rect width="760" height="790" fill="#080919"/>
+  <g class="sans">
+    <text x="40" y="62" font-size="34" font-weight="700" fill="#e8ebed">MOVE FORWARD.</text>
+    <text x="40" y="102" font-size="34" font-weight="700" fill="#e8ebed">DO NOT HIDE DEBT.</text>
+    <text class="mono" x="40" y="140" font-size="16" letter-spacing="1" fill="#7890a3">COMMITTED POLICY · VISIBLE HISTORY</text>
+    <rect x="70" y="182" width="620" height="112" rx="4" fill="#080919" stroke="#566274" stroke-width="2"/>
+    <text class="mono" x="100" y="225" font-size="18" font-weight="650" letter-spacing="1" fill="#61c9ef">ADVISORY</text>
+    <text x="100" y="265" font-size="26" font-weight="600" fill="#e8ebed">See the current drift</text>
+    <path d="M380 294V332" fill="none" stroke="#61c9ef" stroke-width="2.6" marker-end="url(#arrow)"/>
+    <rect x="70" y="346" width="620" height="112" rx="4" fill="#080919" stroke="#566274" stroke-width="2"/>
+    <text class="mono" x="100" y="389" font-size="18" font-weight="650" letter-spacing="1" fill="#61c9ef">SHRINK-ONLY BASELINE</text>
+    <text x="100" y="429" font-size="26" font-weight="600" fill="#e8ebed">Known debt may fall, never grow</text>
+    <path d="M380 458V496" fill="none" stroke="#61c9ef" stroke-width="2.6" marker-end="url(#arrow)"/>
+    <rect x="70" y="510" width="620" height="112" rx="4" fill="#080919" stroke="#48c99a" stroke-width="2.2"/>
+    <text class="mono" x="100" y="553" font-size="18" font-weight="650" letter-spacing="1" fill="#48c99a">ENFORCED</text>
+    <text x="100" y="593" font-size="26" font-weight="600" fill="#e8ebed">New violations block the merge</text>
+    <path d="M70 566H38V402H58" fill="none" stroke="#7890a3" stroke-width="2" stroke-dasharray="8 8" marker-end="url(#return)"/>
+    <rect x="70" y="674" width="620" height="70" rx="4" fill="#080919" stroke="#454e5e" stroke-width="1.5"/>
+    <text class="mono" x="380" y="716" text-anchor="middle" font-size="18" letter-spacing=".5" fill="#94a5b3">DOWNGRADE = REVIEWED RATIONALE</text>
+  </g>
+</svg>
