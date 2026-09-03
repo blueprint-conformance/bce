@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Drive the real controller with a no-model fixture through normal and faulted exposed runs. */
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, copyFileSync, cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { expectedSeal, sha256Bytes, sha256Json } from './lib/model-evaluation.mjs';
@@ -117,6 +117,9 @@ function executeHardCrashRecovery() {
 
 function executeCredentialRetirement() {
   const { bundle, runs } = prepareBundle('credential-retirement');
+  const syntheticCodexHome = join(scratch, 'synthetic-codex-source');
+  mkdirSync(syntheticCodexHome, { recursive: true, mode: 0o700 });
+  writeFileSync(join(syntheticCodexHome, 'auth.json'), '{"synthetic":"controller-self-test-only"}\n', { mode: 0o600 });
   const protocolPath = join(bundle, 'protocol.v2.json');
   const manifest = JSON.parse(readFileSync(join(bundle, 'task-manifest.json'), 'utf8'));
   const protocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
@@ -133,7 +136,7 @@ function executeCredentialRetirement() {
   }, null, 2)}\n`);
   const result = spawnSync(process.execPath, [
     'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study', '--limit', '1',
-  ], { cwd: root, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  ], { cwd: root, env: { ...process.env, CODEX_HOME: syntheticCodexHome }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (result.status !== 0) throw new Error(`credential retirement fixture failed:\n${result.stdout}\n${result.stderr}`);
   const trialId = manifest.assignments[0].trialId;
   const terminal = JSON.parse(readFileSync(join(runs, 'trials', trialId, 'a0', 'terminal.json'), 'utf8'));
