@@ -75,8 +75,8 @@ jobs:
           repo-name: blueprint-conformance/bce
           comment: "false"
 
-      - name: Teeth — non-vacuity proof over the self-blueprint (toothless = exit 2)
-        run: node dist/cli.js teeth --blueprint .blueprints/engine.blueprint.json --ct-repo . --out teeth-report.json
+      - name: Teeth — all self-blueprint constraints bite real source through the production extractor
+        run: npm run test:self-teeth-mutations
 
       # Non-vacuity for the skill-standard too. Read this verdict knowing what it does NOT say:
       # against this (clean) tree most of the standard's clauses are content patterns, so the probe
@@ -104,7 +104,7 @@ jobs:
         run: npx vitest run tests/verify-chain-tool.test.ts
 
       - name: Surface the teeth report in the run log
-        run: cat teeth-report.json
+        run: cat extractor-teeth-report.json
 
   # Lane A — the last PUBLISHED engine at an EXACT pin gates this tree,
   # independent of the code under review. Current state is LIVE at 0.1.5. The

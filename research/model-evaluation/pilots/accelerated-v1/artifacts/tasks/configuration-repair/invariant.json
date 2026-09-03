@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1",
+  "writtenPolicyText": "src/worker.mjs must obtain region configuration only through src/config.mjs and must never access process.env directly.",
+  "constraint": {
+    "id": "worker-no-direct-environment",
+    "type": "forbiddenPattern",
+    "severity": "critical",
+    "path": "src/worker.mjs",
+    "pattern": "process\\.env"
+  }
+}

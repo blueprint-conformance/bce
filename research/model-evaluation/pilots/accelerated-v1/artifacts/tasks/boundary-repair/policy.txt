@@ -1,0 +1,1 @@
+src/service.mjs must access provider generation only through src/gateway.mjs and must never import or reference provider-sdk directly.

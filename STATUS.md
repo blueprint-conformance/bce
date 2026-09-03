@@ -1,6 +1,6 @@
 # Project status
 
-Last reviewed: 2026-09-02. This file is the authoritative public claim ledger for the current
+Last reviewed: 2026-09-03. This file is the authoritative public claim ledger for the current
 source tree.
 
 ## Distribution
@@ -54,6 +54,15 @@ source tree.
   skill reads, MCP calls, the git diff, policy preservation, and RED → GREEN. The 2026-09-02 paired
   author-operated sample changed tool selection from CLI to MCP after the routing instructions were
   corrected. One sample is not a success-rate estimate, model comparison, or independent witness.
+- The engine self-blueprint has 38/38 separately materialized source mutants killed through the
+  production extractor/evaluator path. CI regenerates and freshness-checks the mapping, rejects
+  invalid or collateral mutants, and requires the real proof. This establishes that the current 38
+  clauses can redden on real source changes; it does not establish specification completeness.
+- The model-evaluation controller has a no-model rehearsal over the exact eight-attempt pilot
+  topology. It proves ordered execution, host/protected-surface write denial, hidden-input read
+  denial, twice-run filesystem/network-isolated oracles, artifact-backed terminal records,
+  caught-failure terminalization, hard-crash recovery without denominator loss, and restricted
+  transcript exclusion from the public export. Synthetic rehearsal is machinery evidence only.
 
 ## What has not been established
 
@@ -62,9 +71,14 @@ source tree.
 - The author-designed seeded corpus is a regression suite, not a held-out benchmark.
 - No controlled study shows that BCE improves autonomous-agent outcomes, completion rate, cost,
   or escaped-defect rate relative to a baseline.
-- The four-harness, baseline/BCE evaluation protocol is frozen, but its exact clients/models and
-  sealed 240-trial task manifest are unset. Readiness therefore refuses and no comparative result
-  is claimed.
+- The canonical four-cell, baseline/BCE 240-attempt confirmatory design exists, but its exact
+  provider-identified clients/models, ten held-out repositories, thirty tasks/reference patches,
+  isolation driver, BCE artifact, assignment proof, and public Sigstore seal are unset. Readiness
+  therefore refuses and no comparative result is claimed.
+- A separate eight-attempt Codex instrumentation pilot has generated development-only inputs but is
+  not yet publicly sealed or run in this source state. Its schema permanently forbids an efficacy
+  recommendation. Codex exposes the requested model configuration but not a provider-returned model
+  identity, so those rows cannot receive safe-success identity credit.
 - No conventional precision/recall study with independent annotation has been completed.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;

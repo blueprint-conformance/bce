@@ -1,6 +1,7 @@
 # BCE research workspace
 
-Status: **infrastructure only; no held-out experiment or comparative study has been run**.
+Status: **evaluation infrastructure plus development-only pilot inputs; no claim-bearing held-out
+experiment or comparative efficacy study has been run**.
 
 This directory separates product tests from publishable empirical evidence. Development fixtures
 may be used to debug the harness but never to estimate held-out performance. Before looking at a
@@ -13,12 +14,16 @@ opportunity, collateral violations, Wilson 95% intervals, and per-defect-class r
 evidence that BCE improves agents. That claim requires the not-yet-run multi-repository controlled
 study described in `study-preregistration.json`.
 
-The cross-harness real-model protocol is frozen separately in
-`model-evaluation-preregistration.json`. It requires baseline/BCE arms and at least 30 trials per arm
-for each of Codex, Claude, Cursor, and a generic Agent Skills harness. Exact client binaries, model
-snapshots, isolated homes, disabled shared caches, a sealed randomized task manifest, failures,
-tokens, latency, cost, MCP selection, and policy mutation are all part of the denominator. Run
-`npm run research:model-eval-readiness`: it currently refuses because those expensive external inputs
-have not been frozen, and a refusal is the correct result before executing any trial. Seal the task
-manifest by hashing its compact JSON serialization with `manifestSha256` set to `null`, then store
-the result as `sha256:<hex>`. Readiness and analysis recompute that value and refuse post-seal edits.
+The canonical controlled-study contract is `model-evaluation/protocol.v2.json` plus its closed task
+manifest, treatment-delta, protected-path, terminal-record, and seal schemas. It defines 240 paired
+attempts across one primary and three transportability client/model cells. Its real repositories,
+tasks, client artifacts, provider-returned model identities, and public Sigstore preseal are
+deliberately unset. `npm run research:model-eval-readiness` therefore refuses; that is the correct
+state before claim-bearing inputs exist.
+
+`model-evaluation/pilots/accelerated-v1/` is a separate eight-attempt, development-exposed
+instrumentation pilot. It exists to exercise the real ordered controller, OS isolation, independent
+oracles, crash recovery, append-only terminal ledger, offline analysis, and safe public export. Its
+schema permanently makes any efficacy decision ineligible. A green pilot proves the measurement
+machinery operated; it cannot show that BCE improves success, defects, cost, latency, or resistance
+to policy manipulation.

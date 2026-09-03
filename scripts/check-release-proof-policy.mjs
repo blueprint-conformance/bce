@@ -21,6 +21,7 @@ const requirements = [
   ['fresh-consumer onboarding proof', /^\s*run:\s*npm run test:onboarding\s*$/m],
   ['deterministic Agent Skills + MCP adoption proof', /^\s*run:\s*npm run test:ai-adoption\s*$/m],
   ['independent adoption denominator policy', /^\s*run:\s*npm run test:adoption-program\s*$/m],
+  ['extractor-real self-blueprint source mutations', /npm run test:self-teeth-mutations/],
 ];
 const missing = requirements.filter(([, pattern]) => !pattern.test(gate)).map(([name]) => name);
 
@@ -33,9 +34,16 @@ const signingRequirements = [
 ];
 missing.push(...signingRequirements.filter(([, pattern]) => !pattern.test(publish)).map(([name]) => name));
 
+const generateIndex = publish.indexOf('Generate the evidence record of THIS release gate-run before publish');
+const verifyIndex = publish.indexOf('release evidence signature verifies');
+const npmPublishIndex = publish.indexOf('npm publish --provenance --access public\n');
+if (generateIndex < 0 || verifyIndex < 0 || npmPublishIndex < 0 || !(generateIndex < verifyIndex && verifyIndex < npmPublishIndex)) {
+  missing.push('verified release evidence before npm publish');
+}
+
 if (missing.length > 0) {
   process.stderr.write(`release-proof-policy: FAIL — release gate omits ${missing.join(', ')}\n`);
   process.exit(1);
 }
 
-process.stdout.write('release-proof-policy: PASS (proofs rerun; evidence keyless-signed with issuer and workflow identity constraints)\n');
+process.stdout.write('release-proof-policy: PASS (proofs rerun; extractor-real self teeth; evidence generated, verified, and keyless-signed before publish)\n');

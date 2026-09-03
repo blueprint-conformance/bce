@@ -27,7 +27,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Project, SyntaxKind, type CallExpression, type FunctionDeclaration, type NewExpression, type Node } from 'ts-morph';
+import { Project, SyntaxKind, ts, type CallExpression, type FunctionDeclaration, type NewExpression, type Node } from 'ts-morph';
 import type {
   ArchitectureGraph,
   ObservedComponent,
@@ -99,6 +99,20 @@ export interface ResolvedExtraction {
    * and `coverage.patternScan` is OMITTED (pre-0.9.0 graphs serialize byte-unchanged).
    */
   patterns: readonly string[];
+}
+
+/**
+ * Parse-only diagnostics for a real source mutation before it is credited as extractor evidence.
+ * This helper deliberately lives in the extractor module so ts-morph/TypeScript remains isolated
+ * behind the one facts-production seam. Semantic/module-resolution errors are not included: a
+ * mutation may intentionally import a forbidden package that is absent from node_modules.
+ */
+export function sourceSyntaxDiagnostics(pathname: string, text: string): string[] {
+  const kind = pathname.endsWith('.tsx') ? ts.ScriptKind.TSX : pathname.endsWith('.jsx') ? ts.ScriptKind.JSX :
+    pathname.endsWith('.js') || pathname.endsWith('.mjs') || pathname.endsWith('.cjs') ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(pathname, text, ts.ScriptTarget.Latest, true, kind);
+  const diagnostics = (source as unknown as { parseDiagnostics?: readonly ts.Diagnostic[] }).parseDiagnostics ?? [];
+  return diagnostics.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
 }
 
 /**

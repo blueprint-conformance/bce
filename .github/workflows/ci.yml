@@ -53,6 +53,9 @@ jobs:
       - name: Build the distributable engine
         run: npm run build
 
+      - name: Self-hosted extractor teeth — fresh manifest + 38 separately materialized source mutants
+        run: npm run test:self-teeth-mutations
+
       - name: Typecheck (tsc --noEmit, full tree)
         run: npm run typecheck
 
@@ -80,7 +83,7 @@ jobs:
       - name: External implementation intake contract + negative control
         run: npm run test:external-contract
 
-      - name: Cross-harness 240-trial model evaluation protocol + denominator controls
+      - name: Synthetic sealed v2 model-evaluation replay + causal-integrity controls (not efficacy evidence)
         run: npm run test:model-eval-protocol
 
       - name: Restricted-network runtime + hostile proxy/registry proof
@@ -268,3 +271,23 @@ jobs:
           repo: "."
           repo-name: blueprint-conformance/bce
           comment: "false"
+
+  model-evaluation-controller-macos:
+    name: model-evaluation-controller-macos
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.22.2
+          cache: npm
+
+      - name: Install (clean, lockfile-exact)
+        run: npm ci
+
+      - name: Build the treatment artifact
+        run: npm run build
+
+      - name: Real controller rehearsal — isolation, both arms, caught failure, and hard-crash recovery
+        run: npm run test:model-eval-controller

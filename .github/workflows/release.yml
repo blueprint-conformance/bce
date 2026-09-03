@@ -8,9 +8,8 @@ name: release
 # corpus/recall + self-gate (Lane B) + leakage-gate + the RED/GREEN dist pair —
 # and REFUSES to publish unless ALL of them are green HERE. Citation of a prior
 # green run is never accepted as the proof (the same discipline ci.yml applies on
-# every push). Only after the gate legs pass does it `npm publish --provenance
-# --access public`, then attach the evidence record of THIS gate-run to the
-# GitHub Release.
+# every push). The release evidence is generated, verified, and signed before the
+# irreversible registry write; only then does npm publish run.
 #
 # There is no skip flag. `dry_run` (workflow_dispatch only, default true) runs
 # every gate leg and then STOPS BEFORE publish — it proves the gate legs green
@@ -171,7 +170,7 @@ jobs:
       - name: External implementation intake contract + negative control
         run: npm run test:external-contract
 
-      - name: Cross-harness 240-trial model evaluation protocol + denominator controls
+      - name: Synthetic sealed v2 model-evaluation replay + causal-integrity controls (not efficacy evidence)
         run: npm run test:model-eval-protocol
 
       - name: Restricted-network runtime + hostile proxy/registry proof
@@ -186,17 +185,17 @@ jobs:
       - name: Corpus / measured-recall run (recall arithmetic + real-engine e2e proof)
         run: npx vitest run tests/recall-gate.test.ts tests/recall-e2e-proof.test.ts
 
-      - name: Self-gate (Lane B) — validate + teeth + self-blueprint sync + evidence chain, fail-closed
+      - name: Self-gate (Lane B) — validate + real-source teeth + self-blueprint sync + evidence chain, fail-closed
         shell: bash
         run: |
           set -euo pipefail
           node dist/cli.js validate --blueprint .blueprints/engine.blueprint.json
           node dist/cli.js gate --repo . --repo-name blueprint-conformance/bce
-          node dist/cli.js teeth --blueprint .blueprints/engine.blueprint.json --ct-repo . --out teeth-report.json
+          npm run test:self-teeth-mutations
           npx vitest run tests/self-blueprint.test.ts
           node tools/verify-chain.mjs evidence/example-chain
           echo "--- teeth report (surfaced in the run log) ---"
-          cat teeth-report.json
+          cat extractor-teeth-report.json
 
       - name: Leakage gate — NUL-proof banned-string scan (re-run at the tag)
         shell: bash
@@ -380,8 +379,8 @@ jobs:
   # ----------------------------------------------------------------------------
   # PUBLISH — runs ONLY on a real tag push with the gate green and dry_run false.
   # Re-installs + re-builds from a clean tree (never trusts the gate job's
-  # artifacts), then npm publish --provenance --access public, then generates and
-  # attaches the evidence record of the release gate-run to the GitHub Release.
+  # artifacts), generates/verifies/signs the release evidence, then executes npm
+  # publish --provenance --access public and attaches the pre-publish proof.
   # ----------------------------------------------------------------------------
   publish:
     name: publish (provenance) + attach evidence record
@@ -426,20 +425,7 @@ jobs:
       - name: Build the distributable engine
         run: npm run build
 
-      - name: npm publish --provenance --access public
-        shell: bash
-        env:
-          # Present only if the operator provisioned it (auth path A). Absent → npm
-          # falls through to the OIDC Trusted-Publishing path (B) enabled by the
-          # id-token:write permission on this job. If neither is usable, npm fails
-          # here with a clear auth error — never a silent success.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          npm publish --provenance --access public
-          echo "published $(node -p "require('./package.json').name")@$(node -p "require('./package.json').version") with provenance."
-
-      - name: Generate the evidence record of THIS release gate-run
+      - name: Generate the evidence record of THIS release gate-run before publish
         shell: bash
         run: |
           set -euo pipefail
@@ -475,6 +461,19 @@ jobs:
             --certificate-issuer https://token.actions.githubusercontent.com \
             --certificate-identity-uri "$identity"
           echo "release evidence signature verifies for ${identity}."
+
+      - name: npm publish --provenance --access public (only after evidence verifies)
+        shell: bash
+        env:
+          # Present only if the operator provisioned it (auth path A). Absent → npm
+          # falls through to the OIDC Trusted-Publishing path (B) enabled by the
+          # id-token:write permission on this job. If neither is usable, npm fails
+          # here with a clear auth error — never a silent success.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          npm publish --provenance --access public
+          echo "published $(node -p "require('./package.json').name")@$(node -p "require('./package.json').version") with provenance."
 
       - name: Attach the evidence record to the GitHub Release
         shell: bash

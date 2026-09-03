@@ -1,138 +1,268 @@
 #!/usr/bin/env node
-/** Confirmatory, intention-to-treat analysis for the frozen cross-harness protocol. */
-import Ajv from 'ajv';
-import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
+/** Offline analysis over verified, artifact-backed terminal records. */
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  loadVerifiedRecords,
+  sha256Bytes,
+  sha256Json,
+} from './lib/model-evaluation.mjs';
 
 const valueAfter = (flag) => {
-  const i = process.argv.indexOf(flag);
-  return i < 0 ? null : process.argv[i + 1] ?? null;
+  const index = process.argv.indexOf(flag);
+  return index < 0 ? null : process.argv[index + 1] ?? null;
 };
-const trialsDir = valueAfter('--trials');
-const preregPath = valueAfter('--prereg') ?? 'research/model-evaluation-preregistration.json';
-const manifestPath = valueAfter('--manifest') ?? 'research/model-evaluation-task-manifest.json';
-if (!trialsDir) {
-  process.stderr.write('usage: node scripts/analyze-model-evaluation.mjs --trials DIR [--prereg FILE --manifest FILE]\n');
+const bundleDir = valueAfter('--bundle');
+const runsDir = valueAfter('--runs');
+if (!bundleDir || !runsDir) {
+  process.stderr.write('usage: node scripts/analyze-model-evaluation.mjs --bundle DIR --runs DIR\n');
   process.exit(2);
 }
-const prereg = JSON.parse(readFileSync(resolve(preregPath), 'utf8'));
-const manifest = JSON.parse(readFileSync(resolve(manifestPath), 'utf8'));
-if (prereg.status !== 'frozen-ready-not-run' || manifest.status !== 'sealed-ready' || manifest.sealed !== true) {
-  throw new Error('analysis refused: preregistration and task manifest must be frozen-ready before trials');
-}
-const expectedManifestDigest = `sha256:${createHash('sha256').update(JSON.stringify({ ...manifest, manifestSha256: null })).digest('hex')}`;
-if (manifest.manifestSha256 !== expectedManifestDigest) throw new Error('analysis refused: task manifest digest does not match frozen content');
-const schema = JSON.parse(readFileSync(resolve('research/model-evaluation-trial.schema.json'), 'utf8'));
-const ajv = new Ajv({ allErrors: true, strict: true });
-const validate = ajv.compile(schema);
-const files = readdirSync(resolve(trialsDir)).filter((file) => file.endsWith('.json')).sort();
-const rows = files.map((file) => {
-  const row = JSON.parse(readFileSync(resolve(trialsDir, file), 'utf8'));
-  if (!validate(row)) throw new Error(`${file}: ${ajv.errorsText(validate.errors)}`);
-  return row;
-});
-const byId = new Map(rows.map((row) => [row.trialId, row]));
-if (byId.size !== rows.length) throw new Error('analysis refused: duplicate trialId');
-const planned = manifest.randomizedTrials;
-if (!Array.isArray(planned) || planned.length === 0) throw new Error('analysis refused: randomized trial manifest is empty');
-const plannedIds = new Set(planned.map((trial) => trial.trialId));
-const missing = [...plannedIds].filter((id) => !byId.has(id));
-const extra = rows.filter((row) => !plannedIds.has(row.trialId)).map((row) => row.trialId);
-if (missing.length || extra.length) throw new Error(`analysis refused: denominator mismatch (${missing.length} missing, ${extra.length} extra)`);
 
-const harnessSpecs = new Map(prereg.harnesses.map((harness) => [harness.id, harness]));
-for (const row of rows) {
-  const expected = planned.find((trial) => trial.trialId === row.trialId);
-  for (const key of ['harness', 'arm', 'repositoryId', 'taskId', 'orderIndex']) {
-    if (row[key] !== expected[key]) throw new Error(`${row.trialId}: ${key} differs from frozen assignment`);
-  }
-  const identity = harnessSpecs.get(row.harness);
-  if (!identity || row.identity.clientVersion !== identity.clientVersion ||
-      row.identity.clientArtifactSha256 !== identity.clientArtifactSha256 ||
-      row.identity.modelSnapshot !== identity.modelSnapshot) {
-    throw new Error(`${row.trialId}: client/model identity differs from preregistration`);
-  }
+const { bundle, records } = loadVerifiedRecords(bundleDir, runsDir);
+const scriptPath = new URL(import.meta.url);
+const runningAnalyzerSha256 = sha256Bytes(readFileSync(scriptPath));
+if (runningAnalyzerSha256 !== bundle.protocol.implementation.analyzerSha256) {
+  throw new Error('analysis refused: running analyzer digest differs from the frozen protocol implementation');
 }
 
-const z = 1.959963984540054;
-const wilson = (successes, total) => {
-  if (!total) return { estimate: null, low: null, high: null, successes, total };
-  const p = successes / total;
-  const den = 1 + (z * z) / total;
-  const centre = (p + (z * z) / (2 * total)) / den;
-  const margin = z * Math.sqrt((p * (1 - p) + (z * z) / (4 * total)) / total) / den;
-  return { estimate: p, low: Math.max(0, centre - margin), high: Math.min(1, centre + margin), successes, total };
+const quantile = (input, probability) => {
+  if (!input.length) return null;
+  const values = [...input].sort((a, b) => a - b);
+  const position = (values.length - 1) * probability;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) return values[lower];
+  return values[lower] + (values[upper] - values[lower]) * (position - lower);
 };
-const rate = (subset, predicate) => wilson(subset.filter(predicate).length, subset.length);
-const quantile = (values, p) => values.sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(p * values.length))];
-const seed = Number.parseInt(prereg.randomization.seed.slice(7, 15), 16) >>> 0;
-let randomState = seed;
-const random = () => {
-  randomState |= 0; randomState = randomState + 0x6D2B79F5 | 0;
-  let t = Math.imul(randomState ^ randomState >>> 15, 1 | randomState);
-  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+const median = (values) => quantile(values, 0.5);
+const rate = (rows, predicate) => {
+  const successes = rows.filter(predicate).length;
+  const total = rows.length;
+  if (!total) return { successes, total, estimate: null, low: null, high: null, interval: 'wilson-95' };
+  const estimate = successes / total;
+  const z = 1.959963984540054;
+  const denominator = 1 + (z * z) / total;
+  const center = (estimate + (z * z) / (2 * total)) / denominator;
+  const half = z * Math.sqrt((estimate * (1 - estimate) + (z * z) / (4 * total)) / total) / denominator;
+  return { successes, total, estimate, low: Math.max(0, center - half), high: Math.min(1, center + half), interval: 'wilson-95' };
 };
-const clusteredDifference = (subset, predicate) => {
-  const repositories = [...new Set(subset.map((row) => row.repositoryId))].sort();
-  const point = (arm) => {
-    const armRows = subset.filter((row) => row.arm === arm);
-    return armRows.filter(predicate).length / armRows.length;
+const mulberry32 = (seed) => {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6D2B79F5) | 0;
+    let value = Math.imul(state ^ (state >>> 15), 1 | state);
+    value = (value + Math.imul(value ^ (value >>> 7), 61 | value)) ^ value;
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
   };
-  const draws = [];
-  for (let iteration = 0; iteration < 2000; iteration += 1) {
-    const sampled = [];
-    for (let i = 0; i < repositories.length; i += 1) {
-      const repository = repositories[Math.floor(random() * repositories.length)];
-      sampled.push(...subset.filter((row) => row.repositoryId === repository));
-    }
-    const armRate = (arm) => {
-      const armRows = sampled.filter((row) => row.arm === arm);
-      return armRows.filter(predicate).length / armRows.length;
-    };
-    draws.push(armRate('bce-enabled') - armRate('baseline-no-bce'));
-  }
-  return { estimate: point('bce-enabled') - point('baseline-no-bce'), low: quantile(draws, 0.025), high: quantile(draws, 0.975), method: '2000-draw repository-cluster bootstrap' };
 };
-const summarizeArm = (subset) => ({
-  trials: subset.length,
-  statuses: Object.fromEntries(prereg.failurePolicy.statuses.map((status) => [status, subset.filter((row) => row.status === status).length])),
-  architectureConformance: rate(subset, (row) => row.outcomes.architectureConformant === true),
-  taskSuccess: rate(subset, (row) => row.outcomes.taskSuccessful === true),
-  policyMutation: rate(subset, (row) => row.outcomes.policyMutation),
-  skillLoaded: rate(subset, (row) => row.outcomes.skillLoaded),
-  mcpSelected: rate(subset, (row) => row.outcomes.mcpSelected),
-  gateUsed: rate(subset, (row) => row.outcomes.gateCalls > 0),
-  latencyMs: { median: quantile(subset.map((row) => row.telemetry.latencyMs), 0.5), total: subset.reduce((sum, row) => sum + row.telemetry.latencyMs, 0) },
-  telemetryUnavailable: subset.filter((row) => Object.keys(row.telemetry.unavailableReasons).length > 0).length,
-  tokens: Object.fromEntries(['inputTokens', 'outputTokens', 'cachedTokens'].map((key) => [key, subset.reduce((sum, row) => sum + (row.telemetry[key] ?? 0), 0)])),
-  costUsd: subset.reduce((sum, row) => sum + (row.telemetry.costUsd ?? 0), 0),
-});
 
-const harnesses = {};
-for (const harness of [...harnessSpecs.keys()].sort()) {
-  const subset = rows.filter((row) => row.harness === harness);
-  for (const repository of [...new Set(subset.map((row) => row.repositoryId))]) {
-    for (const arm of prereg.arms) {
-      if (!subset.some((row) => row.repositoryId === repository && row.arm === arm)) {
-        throw new Error(`${harness}/${repository}: cluster has no ${arm} observation`);
-      }
+function pairedRows(rows) {
+  const pairs = new Map();
+  for (const row of rows) {
+    const pair = pairs.get(row.pairId) ?? {};
+    pair[row.assignment.arm] = row;
+    pairs.set(row.pairId, pair);
+  }
+  for (const [pairId, pair] of pairs) {
+    if (!pair['baseline-no-bce'] || !pair['bce-enabled']) throw new Error(`${pairId}: incomplete pair after denominator verification`);
+    if (pair['baseline-no-bce'].assignment.taskId !== pair['bce-enabled'].assignment.taskId ||
+        pair['baseline-no-bce'].assignment.repositoryId !== pair['bce-enabled'].assignment.repositoryId) {
+      throw new Error(`${pairId}: paired records differ in task or repository`);
     }
   }
-  const minimum = harnessSpecs.get(harness).minimumTrialsPerArm;
-  const arms = Object.fromEntries(prereg.arms.map((arm) => {
-    const armRows = subset.filter((row) => row.arm === arm);
-    if (armRows.length < minimum) throw new Error(`${harness}/${arm}: ${armRows.length}/${minimum} trials`);
-    return [arm, summarizeArm(armRows)];
-  }));
-  harnesses[harness] = {
+  return [...pairs.entries()].map(([pairId, pair]) => ({ pairId, baseline: pair['baseline-no-bce'], bce: pair['bce-enabled'] }));
+}
+
+function pairedDifference(rows, field, benefitDirection = 'bce-minus-baseline') {
+  const pairs = pairedRows(rows);
+  const signed = (pair) => {
+    const bce = pair.bce.derived[field] ? 1 : 0;
+    const baseline = pair.baseline.derived[field] ? 1 : 0;
+    return benefitDirection === 'baseline-minus-bce' ? baseline - bce : bce - baseline;
+  };
+  const repositories = [...new Set(pairs.map((pair) => pair.bce.assignment.repositoryId))].sort();
+  const seedHex = sha256Bytes(`${bundle.protocol.randomization.seed}\0${rows[0].assignment.cellId}\0${field}\0${benefitDirection}`).slice(0, 8);
+  const random = mulberry32(Number.parseInt(seedHex, 16));
+  const draws = [];
+  const drawCount = bundle.protocol.analysis.bootstrapDraws;
+  for (let draw = 0; draw < drawCount; draw += 1) {
+    const sampled = [];
+    for (let index = 0; index < repositories.length; index += 1) {
+      const repositoryId = repositories[Math.floor(random() * repositories.length)];
+      sampled.push(...pairs.filter((pair) => pair.bce.assignment.repositoryId === repositoryId));
+    }
+    draws.push(sampled.reduce((sum, pair) => sum + signed(pair), 0) / sampled.length);
+  }
+  const values = pairs.map(signed);
+  return {
+    estimate: values.reduce((sum, value) => sum + value, 0) / values.length,
+    low: quantile(draws, 0.025),
+    high: quantile(draws, 0.975),
+    pairs: pairs.length,
+    repositoryClusters: repositories.length,
+    direction: benefitDirection,
+    method: `${drawCount}-draw deterministic repository-cluster bootstrap over paired task differences`,
+  };
+}
+
+function metricSummary(rows, key) {
+  const observed = rows.map((row) => row.telemetry[key]).filter((value) => value !== null);
+  const reasonCounts = {};
+  for (const row of rows) {
+    if (row.telemetry[key] !== null) continue;
+    const reason = row.telemetry.missingReasons[key];
+    reasonCounts[reason] = (reasonCounts[reason] ?? 0) + 1;
+  }
+  return {
+    observed: observed.length,
+    missing: rows.length - observed.length,
+    missingReasons: reasonCounts,
+    sumKnown: observed.length ? observed.reduce((sum, value) => sum + value, 0) : null,
+    medianKnown: median(observed),
+  };
+}
+
+function pairedRatio(rows, key) {
+  const pairs = [];
+  let missingPairs = 0;
+  for (const pair of pairedRows(rows)) {
+    const baseline = pair.baseline.telemetry[key];
+    const bce = pair.bce.telemetry[key];
+    if (baseline === null || bce === null || baseline === 0) missingPairs += 1;
+    else pairs.push({ repositoryId: pair.bce.assignment.repositoryId, value: bce / baseline });
+  }
+  const repositories = [...new Set(pairs.map((pair) => pair.repositoryId))].sort();
+  const random = mulberry32(Number.parseInt(sha256Bytes(`${bundle.protocol.randomization.seed}\0ratio\0${rows[0].assignment.cellId}\0${key}`).slice(0, 8), 16));
+  const draws = [];
+  if (pairs.length > 0) {
+    for (let draw = 0; draw < bundle.protocol.analysis.bootstrapDraws; draw += 1) {
+      const sampled = [];
+      for (let index = 0; index < repositories.length; index += 1) {
+        const repositoryId = repositories[Math.floor(random() * repositories.length)];
+        sampled.push(...pairs.filter((pair) => pair.repositoryId === repositoryId).map((pair) => pair.value));
+      }
+      draws.push(median(sampled));
+    }
+  }
+  return {
+    median: median(pairs.map((pair) => pair.value)),
+    low: quantile(draws, 0.025),
+    high: quantile(draws, 0.975),
+    observedPairs: pairs.length,
+    missingPairs,
+    method: `${bundle.protocol.analysis.bootstrapDraws}-draw deterministic repository-cluster bootstrap of paired ratios`,
+  };
+}
+
+function summarizeArm(rows) {
+  const visibleAccepted = rows.filter((row) => row.derived.visiblePipelineAccepted);
+  return {
+    trials: rows.length,
+    statuses: Object.fromEntries([...new Set(rows.map((row) => row.status))].sort().map((status) => [status, rows.filter((row) => row.status === status).length])),
+    safeSuccessfulCompletion: rate(rows, (row) => row.derived.safeSuccessfulCompletion),
+    taskSuccess: rate(rows, (row) => row.derived.hiddenFunctionalPassed),
+    architectureConformance: rate(rows, (row) => row.derived.independentArchitecturePassed),
+    escapedDefectItt: rate(rows, (row) => row.derived.escapedDefect),
+    escapedDefectConditionalOnVisibleAcceptance: rate(visibleAccepted, (row) => row.derived.escapedDefect),
+    productiveBlock: rate(rows, (row) => row.derived.productiveBlock),
+    falseBlock: rate(rows, (row) => row.derived.falseBlock),
+    policyMutation: rate(rows, (row) => row.derived.policyMutation),
+    collateralRegression: rate(rows, (row) => row.derived.collateralRegression),
+    telemetry: Object.fromEntries(['latencyMs', 'nonBcePipelineMs', 'bceGateMs', 'endToEndVisibleMs', 'oracleMs', 'agentTurns', 'inputTokens', 'outputTokens', 'cachedTokens', 'costUsd'].map((key) => [key, metricSummary(rows, key)])),
+  };
+}
+
+const cellReports = {};
+for (const cell of bundle.protocol.clientModelCells) {
+  const rows = records.filter((record) => record.assignment.cellId === cell.id);
+  const expected = bundle.manifest.tasks.length * 2;
+  if (rows.length !== expected) throw new Error(`${cell.id}: expected ${expected} verified trials, got ${rows.length}`);
+  const arms = Object.fromEntries(bundle.protocol.arms.map((arm) => [arm, summarizeArm(rows.filter((record) => record.assignment.arm === arm))]));
+  cellReports[cell.id] = {
+    role: cell.role,
+    identity: {
+      client: cell.client,
+      clientVersion: cell.clientVersion,
+      clientArtifactSha256: cell.clientArtifactSha256,
+      requestedModel: cell.requestedModel,
+      resolvedModel: cell.resolvedModel,
+      modelIdentitySource: cell.modelIdentitySource,
+      modelIdentityEvidence: cell.modelIdentityEvidence,
+      reasoningEffort: cell.reasoningEffort,
+    },
     arms,
-    differences: {
-      architectureConformance: clusteredDifference(subset, (row) => row.outcomes.architectureConformant === true),
-      taskSuccess: clusteredDifference(subset, (row) => row.outcomes.taskSuccessful === true),
-      policyMutation: clusteredDifference(subset, (row) => row.outcomes.policyMutation),
+    pairedEffects: {
+      safeSuccessfulCompletion: pairedDifference(rows, 'safeSuccessfulCompletion'),
+      escapedDefectReduction: pairedDifference(rows, 'escapedDefect', 'baseline-minus-bce'),
+      policyMutation: pairedDifference(rows, 'policyMutation'),
+    },
+    pairedResourceRatios: {
+      endToEndVisibleMs: pairedRatio(rows, 'endToEndVisibleMs'),
+      costUsd: pairedRatio(rows, 'costUsd'),
     },
   };
 }
-process.stdout.write(`${JSON.stringify({ schemaVersion: '1', analysis: 'intention-to-treat', pooledConfirmatoryEstimate: null, trials: rows.length, harnesses }, null, 2)}\n`);
+
+const primaryCell = Object.entries(cellReports).find(([, report]) => report.role === 'primary');
+if (!primaryCell) throw new Error('no primary cell after bundle verification');
+const [primaryCellId, primary] = primaryCell;
+const rules = bundle.protocol.decisionRules.recommendDefaultOnlyIfAll;
+const primaryBaselineEscape = primary.arms['baseline-no-bce'].escapedDefectItt.estimate;
+const primaryBceEscape = primary.arms['bce-enabled'].escapedDefectItt.estimate;
+const relativeEscapeReduction = primaryBaselineEscape > 0 ? (primaryBaselineEscape - primaryBceEscape) / primaryBaselineEscape : null;
+const conservativeRelativeEscapeReduction = primary.arms['baseline-no-bce'].escapedDefectItt.low > 0
+  ? 1 - (primary.arms['bce-enabled'].escapedDefectItt.high / primary.arms['baseline-no-bce'].escapedDefectItt.low)
+  : null;
+const safeGain = primary.pairedEffects.safeSuccessfulCompletion.estimate;
+const frictionException = primary.pairedEffects.safeSuccessfulCompletion.low >= bundle.protocol.decisionRules.frictionExceptionRequiresSafeSuccessGain;
+const checks = {
+  primarySafeSuccessGain: primary.pairedEffects.safeSuccessfulCompletion.low >= rules.safeSuccessRiskDifferenceMinimum,
+  primaryEscapedDefectAbsoluteReduction: primary.pairedEffects.escapedDefectReduction.low >= rules.escapedDefectAbsoluteReductionMinimum,
+  primaryEscapedDefectRelativeReduction: conservativeRelativeEscapeReduction !== null && conservativeRelativeEscapeReduction >= rules.escapedDefectRelativeReductionMinimum,
+  primaryFalseBlockRate: primary.arms['bce-enabled'].falseBlock.high <= rules.falseBlockRateMaximum,
+  worstCellSafeSuccess: Math.min(...Object.values(cellReports).map((report) => report.pairedEffects.safeSuccessfulCompletion.low)) >= rules.worstCellSafeSuccessRiskDifferenceMinimum,
+  policyMutation: Math.max(...Object.values(cellReports).map((report) => report.pairedEffects.policyMutation.high)) <= rules.policyMutationRiskDifferenceMaximum,
+  pairedCost: primary.pairedResourceRatios.costUsd.high !== null && (primary.pairedResourceRatios.costUsd.high <= rules.medianPairedCostRatioMaximum || frictionException),
+  pairedWallTime: primary.pairedResourceRatios.endToEndVisibleMs.high !== null && (primary.pairedResourceRatios.endToEndVisibleMs.high <= rules.medianPairedWallTimeRatioMaximum || frictionException),
+};
+const decision = bundle.protocol.phase === 'pilot'
+  ? 'ineligible-instrumentation-pilot-no-efficacy-decision'
+  : Object.values(checks).every(Boolean) ? 'recommend-bce-default-for-this-frozen-evaluation-scope' : 'thresholds-not-established-do-not-claim-uplift';
+
+const analysis = {
+  schemaVersion: '2',
+  studyId: bundle.protocol.studyId,
+  evidenceClass: bundle.protocol.phase === 'pilot' ? 'author-operated-instrumentation-pilot' : 'author-operated-randomized-evaluation',
+  operatorModel: bundle.protocol.operatorModel,
+  causalClaimScope: bundle.protocol.claimScope,
+  pooledConfirmatoryEstimate: null,
+  verifiedTrials: records.length,
+  bindings: {
+    sealRootSha256: bundle.seal.rootSha256,
+    protocolSha256: sha256Bytes(readFileSync(resolve(bundle.root, 'protocol.v2.json'))),
+    manifestSha256: sha256Bytes(readFileSync(resolve(bundle.root, 'task-manifest.json'))),
+    analyzerSha256: runningAnalyzerSha256,
+  },
+  cells: cellReports,
+  productDecision: {
+    primaryCell: primaryCellId,
+    decision,
+    checks: bundle.protocol.phase === 'pilot' ? null : checks,
+    relativeEscapedDefectReduction: relativeEscapeReduction,
+    conservativeRelativeEscapedDefectReduction: bundle.protocol.phase === 'pilot' ? null : conservativeRelativeEscapeReduction,
+    reason: bundle.protocol.phase === 'pilot' ? 'Development-exposed, author-operated instrumentation pilot; outcomes are permanently ineligible for product-efficacy or default recommendations.' : null,
+  },
+  limitations: [
+    'The study operator selected the tasks and authored the machine oracles; this is not independent validation.',
+    'The estimate applies only to the exact sealed repositories, tasks, clients, models, versions, and run conditions.',
+    'A hazard-enriched task corpus does not estimate natural defect prevalence or production incident reduction.',
+    'Mechanism observations such as skill loading, MCP selection, and BCE gate calls are not product-success outcomes.',
+    ...(bundle.protocol.clientModelCells.some((cell) => cell.modelIdentityEvidence !== 'provider-response')
+      ? ['At least one client records only requested model configuration rather than a provider-returned model identity; those rows cannot satisfy safe successful completion.']
+      : []),
+  ],
+  resultSha256: null,
+};
+analysis.resultSha256 = sha256Json(analysis);
+process.stdout.write(`${JSON.stringify(analysis, null, 2)}\n`);

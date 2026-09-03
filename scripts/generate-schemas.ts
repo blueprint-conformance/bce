@@ -42,6 +42,7 @@ import {
 } from '../src/schema.js';
 import { stableStringify, SEVERITY_WEIGHT } from '../src/report.js';
 import { APPROVAL_FLOOR } from '../src/emit.js';
+import { TeethMutationManifestSchema } from '../src/extractor-teeth.js';
 
 export const SCHEMA_ID_BASE = 'https://blueprint-conformance.github.io/bce/schemas/';
 const DRAFT = 'http://json-schema.org/draft-07/schema#';
@@ -102,6 +103,21 @@ function portfolioBlueprintSchema(): Record<string, unknown> {
     'The authored fleet-level blueprint artifact (apiVersion blueprint-conformance/v1alpha1), ' +
       'lowered by `bce portfolio compile` into per-member EngineeringBlueprint overlays. ' +
       'Mechanically derived from the normative Zod schema in src/schema.ts.',
+    body,
+  );
+}
+
+function teethMutationManifestSchema(): Record<string, unknown> {
+  const body = zodToJsonSchema(TeethMutationManifestSchema, {
+    name: 'TeethMutationManifest',
+    target: 'jsonSchema7',
+    $refStrategy: 'none',
+  }) as Record<string, unknown>;
+  delete body.$schema;
+  return envelope(
+    'teeth-mutation-manifest.schema.json',
+    'TeethMutationManifest',
+    'A closed, digest-preconditioned set of real repository source mutations. The extractor-real teeth runner materializes every case in a fresh copy and requires the mapped constraint to redden at the mutated file.',
     body,
   );
 }
@@ -400,6 +416,7 @@ export function generateSchemas(): Record<string, Record<string, unknown>> {
     'evidence-record.schema.json': evidenceRecordSchema(),
     'architecture-graph.schema.json': architectureGraphSchema(),
     'remediation-work-order.schema.json': remediationWorkOrderSchema(),
+    'teeth-mutation-manifest.schema.json': teethMutationManifestSchema(),
   };
 }
 

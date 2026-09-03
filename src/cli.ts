@@ -43,6 +43,7 @@ import { makeExtractor } from './extractor-registry.js';
 import { safeCompilePattern, UnsafePatternError } from './safe-regex.js';
 import { evaluate, stableStringify, type ComplianceReport } from './report.js';
 import { assessTeeth } from './teeth.js';
+import { assessExtractorTeethCorpus } from './extractor-teeth.js';
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 import { resolveRevision, materializeAtRevision } from './pin.js';
 import { runGate, assembleGateReportDoc } from './gate.js';
@@ -457,7 +458,7 @@ function main(): void {
     init: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'min-files', 'repo', 'out'],
     scan: ['ct-repo', 'blueprint', 'ref', 'extractor', 'no-pin', 'out'],
     run: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'out', 'observations', 'emit-bundle', 'emit', 'prev-hash', 'emit-evidence-out', 'emit-wo-out'],
-    teeth: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'require-extractor-real', 'reviewed-waiver', 'out'],
+    teeth: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'require-extractor-real', 'reviewed-waiver', 'mutation-manifest', 'require-all-extractor-real', 'out'],
     gate: ['repo', 'ct-repo', 'blueprint-dir', 'changed', 'extractor', 'repo-name', 'all', 'report-json'],
     baseline: ['repo', 'ct-repo', 'blueprint-dir', 'changed', 'extractor', 'repo-name', 'dry-run', 'check', 'out', 'patch-out'],
     graduate: ['repo', 'ct-repo', 'downgrade', 'rationale'],
@@ -963,6 +964,42 @@ function main(): void {
     //       explicitly NOT evidence of real teeth)
     //   2 = TOOTHLESS (every constraint trivially-green or indeterminate — a green run proves nothing)
     const bp = readBlueprint(args.blueprint as string);
+    if (typeof args['mutation-manifest'] === 'string') {
+      if (args['require-all-extractor-real'] !== true && args['require-all-extractor-real'] !== 'true') {
+        die('--mutation-manifest requires --require-all-extractor-real; partial source-mutation credit is refused', 2);
+      }
+      let manifest: unknown;
+      try { manifest = JSON.parse(fs.readFileSync(args['mutation-manifest'], 'utf8')); }
+      catch (e) { die(`mutation manifest is not valid JSON: ${(e as Error).message}`, 2); }
+      let report;
+      try {
+        report = assessExtractorTeethCorpus({
+          blueprint: bp,
+          repoDir: args['ct-repo'] as string,
+          manifest,
+          extractor: extractorKind,
+        });
+      } catch (e) {
+        die(`extractor-real mutation proof refused: ${(e as Error).message}`, 2);
+      }
+      const out = (args.out as string) || 'extractor-teeth-report.json';
+      fs.writeFileSync(out, stableStringify(report));
+      if (report.verdict !== 'extractor-real-proven') {
+        process.stderr.write(
+          `::error::extractor-real mutation proof REFUSED — ${report.killed}/${report.constraints} constraints killed; ` +
+          `${report.survived} survived, ${report.refused} refused, ${report.unmappedConstraints.length} unmapped\n`,
+        );
+        for (const entry of report.cases.filter((item) => item.status !== 'killed')) {
+          process.stderr.write(`::error::  [${entry.constraintId}/${entry.id}] ${entry.status}: ${entry.detail}\n`);
+        }
+        process.exit(2);
+      }
+      process.stdout.write(
+        `ExtractorTeethReport: ${report.blueprintRef} -> extractor-real-proven — ` +
+        `${report.killed}/${report.constraints} separately materialized source mutants killed\n`,
+      );
+      return;
+    }
     const cfg = resolveExtraction(bp.extraction, bp.constraints);
     const graph = buildGraph(args['ct-repo'] as string, args.ref as string | undefined, extractorKind, noPin, cfg);
     const teeth = assessTeeth(bp, graph, cfg.profile);
@@ -1461,6 +1498,8 @@ function main(): void {
       `  bce run   --blueprint <path> --ct-repo <dir> [--ref <sha|ref>] [--extractor ast|line-scan] --out <path> [--emit-bundle <json>]\n` +
       `  bce teeth --blueprint <path> --ct-repo <dir> [--require-extractor-real] [--reviewed-waiver] [--out <path>]\n` +
       `       --reviewed-waiver accepts evaluator-only proof only via committed ${TEETH_WAIVER_RELPATH}.\n` +
+      `       --mutation-manifest <json> [--require-all-extractor-real] materializes each declared source mutant\n` +
+      `       in a fresh copy and requires the real extractor to redden every mapped constraint.\n` +
       `  bce gate  [--repo <dir>] [--blueprint-dir <dir>] [--changed a,b,c] [--extractor ast|line-scan] [--repo-name <org/repo>] [--all] [--report-json <path>]\n` +
       `       --report-json <path> ADDITIVELY writes the machine-parseable gate result (verdict, exit code,\n` +
       `       mode, counts, full graded reports) — a pure output side-channel; the verdict + exit + streams\n` +

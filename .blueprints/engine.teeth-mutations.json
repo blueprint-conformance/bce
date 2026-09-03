@@ -1,0 +1,469 @@
+{
+  "schemaVersion": "1",
+  "blueprintRef": "bce-engine-architecture@0.1.0",
+  "allowedMutationRoots": [
+    "src"
+  ],
+  "cases": [
+    {
+      "id": "source-mutant-evaluator-pure--report-imports-only-crypto-and-relative",
+      "constraintId": "evaluator-pure--report-imports-only-crypto-and-relative",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/report.ts",
+        "preconditionSha256": "8a570da7901a68d1b62f64fdd8bcb75eea08127b42759c60ab3220e214fe87b7",
+        "content": "\nimport __bceMutationReportDependency from 'ajv';\n"
+      },
+      "expectedEvidencePath": "src/report.ts",
+      "allowedCollateralConstraints": [
+        "runtime-dep-allowlist-zod-and-ts-morph"
+      ]
+    },
+    {
+      "id": "source-mutant-evaluator-pure--score-imports-relative-only",
+      "constraintId": "evaluator-pure--score-imports-relative-only",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/score.ts",
+        "preconditionSha256": "decebe564a05f08750142e7d8cd99912b546c78796b58f6ff44b8b8e3ae22436",
+        "content": "\nimport { randomBytes as __bceMutationRandomBytes } from 'node:crypto';\n"
+      },
+      "expectedEvidencePath": "src/score.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-evaluator-pure--teeth-imports-relative-only",
+      "constraintId": "evaluator-pure--teeth-imports-relative-only",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/teeth.ts",
+        "preconditionSha256": "4431f30c05541b6025ac203c53a61b74aa2e36cc42935f846ed1a6b008912057",
+        "content": "\nimport { randomBytes as __bceMutationRandomBytes } from 'node:crypto';\n"
+      },
+      "expectedEvidencePath": "src/teeth.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--baseline",
+      "constraintId": "only-cli-may-call-process-exit--baseline",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/baseline.ts",
+        "preconditionSha256": "f9633d9c89c245ae90fefc6603c834b78b22bb0f21ac8d67004b74ad28c34b8d",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/baseline.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--benchmark",
+      "constraintId": "only-cli-may-call-process-exit--benchmark",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/benchmark.ts",
+        "preconditionSha256": "cf52a815d496a30691c764fa1bf0e022f1f5573c9d40cdd6cff817c95612d17a",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/benchmark.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--corpus",
+      "constraintId": "only-cli-may-call-process-exit--corpus",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/corpus.ts",
+        "preconditionSha256": "c36c4604cf3719ab2fb5b161ae9b9a16c7e1290cf7eb42ab8bfbf5a6a2e5aa2e",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/corpus.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--emit",
+      "constraintId": "only-cli-may-call-process-exit--emit",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/emit.ts",
+        "preconditionSha256": "7942c1df8ffdb830006a7bddf2b60cf90016bae70ff4d3612a4079f05332ee25",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/emit.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--evidence-bundle",
+      "constraintId": "only-cli-may-call-process-exit--evidence-bundle",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/evidence-bundle.ts",
+        "preconditionSha256": "d260adeb2e4da83359e8baf29479aaeed4c6431f621278572f7ffbed6e0e30e1",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/evidence-bundle.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--evidence-store",
+      "constraintId": "only-cli-may-call-process-exit--evidence-store",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/evidence-store.ts",
+        "preconditionSha256": "441bb6ce5bc1fe0b76919aad410ccdfea940e3fba6a03b6508a725da17a831c1",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/evidence-store.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--extractor-registry",
+      "constraintId": "only-cli-may-call-process-exit--extractor-registry",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/extractor-registry.ts",
+        "preconditionSha256": "4ada8d2f93dfff1749479c2f88cbb0d1a7eed22a59429b1276a903da12b76f89",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/extractor-registry.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--extractor-teeth",
+      "constraintId": "only-cli-may-call-process-exit--extractor-teeth",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/extractor-teeth.ts",
+        "preconditionSha256": "b977846da8e00e11e519438b3cd887f0908f5495cb5398d8a6d213dc0f223b54",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/extractor-teeth.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--extractors",
+      "constraintId": "only-cli-may-call-process-exit--extractors",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/extractors.ts",
+        "preconditionSha256": "1c1df6b87cedc6aa2d0581dcee6d22f8f831f2232ceb6e514213d723d437a4da",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/extractors.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--gate",
+      "constraintId": "only-cli-may-call-process-exit--gate",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/gate.ts",
+        "preconditionSha256": "4d7b2a1cfede8c06fd026d01acce9ad31964918110a62e1f012338c0c2a2e7f5",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/gate.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--graph",
+      "constraintId": "only-cli-may-call-process-exit--graph",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/graph.ts",
+        "preconditionSha256": "406039c73c8e928fcf82acc957b679ca38442ed59201927d8f7753edcc4f2f7b",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/graph.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--index",
+      "constraintId": "only-cli-may-call-process-exit--index",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/index.ts",
+        "preconditionSha256": "89723cd8a2a5766d0d215aa5005ad0ade344188888ebaeca504de942c9a63f1b",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/index.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--lifecycle",
+      "constraintId": "only-cli-may-call-process-exit--lifecycle",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/lifecycle.ts",
+        "preconditionSha256": "dc5ee01781b35d5c17fdd299aac61609bed62fb3f578e020d678b8af28e07a2a",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/lifecycle.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--materializer",
+      "constraintId": "only-cli-may-call-process-exit--materializer",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/materializer.ts",
+        "preconditionSha256": "25a839ea109e5820f2ec9b11a24d6fc0cf7cdc04c7e9ae3f4d833b62a8e78483",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/materializer.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--mode",
+      "constraintId": "only-cli-may-call-process-exit--mode",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/mode.ts",
+        "preconditionSha256": "d66a9084e99fd3c44ec20e6efb93f4c1eb1f652f4362aaa380602f42ea7f9e7b",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/mode.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--observations",
+      "constraintId": "only-cli-may-call-process-exit--observations",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/observations.ts",
+        "preconditionSha256": "873b37226ed542ebd4bc2c5563af43b685fa12bf5194a03b203aa327e6ba48e2",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/observations.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--pin",
+      "constraintId": "only-cli-may-call-process-exit--pin",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/pin.ts",
+        "preconditionSha256": "a9f18a9e7997fb72609ba6a468160e67d0d87e72dac622f683f391580e2d57f6",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/pin.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--policy-change",
+      "constraintId": "only-cli-may-call-process-exit--policy-change",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/policy-change.ts",
+        "preconditionSha256": "6d5e483dc75a94befa8e0560e25f9c7a8b2713b980092222690b6245f78cd42d",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/policy-change.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--policy-history",
+      "constraintId": "only-cli-may-call-process-exit--policy-history",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/policy-history.ts",
+        "preconditionSha256": "de84e66ef07782d4eea5d7d11d7167f8cff3be38c6eee44aeb257b324cf27374",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/policy-history.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--portfolio-collect",
+      "constraintId": "only-cli-may-call-process-exit--portfolio-collect",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/portfolio-collect.ts",
+        "preconditionSha256": "4c1045968b4a2356602297f290ba280309b7cd5305144df1021fe1756b61b666",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/portfolio-collect.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--portfolio-compile",
+      "constraintId": "only-cli-may-call-process-exit--portfolio-compile",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/portfolio-compile.ts",
+        "preconditionSha256": "ed2e4a49908b6a76523876f92c4d33df4200619e10cce088eb3c6293597f9ec2",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/portfolio-compile.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--python-extractor",
+      "constraintId": "only-cli-may-call-process-exit--python-extractor",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/python-extractor.ts",
+        "preconditionSha256": "ac773a38d75427a83cbce0e2bbc623fb85dde8a03c6bf58767a10944a0cff05a",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/python-extractor.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--recall-gate",
+      "constraintId": "only-cli-may-call-process-exit--recall-gate",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/recall-gate.ts",
+        "preconditionSha256": "d7b35d656a953182d7d2e74a667359257a00f57078e34ff2c2ebea01a47812d8",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/recall-gate.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--report",
+      "constraintId": "only-cli-may-call-process-exit--report",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/report.ts",
+        "preconditionSha256": "8a570da7901a68d1b62f64fdd8bcb75eea08127b42759c60ab3220e214fe87b7",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/report.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--runtime-identity",
+      "constraintId": "only-cli-may-call-process-exit--runtime-identity",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/runtime-identity.ts",
+        "preconditionSha256": "5825efecf48ee1ce19de409d1be782d68422cb9c14105375c27412864102efd9",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/runtime-identity.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--safe-regex",
+      "constraintId": "only-cli-may-call-process-exit--safe-regex",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/safe-regex.ts",
+        "preconditionSha256": "ef4acdf379e332db9be5dacd03397bfad3085c1f537d8f579e2679ead8be6208",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/safe-regex.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--schema",
+      "constraintId": "only-cli-may-call-process-exit--schema",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/schema.ts",
+        "preconditionSha256": "267dd48ebe2c06b35bf98c35cb86a03e954967f3c92a9328737e9b5987128b99",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/schema.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--score",
+      "constraintId": "only-cli-may-call-process-exit--score",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/score.ts",
+        "preconditionSha256": "decebe564a05f08750142e7d8cd99912b546c78796b58f6ff44b8b8e3ae22436",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/score.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--teeth",
+      "constraintId": "only-cli-may-call-process-exit--teeth",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/teeth.ts",
+        "preconditionSha256": "4431f30c05541b6025ac203c53a61b74aa2e36cc42935f846ed1a6b008912057",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/teeth.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--teeth-waiver",
+      "constraintId": "only-cli-may-call-process-exit--teeth-waiver",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/teeth-waiver.ts",
+        "preconditionSha256": "cf7f763b0c4aec8687739afd2688d2157e2a7c8a5c7c428252d91f5009099ca8",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/teeth-waiver.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--violation-format",
+      "constraintId": "only-cli-may-call-process-exit--violation-format",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/violation-format.ts",
+        "preconditionSha256": "ae9e889b38bb32d7628152cb1f7060e952e8fb0c8a1ea1279e0dbafd52d7ee93",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/violation-format.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--violation-rollup",
+      "constraintId": "only-cli-may-call-process-exit--violation-rollup",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/violation-rollup.ts",
+        "preconditionSha256": "85134a1ba0c2c00b485cb9cab4e8645d605fd90125b114cf9d4365d33adc6ac9",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/violation-rollup.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-extractors-may-import-ts-morph",
+      "constraintId": "only-extractors-may-import-ts-morph",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/cli.ts",
+        "preconditionSha256": "1cb2c55c5e6eb67d96f44a283cac164633d0c90ac70b5b4c5546031f467eb071",
+        "content": "\nimport { Project as __BceMutationProject } from 'ts-morph';\n"
+      },
+      "expectedEvidencePath": "src/cli.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-runtime-dep-allowlist-zod-and-ts-morph",
+      "constraintId": "runtime-dep-allowlist-zod-and-ts-morph",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/cli.ts",
+        "preconditionSha256": "1cb2c55c5e6eb67d96f44a283cac164633d0c90ac70b5b4c5546031f467eb071",
+        "content": "\nimport __bceMutationRuntimeDependency from 'ajv';\n"
+      },
+      "expectedEvidencePath": "src/cli.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-schema-imports-only-zod-and-safe-regex",
+      "constraintId": "schema-imports-only-zod-and-safe-regex",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/schema.ts",
+        "preconditionSha256": "267dd48ebe2c06b35bf98c35cb86a03e954967f3c92a9328737e9b5987128b99",
+        "content": "\nimport __bceMutationSchemaDependency from 'ajv';\n"
+      },
+      "expectedEvidencePath": "src/schema.ts",
+      "allowedCollateralConstraints": [
+        "runtime-dep-allowlist-zod-and-ts-morph"
+      ]
+    }
+  ]
+}

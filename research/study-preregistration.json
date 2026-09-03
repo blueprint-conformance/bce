@@ -1,6 +1,7 @@
 {
   "schemaVersion": "1",
-  "status": "design-not-run",
+  "status": "superseded-before-first-trial",
+  "canonicalProtocol": "research/model-evaluation/protocol.v2.json",
   "researchQuestion": "Does BCE improve architecture-conformance outcomes for coding agents without unacceptable cost or collateral edits?",
   "repositories": { "minimum": 6, "selection": "frozen before assignment", "taskTypes": ["repair", "feature", "refactor"] },
   "modelFamilies": { "minimum": 2, "versionsFrozen": true },
@@ -10,5 +11,6 @@
   "primaryOutcome": "independently adjudicated conformance success",
   "secondaryOutcomes": ["task success", "collateral edits", "wall time", "tokens", "estimated cost", "agent iterations"],
   "analysis": "intention-to-treat with repository-clustered uncertainty",
-  "results": null
+  "results": null,
+  "supersessionReason": "The earlier three-arm design overlapped the cross-client protocol without executable outcomes. Product efficacy now has one canonical paired study."
 }

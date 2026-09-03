@@ -124,6 +124,7 @@
         "src/emit.ts",
         "src/evidence-bundle.ts",
         "src/evidence-store.ts",
+        "src/extractor-teeth.ts",
         "src/extractor-registry.ts",
         "src/gate.ts",
         "src/graph.ts",
@@ -269,6 +270,14 @@
       "type": "forbiddenPattern",
       "severity": "high",
       "path": "src/evidence-store.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--extractor-teeth",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/extractor-teeth.ts",
       "pattern": "process\\.exit\\s*\\(",
       "policyRef": "policy/library-modules-never-exit"
     },
@@ -459,6 +468,6 @@
     "paths": [
       "src/**/*.ts"
     ],
-    "minFiles": 33
+    "minFiles": 34
   }
 }

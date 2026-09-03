@@ -12,8 +12,9 @@ preregistered evaluation design. We do not yet claim that BCE improves agent out
 
 ## Methods
 
-The benchmark and controlled-study protocols are defined by the frozen JSON preregistrations in
-the parent directory. Product fixtures are development data and are excluded from performance
+The benchmark and controlled-study designs are defined by the JSON preregistrations in the parent
+directory. Claim-bearing manifests remain unpopulated and unsealed. Product fixtures and the
+accelerated instrumentation pilot are development data and are excluded from performance
 estimation. Two independent annotators must identify each ground-truth location. Unsupported cases
 and collateral violations are reported explicitly.
 

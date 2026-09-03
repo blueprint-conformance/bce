@@ -1,0 +1,140 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCE product-efficacy task manifest v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "studyId", "phase", "status", "sealed", "repositories", "tasks", "assignments", "assignmentProof", "results"],
+  "properties": {
+    "schemaVersion": { "const": "2" },
+    "studyId": { "type": "string", "minLength": 3 },
+    "phase": { "enum": ["pilot", "confirmatory"] },
+    "status": { "enum": ["template-unpopulated", "draft", "frozen-ready-not-run", "running", "complete", "terminated"] },
+    "sealed": { "type": "boolean" },
+    "repositories": { "type": "array", "items": { "$ref": "#/definitions/repository" } },
+    "tasks": { "type": "array", "items": { "$ref": "#/definitions/task" } },
+    "assignments": { "type": "array", "items": { "$ref": "#/definitions/assignment" } },
+    "assignmentProof": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/assignmentProof" }] },
+    "results": { "type": "null" }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes", "mediaType"],
+      "properties": {
+        "path": { "$ref": "#/definitions/path" },
+        "sha256": { "$ref": "#/definitions/digest" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "mediaType": { "type": "string", "minLength": 3 }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sourceUrl", "revision", "treePath", "treeSha256", "setupCommands", "preparedTreeSha256", "license", "redistribution", "language", "toolchain", "developmentExposed"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "sourceUrl": { "type": "string", "minLength": 3 },
+        "revision": { "type": "string", "minLength": 7 },
+        "treePath": { "$ref": "#/definitions/path" },
+        "treeSha256": { "$ref": "#/definitions/digest" },
+        "setupCommands": {
+          "type": "array",
+          "items": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+        },
+        "preparedTreeSha256": { "$ref": "#/definitions/digest" },
+        "license": { "type": "string", "minLength": 2 },
+        "redistribution": { "enum": ["allowed", "metadata-only"] },
+        "language": { "type": "string", "minLength": 2 },
+        "toolchain": { "type": "string", "minLength": 2 },
+        "developmentExposed": { "type": "boolean" }
+      }
+    },
+    "oracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact", "command", "implementation"],
+      "properties": {
+        "artifact": { "$ref": "#/definitions/artifact" },
+        "command": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "implementation": { "enum": ["bce-independent", "functional"] }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "repositoryId", "taskType", "classification", "constraintClass", "prompt", "writtenPolicy", "invariant", "visibleCommands", "functionalOracle", "architectureOracle", "blueprint", "allowedPaths", "protectedPaths", "budget", "provenance", "referencePatchSha256"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,95}$" },
+        "repositoryId": { "type": "string", "minLength": 3 },
+        "taskType": { "enum": ["repair", "feature", "refactor"] },
+        "classification": { "enum": ["pilot-development-only", "confirmatory-held-out"] },
+        "constraintClass": { "type": "string", "minLength": 3 },
+        "prompt": { "$ref": "#/definitions/artifact" },
+        "writtenPolicy": { "$ref": "#/definitions/artifact" },
+        "invariant": { "$ref": "#/definitions/artifact" },
+        "visibleCommands": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+        },
+        "functionalOracle": { "$ref": "#/definitions/oracle" },
+        "architectureOracle": { "$ref": "#/definitions/oracle" },
+        "blueprint": { "$ref": "#/definitions/artifact" },
+        "allowedPaths": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/definitions/path" } },
+        "protectedPaths": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/definitions/path" } },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["timeoutMs", "maxTurns", "maxCostUsd"],
+          "properties": {
+            "timeoutMs": { "type": "integer", "minimum": 1000 },
+            "maxTurns": { "type": "integer", "minimum": 1 },
+            "maxCostUsd": { "type": ["number", "null"], "minimum": 0 }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "selectionRule", "developmentExposed", "invariantSource"],
+          "properties": {
+            "source": { "type": "string", "minLength": 3 },
+            "selectionRule": { "type": "string", "minLength": 10 },
+            "developmentExposed": { "type": "boolean" },
+            "invariantSource": { "type": "string", "minLength": 3 }
+          }
+        },
+        "referencePatchSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/digest" }] }
+      }
+    },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trialId", "pairId", "cellId", "repositoryId", "taskId", "replicate", "arm", "withinPairOrder", "orderIndex"],
+      "properties": {
+        "trialId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,127}$" },
+        "pairId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,127}$" },
+        "cellId": { "type": "string", "minLength": 3 },
+        "repositoryId": { "type": "string", "minLength": 3 },
+        "taskId": { "type": "string", "minLength": 3 },
+        "replicate": { "const": 0 },
+        "arm": { "enum": ["baseline-no-bce", "bce-enabled"] },
+        "withinPairOrder": { "enum": [0, 1] },
+        "orderIndex": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "assignmentProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "seed", "inputSha256", "assignmentsSha256"],
+      "properties": {
+        "algorithm": { "const": "bce-sha256-rank-paired-v1" },
+        "seed": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "inputSha256": { "$ref": "#/definitions/digest" },
+        "assignmentsSha256": { "$ref": "#/definitions/digest" }
+      }
+    }
+  }
+}

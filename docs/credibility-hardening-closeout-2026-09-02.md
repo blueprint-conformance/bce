@@ -1,5 +1,11 @@
 # Credibility hardening closeout — 2026-09-02
 
+> Historical snapshot. The model-evaluation and self-teeth rows below describe the 2026-09-02
+> candidate and are superseded by `STATUS.md`, `research/model-evaluation/protocol.v2.json`, and
+> `docs/self-hosting.md`. In particular, the claim-bearing 240-trial inputs are now explicitly
+> unpopulated/unsealed rather than described as frozen, and the current self-blueprint has a real
+> 38/38 source-mutation proof.
+
 This is the closeout ledger for the 15 workstreams in the corresponding
 [implementation plan](credibility-hardening-plan-2026-09-02.md). “Implemented” means present and
 locally verified in the candidate source tree; it does not turn an unmerged change into a release or

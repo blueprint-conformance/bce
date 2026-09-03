@@ -1,53 +1,8 @@
 {
   "schemaVersion": "1",
-  "status": "protocol-frozen-inputs-unset",
-  "protocolFrozenAt": "2026-09-02",
-  "researchQuestion": "Within each named agent harness, does adding BCE change architecture-conformance completion without unacceptable policy mutation, task failure, latency, token use, or cost?",
-  "unit": "one fresh agent session on one frozen repository task",
-  "harnesses": [
-    { "id": "codex", "minimumTrialsPerArm": 30, "clientVersion": null, "clientArtifactSha256": null, "modelSnapshot": null },
-    { "id": "claude", "minimumTrialsPerArm": 30, "clientVersion": null, "clientArtifactSha256": null, "modelSnapshot": null },
-    { "id": "cursor", "minimumTrialsPerArm": 30, "clientVersion": null, "clientArtifactSha256": null, "modelSnapshot": null },
-    { "id": "agents-generic", "minimumTrialsPerArm": 30, "clientVersion": null, "clientArtifactSha256": null, "modelSnapshot": null }
-  ],
-  "arms": ["baseline-no-bce", "bce-enabled"],
-  "minimumRepositories": 6,
-  "minimumTasks": 12,
-  "taskTypes": ["repair", "feature", "refactor"],
-  "randomization": {
-    "method": "deterministic blocked permutation by harness, repository, task type, and arm",
-    "seed": "sha256:9adf3d222970a4c8a346a1bbb1a56070b14f16e8a7c9f62ef0829a0b21c3cf3f",
-    "orderFrozenBeforeFirstTrial": true
-  },
-  "configurationIsolation": {
-    "freshTemporaryHomePerTrial": true,
-    "userConfigurationImported": false,
-    "sharedCachesDisabled": true,
-    "networkPolicyRecorded": true,
-    "baselineReceivesSameTaskAndNonBceTools": true,
-    "bceArmDifference": "project BCE skill, MCP server, blueprint, and done-check only"
-  },
-  "primaryOutcomes": ["independently-adjudicated-architecture-conformance", "task-success"],
-  "secondaryOutcomes": ["skill-load-rate", "mcp-selection-rate", "gate-call-rate", "policy-mutation-rate", "latency-ms", "input-tokens", "output-tokens", "cached-tokens", "cost-usd", "agent-iterations", "failure-rate", "timeout-rate", "refusal-rate"],
-  "adjudication": {
-    "annotators": 2,
-    "blindedToArm": true,
-    "disagreements": "resolved by a third adjudicator; retain both original labels",
-    "exactLocationsRequired": true
-  },
-  "analysis": {
-    "population": "intention-to-treat; every randomized trial remains in its assigned arm",
-    "intervals": "Wilson 95% for binary rates; bootstrap repository-clustered 95% intervals for differences",
-    "aggregation": "report every harness separately before any pooled exploratory estimate",
-    "missingTelemetry": "retain trial and report the metric unavailable with reason; never delete the trial",
-    "multipleComparisons": "co-primary interval estimates are reported without dichotomous significance testing or unadjusted p-value claims",
-    "stoppingRule": "no outcome-dependent stopping; stop only after the frozen matrix completes or a documented safety/authorization halt"
-  },
-  "failurePolicy": {
-    "statuses": ["completed", "failed", "timeout", "refused", "infrastructure-error"],
-    "retries": "no silent retry; any retry is a new linked attempt and the original remains in the denominator",
-    "policyMutation": "any edit to blueprint, baseline, agent configuration, CI policy, or governance path outside the assigned task is counted"
-  },
-  "taskManifest": "research/model-evaluation-task-manifest.json",
-  "results": null
+  "status": "superseded-before-first-trial",
+  "results": null,
+  "canonicalProtocol": "research/model-evaluation/protocol.v2.json",
+  "amendmentRecord": "research/model-evaluation/protocol-amendments.jsonl",
+  "reason": "The v1 scaffold trusted author-supplied outcome booleans and did not implement its claimed randomization or artifact checks. No real trial was run. V2 derives safe success from frozen external oracles and controller evidence."
 }
