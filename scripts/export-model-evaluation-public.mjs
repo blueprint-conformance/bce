@@ -52,9 +52,22 @@ function write(relativePath, bytes) {
 
 const publicArtifacts = new Map();
 const restrictedArtifactCommitments = [];
+const failureClasses = {};
+function classifyRestrictedFailure(text) {
+  if (/EPERM: operation not permitted[\s\S]*@openai\/codex\/bin\/codex\.js/.test(text)) return 'client-artifact-read-denied-by-outer-sandbox';
+  if (/auth|credential/i.test(text)) return 'client-authentication-or-credential-failure';
+  if (/network|rate.?limit|overloaded/i.test(text)) return 'client-network-or-service-failure';
+  return 'unclassified-client-failure';
+}
 for (const record of records) {
   for (const [label, artifact] of Object.entries(record.evidence)) {
     if (artifact.sensitivity === 'restricted') {
+      const restrictedBytes = readFileSync(resolveInside(runsRoot, artifact.path, `${record.trialId}/${label}`));
+      if (sha256Bytes(restrictedBytes) !== artifact.sha256 || restrictedBytes.byteLength !== artifact.bytes) throw new Error(`${record.trialId}/${label}: restricted artifact commitment mismatch`);
+      if (label === 'transcript' && record.status !== 'completed') {
+        const classification = classifyRestrictedFailure(restrictedBytes.toString('utf8'));
+        failureClasses[classification] = (failureClasses[classification] ?? 0) + 1;
+      }
       restrictedArtifactCommitments.push({
         trialId: record.trialId, label, sha256: artifact.sha256, bytes: artifact.bytes,
         mediaType: artifact.mediaType, redaction: artifact.redaction,
@@ -105,6 +118,7 @@ const summary = {
   restrictedEvidence: {
     published: false,
     reason: 'model transcripts remain in access-restricted run storage; immutable digests retain integrity binding',
+    sanitizedFailureClasses: Object.fromEntries(Object.entries(failureClasses).sort(([left], [right]) => left.localeCompare(right))),
     commitments: restrictedArtifactCommitments.sort((left, right) => `${left.trialId}/${left.label}`.localeCompare(`${right.trialId}/${right.label}`)),
   },
   analysis,

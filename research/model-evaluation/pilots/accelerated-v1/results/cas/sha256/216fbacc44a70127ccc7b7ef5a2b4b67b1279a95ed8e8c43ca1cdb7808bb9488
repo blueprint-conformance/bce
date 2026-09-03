@@ -1,0 +1,7 @@
+{
+  "mutation": false,
+  "finalPolicyPaths": [],
+  "observedWritePaths": [],
+  "outOfScope": [],
+  "authority": "controller-before-after-inventory-plus-os-protected-write-denial"
+}

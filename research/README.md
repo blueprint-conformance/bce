@@ -26,4 +26,6 @@ instrumentation pilot. It exists to exercise the real ordered controller, OS iso
 oracles, crash recovery, append-only terminal ledger, offline analysis, and safe public export. Its
 schema permanently makes any efficacy decision ineligible. A green pilot proves the measurement
 machinery operated; it cannot show that BCE improves success, defects, cost, latency, or resistance
-to policy manipulation.
+to policy manipulation. V1 retained 8/8 failed client launches and exposed that the sandbox also
+blocked the installed Codex artifact. See `model-evaluation/pilots/accelerated-v1/RESULTS.md`; the
+failure is not retried or erased.

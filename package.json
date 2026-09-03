@@ -57,6 +57,7 @@
     "model-eval:run": "node scripts/run-model-evaluation.mjs",
     "model-eval:analyze": "node scripts/analyze-model-evaluation.mjs",
     "model-eval:export-public": "node scripts/export-model-evaluation-public.mjs",
+    "model-eval:verify-public": "node scripts/verify-model-evaluation-public.mjs",
     "test:restricted-network": "node scripts/restricted-network-proof.mjs",
     "test:codex-plugin": "node scripts/validate-codex-plugin.selftest.mjs && node scripts/validate-codex-plugin.mjs",
     "eval:ai-adoption": "node scripts/model-adoption-eval.mjs",

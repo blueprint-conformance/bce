@@ -1,0 +1,76 @@
+{
+  "passed": false,
+  "collateralRegression": false,
+  "locations": [
+    "src/service.mjs#L1"
+  ],
+  "deterministic": true,
+  "executed": true,
+  "inputTreeSha256": "63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701",
+  "runs": [
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "src/service.mjs#L1"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"boundary-repair\",\"inputTreeSha256\":\"63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701\",\"passed\":false,\"locations\":[\"src/service.mjs#L1\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "boundary-repair",
+        "inputTreeSha256": "63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701",
+        "passed": false,
+        "locations": [
+          "src/service.mjs#L1"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "8ed99852a2c6849453a937e00ba5bc70badef4bd19d98a4ae3d7112a82616e23",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    },
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "src/service.mjs#L1"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"boundary-repair\",\"inputTreeSha256\":\"63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701\",\"passed\":false,\"locations\":[\"src/service.mjs#L1\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "boundary-repair",
+        "inputTreeSha256": "63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701",
+        "passed": false,
+        "locations": [
+          "src/service.mjs#L1"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "8ed99852a2c6849453a937e00ba5bc70badef4bd19d98a4ae3d7112a82616e23",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    }
+  ]
+}

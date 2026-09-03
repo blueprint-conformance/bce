@@ -85,10 +85,14 @@ source tree.
   provider-identified clients/models, ten held-out repositories, thirty tasks/reference patches,
   isolation driver, BCE artifact, assignment proof, and public Sigstore seal are unset. Readiness
   therefore refuses and no comparative result is claimed.
-- A separate eight-attempt Codex instrumentation pilot has generated development-only inputs but is
-  not yet publicly sealed or run in this source state. Its schema permanently forbids an efficacy
-  recommendation. Codex exposes the requested model configuration but not a provider-returned model
-  identity, so those rows cannot receive safe-success identity credit.
+- Accelerated instrumentation pilot v1 was publicly sealed before exposure and retained all eight
+  attempts. All eight client launches failed because the outer sandbox also denied the NVM-installed
+  Codex artifact under the maintainer home. This is controller compatibility evidence, not an arm
+  comparison; no task, cost, latency, defect, or policy-resistance benefit is inferred. The public
+  result preserves the ledger and non-restricted artifacts while binding eight restricted
+  transcripts by digest. A fix-forward pilot requires a new identifier and seal. Codex also exposes
+  only requested model configuration, not a provider-returned model identity, so its rows cannot
+  receive safe-success identity credit.
 - No conventional precision/recall study with independent annotation has been completed.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;

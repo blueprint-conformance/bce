@@ -1,0 +1,77 @@
+{
+  "successful": true,
+  "preparedTreeSha256": "63c9b81e53af553ccf6c9dcd9cb05b1a3b74e8b5a319bc648b0d85571d8f0701",
+  "commands": [],
+  "treatmentDelta": {
+    "arm": "bce-enabled",
+    "changes": [
+      {
+        "path": ".bce-mode.json",
+        "before": null,
+        "after": {
+          "path": ".bce-mode.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 25,
+          "sha256": "bb8b675ac0f7c0d441e2dcc1927b35e3b95dd25599e816d40f5cbc401099f232"
+        }
+      },
+      {
+        "path": ".bce-runtime/package-lock.json",
+        "before": null,
+        "after": {
+          "path": ".bce-runtime/package-lock.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 16886,
+          "sha256": "ed6abc9f509b1ad7ffc1aecd22d2b58feec0cef72293d1e514ef2eccef1da95b"
+        }
+      },
+      {
+        "path": ".bce-runtime/package.json",
+        "before": null,
+        "after": {
+          "path": ".bce-runtime/package.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 225,
+          "sha256": "01ffc70faa85376f10f45db2a56713a24ad00078fd4758da06bf9bab775ea80a"
+        }
+      },
+      {
+        "path": ".blueprints/boundary-feature.blueprint.json",
+        "before": null,
+        "after": {
+          "path": ".blueprints/boundary-feature.blueprint.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 771,
+          "sha256": "e334c4345a66a16288b08df2c0f3caaa17dac6867ec4ee29cba470c3d94210af"
+        }
+      },
+      {
+        "path": ".codex/config.toml",
+        "before": null,
+        "after": {
+          "path": ".codex/config.toml",
+          "type": "file",
+          "mode": 420,
+          "bytes": 279,
+          "sha256": "d4216f07419709a1742cc10d24a5d3fd19ed7f335239cd1b69d0e045c19c7d39"
+        }
+      },
+      {
+        "path": "AGENTS.md",
+        "before": null,
+        "after": {
+          "path": "AGENTS.md",
+          "type": "file",
+          "mode": 420,
+          "bytes": 217,
+          "sha256": "60184406f1f25017fda3a48be8efb1052f0fa48da26d6fae874b4f33dcf74f2a"
+        }
+      }
+    ]
+  },
+  "treatmentConfigSha256": "b518aef3bd99f45f29c435459b9e2235477c43ca7cfddc5694882d864688b82b"
+}

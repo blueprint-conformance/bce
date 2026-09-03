@@ -1,0 +1,11 @@
+{
+  "driver": "macos-sandbox-exec",
+  "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+  "profileSha256": "884fb3783fa441f86dbac20b6a4143d062e17b7ddae3a25cad8ea7ab21525cef",
+  "oracleReadDenied": true,
+  "protectedWriteDenied": true,
+  "readProbeExitCode": 0,
+  "writeProbeExitCode": 0,
+  "readProbeStderr": "EPERM",
+  "writeProbeStderr": "EPERM"
+}

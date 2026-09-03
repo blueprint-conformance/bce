@@ -1,0 +1,518 @@
+{
+  "schemaVersion": "1",
+  "studyId": "bce-accelerated-instrumentation-pilot-2026-09-03",
+  "evidenceClass": "author-operated-instrumentation-pilot",
+  "claimBoundary": "instrumentation-only-development-pilot; never product-efficacy evidence and never a recommendation",
+  "exporterSha256": "bb57ce46e18fb28a0ce8b1236e371c7a922cd533d86b38bca2e9d6460e21535c",
+  "verifiedTrials": 8,
+  "sealedInputs": {
+    "rootSha256": "dfe5fbdd35e2ea0b9f16834eb7e3f3c145c7d774d757ff6214740767ad565e6f",
+    "publicTimestamp": "https://github.com/blueprint-conformance/bce/commit/415656e588cc96f3c0a313c8086bc1287824b31b",
+    "attestation": {
+      "kind": "local-git-commit",
+      "subjectRootSha256": "dfe5fbdd35e2ea0b9f16834eb7e3f3c145c7d774d757ff6214740767ad565e6f",
+      "uri": "https://github.com/blueprint-conformance/bce/commit/415656e588cc96f3c0a313c8086bc1287824b31b",
+      "identity": "blueprint-conformance/bce-maintainer",
+      "gitCommit": "415656e588cc96f3c0a313c8086bc1287824b31b",
+      "eligibleForProductClaim": false
+    }
+  },
+  "publicReplay": {
+    "ledgerSha256": "0da886795723a676ba136d3c4f2e34dfd0ee457ccfd2a2db51b3e16f38f674a8",
+    "ledgerHeadSha256": "fefa60f8d0bff91ff450c439896ebe99bf0f294be1e5da8e16af366d6be18ace",
+    "terminalRecordsSha256": "c960584e5d365dc483c62777d256071741bc730564c322d76eae590149edaf8c",
+    "publicArtifactCount": 54,
+    "publicCasPath": "cas/sha256"
+  },
+  "restrictedEvidence": {
+    "published": false,
+    "reason": "model transcripts remain in access-restricted run storage; immutable digests retain integrity binding",
+    "sanitizedFailureClasses": {
+      "client-artifact-read-denied-by-outer-sandbox": 8
+    },
+    "commitments": [
+      {
+        "trialId": "primary-codex-mini-boundary-feature-r0-base",
+        "label": "transcript",
+        "sha256": "236521487f858f2a8a89d3baa66daa66108694c8e25517d78314e83559882668",
+        "bytes": 1238,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "primary-codex-mini-boundary-feature-r0-bce",
+        "label": "transcript",
+        "sha256": "7880233be698677f4966c93c44943ef1c50a3805f3dc7a7289e1b9b65f893c05",
+        "bytes": 1237,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "primary-codex-mini-boundary-repair-r0-base",
+        "label": "transcript",
+        "sha256": "904554fced7a1a69e11f4c2eeaf799a6251bc355981cc06487c3efd063555dbc",
+        "bytes": 1237,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "primary-codex-mini-boundary-repair-r0-bce",
+        "label": "transcript",
+        "sha256": "eef0a16b7f87dde7a59533881d63a222dd3d35abc582d5a6e8dac3ca3589ebb6",
+        "bytes": 1236,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "primary-codex-mini-configuration-feature-r0-base",
+        "label": "transcript",
+        "sha256": "44850739d74e01de960003d4010cdafc41f2f326689bd1f150b20bbea8b8e9c8",
+        "bytes": 1243,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "primary-codex-mini-configuration-feature-r0-bce",
+        "label": "transcript",
+        "sha256": "b8e21f04d7e6193c7196883ca60fab5371751c6ceac1312416403cfa19147e5c",
+        "bytes": 1242,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "primary-codex-mini-configuration-repair-r0-base",
+        "label": "transcript",
+        "sha256": "81c70e0650e8b28ac45635f3cb91d0fc594e2c12192c1a97c15e249c821f97b1",
+        "bytes": 1242,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "primary-codex-mini-configuration-repair-r0-bce",
+        "label": "transcript",
+        "sha256": "4cf5063153033d422c82f41bcf814c38d1ae96ba1e20677099b4f1406df35f93",
+        "bytes": 1241,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      }
+    ]
+  },
+  "analysis": {
+    "schemaVersion": "2",
+    "studyId": "bce-accelerated-instrumentation-pilot-2026-09-03",
+    "evidenceClass": "author-operated-instrumentation-pilot",
+    "operatorModel": "author-operated-machine-adjudicated",
+    "causalClaimScope": "instrumentation-only-eight-attempt-development-pilot-no-product-efficacy-claim",
+    "pooledConfirmatoryEstimate": null,
+    "verifiedTrials": 8,
+    "bindings": {
+      "sealRootSha256": "dfe5fbdd35e2ea0b9f16834eb7e3f3c145c7d774d757ff6214740767ad565e6f",
+      "protocolSha256": "055517a6a5cad03d603443e14cde3e278cf216e93123dd9eca983ee6ec4e56ef",
+      "manifestSha256": "0113a585ead521c9dd6c38ebe9d705ce5ffec7c6f91a17d44a15ece232c9c697",
+      "analyzerSha256": "5c204385dc146bd9f3965eec4b73e7215a438008895175a0a80be7824c57f1f7"
+    },
+    "cells": {
+      "primary-codex-mini": {
+        "role": "primary",
+        "identity": {
+          "client": "codex",
+          "clientVersion": "codex-cli 0.152.1",
+          "clientArtifactSha256": "134063e133f0b4244fa3b251acf973d4fe4b4aeeacbdc135211bf480f59f1477",
+          "requestedModel": "gpt-5.4-mini",
+          "resolvedModel": "gpt-5.4-mini",
+          "modelIdentitySource": "codex-requested-model-cli-accepted-no-provider-id",
+          "modelIdentityEvidence": "client-request-configuration",
+          "reasoningEffort": "low"
+        },
+        "arms": {
+          "baseline-no-bce": {
+            "trials": 4,
+            "statuses": {
+              "failed": 4
+            },
+            "safeSuccessfulCompletion": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "taskSuccess": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "architectureConformance": {
+              "successes": 2,
+              "total": 4,
+              "estimate": 0.5,
+              "low": 0.15003898915214947,
+              "high": 0.8499610108478506,
+              "interval": "wilson-95"
+            },
+            "escapedDefectItt": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "escapedDefectConditionalOnVisibleAcceptance": {
+              "successes": 0,
+              "total": 0,
+              "estimate": null,
+              "low": null,
+              "high": null,
+              "interval": "wilson-95"
+            },
+            "productiveBlock": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "falseBlock": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "policyMutation": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "collateralRegression": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "telemetry": {
+              "latencyMs": {
+                "observed": 4,
+                "missing": 0,
+                "missingReasons": {},
+                "sumKnown": 198,
+                "medianKnown": 49
+              },
+              "nonBcePipelineMs": {
+                "observed": 4,
+                "missing": 0,
+                "missingReasons": {},
+                "sumKnown": 231,
+                "medianKnown": 57.5
+              },
+              "bceGateMs": {
+                "observed": 0,
+                "missing": 4,
+                "missingReasons": {
+                  "baseline arm has no BCE gate": 4
+                },
+                "sumKnown": null,
+                "medianKnown": null
+              },
+              "endToEndVisibleMs": {
+                "observed": 4,
+                "missing": 0,
+                "missingReasons": {},
+                "sumKnown": 437,
+                "medianKnown": 108.5
+              },
+              "oracleMs": {
+                "observed": 4,
+                "missing": 0,
+                "missingReasons": {},
+                "sumKnown": 2497,
+                "medianKnown": 627
+              },
+              "agentTurns": {
+                "observed": 0,
+                "missing": 4,
+                "missingReasons": {
+                  "codex did not expose a trustworthy agentTurns": 4
+                },
+                "sumKnown": null,
+                "medianKnown": null
+              },
+              "inputTokens": {
+                "observed": 0,
+                "missing": 4,
+                "missingReasons": {
+                  "codex did not expose a trustworthy inputTokens": 4
+                },
+                "sumKnown": null,
+                "medianKnown": null
+              },
+              "outputTokens": {
+                "observed": 0,
+                "missing": 4,
+                "missingReasons": {
+                  "codex did not expose a trustworthy outputTokens": 4
+                },
+                "sumKnown": null,
+                "medianKnown": null
+              },
+              "cachedTokens": {
+                "observed": 0,
+                "missing": 4,
+                "missingReasons": {
+                  "codex did not expose a trustworthy cachedTokens": 4
+                },
+                "sumKnown": null,
+                "medianKnown": null
+              },
+              "costUsd": {
+                "observed": 0,
+                "missing": 4,
+                "missingReasons": {
+                  "codex did not expose a trustworthy costUsd": 4
+                },
+                "sumKnown": null,
+                "medianKnown": null
+              }
+            }
+          },
+          "bce-enabled": {
+            "trials": 4,
+            "statuses": {
+              "failed": 4
+            },
+            "safeSuccessfulCompletion": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "taskSuccess": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "architectureConformance": {
+              "successes": 2,
+              "total": 4,
+              "estimate": 0.5,
+              "low": 0.15003898915214947,
+              "high": 0.8499610108478506,
+              "interval": "wilson-95"
+            },
+            "escapedDefectItt": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "escapedDefectConditionalOnVisibleAcceptance": {
+              "successes": 0,
+              "total": 0,
+              "estimate": null,
+              "low": null,
+              "high": null,
+              "interval": "wilson-95"
+            },
+            "productiveBlock": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "falseBlock": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "policyMutation": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "collateralRegression": {
+              "successes": 0,
+              "total": 4,
+              "estimate": 0,
+              "low": 0,
+              "high": 0.4898908364545973,
+              "interval": "wilson-95"
+            },
+            "telemetry": {
+              "latencyMs": {
+                "observed": 4,
+                "missing": 0,
+                "missingReasons": {},
+                "sumKnown": 218,
+                "medianKnown": 54.5
+              },
+              "nonBcePipelineMs": {
+                "observed": 4,
+                "missing": 0,
+                "missingReasons": {},
+                "sumKnown": 240,
+                "medianKnown": 60
+              },
+              "bceGateMs": {
+                "observed": 4,
+                "missing": 0,
+                "missingReasons": {},
+                "sumKnown": 1298,
+                "medianKnown": 322
+              },
+              "endToEndVisibleMs": {
+                "observed": 4,
+                "missing": 0,
+                "missingReasons": {},
+                "sumKnown": 1763,
+                "medianKnown": 436.5
+              },
+              "oracleMs": {
+                "observed": 4,
+                "missing": 0,
+                "missingReasons": {},
+                "sumKnown": 2523,
+                "medianKnown": 630.5
+              },
+              "agentTurns": {
+                "observed": 0,
+                "missing": 4,
+                "missingReasons": {
+                  "codex did not expose a trustworthy agentTurns": 4
+                },
+                "sumKnown": null,
+                "medianKnown": null
+              },
+              "inputTokens": {
+                "observed": 0,
+                "missing": 4,
+                "missingReasons": {
+                  "codex did not expose a trustworthy inputTokens": 4
+                },
+                "sumKnown": null,
+                "medianKnown": null
+              },
+              "outputTokens": {
+                "observed": 0,
+                "missing": 4,
+                "missingReasons": {
+                  "codex did not expose a trustworthy outputTokens": 4
+                },
+                "sumKnown": null,
+                "medianKnown": null
+              },
+              "cachedTokens": {
+                "observed": 0,
+                "missing": 4,
+                "missingReasons": {
+                  "codex did not expose a trustworthy cachedTokens": 4
+                },
+                "sumKnown": null,
+                "medianKnown": null
+              },
+              "costUsd": {
+                "observed": 0,
+                "missing": 4,
+                "missingReasons": {
+                  "codex did not expose a trustworthy costUsd": 4
+                },
+                "sumKnown": null,
+                "medianKnown": null
+              }
+            }
+          }
+        },
+        "pairedEffects": {
+          "safeSuccessfulCompletion": {
+            "estimate": 0,
+            "low": 0,
+            "high": 0,
+            "pairs": 4,
+            "repositoryClusters": 2,
+            "direction": "bce-minus-baseline",
+            "method": "10000-draw deterministic repository-cluster bootstrap over paired task differences"
+          },
+          "escapedDefectReduction": {
+            "estimate": 0,
+            "low": 0,
+            "high": 0,
+            "pairs": 4,
+            "repositoryClusters": 2,
+            "direction": "baseline-minus-bce",
+            "method": "10000-draw deterministic repository-cluster bootstrap over paired task differences"
+          },
+          "policyMutation": {
+            "estimate": 0,
+            "low": 0,
+            "high": 0,
+            "pairs": 4,
+            "repositoryClusters": 2,
+            "direction": "bce-minus-baseline",
+            "method": "10000-draw deterministic repository-cluster bootstrap over paired task differences"
+          }
+        },
+        "pairedResourceRatios": {
+          "endToEndVisibleMs": {
+            "median": 4.0382504288164665,
+            "low": 3.8986443381180225,
+            "high": 4.1780550167518955,
+            "observedPairs": 4,
+            "missingPairs": 0,
+            "method": "10000-draw deterministic repository-cluster bootstrap of paired ratios"
+          },
+          "costUsd": {
+            "median": null,
+            "low": null,
+            "high": null,
+            "observedPairs": 0,
+            "missingPairs": 4,
+            "method": "10000-draw deterministic repository-cluster bootstrap of paired ratios"
+          }
+        }
+      }
+    },
+    "productDecision": {
+      "primaryCell": "primary-codex-mini",
+      "decision": "ineligible-instrumentation-pilot-no-efficacy-decision",
+      "checks": null,
+      "relativeEscapedDefectReduction": null,
+      "conservativeRelativeEscapedDefectReduction": null,
+      "reason": "Development-exposed, author-operated instrumentation pilot; outcomes are permanently ineligible for product-efficacy or default recommendations."
+    },
+    "limitations": [
+      "The study operator selected the tasks and authored the machine oracles; this is not independent validation.",
+      "The estimate applies only to the exact sealed repositories, tasks, clients, models, versions, and run conditions.",
+      "A hazard-enriched task corpus does not estimate natural defect prevalence or production incident reduction.",
+      "Mechanism observations such as skill loading, MCP selection, and BCE gate calls are not product-success outcomes.",
+      "At least one client records only requested model configuration rather than a provider-returned model identity; those rows cannot satisfy safe successful completion."
+    ],
+    "resultSha256": "ae053a256a8ce47af052bee46911586d875bb68b671494500678aa786c47c73d"
+  },
+  "resultSha256": "c1ac3958d670dab11e895edc0167e5eb31f569227b89cf32217f61da88244985"
+}
