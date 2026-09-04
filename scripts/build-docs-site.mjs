@@ -146,7 +146,7 @@ const PAGES = [
 // ---------------------------------------------------------------------------
 // The Trust / Evidence page. GENERATED, not a mapped source: the substance
 // lives in the records it links to — the witness ledger, the citation file,
-// the landing page's Credibility section — and duplicating any of it here
+// the landing page's Evidence and limits section — and duplicating any of it here
 // would create a second copy to drift. This page only says where each record
 // is and the state each is honestly in — and neither state claim is
 // hand-written: the witness count is READ from ATTESTATIONS.md's own
@@ -156,8 +156,8 @@ const PAGES = [
 // this page and a landed DOI turns the build red until the copy is rewritten
 // deliberately — never a silently-false page. The page is rendered through
 // the same pipeline as every mapped document, so every link is validated by
-// the build's own checks — including the #credibility anchor on the landing
-// page, which turns "the README dropped its Credibility section" into a red
+// the build's own checks — including the #evidence-and-limits anchor on the landing
+// page, which turns "the README dropped its evidence boundary" into a red
 // build instead of a dead link here, and the link-target check, which turns
 // a renamed check-release-citation.mjs into a red build too.
 // ---------------------------------------------------------------------------
@@ -201,7 +201,7 @@ Where this project's credibility records live, and the state each one is in
 today. The records are the substance — this page only points at them.
 
 - **What is measured, and by whom** — the landing page's
-  [Credibility](README.md#credibility) section states the position in full:
+  [Evidence and limits](README.md#evidence-and-limits) section states the position in full:
   every proof in this repository is produced by machinery its authors wrote,
   run on infrastructure its authors control, and that is not the same thing
   as independent confirmation.

@@ -18,10 +18,10 @@
  * Direction of repair is fixed (the witness-kit-replay rule): if this reds, the PAGE is
  * regenerated to match the engine — never the engine bent to match the page.
  *
- * The last case is the one that keeps this honest over time: every ```console fence on the
- * page must be part of the proven set. Without it, the suite passes forever while someone adds
- * a second, unproven output block beside the proven one — a byte-proof that guards only the
- * block it already knows about is a byte-proof with a hole in it.
+ * The last front-page case is the one that keeps this honest over time: the page must carry
+ * exactly one ```console fence, and its bytes must equal the excerpt derived from the live run.
+ * Without that cardinality check, someone could add a second unproven output block beside the
+ * proven one and leave a byte-proof with a hole in it.
  *
  * No LLM, no network — pure CLI + filesystem, over the in-tree quickstart fixtures.
  */
@@ -32,6 +32,7 @@ import { fileURLToPath } from 'node:url';
 import {
   renderHero,
   renderFull,
+  renderReadmeExcerpt,
   resolveEngine,
   HERO_COMMANDS,
   FULL_COMMANDS,
@@ -47,6 +48,7 @@ const CAST = join(ROOT, 'assets', 'hero-cast.svg');
 let readme: string;
 let hero: string;
 let full: string;
+let excerpt: string;
 
 beforeAll(() => {
   readme = readFileSync(README, 'utf8');
@@ -55,6 +57,7 @@ beforeAll(() => {
   const engine = resolveEngine();
   hero = renderHero(engine);
   full = renderFull(engine);
+  excerpt = renderReadmeExcerpt(hero);
 });
 
 /** Every fenced block tagged `console` on the page — the blocks that claim to be engine output. */
@@ -66,14 +69,14 @@ function consoleBlocks(md: string): string[] {
   return out;
 }
 
-describe('root README — the hero demo is byte-exact against a live engine run', () => {
-  it('carries the recorded hero transcript verbatim', () => {
+describe('root README — the compact demo is byte-exact against a live engine run', () => {
+  it('carries the engine-derived excerpt verbatim', () => {
     expect(
-      readme.includes(hero),
-      'README.md does not carry the engine\'s actual hero transcript.\n' +
+      readme.includes(excerpt),
+      'README.md does not carry the engine-derived compact excerpt.\n' +
         'The PAGE is stale, not the engine — re-run `node scripts/hero-demo-record.mjs`\n' +
         'and paste the emitted block into the README fence.\n\n' +
-        `--- ENGINE PRINTED ---\n${hero}`,
+        `--- ENGINE-DERIVED EXCERPT ---\n${excerpt}`,
     ).toBe(true);
   });
 
@@ -82,16 +85,9 @@ describe('root README — the hero demo is byte-exact against a live engine run'
     expect(readFileSync(TRANSCRIPT, 'utf8')).toBe(full);
   });
 
-  it('every console block on the page is part of the proven transcript', () => {
+  it('the page carries one console block and it is exactly the proven excerpt', () => {
     const blocks = consoleBlocks(readme);
-    expect(blocks.length, 'README carries no ```console block — the hero demo is gone').toBeGreaterThan(0);
-    for (const b of blocks) {
-      expect(
-        hero.includes(b) || full.includes(b),
-        'README.md carries a ```console block that no live engine run produced:\n' +
-          `${b}\nEvery output block on the front page must come from scripts/hero-demo-record.mjs.`,
-      ).toBe(true);
-    }
+    expect(blocks, 'README console proof drifted from the engine-derived excerpt').toEqual([excerpt]);
   });
 
   it('the hero demo claims nothing the quickstart walkthrough does not already prove', () => {
@@ -104,12 +100,11 @@ describe('root README — the hero demo is byte-exact against a live engine run'
     }
   });
 
-  // The animation is the one thing on this page a reader cannot copy out and re-run, which
-  // makes it the one thing that could quietly disagree with the engine. It carries the
+  // The archived animation is the one proof artifact a reader cannot copy out and re-run,
+  // which makes it the one thing that could quietly disagree with the engine. It carries the
   // transcript as literal <text> nodes, so those are read back out and compared to the same
-  // live run the block above is compared to. An image that cannot be proven does not belong
-  // on this page; this is what earns it its place (see the amended VISUAL-ASSET DECISION in
-  // scripts/hero-demo-record.mjs).
+  // live run the excerpt above is cut from. An image that cannot be proven does not belong in
+  // this proof set (see the amended VISUAL-ASSET DECISION in scripts/hero-demo-record.mjs).
   it('the animated cast carries the engine\'s transcript, line for line', () => {
     expect(existsSync(CAST), `${CAST} is missing — run \`node scripts/hero-cast-svg.mjs\``).toBe(true);
     const embedded = extractTranscript(readFileSync(CAST, 'utf8'));
@@ -127,12 +122,9 @@ describe('root README — the hero demo is byte-exact against a live engine run'
     expect(readFileSync(CAST, 'utf8')).toBe(renderCastSvg(hero));
   });
 
-  it('the page shows the cast and the copyable transcript together', () => {
-    // The image is not a substitute for the text. A reader who cannot see it — a screen
-    // reader, a terminal browser, a renderer that will not animate — must still get the
-    // proof, and a reader who wants to run it must be able to select it.
-    expect(readme, 'README no longer references the cast').toContain('assets/hero-cast.svg');
-    expect(readme.includes(hero), 'README carries the cast but not the copyable transcript').toBe(true);
+  it('keeps the complete proof off-page but directly linked from the excerpt', () => {
+    expect(readme, 'README no longer links the complete transcript').toContain('docs/launch/hero-demo.txt');
+    expect(readFileSync(TRANSCRIPT, 'utf8')).toBe(full);
   });
 
   it('the recorded transcript leaks no local filesystem chrome', () => {

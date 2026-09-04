@@ -4,6 +4,7 @@ description: Evidence-first developer-tool documentation built around the real c
 colors:
   engine-canvas: "#080919"
   engine-ink: "#e8ebed"
+  engine-body: "#c9d5e1"
   engine-cyan: "#61c9ef"
   verdict-pass: "#48c99a"
   verdict-block: "#f05c67"
@@ -36,6 +37,24 @@ typography:
   diagram-mono:
     fontFamily: 'ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace'
     fontSize: "18px"
+    fontWeight: 450
+    lineHeight: 1.4
+    letterSpacing: "normal"
+  diagram-mobile-title:
+    fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: "32px"
+    fontWeight: 720
+    lineHeight: 1.18
+    letterSpacing: "-0.4px"
+  diagram-mobile-body:
+    fontFamily: 'ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace'
+    fontSize: "24px"
+    fontWeight: 450
+    lineHeight: 1.35
+    letterSpacing: "normal"
+  diagram-mobile-small:
+    fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: "20px"
     fontWeight: 450
     lineHeight: 1.4
     letterSpacing: "normal"
@@ -109,13 +128,14 @@ components:
 
 **Creative North Star: "Architecture That Holds"**
 
-bce presents itself as a real developer tool, not a campaign, a dashboard, or a research paper. The header leads with the user promise, then proves it with one recognizable pull-request moment: human-owned policy and an agent change enter the gate; an exact violation blocks the merge. Executable artifacts, literal commands, diagnostics, exit codes, and reproducible evidence carry the rest of the page.
+bce presents itself as a real developer tool, not a campaign, a dashboard, or a research paper. The header leads with the user promise, then proves it with one recognizable pull-request moment: human-owned policy and an agent change enter the gate; an exact violation blocks the merge. The front page then treats the checked-in architecture package as its subject: a real blueprint, its observed graph, and the deterministic verdict. Executable artifacts, literal commands, diagnostics, exit codes, and reproducible evidence carry the rest of the page.
 
 The system pairs a dimensional deep-navy tool header with a compact, native documentation shell. It is precise, calm, and product-led: cyan identifies the blueprint and gate, green signals health, red blocks, and muted steel carries secondary context. Familiar developer-tool conventions are used without copying another product's identity.
 
 **Key Characteristics:**
 
 - One direct promise paired with one concrete product moment.
+- One architecture package that makes the first four enforcing constraint types legible in context.
 - Real labels, commands, verdicts, and diagnostics instead of metaphor or invented proof.
 - Restrained depth, thin strokes, compact radii, native fonts, and no ornamental effects.
 - Mechanism evidence first; efficacy limits and evidence provenance remain explicit.
@@ -176,11 +196,11 @@ The terminal replay retains a slightly softer, terminal-specific palette: comman
 
 The opening asset is a two-part product story on a `1280 × 420` desktop viewBox. The left half carries the bce mark, the promise “Architecture that holds while agents move fast,” one plain-language consequence, and the three supported surfaces. The right half is a compact pull-request check: a blueprint and agent change converge on the gate, which returns a named blocking diagnosis. The promise attracts attention; the product moment earns it.
 
-The README uses responsive `<picture>` elements at a `600px` threshold. The fallback `<img>` is the desktop asset; one preceding `<source media="(max-width: 600px)">` selects a separately composed mobile SVG. Mobile is not a scale-down: the `760 × 1030` header stacks the promise above a larger version of the same pull-request check so the blueprint, agent change, gate, diagnosis, file, line, and exit code remain legible. The adoption diagram likewise moves from a `1280 × 330` horizontal progression to a `760 × 790` vertical progression. Meaning and sequence must remain equivalent across variants even when geometry changes.
+The README uses responsive `<picture>` elements at a `600px` threshold. The fallback image element is the desktop asset; one preceding mobile source selects a separately composed SVG. Mobile is not a scale-down: the `760 × 1030` header stacks the promise above a larger version of the same pull-request check so the blueprint, agent change, gate, diagnosis, file, line, and exit code remain legible. The architecture package recomposes from a `1280 × 520` left-to-right comparison into a `760 × 1120` top-to-bottom trace. The adoption diagram likewise moves from a `1280 × 330` horizontal progression to a `760 × 790` vertical progression. Meaning and sequence must remain equivalent across variants even when geometry changes.
 
 On the generated docs site, the first landing hero is lifted above the documentation shell and spans the viewport on its tool canvas, capped at `1280px`. Everything else stays in the centered `46rem` reading column with a `1.25rem` gutter, `2rem` section rhythm, and `4rem` lower breathing room. At `40rem`, navigation wraps and the main gutter tightens to `1rem`. Index cards use an auto-fitting grid with a `15rem` minimum; explanatory tables scroll horizontally when needed.
 
-Copy follows an evidence-first sequence: mechanism image, plain-language H1, two-command run path, ownership model, real RED/GREEN replay plus selectable transcript, adapter choices, adoption ratchet, pull-request wiring, evidence boundary, credibility ledger, and deeper references. Keep “verified here” and “not established” adjacent; first-party mechanism evidence must never visually masquerade as independent validation.
+Copy follows a focused evidence-first sequence: mechanism image, plain-language H1 and support envelope, two-command run path, architecture package, compact selectable RED/GREEN proof, three adapters, adoption ratchet, one evidence-and-limits boundary, and one recommended next action. Detailed transcripts, Action wiring, study records, and navigation live in dedicated linked documents. First-party mechanism evidence must never visually masquerade as independent validation.
 
 **The Recompose, Do Not Shrink Rule.** When graph labels or branches stop scanning comfortably, author a meaning-equivalent narrow composition and switch it with `<picture>`.
 
@@ -208,23 +228,27 @@ The signature component pairs one outcome-led promise with a compact, believable
 
 ### Responsive Diagram
 
-Each desktop/mobile pair is one semantic component. Keep both files updated together and wire them through a GitHub-safe `<picture>` with exactly one local mobile `<source>` before one accessible desktop `<img>` fallback. The generated docs renderer deliberately accepts only that narrow construct and copies referenced SVGs byte-for-byte; do not add arbitrary HTML attributes or multiple sources without updating and testing the fail-closed renderer.
+Each desktop/mobile pair is one semantic component. Keep both files updated together and wire them through a GitHub-safe responsive image block with exactly one local mobile source before one accessible desktop fallback. The generated docs renderer deliberately accepts only that narrow construct and copies referenced SVGs byte-for-byte; do not add arbitrary HTML attributes or multiple sources without updating and testing the fail-closed renderer.
+
+### Architecture Package
+
+Show one `EngineeringBlueprint`, one observed repository graph, and one verdict as a continuous causal trace. C1–C4 are the specification's first four enforcing types, not marketing feature numbers: `requiredComponent`, `requiredDependency`, `forbiddenDependency`, and `forbiddenPath`. Use one coherent plugin-surface example. C1, C2, and C4 visibly conform; the observed `axios` import fires C3 and leads to the exact component, file, line, and blocking exit. This is a graph, not four same-sized feature cards.
 
 ### Adoption Ratchet
 
 Show advisory, shrink-only baseline, and enforced in forward order. Cyan connects progress; green marks enforced; the reverse path is dashed steel and explicitly requires reviewed rationale. Never render downgrade as a symmetric, effortless toggle.
 
-### Terminal Replay
+### Engine Proof
 
-The terminal is an exact product proof. Its base state contains the complete transcript, then a short linear reveal adds motion; a non-animating renderer must still show all lines. Under `prefers-reduced-motion: reduce`, hold the transcript still and hide the cursor. The README must repeat the same output as selectable text directly below the animation.
+The front page carries one compact, selectable RED/GREEN excerpt derived from a live run; it is not hand-edited. The complete transcript and generated animated cast remain byte-checked proof artifacts and are linked rather than repeated on the main narrative. If the engine's emitted lines change, regenerate the page excerpt from the engine—never bend the engine to match the page.
 
 ### Documentation Shell
 
 Use one local stylesheet and no external font or asset request. Body copy, navigation, code blocks, blockquotes, tables, and section cards remain modest and native. Light/dark themes switch the shell tokens, while the engine visuals keep their own stable dark canvas. Code blocks and tables favor exactness and horizontal scrolling over visual compression.
 
-### Evidence Boundary
+### Evidence and Limits
 
-Lead the section with one plain statement separating mechanism evidence from causal efficacy. Follow with a balanced “Verified here / Not established” comparison, then the current study limitation and source links. Credibility counts and citation state must derive from their records when the docs build supports that derivation; do not hand-copy volatile proof claims into decorative callouts.
+Lead with one plain statement separating mechanism evidence from causal efficacy. Keep evidence provenance, the zero-witness state, and the unrun confirmatory study in this single section, then link the records that own the details. Credibility counts and citation state must derive from their records when the docs build supports that derivation; do not hand-copy volatile proof claims into decorative callouts.
 
 All explanatory SVGs require `role="img"`, an `aria-labelledby` pair, and meaningful `<title>` and `<desc>` content. README fallback images require prose-quality `alt` text. Color is always reinforced by labels, exit codes, route shape, and position.
 
@@ -233,6 +257,7 @@ All explanatory SVGs require `role="img"`, an `aria-labelledby` pair, and meanin
 ### Do:
 
 - **Do** make the real engine path, command, verdict, or diagnostic the visual subject.
+- **Do** annotate C1–C4 on one observed architecture graph rather than separating them into cards.
 - **Do** keep cyan, green, red, and steel tied to their semantic roles.
 - **Do** update desktop and mobile SVG variants as one component and verify both compositions.
 - **Do** preserve governance and correction as visibly distinct branches.
