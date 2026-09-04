@@ -35,6 +35,7 @@ no skip flags — a refusal is a red, not a pass.
 ## Reference
 
 - [Specification](spec/SPEC.md): normative — artifact model, 11-type constraint taxonomy, scoring, modes, versioning.
+- [Visual guide to C1–C4](docs/constraint-guide.md): diagram-led explanation of required components, required edges, forbidden imports, and forbidden component paths.
 - [Exit codes](docs/exit-codes.md): 0 = green, 1 = red/user-error, 2 = fail-closed refusal.
 - [Report contract](docs/report-contract.md): the deterministic compliance report; determinism and canonical serialization.
 - [Evidence format](docs/evidence-format.md): the hash-chained evidence record + the zero-dependency verifier.

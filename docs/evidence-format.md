@@ -12,6 +12,13 @@ Producing implementation: `src/emit.ts`. Committed worked example:
 `evidence/example-chain/` (three records produced by real runs, with recorded
 verify/tamper transcripts).
 
+<p align="center">
+  <picture>
+    <source media="(max-width: 600px)" srcset="../assets/diagrams/evidence-hash-chain-mobile.svg">
+    <img src="../assets/diagrams/evidence-hash-chain.svg" alt="An evidence chain starts from the all-zero genesis previous hash. Record 001 commits to report A and produces a hash; record 002 includes that hash; record 003 includes record 002's hash. Editing an earlier record breaks its own hash, while rehashing or removing it breaks the next link. Producer authentication remains a separate signature layer.">
+  </picture>
+</p>
+
 ## 1. The record
 
 ```json

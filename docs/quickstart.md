@@ -10,6 +10,17 @@ with the example trees checked in beside it.
 This page is the one-screen version. The example is one contract and two trees that differ by a single
 line:
 
+<p align="center">
+  <picture>
+    <source media="(max-width: 600px)" srcset="../assets/diagrams/source-to-verdict-mobile.svg">
+    <img src="../assets/diagrams/source-to-verdict.svg" alt="BCE reads repository source through a selected extraction profile, records an observed architecture graph and coverage envelope, evaluates the human-owned EngineeringBlueprint, and emits one deterministic compliance report plus exit code 0, 1, or 2.">
+  </picture>
+</p>
+
+CLI, GitHub Action, and MCP are entry points into this same engine path. The
+[C1–C4 visual guide](constraint-guide.md) shows how the first four constraint types interrogate the
+observed graph.
+
 ```
 examples/quickstart/
 ├── blueprint/no-direct-http-client.blueprint.json   # the contract

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="deterministic-report-title deterministic-report-desc">
+  <title id="deterministic-report-title">Same inputs produce the same report bytes</title>
+  <desc id="deterministic-report-desc">The exact EngineeringBlueprint and observed architecture graph enter the deterministic evaluator. Violations are sorted, object keys are canonicalized, and the result is one byte-identical compliance report with a content-addressed graph reference.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#263249" stroke-width="1" opacity="0.24"/>
+    </pattern>
+    <marker id="cyan-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#61c9ef"/>
+    </marker>
+    <marker id="red-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#f05c67"/>
+    </marker>
+    <marker id="green-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#48c99a"/>
+    </marker>
+    <marker id="steel-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#7890a3"/>
+    </marker>
+    <style>
+      .sans{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace}
+      .title{font-size:28px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .m-title{font-size:32px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .heading{font-size:18px;font-weight:700;fill:#e8ebed}
+      .m-heading{font-size:24px;font-weight:700;fill:#e8ebed}
+      .label{font-size:13px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .m-label{font-size:18px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .body{font-size:17px;fill:#c9d5e1}
+      .m-body{font-size:23px;fill:#c9d5e1}
+      .code{font-size:16px;fill:#e8ebed}
+      .m-code{font-size:22px;fill:#e8ebed}
+      .small{font-size:14px;fill:#8fa4b5}
+      .m-small{font-size:19px;fill:#8fa4b5}
+      .cyan{fill:#61c9ef}.green{fill:#48c99a}.red{fill:#f05c67}.steel{fill:#7890a3}
+      .node{fill:#0d1025;stroke:#566274;stroke-width:1.5;vector-effect:non-scaling-stroke}
+      .cyan-node{fill:#0d1428;stroke:#61c9ef}.green-node{fill:#0c1b1c;stroke:#48c99a}.red-node{fill:#24121e;stroke:#f05c67}
+      .rule{stroke:#36445b;stroke-width:1;vector-effect:non-scaling-stroke}
+      .route{fill:none;stroke:#61c9ef;stroke-width:2;marker-end:url(#cyan-arrow);vector-effect:non-scaling-stroke}
+      .red-route{fill:none;stroke:#f05c67;stroke-width:2;marker-end:url(#red-arrow);vector-effect:non-scaling-stroke}
+      .green-route{fill:none;stroke:#48c99a;stroke-width:2;marker-end:url(#green-arrow);vector-effect:non-scaling-stroke}
+      .steel-route{fill:none;stroke:#7890a3;stroke-width:1.8;marker-end:url(#steel-arrow);vector-effect:non-scaling-stroke}
+      .dash{stroke-dasharray:7 7}
+    </style>
+  </defs>
+  <rect width="1280" height="480" rx="4" fill="#080919"/>
+  <rect width="1280" height="480" rx="4" fill="url(#grid)"/>
+  <text x="44" y="50" class="sans title">Same inputs produce the same report bytes</text>
+  <text x="1236" y="49" text-anchor="end" class="mono label">DETERMINISTIC REPORT</text>
+  <path d="M44 70H1236" class="rule"/>
+      <rect x="44" y="122" width="260" height="116" rx="4" class="node cyan-node"/>
+      <text x="68" y="160" class="mono label cyan">INPUT A</text>
+      <text x="68" y="198" class="mono code">EngineeringBlueprint</text>
+      <text x="68" y="222" class="sans small">exact reviewed bytes</text>
+      <rect x="44" y="278" width="260" height="116" rx="4" class="node"/>
+      <text x="68" y="316" class="mono label">INPUT B</text>
+      <text x="68" y="354" class="mono code">architecture graph</text>
+      <text x="68" y="378" class="sans small">exact observed bytes</text>
+      <path d="M304 180H390V236" class="route"/>
+      <path d="M304 336H390V280" class="route"/>
+      <rect x="414" y="164" width="286" height="192" rx="4" class="node cyan-node"/>
+      <text x="438" y="204" class="mono label cyan">PURE EVALUATION</text>
+      <text x="438" y="244" class="mono code">evaluate constraints</text>
+      <text x="438" y="277" class="mono code">sort violations</text>
+      <text x="438" y="310" class="mono code">stable serialization</text>
+      <path d="M700 260H786" class="green-route"/>
+      <rect x="810" y="122" width="426" height="272" rx="4" class="node green-node"/>
+      <text x="834" y="162" class="mono label green">COMPLIANCE REPORT</text>
+      <text x="834" y="202" class="mono code">score · verdict · violations</text>
+      <text x="834" y="235" class="mono code">coverage · summary</text>
+      <text x="834" y="278" class="mono small">architecture-graph.json</text>
+      <text x="834" y="306" class="mono small green">@sha256:&lt;graph hash&gt;</text>
+      <path d="M834 330H1212" class="rule"/>
+      <text x="834" y="365" class="sans small">repeat run → byte-identical output</text>
+      <text x="44" y="440" class="sans body">No clock, random seed, or insertion order changes the report.</text>
+</svg>

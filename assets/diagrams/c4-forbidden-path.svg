@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="c4-forbidden-path-title c4-forbidden-path-desc">
+  <title id="c4-forbidden-path-title">C4 — forbiddenPath</title>
+  <desc id="c4-forbidden-path-desc">A forbiddenPath constraint compares extracted component paths with a prohibited glob. An extracted pluginSurface under src/legacy matches the glob and blocks. A raw file that extracts no component is outside C4 and belongs to forbiddenFile instead.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#263249" stroke-width="1" opacity="0.24"/>
+    </pattern>
+    <marker id="cyan-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#61c9ef"/>
+    </marker>
+    <marker id="red-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#f05c67"/>
+    </marker>
+    <marker id="green-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#48c99a"/>
+    </marker>
+    <marker id="steel-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#7890a3"/>
+    </marker>
+    <style>
+      .sans{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace}
+      .title{font-size:28px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .m-title{font-size:32px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .heading{font-size:18px;font-weight:700;fill:#e8ebed}
+      .m-heading{font-size:24px;font-weight:700;fill:#e8ebed}
+      .label{font-size:13px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .m-label{font-size:18px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .body{font-size:17px;fill:#c9d5e1}
+      .m-body{font-size:23px;fill:#c9d5e1}
+      .code{font-size:16px;fill:#e8ebed}
+      .m-code{font-size:22px;fill:#e8ebed}
+      .small{font-size:14px;fill:#8fa4b5}
+      .m-small{font-size:19px;fill:#8fa4b5}
+      .cyan{fill:#61c9ef}.green{fill:#48c99a}.red{fill:#f05c67}.steel{fill:#7890a3}
+      .node{fill:#0d1025;stroke:#566274;stroke-width:1.5;vector-effect:non-scaling-stroke}
+      .cyan-node{fill:#0d1428;stroke:#61c9ef}.green-node{fill:#0c1b1c;stroke:#48c99a}.red-node{fill:#24121e;stroke:#f05c67}
+      .rule{stroke:#36445b;stroke-width:1;vector-effect:non-scaling-stroke}
+      .route{fill:none;stroke:#61c9ef;stroke-width:2;marker-end:url(#cyan-arrow);vector-effect:non-scaling-stroke}
+      .red-route{fill:none;stroke:#f05c67;stroke-width:2;marker-end:url(#red-arrow);vector-effect:non-scaling-stroke}
+      .green-route{fill:none;stroke:#48c99a;stroke-width:2;marker-end:url(#green-arrow);vector-effect:non-scaling-stroke}
+      .steel-route{fill:none;stroke:#7890a3;stroke-width:1.8;marker-end:url(#steel-arrow);vector-effect:non-scaling-stroke}
+      .dash{stroke-dasharray:7 7}
+    </style>
+  </defs>
+  <rect width="1280" height="480" rx="4" fill="#080919"/>
+  <rect width="1280" height="480" rx="4" fill="url(#grid)"/>
+  <text x="44" y="50" class="sans title">C4 — keep components out of a path</text>
+  <text x="1236" y="49" text-anchor="end" class="mono label">EXTRACTED COMPONENT PATHS</text>
+  <path d="M44 70H1236" class="rule"/>
+      <rect x="44" y="118" width="324" height="224" rx="4" class="node cyan-node"/>
+      <text x="68" y="156" class="mono label cyan">CONTRACT</text>
+      <text x="68" y="198" class="mono code">type: forbiddenPath</text>
+      <text x="68" y="231" class="mono code">path: src/legacy/**</text>
+      <text x="68" y="276" class="sans small">Matches component paths.</text>
+      <text x="68" y="309" class="sans small steel">Not the raw file set.</text>
+      <path d="M368 230H438" class="route"/>
+      <rect x="462" y="118" width="388" height="224" rx="4" class="node"/>
+      <text x="486" y="156" class="mono label">OBSERVED COMPONENT</text>
+      <rect x="486" y="181" width="340" height="70" rx="4" class="node red-node"/>
+      <text x="508" y="210" class="mono code">extension:legacy.plugin</text>
+      <text x="508" y="237" class="mono small red">src/legacy/legacy.plugin.ts</text>
+      <text x="486" y="297" class="mono small red">path glob matched</text>
+      <path d="M850 230H920" class="red-route"/>
+      <rect x="944" y="118" width="292" height="224" rx="4" class="node red-node"/>
+      <text x="968" y="156" class="mono label red">1 · BLOCK</text>
+      <text x="968" y="198" class="mono code">legacy.plugin</text>
+      <text x="968" y="233" class="sans small">observed: component in path</text>
+      <text x="968" y="268" class="sans small">expected: outside legacy</text>
+      <text x="968" y="309" class="mono small red">one component · one hit</text>
+      <path d="M44 380H1236" class="rule"/>
+      <text x="44" y="422" class="sans body">Need to ban every raw file? Use C5 forbiddenFile; C4 only sees extracted components.</text>
+</svg>
