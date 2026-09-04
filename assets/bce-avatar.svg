@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="avatar-title avatar-desc">
+  <title id="avatar-title">BCE blueprint graph mark</title>
+  <desc id="avatar-desc">Six connected architecture nodes on a deep navy square. Cyan identifies the active graph, green identifies conforming nodes, and one red node represents drift caught by the gate.</desc>
+
+  <rect width="1024" height="1024" fill="#080919"/>
+  <rect x="18" y="18" width="988" height="988" rx="190" fill="none" stroke="#274157" stroke-width="20"/>
+
+  <g fill="none" stroke="#58758C" stroke-width="36" stroke-linecap="square">
+    <path d="M260 382H764"/>
+    <path d="M260 642H764"/>
+    <path d="M260 382V642"/>
+    <path d="M512 382V642"/>
+    <path d="M764 382V642"/>
+  </g>
+
+  <rect x="150" y="272" width="220" height="220" rx="38" fill="#17384F" stroke="#6DD6FF" stroke-width="42"/>
+  <rect x="402" y="272" width="220" height="220" rx="38" fill="#17384F" stroke="#6DD6FF" stroke-width="42"/>
+  <rect x="654" y="272" width="220" height="220" rx="38" fill="#164A40" stroke="#4ED3A3" stroke-width="42"/>
+  <rect x="150" y="532" width="220" height="220" rx="38" fill="#164A40" stroke="#4ED3A3" stroke-width="42"/>
+  <rect x="402" y="532" width="220" height="220" rx="38" fill="#7F1D2D" stroke="#FF6B73" stroke-width="42"/>
+  <rect x="654" y="532" width="220" height="220" rx="38" fill="#17384F" stroke="#6DD6FF" stroke-width="42"/>
+</svg>

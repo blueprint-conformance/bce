@@ -226,6 +226,10 @@ Graph routes are orthogonal and functional. Default borders are approximately `1
 
 The signature component pairs one outcome-led promise with a compact, believable pull-request check. Preserve the distinction between the human-owned blueprint and agent-produced change, their convergence at the BCE gate, and the exact blocking diagnosis. Keep CLI, GitHub Action, and MCP visible as supported surfaces without turning them into competing calls to action.
 
+### Organization Avatar
+
+The square organization avatar enlarges the header's six-node BCE mark without adding a wordmark that would collapse at repository-header size. Connected nodes make the architecture graph literal; cyan carries the active structure, green carries conformance, and one scarce red node represents drift caught by the gate. Keep the mark centered inside a generous square safe area on the engine canvas so GitHub's rounded crop remains intact at 32–48px. `assets/bce-avatar.svg` is the editable master; `assets/bce-avatar.png` is its upload-ready 1024px raster export.
+
 ### Responsive Diagram
 
 Each desktop/mobile pair is one semantic component. Keep both files updated together and wire them through a GitHub-safe responsive image block with exactly one local mobile source before one accessible desktop fallback. The generated docs renderer deliberately accepts only that narrow construct and copies referenced SVGs byte-for-byte; do not add arbitrary HTML attributes or multiple sources without updating and testing the fail-closed renderer.
