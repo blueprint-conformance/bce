@@ -28,7 +28,23 @@ on:
   push:
     branches: [main]
     paths:
-      - 'spec/schemas/**'
+      # This job publishes the WHOLE generated docs surface, not only schemas.
+      # Keep this list in sync with scripts/check-pages-publish-inputs.mjs: any
+      # source that can change _site must be able to trigger a fresh deployment.
+      - 'README.md'
+      - 'docs/**'
+      - 'spec/**'
+      - 'rfcs/**'
+      - 'prompts/**'
+      - 'integrations/**'
+      - 'skills/README.md'
+      - 'llms.txt'
+      - 'assets/**'
+      - 'ATTESTATIONS.md'
+      - 'CITATION.cff'
+      - 'scripts/build-docs-site.mjs'
+      - 'scripts/gen-fleet-evidence.mjs'
+      - 'evidence/fleet/**'
       - '.github/workflows/publish-schemas.yml'
   workflow_dispatch:
 

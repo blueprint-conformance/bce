@@ -36,11 +36,17 @@ on:
       - 'rfcs/**'
       - 'prompts/**'
       - 'integrations/**'
+      - 'skills/README.md'
       - 'llms.txt'
       - 'README.md'
+      - 'assets/**'
+      - 'ATTESTATIONS.md'
+      - 'CITATION.cff'
       - 'scripts/build-docs-site.mjs'
       - 'scripts/docs-site-selftest.mjs'
       - 'scripts/gen-fleet-evidence.mjs'
+      - 'scripts/check-pages-publish-inputs.mjs'
+      - 'scripts/check-pages-publish-inputs.selftest.mjs'
       - 'evidence/fleet/**'
       - '.github/workflows/docs-site-check.yml'
       - '.github/workflows/publish-schemas.yml'
@@ -169,3 +175,6 @@ jobs:
             exit 1
           fi
           echo "publish-schemas.yml: the publish job is active (no job-level if: false)."
+
+      - name: Every Pages input can trigger a deployment
+        run: node scripts/check-pages-publish-inputs.selftest.mjs && node scripts/check-pages-publish-inputs.mjs
