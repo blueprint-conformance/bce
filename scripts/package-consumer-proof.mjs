@@ -96,7 +96,7 @@ globalThis.fetch = async (_url, init) => {
 `);
 const installedCli = join(installedRoot, 'dist', 'cli.js');
 execFileSync(process.execPath, [
-  '--import', preload, installedCli, 'propose', '--repo', reviewRepo, '--intent-file', 'docs/intent.md',
+  '--import', pathToFileURL(preload).href, installedCli, 'propose', '--repo', reviewRepo, '--intent-file', 'docs/intent.md',
   '--assistant', 'openai-responses', '--assistant-model', 'fixture-model', '--new',
 ], { cwd: scratch, env: { ...process.env, OPENAI_API_KEY: 'test-key' }, stdio: 'ignore' });
 const packetPath = join(reviewRepo, '.bce', 'proposals', 'installed-artifact-proof', 'review-packet.json');

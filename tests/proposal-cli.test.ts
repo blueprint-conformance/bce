@@ -2,6 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const ROOT = path.join(__dirname, '..');
@@ -139,7 +140,7 @@ globalThis.fetch = async (url) => {
 }
 
 function cli(root: string, args: string[], preload?: string) {
-  const imports = preload ? ['--import', preload] : [];
+  const imports = preload ? ['--import', pathToFileURL(preload).href] : [];
   return spawnSync(process.execPath, [...imports, '--import', 'tsx', CLI, ...args], {
     cwd: ROOT,
     encoding: 'utf8',
