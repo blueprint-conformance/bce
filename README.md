@@ -61,6 +61,10 @@ ceremony](docs/ai-first-review.md).
 This excerpt is cut from a live engine run on every push. It keeps the decisive lines selectable
 while the [full transcript](docs/launch/hero-demo.txt) retains every emitted detail.
 
+<p align="center">
+  <img src="assets/hero-cast.svg" alt="Animated terminal replay of BCE running the same architectural rule against a drifted tree and a corrected tree. The first run names the forbidden axios edge at src/greeting.plugin.ts line 16 and exits 1; the second scores 100 and exits 0. The exact output remains selectable below.">
+</p>
+
 ```console
 $ bce gate --repo drift --blueprint-dir blueprint --extractor ast --all
 ::error::    - [no-direct-http-client/critical] extension:greeting.plugin
@@ -87,7 +91,17 @@ Use the **CLI** for local feedback, the pinned **GitHub Action** at the merge bo
 read-only **MCP tools** inside an agent loop. They share the same extraction, evaluation, report,
 and exit-code path; policy changes remain outside MCP. The released Action source is pinned to
 `blueprint-conformance/bce@3611709acf0dace4698dd1876f835a73ec44837b`.
-[Follow the ordered onboarding path](docs/onboarding.md).
+
+<p align="center">
+  <picture>
+    <source media="(max-width: 600px)" srcset="assets/bce-agent-skill-loop-mobile.svg">
+    <img src="assets/bce-agent-skill-loop.svg" alt="The BCE Agent Skill loads on demand and directs an agent to change source code, call the read-only run_gate tool, use the exact RED diagnosis to fix source code without editing policy, and call the same gate again until it returns GREEN. A human-owned EngineeringBlueprint supplies the unchanged contract to both runs.">
+  </picture>
+</p>
+
+The Agent Skill loads these instructions on demand, prefers the read-only `run_gate {}` tool, fixes
+source code on RED, and re-runs the same contract. [Inspect the skill](skills/README.md),
+[wire the done-check](docs/agent-loop.md), or [follow ordered onboarding](docs/onboarding.md).
 
 ## Adopt without freezing the repository
 
