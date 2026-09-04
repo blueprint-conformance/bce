@@ -1,82 +1,95 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="300" viewBox="0 0 1280 300" role="img" aria-labelledby="bce-banner-title bce-banner-desc">
-  <title id="bce-banner-title">bce — the blueprint conformance engine</title>
-  <desc id="bce-banner-desc">A dark plate. On the left, a five-by-five grid of calm blue and green cells with exactly one cell lit red — the gate that can go red. To its right, the wordmark "bce" over the tagline "Blueprints with Teeth."</desc>
-
-  <!--
-    HAND-AUTHORED, ZERO-DEPENDENCY. Every shape below is a literal rect or text
-    node, so this file diffs in review like source rather than like an image.
-
-    ONE RED CELL is the whole idea. A conformance gate that cannot go red is
-    decoration; the logo is a calm field of conformant cells with a single
-    refusal in it. The red cell is deliberately off-centre — a refusal shows up
-    where it shows up, not where a layout would like it.
-
-    Self-contained DARK PLATE rather than a theme-reactive asset: GitHub renders
-    README SVGs inside an <img>, where a prefers-color-scheme query is evaluated
-    against the image's own context and cannot be relied on. A plate that owns
-    its background reads identically on the light and dark themes; a transparent
-    one would put dark text on a dark page for half the audience.
-  -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+  <title id="title">bce — architecture that holds while agents move fast</title>
+  <desc id="desc">A blueprint and an agent pull request flow into the BCE gate. The gate catches a forbidden dependency, names its source line, and blocks the merge.</desc>
 
   <defs>
-    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0B1622"/>
-      <stop offset="55%" stop-color="#0C1A28"/>
-      <stop offset="100%" stop-color="#0A131D"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="0.58" stop-color="#0b1d2d"/>
+      <stop offset="1" stop-color="#101827"/>
     </linearGradient>
-    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#2E6E8E" stop-opacity="0.9"/>
-      <stop offset="62%" stop-color="#2E8E6E" stop-opacity="0.5"/>
-      <stop offset="100%" stop-color="#E5484D" stop-opacity="0.85"/>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6dd6ff"/>
+      <stop offset="1" stop-color="#4ed3a3"/>
     </linearGradient>
-    <pattern id="drafting" width="40" height="40" patternUnits="userSpaceOnUse">
-      <path d="M40 0H0V40" fill="none" stroke="#1B3A52" stroke-width="1" stroke-opacity="0.35"/>
+    <linearGradient id="gate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#183249"/>
+      <stop offset="1" stop-color="#102536"/>
+    </linearGradient>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" fill="none" stroke="#244058" stroke-width="1" stroke-opacity="0.22"/>
     </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#58758c"/>
+    </marker>
   </defs>
 
-  <rect width="1280" height="300" fill="url(#plate)"/>
-  <rect width="1280" height="300" fill="url(#drafting)"/>
+  <rect width="1280" height="420" rx="18" fill="url(#bg)"/>
+  <rect width="1280" height="420" rx="18" fill="url(#grid)"/>
+  <rect x="1" y="1" width="1278" height="418" rx="17" fill="none" stroke="#274157"/>
 
-  <!-- The glyph: 5x5 blueprint cells, 18px on a 24px pitch, origin (84, 93). -->
-  <g>
-    <!-- row 0 -->
-    <rect x="84"  y="93"  width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="108" y="93"  width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="132" y="93"  width="18" height="18" rx="2" fill="#164A40" stroke="#2E8E6E" stroke-width="1.5"/>
-    <rect x="156" y="93"  width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="180" y="93"  width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <!-- row 1 -->
-    <rect x="84"  y="117" width="18" height="18" rx="2" fill="#164A40" stroke="#2E8E6E" stroke-width="1.5"/>
-    <rect x="108" y="117" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="132" y="117" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="156" y="117" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="180" y="117" width="18" height="18" rx="2" fill="#164A40" stroke="#2E8E6E" stroke-width="1.5"/>
-    <!-- row 2 — the refusal. -->
-    <rect x="84"  y="141" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="108" y="141" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="132" y="141" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="156" y="141" width="18" height="18" rx="2" fill="#7F1D22" stroke="#F0555B" stroke-width="1.5"/>
-    <rect x="180" y="141" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <!-- row 3 -->
-    <rect x="84"  y="165" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="108" y="165" width="18" height="18" rx="2" fill="#164A40" stroke="#2E8E6E" stroke-width="1.5"/>
-    <rect x="132" y="165" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="156" y="165" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="180" y="165" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <!-- row 4 -->
-    <rect x="84"  y="189" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="108" y="189" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="132" y="189" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
-    <rect x="156" y="189" width="18" height="18" rx="2" fill="#164A40" stroke="#2E8E6E" stroke-width="1.5"/>
-    <rect x="180" y="189" width="18" height="18" rx="2" fill="#17384F" stroke="#2E6E8E" stroke-width="1.5"/>
+  <!-- Product story. -->
+  <g font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif">
+    <g transform="translate(64 58)">
+      <g aria-label="BCE mark">
+        <rect x="0" y="1" width="16" height="16" rx="3" fill="#17384f" stroke="#6dd6ff"/>
+        <rect x="21" y="1" width="16" height="16" rx="3" fill="#17384f" stroke="#6dd6ff"/>
+        <rect x="42" y="1" width="16" height="16" rx="3" fill="#164a40" stroke="#4ed3a3"/>
+        <rect x="0" y="22" width="16" height="16" rx="3" fill="#164a40" stroke="#4ed3a3"/>
+        <rect x="21" y="22" width="16" height="16" rx="3" fill="#7f1d2d" stroke="#ff6b73"/>
+        <rect x="42" y="22" width="16" height="16" rx="3" fill="#17384f" stroke="#6dd6ff"/>
+      </g>
+      <text x="78" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="46" font-weight="750" fill="#eef7ff" letter-spacing="-1">bce</text>
+      <text x="0" y="108" font-size="16" font-weight="700" fill="#6dd6ff" letter-spacing="2.4">BLUEPRINTS WITH TEETH</text>
+      <text x="0" y="164" font-size="43" font-weight="760" fill="#f2f7fb" letter-spacing="-1.2">Architecture that holds</text>
+      <text x="0" y="214" font-size="43" font-weight="760" fill="#f2f7fb" letter-spacing="-1.2">while agents move fast.</text>
+      <text x="0" y="257" font-size="18" fill="#9db1c2">Define the boundary. Catch drift. Block the merge.</text>
+
+      <g transform="translate(0 293)" font-size="13" font-weight="650" letter-spacing="0.6">
+        <rect width="68" height="31" rx="15.5" fill="#122a3d" stroke="#2c536e"/>
+        <text x="34" y="20" text-anchor="middle" fill="#bfeaff">CLI</text>
+        <rect x="78" width="142" height="31" rx="15.5" fill="#122a3d" stroke="#2c536e"/>
+        <text x="149" y="20" text-anchor="middle" fill="#bfeaff">GITHUB ACTION</text>
+        <rect x="230" width="72" height="31" rx="15.5" fill="#122a3d" stroke="#2c536e"/>
+        <text x="266" y="20" text-anchor="middle" fill="#bfeaff">MCP</text>
+      </g>
+    </g>
+
+    <!-- A legible product moment, not a decorative dashboard. -->
+    <g transform="translate(712 48)">
+      <rect width="504" height="324" rx="18" fill="#0a1522" stroke="#2b465b"/>
+      <rect width="504" height="46" rx="18" fill="#111f2d"/>
+      <rect y="30" width="504" height="16" fill="#111f2d"/>
+      <circle cx="22" cy="23" r="5" fill="#ff6b73"/>
+      <circle cx="40" cy="23" r="5" fill="#e4b65b"/>
+      <circle cx="58" cy="23" r="5" fill="#4ed3a3"/>
+      <text x="82" y="28" font-size="12" fill="#71889a">agent pull request · architecture check</text>
+
+      <g transform="translate(24 70)">
+        <rect width="206" height="66" rx="10" fill="#0f2232" stroke="#29475d"/>
+        <text x="16" y="24" font-size="11" font-weight="700" fill="#6dd6ff" letter-spacing="1.2">BLUEPRINT</text>
+        <text x="16" y="47" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" fill="#c9d8e3">no direct HTTP client</text>
+
+        <rect x="250" width="206" height="66" rx="10" fill="#0f2232" stroke="#29475d"/>
+        <text x="266" y="24" font-size="11" font-weight="700" fill="#9db1c2" letter-spacing="1.2">AGENT CHANGE</text>
+        <text x="266" y="47" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" fill="#ff959a">+ import axios</text>
+
+        <path d="M103 76V101H211" fill="none" stroke="#58758c" stroke-width="2" marker-end="url(#arrow)"/>
+        <path d="M353 76V101H245" fill="none" stroke="#58758c" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <rect x="126" y="106" width="204" height="48" rx="24" fill="url(#gate)" stroke="#6dd6ff"/>
+        <text x="228" y="136" text-anchor="middle" font-size="14" font-weight="750" fill="#eef7ff" letter-spacing="1.4">BCE GATE</text>
+
+        <path d="M228 155V179" fill="none" stroke="#ff6b73" stroke-width="2" marker-end="url(#arrow)"/>
+        <rect x="42" y="184" width="372" height="84" rx="12" fill="#28141d" stroke="#a83e4d"/>
+        <circle cx="66" cy="210" r="9" fill="#ff6b73"/>
+        <path d="M62 206L70 214M70 206L62 214" stroke="#28141d" stroke-width="2"/>
+        <text x="86" y="214" font-size="13" font-weight="750" fill="#ff959a" letter-spacing="0.8">MERGE BLOCKED</text>
+        <text x="66" y="238" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11.5" fill="#efd1d4">forbidden edge → axios</text>
+        <text x="66" y="258" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11.5" fill="#9db1c2">src/greeting.plugin.ts · line 16 · exit 1</text>
+      </g>
+    </g>
   </g>
 
-  <!-- Wordmark + tagline. -->
-  <text x="264" y="172" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="104" font-weight="700" fill="#E8F1F8" letter-spacing="-2">bce</text>
-  <text x="272" y="212" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="27" font-weight="600" fill="#8FA6BC" letter-spacing="0.5">Blueprints with Teeth.</text>
-
-  <!-- The plate's own rule: conformant blue, through green, into the one refusal. -->
-  <rect x="264" y="228" width="420" height="3" rx="1.5" fill="url(#rule)"/>
-
-  <text x="1196" y="212" text-anchor="end" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="19" fill="#5C748C">the blueprint conformance engine</text>
+  <rect x="64" y="397" width="1152" height="2" rx="1" fill="url(#brand)" opacity="0.72"/>
 </svg>

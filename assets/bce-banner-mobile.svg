@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="1030" viewBox="0 0 760 1030" role="img" aria-labelledby="title desc">
+  <title id="title">bce — architecture that holds while agents move fast</title>
+  <desc id="desc">A mobile composition of the bce header. A human-owned blueprint and an agent code change enter the BCE gate. The gate catches the forbidden axios dependency, names its source line, and blocks the merge.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="0.58" stop-color="#0b1d2d"/>
+      <stop offset="1" stop-color="#101827"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6dd6ff"/>
+      <stop offset="1" stop-color="#4ed3a3"/>
+    </linearGradient>
+    <linearGradient id="gate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#183249"/>
+      <stop offset="1" stop-color="#102536"/>
+    </linearGradient>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" fill="none" stroke="#244058" stroke-width="1" stroke-opacity="0.22"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#58758c"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="1030" rx="18" fill="url(#bg)"/>
+  <rect width="760" height="1030" rx="18" fill="url(#grid)"/>
+  <rect x="1" y="1" width="758" height="1028" rx="17" fill="none" stroke="#274157"/>
+
+  <g font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif">
+    <g transform="translate(48 42)">
+      <g aria-label="BCE mark">
+        <rect x="0" y="1" width="22" height="22" rx="4" fill="#17384f" stroke="#6dd6ff" stroke-width="1.5"/>
+        <rect x="29" y="1" width="22" height="22" rx="4" fill="#17384f" stroke="#6dd6ff" stroke-width="1.5"/>
+        <rect x="58" y="1" width="22" height="22" rx="4" fill="#164a40" stroke="#4ed3a3" stroke-width="1.5"/>
+        <rect x="0" y="30" width="22" height="22" rx="4" fill="#164a40" stroke="#4ed3a3" stroke-width="1.5"/>
+        <rect x="29" y="30" width="22" height="22" rx="4" fill="#7f1d2d" stroke="#ff6b73" stroke-width="1.5"/>
+        <rect x="58" y="30" width="22" height="22" rx="4" fill="#17384f" stroke="#6dd6ff" stroke-width="1.5"/>
+      </g>
+      <text x="106" y="46" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="62" font-weight="750" fill="#eef7ff" letter-spacing="-1">bce</text>
+    </g>
+
+    <text x="48" y="150" font-size="21" font-weight="700" fill="#6dd6ff" letter-spacing="2.8">BLUEPRINTS WITH TEETH</text>
+    <text x="48" y="220" font-size="52" font-weight="760" fill="#f2f7fb" letter-spacing="-1.4">Architecture that holds</text>
+    <text x="48" y="280" font-size="52" font-weight="760" fill="#f2f7fb" letter-spacing="-1.4">while agents move fast.</text>
+    <text x="48" y="330" font-size="24" fill="#9db1c2">Define the boundary. Catch drift. Block the merge.</text>
+
+    <g transform="translate(48 360)" font-size="17" font-weight="650" letter-spacing="0.6">
+      <rect width="92" height="40" rx="20" fill="#122a3d" stroke="#2c536e"/>
+      <text x="46" y="26" text-anchor="middle" fill="#bfeaff">CLI</text>
+      <rect x="108" width="190" height="40" rx="20" fill="#122a3d" stroke="#2c536e"/>
+      <text x="203" y="26" text-anchor="middle" fill="#bfeaff">GITHUB ACTION</text>
+      <rect x="314" width="98" height="40" rx="20" fill="#122a3d" stroke="#2c536e"/>
+      <text x="363" y="26" text-anchor="middle" fill="#bfeaff">MCP</text>
+    </g>
+
+    <g transform="translate(40 430)">
+      <rect width="680" height="530" rx="18" fill="#0a1522" stroke="#2b465b" stroke-width="1.5"/>
+      <rect width="680" height="62" rx="18" fill="#111f2d"/>
+      <rect y="42" width="680" height="20" fill="#111f2d"/>
+      <circle cx="28" cy="31" r="7" fill="#ff6b73"/>
+      <circle cx="52" cy="31" r="7" fill="#e4b65b"/>
+      <circle cx="76" cy="31" r="7" fill="#4ed3a3"/>
+      <text x="108" y="38" font-size="17" fill="#71889a">agent pull request · architecture check</text>
+
+      <rect x="30" y="96" width="292" height="100" rx="12" fill="#0f2232" stroke="#29475d" stroke-width="1.5"/>
+      <text x="52" y="132" font-size="15" font-weight="700" fill="#6dd6ff" letter-spacing="1.3">BLUEPRINT</text>
+      <text x="52" y="169" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" fill="#c9d8e3">no direct HTTP client</text>
+
+      <rect x="358" y="96" width="292" height="100" rx="12" fill="#0f2232" stroke="#29475d" stroke-width="1.5"/>
+      <text x="380" y="132" font-size="15" font-weight="700" fill="#9db1c2" letter-spacing="1.3">AGENT CHANGE</text>
+      <text x="380" y="169" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" fill="#ff959a">+ import axios</text>
+
+      <path d="M176 208V238H318" fill="none" stroke="#58758c" stroke-width="3" marker-end="url(#arrow)"/>
+      <path d="M504 208V238H362" fill="none" stroke="#58758c" stroke-width="3" marker-end="url(#arrow)"/>
+      <rect x="200" y="246" width="280" height="68" rx="34" fill="url(#gate)" stroke="#6dd6ff" stroke-width="1.5"/>
+      <text x="340" y="289" text-anchor="middle" font-size="20" font-weight="750" fill="#eef7ff" letter-spacing="1.6">BCE GATE</text>
+
+      <path d="M340 316V350" fill="none" stroke="#ff6b73" stroke-width="3" marker-end="url(#arrow)"/>
+      <rect x="52" y="364" width="576" height="124" rx="14" fill="#28141d" stroke="#a83e4d" stroke-width="1.5"/>
+      <circle cx="84" cy="398" r="12" fill="#ff6b73"/>
+      <path d="M78 392L90 404M90 392L78 404" stroke="#28141d" stroke-width="3"/>
+      <text x="114" y="405" font-size="19" font-weight="750" fill="#ff959a" letter-spacing="0.9">MERGE BLOCKED</text>
+      <text x="84" y="444" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17" fill="#efd1d4">extension:greeting.plugin → axios</text>
+      <text x="84" y="474" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" fill="#9db1c2">src/greeting.plugin.ts · line 16 · exit 1</text>
+    </g>
+  </g>
+
+  <rect x="48" y="996" width="664" height="3" rx="1.5" fill="url(#brand)" opacity="0.72"/>
+</svg>
