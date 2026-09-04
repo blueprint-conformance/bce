@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="1120" viewBox="0 0 760 1120" role="img" aria-labelledby="skill-loop-mobile-title skill-loop-mobile-desc">
+  <title id="skill-loop-mobile-title">The BCE Agent Skill closes the code-correction loop</title>
+  <desc id="skill-loop-mobile-desc">The shipped skills/bce/SKILL.md instructions load on demand. An agent changes source code and calls the read-only run_gate tool. BCE returns the no-direct-http-client violation at greeting.plugin.ts line 16. The agent fixes source code without changing the human-owned blueprint, calls the same gate again, and receives a green exit zero.</desc>
+  <defs>
+    <marker id="skill-mobile-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7890A3"/>
+    </marker>
+  </defs>
+  <style>
+    .title{font:700 32px ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#E8EBED;letter-spacing:-.4px}
+    .lede{font:450 20px ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#A9BAC8}
+    .node{fill:#0D1025;stroke:#566274;stroke-width:2}
+    .node-skill,.node-gate{stroke:#61C9EF}.node-red{stroke:#F05C67}.node-green{stroke:#48C99A}
+    .node-title{font:650 22px ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;fill:#E8EBED}
+    .node-copy{font:450 19px ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#A9BAC8}
+    .node-code{font:450 18px ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;fill:#C9D5E1}
+    .cyan{fill:#61C9EF}.red{fill:#F05C67}.green{fill:#48C99A}.steel{fill:#7890A3}
+    .route{fill:none;stroke:#7890A3;stroke-width:2.4;marker-end:url(#skill-mobile-arrow)}
+    .policy-route{fill:none;stroke:#7890A3;stroke-width:2;stroke-dasharray:7 9}
+    .trace{fill:none;stroke:#61C9EF;stroke-width:4;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;animation:skill-mobile-draw .58s cubic-bezier(.16,1,.3,1) forwards}
+    .trace-red{stroke:#F05C67}.trace-green{stroke:#48C99A}
+    .t1{animation-delay:.62s}.t2{animation-delay:1.28s}.t3{animation-delay:1.94s}
+    .t4{animation-delay:2.6s}.t5{animation-delay:3.26s}.t6{animation-delay:3.92s}
+    .focus{fill:none;stroke-width:4;opacity:0;animation:skill-mobile-cue .76s cubic-bezier(.16,1,.3,1) forwards}
+    .f0{stroke:#61C9EF;animation-delay:.05s}.f1{stroke:#61C9EF;animation-delay:.7s}
+    .f2{stroke:#61C9EF;animation-delay:1.36s}.f3{stroke:#F05C67;animation-delay:2.02s}
+    .f4{stroke:#61C9EF;animation-delay:2.68s}.f5{stroke:#61C9EF;animation-delay:3.34s}
+    .f6{stroke:#48C99A;animation:skill-mobile-arrive .85s cubic-bezier(.16,1,.3,1) 4s forwards}
+    @keyframes skill-mobile-draw{to{stroke-dashoffset:0}}
+    @keyframes skill-mobile-cue{0%,100%{opacity:0}28%,72%{opacity:1}}
+    @keyframes skill-mobile-arrive{0%{opacity:0}45%,100%{opacity:1}}
+    @media (prefers-reduced-motion: reduce){
+      .trace,.focus{animation:none;opacity:0}
+      .f6{animation:none;opacity:1}
+    }
+  </style>
+
+  <rect width="760" height="1120" rx="4" fill="#080919"/>
+  <text class="title" x="40" y="52">The skill closes the agent loop</text>
+  <text class="lede" x="40" y="84">Instructions guide the repair. The engine decides.</text>
+
+  <path class="route" d="M380 200V230"/>
+  <path class="route" d="M380 320V405H415"/>
+  <path class="route" d="M557.5 460V500"/>
+  <path class="route" d="M557.5 620V655"/>
+  <path class="route" d="M557.5 765V800"/>
+  <path class="route" d="M557.5 910V945"/>
+
+  <path class="policy-route" d="M345 405H415"/>
+  <path class="policy-route" d="M345 435H375V855H415"/>
+  <text class="node-copy steel" x="64" y="514">same checked-in policy</text>
+  <text class="node-copy steel" x="64" y="541">feeds both gate runs</text>
+
+  <path class="trace t1" pathLength="1" d="M380 200V230"/>
+  <path class="trace t2" pathLength="1" d="M380 320V405H415"/>
+  <path class="trace trace-red t3" pathLength="1" d="M557.5 460V500"/>
+  <path class="trace t4" pathLength="1" d="M557.5 620V655"/>
+  <path class="trace t5" pathLength="1" d="M557.5 765V800"/>
+  <path class="trace trace-green t6" pathLength="1" d="M557.5 910V945"/>
+
+  <g data-step="load-skill">
+    <rect class="node node-skill" x="80" y="110" width="600" height="90" rx="4"/>
+    <text class="node-title cyan" x="108" y="148">skills/bce/SKILL.md</text>
+    <text class="node-copy" x="108" y="177">loads on demand</text>
+  </g>
+  <g data-step="change-code">
+    <rect class="node" x="80" y="230" width="600" height="90" rx="4"/>
+    <text class="node-title" x="108" y="268">agent changes code</text>
+    <text class="node-copy" x="108" y="297">live working tree</text>
+  </g>
+  <g data-step="gate-red">
+    <rect class="node node-gate" x="415" y="350" width="285" height="110" rx="4"/>
+    <text class="node-title cyan" x="440" y="393">run_gate {}</text>
+    <text class="node-copy" x="440" y="425">read-only · same engine</text>
+  </g>
+  <g data-step="diagnose">
+    <rect class="node node-red" x="415" y="500" width="285" height="120" rx="4"/>
+    <text class="node-title red" x="440" y="539">1 · BLOCK</text>
+    <text class="node-code" x="440" y="571">no-direct-http-client</text>
+    <text class="node-code red" x="440" y="601">greeting.plugin.ts#L16</text>
+  </g>
+  <g data-step="fix-code">
+    <rect class="node" x="415" y="655" width="285" height="110" rx="4"/>
+    <text class="node-title" x="440" y="698">fix source code</text>
+    <text class="node-copy" x="440" y="730">policy is not edited</text>
+  </g>
+  <g data-step="gate-green">
+    <rect class="node node-gate" x="415" y="800" width="285" height="110" rx="4"/>
+    <text class="node-title cyan" x="440" y="843">run_gate {}</text>
+    <text class="node-copy" x="440" y="875">live tree · same contract</text>
+  </g>
+  <g data-step="pass">
+    <rect class="node node-green" x="415" y="945" width="285" height="110" rx="4"/>
+    <text class="node-title green" x="440" y="988">0 · MERGE</text>
+    <text class="node-copy" x="440" y="1020">GREEN · score 100</text>
+  </g>
+
+  <g aria-label="The unchanged human-owned policy">
+    <rect class="node" x="60" y="350" width="285" height="110" rx="4"/>
+    <text class="node-title" x="84" y="393">EngineeringBlueprint</text>
+    <text class="node-copy steel" x="84" y="425">human-owned · unchanged</text>
+  </g>
+
+  <rect class="focus f0" x="78" y="108" width="604" height="94" rx="5"/>
+  <rect class="focus f1" x="78" y="228" width="604" height="94" rx="5"/>
+  <rect class="focus f2" x="413" y="348" width="289" height="114" rx="5"/>
+  <rect class="focus f3" x="413" y="498" width="289" height="124" rx="5"/>
+  <rect class="focus f4" x="413" y="653" width="289" height="114" rx="5"/>
+  <rect class="focus f5" x="413" y="798" width="289" height="114" rx="5"/>
+  <rect class="focus f6" x="413" y="943" width="289" height="114" rx="5"/>
+</svg>

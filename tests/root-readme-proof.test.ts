@@ -44,6 +44,9 @@ const ROOT = join(HERE, '..');
 const README = join(ROOT, 'README.md');
 const TRANSCRIPT = join(ROOT, 'docs', 'launch', 'hero-demo.txt');
 const CAST = join(ROOT, 'assets', 'hero-cast.svg');
+const SKILL_LOOP = join(ROOT, 'assets', 'bce-agent-skill-loop.svg');
+const SKILL_LOOP_MOBILE = join(ROOT, 'assets', 'bce-agent-skill-loop-mobile.svg');
+const SKILL = join(ROOT, 'skills', 'bce', 'SKILL.md');
 
 let readme: string;
 let hero: string;
@@ -100,7 +103,7 @@ describe('root README — the compact demo is byte-exact against a live engine r
     }
   });
 
-  // The archived animation is the one proof artifact a reader cannot copy out and re-run,
+  // The front-page animation is the one proof artifact a reader cannot copy out and re-run,
   // which makes it the one thing that could quietly disagree with the engine. It carries the
   // transcript as literal <text> nodes, so those are read back out and compared to the same
   // live run the excerpt above is cut from. An image that cannot be proven does not belong in
@@ -115,11 +118,43 @@ describe('root README — the compact demo is byte-exact against a live engine r
     ).toBe(hero);
   });
 
-  it('the committed cast is byte-identical to a fresh render', () => {
+  it('the committed front-page motion stays generated, accessible, and equivalent at both widths', () => {
     // Stronger than the line comparison above: catches a change to the DRAWING (geometry,
     // colours, timing) that leaves the text intact but was never regenerated, so the
     // committed asset and the generator cannot drift apart either.
     expect(readFileSync(CAST, 'utf8')).toBe(renderCastSvg(hero));
+
+    expect(readme, 'README no longer embeds the generated engine cast').toContain('assets/hero-cast.svg');
+    expect(readme, 'README no longer embeds the desktop Agent Skill loop').toContain('assets/bce-agent-skill-loop.svg');
+    expect(readme, 'README no longer embeds the mobile Agent Skill loop').toContain('assets/bce-agent-skill-loop-mobile.svg');
+    expect(readme, 'README no longer links the shipped Agent Skill').toContain('skills/README.md');
+
+    const expectedSteps = ['load-skill', 'change-code', 'gate-red', 'diagnose', 'fix-code', 'gate-green', 'pass'];
+    const stepOrder = (svg: string) => [...svg.matchAll(/<g data-step="([^"]+)">/g)].map((m) => m[1]);
+    const skillSource = readFileSync(SKILL, 'utf8');
+    expect(skillSource).toContain('Call `run_gate {}`.');
+    expect(skillSource).toContain('Change code, not policy.');
+    expect(skillSource).toContain('Call `run_gate {}` again');
+
+    for (const asset of [SKILL_LOOP, SKILL_LOOP_MOBILE]) {
+      expect(existsSync(asset), `${asset} is missing`).toBe(true);
+      const svg = readFileSync(asset, 'utf8');
+      expect(stepOrder(svg), `${asset} does not preserve the shipped repair order`).toEqual(expectedSteps);
+      expect(svg).toContain('role="img" aria-labelledby=');
+      expect(svg).toContain('<title id=');
+      expect(svg).toContain('<desc id=');
+      expect(svg).toContain('@media (prefers-reduced-motion: reduce)');
+      expect(svg).not.toContain('infinite');
+      for (const truth of [
+        'skills/bce/SKILL.md',
+        'run_gate {}',
+        'no-direct-http-client',
+        'greeting.plugin.ts#L16',
+        'fix source code',
+        'same contract',
+        'human-owned',
+      ]) expect(svg, `${asset} dropped: ${truth}`).toContain(truth);
+    }
   });
 
   it('keeps the complete proof off-page but directly linked from the excerpt', () => {
