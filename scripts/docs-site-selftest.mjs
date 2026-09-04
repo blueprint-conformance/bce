@@ -233,6 +233,29 @@ const PROBES = [
     expect: '',
   },
   {
+    // POSITIVE polarity: GitHub-safe responsive art with a required accessible fallback.
+    name: 'centered responsive picture (must NOT refuse)',
+    plant: (dir) => {
+      fs.appendFileSync(
+        path.join(dir, 'docs/faq.md'),
+        '\n\n<p align="center">\n  <picture>\n    <source media="(max-width: 600px)" srcset="../assets/bce-banner-mobile.svg">\n    <img src="../assets/bce-banner.svg" alt="A responsive planted banner">\n  </picture>\n</p>\n',
+      );
+    },
+    exit: 0,
+    expect: '',
+  },
+  {
+    name: 'responsive picture without fallback alt text',
+    plant: (dir) => {
+      fs.appendFileSync(
+        path.join(dir, 'docs/faq.md'),
+        '\n\n<p align="center">\n  <picture>\n    <source media="(max-width: 600px)" srcset="../assets/bce-banner-mobile.svg">\n    <img src="../assets/bce-banner.svg">\n  </picture>\n</p>\n',
+      );
+    },
+    exit: 2,
+    expect: 'has no alt text',
+  },
+  {
     name: 'hero img with no alt text',
     plant: (dir) => {
       fs.appendFileSync(

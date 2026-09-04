@@ -451,8 +451,9 @@ const TABLE_DELIM = /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/;
 // Markdown has no way to centre anything, and the landing page's hero — banner,
 // terminal cast, shields row — is the one place the project needs it. Rather
 // than open the renderer to HTML generally (which is what "just use a markdown
-// library" would have done), exactly four shapes are recognised: the centred
-// wrapper, an <img>, an <a> wrapping an <img>, and the matching close tag.
+// library" would have done), a deliberately small set of shapes is recognised:
+// the centred wrapper, an <img>, an <a> wrapping an <img>, and a responsive
+// <picture> containing one media source plus one accessible fallback image.
 // EVERYTHING else starting with `<` still hits the refusal below, unchanged —
 // this widens the measured surface by four constructs, it does not remove the
 // fail-closed default. A construct that is recognised but malformed (an <img>
@@ -468,8 +469,12 @@ const CENTER_CLOSE = /^<\/(p|div)>$/;
 const ATTR_RUN = '(?:[^<>"]|"[^"]*")*?';
 const IMG_ONLY = new RegExp(`^<img\\s+(${ATTR_RUN})\\s*/?>$`);
 const LINKED_IMG = new RegExp(`^<a\\s+href="([^"<>]+)"\\s*>\\s*(<img\\s+${ATTR_RUN}\\s*/?>)\\s*</a>$`);
+const PICTURE_OPEN = /^<picture>$/;
+const PICTURE_CLOSE = /^<\/picture>$/;
+const SOURCE_ONLY = new RegExp(`^<source\\s+(${ATTR_RUN})\\s*/?>$`);
 /** Attributes an <img> in a hero block may carry. Anything else is refused. */
 const IMG_ATTRS = new Set(['src', 'alt', 'width', 'height']);
+const SOURCE_ATTRS = new Set(['media', 'srcset']);
 
 /**
  * Render a markdown document. Returns { html, title, headings }.
@@ -628,12 +633,84 @@ function renderMarkdown(md, sourceFile, fromRoute, ctx, hrefSink) {
           break;
         }
 
+        if (PICTURE_OPEN.test(inner)) {
+          let sourceEl = null;
+          let fallbackEl = null;
+          let pictureClosed = false;
+          while (i < lines.length) {
+            const pictureLine = lines[i].trim();
+            const pictureLineNumber = i + 1;
+            i += 1;
+            if (pictureLine === '') continue;
+            if (PICTURE_CLOSE.test(pictureLine)) {
+              pictureClosed = true;
+              break;
+            }
+
+            const source = SOURCE_ONLY.exec(pictureLine);
+            if (source) {
+              if (sourceEl) harness(`${sourceFile}:${pictureLineNumber}: responsive hero <picture> may contain only one <source>`);
+              if (fallbackEl) harness(`${sourceFile}:${pictureLineNumber}: responsive hero <source> must precede its fallback <img>`);
+              const attrs = {};
+              for (const m of source[1].matchAll(/([a-zA-Z-]+)="([^"]*)"/g)) attrs[m[1]] = m[2];
+              for (const name of Object.keys(attrs)) {
+                if (!SOURCE_ATTRS.has(name)) {
+                  harness(`${sourceFile}:${pictureLineNumber}: <source ${name}="…"> is not an attribute this renderer emits — allowed: ${[...SOURCE_ATTRS].join(', ')}`);
+                }
+              }
+              if (!/^\(max-width: [1-9][0-9]*px\)$/.test(attrs.media ?? '')) {
+                harness(`${sourceFile}:${pictureLineNumber}: responsive hero <source> needs media="(max-width: Npx)"`);
+              }
+              if (!attrs.srcset || /[\s,]/.test(attrs.srcset)) {
+                harness(`${sourceFile}:${pictureLineNumber}: responsive hero <source> needs one local srcset asset`);
+              }
+              const r = rewriteTarget(attrs.srcset, sourceFile, fromRoute, ctx);
+              if (hrefSink && r.internal) hrefSink.push(r);
+              sourceEl = `<source media="${escapeHtml(attrs.media)}" srcset="${r.href}">`;
+              continue;
+            }
+
+            const fallback = IMG_ONLY.exec(pictureLine);
+            if (fallback) {
+              if (fallbackEl) harness(`${sourceFile}:${pictureLineNumber}: responsive hero <picture> may contain only one fallback <img>`);
+              const attrs = {};
+              for (const m of fallback[1].matchAll(/([a-zA-Z-]+)="([^"]*)"/g)) attrs[m[1]] = m[2];
+              for (const name of Object.keys(attrs)) {
+                if (!IMG_ATTRS.has(name)) {
+                  harness(`${sourceFile}:${pictureLineNumber}: <img ${name}="…"> is not an attribute this renderer emits — allowed: ${[...IMG_ATTRS].join(', ')}`);
+                }
+              }
+              if (!attrs.src) harness(`${sourceFile}:${pictureLineNumber}: responsive hero fallback <img> has no src`);
+              if (!attrs.alt || attrs.alt.trim() === '') harness(`${sourceFile}:${pictureLineNumber}: responsive hero fallback <img> has no alt text`);
+              fallbackEl = emitImg(
+                {
+                  src: attrs.src,
+                  alt: escapeHtml(attrs.alt),
+                  width: attrs.width ? escapeHtml(attrs.width) : undefined,
+                  height: attrs.height ? escapeHtml(attrs.height) : undefined,
+                },
+                sourceFile,
+                fromRoute,
+                ctx,
+                hrefSink,
+              );
+              continue;
+            }
+
+            harness(`${sourceFile}:${pictureLineNumber}: responsive hero <picture> may contain only one <source> and one fallback <img>`);
+          }
+          if (!pictureClosed) harness(`${sourceFile}:${startLine}: responsive hero <picture> is never closed`);
+          if (!sourceEl || !fallbackEl) harness(`${sourceFile}:${startLine}: responsive hero <picture> requires one <source> and one fallback <img>`);
+          parts.push(`<picture>${sourceEl}${fallbackEl}</picture>`);
+          continue;
+        }
+
         const linked = LINKED_IMG.exec(inner);
         const imgSource = linked ? linked[2] : inner;
         const img = IMG_ONLY.exec(imgSource);
         if (!img) {
           harness(
-            `${sourceFile}:${i}: a centered hero block may contain only <img> or <a href="…"><img …></a>.\n  ${inner}`,
+            `${sourceFile}:${i}: a centered hero block may contain only <picture>, <img>, or <a href="…"><img …></a>.\n  ${inner}`,
           );
         }
 
@@ -792,6 +869,18 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
   const cssHref = `${'../'.repeat(depth) || './'}assets/site.css`;
   const homeHref = relativeUrl(route, '', true);
   const docTitle = route === '' ? `${SITE_NAME} — ${SITE_TAGLINE}` : `${title} — ${SITE_NAME}`;
+  // The landing hero is the product explanation, not article decoration. Lift only that first,
+  // already-sanitized hero block above the documentation shell so it keeps the approved engine
+  // composition at common desktop widths; every other page and image stays in the reading column.
+  let pageBody = bodyHtml;
+  let landingHero = '';
+  if (route === '') {
+    const match = pageBody.match(/^<p class="hero">[\s\S]*?<\/p>\n?/);
+    if (match) {
+      landingHero = match[0];
+      pageBody = pageBody.slice(match[0].length);
+    }
+  }
   const source = sourceFile
     ? `<p class="source">Source: <a href="${REPO_BLOB}${sourceFile}" rel="noopener">${escapeHtml(sourceFile)}</a></p>`
     : '';
@@ -803,14 +892,15 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
 <title>${escapeHtml(docTitle)}</title>
 <link rel="stylesheet" href="${cssHref}">
 </head>
-<body>
+<body${route === '' ? ' class="landing"' : ''}>
+${landingHero}
 <header class="site-header">
   <a class="brand" href="${homeHref}"><strong>${SITE_NAME}</strong> <span>${SITE_TAGLINE}</span></a>
   <nav class="site-nav" aria-label="Sections">${navHtml(route, route)}</nav>
 </header>
 <main>
 <article>
-${withToc(bodyHtml, headings, wantToc)}
+${withToc(pageBody, headings, wantToc)}
 </article>
 ${source}
 </main>
@@ -870,7 +960,7 @@ pre {
 pre code { background: none; padding: 0; font-size: .85rem; line-height: 1.55; }
 blockquote {
   margin-left: 0; padding: .6rem 1rem; background: var(--quote);
-  border-left: 3px solid var(--accent); border-radius: 0 4px 4px 0;
+  border: 1px solid var(--line); border-radius: 4px;
 }
 blockquote > :last-child { margin-bottom: 0; }
 .table-wrap { overflow-x: auto; }
@@ -878,7 +968,10 @@ blockquote > :last-child { margin-bottom: 0; }
    forcing the page to scroll sideways; the shields row wraps instead of
    overflowing. */
 .hero { text-align: center; line-height: 0; }
+.hero picture { display: block; }
 .hero img { max-width: 100%; height: auto; margin: .2rem .15rem; }
+.landing > .hero { margin: 0; background: #080919; }
+.landing > .hero picture, .landing > .hero img { display: block; width: 100%; max-width: 1280px; margin: 0 auto; }
 table { border-collapse: collapse; width: 100%; font-size: .93rem; }
 th, td { text-align: left; vertical-align: top; padding: .45rem .7rem; border: 1px solid var(--line); }
 th { background: var(--code-bg); font-weight: 600; }
