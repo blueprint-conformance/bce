@@ -74,7 +74,9 @@ jobs:
         run: node scripts/build-docs-site.mjs
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa  # v3.0.1
+        # v5 is load-bearing: v3 delegated to a mutable upload-artifact tag that
+        # the repository's full-SHA Actions policy correctly rejected at runtime.
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:
           path: _site
 

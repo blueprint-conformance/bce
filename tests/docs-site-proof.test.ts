@@ -125,9 +125,10 @@ describe('the post-flip deploy activation is intact', () => {
     // and strands every schema $id at 404. The guard is a 4-space-indented job-level
     // key, so this matches the authored shape exactly and ignores prose mentions.
     expect(publishWf).not.toMatch(/^    if: false$/m);
-    // The repo enforces actions/permissions.sha_pinning_required, so the ref is a
-    // 40-hex commit with the version kept as a trailing comment; accept either form.
-    expect(publishWf).toMatch(/uses: actions\/upload-pages-artifact@(v3\b|[0-9a-f]{40}\s+# v3)/);
+    // The repo enforces actions/permissions.sha_pinning_required. Require the v5
+    // family whose transitive artifact upload is also immutable, with the reviewed
+    // 40-hex commit here and the release family retained as a trailing comment.
+    expect(publishWf).toMatch(/uses: actions\/upload-pages-artifact@[0-9a-f]{40}\s+# v5/);
     expect(publishWf).toMatch(/uses: actions\/deploy-pages@(v4\b|[0-9a-f]{40}\s+# v4)/);
     // The deploy steps still belong to a real job with a steps block.
     const stepsAt = publishWf.indexOf('    steps:');
