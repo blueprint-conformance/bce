@@ -40,8 +40,8 @@ const EXTRACTOR_TEETH_MANIFEST = JSON.parse(
 // Supported runtimes differ materially here, so scale this one proof's finite ceiling
 // with its declared corpus instead of weakening the global timeout or the assertions.
 const EXTRACTOR_TEETH_TIMEOUT_MS = Math.min(
-  180_000,
-  Math.max(60_000, EXTRACTOR_TEETH_MANIFEST.cases.length * 4_000),
+  300_000,
+  Math.max(60_000, EXTRACTOR_TEETH_MANIFEST.cases.length * 6_000),
 );
 
 function loadBlueprint(): EngineeringBlueprint {

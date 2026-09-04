@@ -165,14 +165,25 @@ for (const [harness, expected] of Object.entries(harnesses)) {
 const repo = join(scratch, 'repo-agents');
 const session = await mcpSession(repo);
 const init = await session.request('initialize', { protocolVersion: '2025-11-25' });
-assert(init.response.result?.serverInfo?.version === '2', 'MCP surface version was not bumped');
+assert(init.response.result?.serverInfo?.version === '3', 'MCP surface version was not bumped');
 const instructions = init.response.result?.instructions ?? '';
-for (const tool of ['doctor_repository', 'run_gate', 'validate_blueprint', 'assess_teeth', 'check_baseline', 'get_report']) {
+for (const tool of [
+  'doctor_repository',
+  'run_gate',
+  'validate_blueprint',
+  'assess_teeth',
+  'check_baseline',
+  'inspect_blueprint',
+  'explain_constraint',
+  'compare_blueprint_policy',
+  'verify_review_packet',
+  'get_report',
+]) {
   assert(instructions.includes(tool), `MCP initialization guidance omitted route for ${tool}`);
 }
 const listed = await session.request('tools/list');
 const tools = listed.response.result?.tools ?? [];
-assert(tools.length === 6, `expected 6 MCP tools, got ${tools.length}`);
+assert(tools.length === 10, `expected 10 MCP tools, got ${tools.length}`);
 for (const tool of tools) {
   assert(tool.annotations?.readOnlyHint === true, `${tool.name} lacks readOnlyHint`);
   assert(tool.annotations?.destructiveHint === false, `${tool.name} lacks destructiveHint:false`);

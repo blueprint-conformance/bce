@@ -22,10 +22,14 @@ const inspector = join(root, 'node_modules', '@modelcontextprotocol', 'inspector
 const expectedTools = [
   'assess_teeth',
   'check_baseline',
+  'compare_blueprint_policy',
   'doctor_repository',
+  'explain_constraint',
   'get_report',
+  'inspect_blueprint',
   'run_gate',
   'validate_blueprint',
+  'verify_review_packet',
 ];
 
 const inspected = spawnSync(

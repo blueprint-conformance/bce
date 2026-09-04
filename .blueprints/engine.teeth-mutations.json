@@ -44,6 +44,18 @@
       "allowedCollateralConstraints": []
     },
     {
+      "id": "source-mutant-only-cli-may-call-process-exit--assistant-adapter",
+      "constraintId": "only-cli-may-call-process-exit--assistant-adapter",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/assistant-adapter.ts",
+        "preconditionSha256": "a3faeac4b1e486f5119209f9802cc702fc27683f42ce9f65589c358e392c5417",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/assistant-adapter.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
       "id": "source-mutant-only-cli-may-call-process-exit--baseline",
       "constraintId": "only-cli-may-call-process-exit--baseline",
       "operation": {
@@ -157,7 +169,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/gate.ts",
-        "preconditionSha256": "4d7b2a1cfede8c06fd026d01acce9ad31964918110a62e1f012338c0c2a2e7f5",
+        "preconditionSha256": "4b3f38f45632d4e80c2787adb42ef11bbf6e73cb7200ce483bfd26f97dce8154",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/gate.ts",
@@ -181,7 +193,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/index.ts",
-        "preconditionSha256": "89723cd8a2a5766d0d215aa5005ad0ade344188888ebaeca504de942c9a63f1b",
+        "preconditionSha256": "e04d6626b9864d50c1d6ca16561db0fa321af7e17d748571d4f054807c554afc",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/index.ts",
@@ -253,7 +265,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/policy-change.ts",
-        "preconditionSha256": "6d5e483dc75a94befa8e0560e25f9c7a8b2713b980092222690b6245f78cd42d",
+        "preconditionSha256": "1235544264288cad433d80c8c1a34d5a4bf15e5e841cc3af21e65c329f650991",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/policy-change.ts",
@@ -265,7 +277,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/policy-history.ts",
-        "preconditionSha256": "de84e66ef07782d4eea5d7d11d7167f8cff3be38c6eee44aeb257b324cf27374",
+        "preconditionSha256": "badfef0ba6d64b6c162319894324236ccaead98c5e40630675c876cd265da902",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/policy-history.ts",
@@ -293,6 +305,18 @@
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/portfolio-compile.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--proposal-io",
+      "constraintId": "only-cli-may-call-process-exit--proposal-io",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/proposal-io.ts",
+        "preconditionSha256": "694ca6fd97f5a035e78b003cdbd450165c6308b72ff5350a18b78c1a44b525ae",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/proposal-io.ts",
       "allowedCollateralConstraints": []
     },
     {
@@ -332,6 +356,42 @@
       "allowedCollateralConstraints": []
     },
     {
+      "id": "source-mutant-only-cli-may-call-process-exit--review",
+      "constraintId": "only-cli-may-call-process-exit--review",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/review.ts",
+        "preconditionSha256": "ce0d4c1aeb3c645250022de92949d8922797dfb4267b025b936276f0e091512d",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/review.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--review-contracts",
+      "constraintId": "only-cli-may-call-process-exit--review-contracts",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/review-contracts.ts",
+        "preconditionSha256": "42bb2e19476daa17dd1528904894a1fc7dae308467ba72816505a38615a1a1ec",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/review-contracts.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--review-render",
+      "constraintId": "only-cli-may-call-process-exit--review-render",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/review-render.ts",
+        "preconditionSha256": "23a1382169f80eebffad8f636b6dc751acaf62fe00e4502b24da2000a408a74b",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/review-render.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
       "id": "source-mutant-only-cli-may-call-process-exit--runtime-identity",
       "constraintId": "only-cli-may-call-process-exit--runtime-identity",
       "operation": {
@@ -365,6 +425,18 @@
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/schema.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-only-cli-may-call-process-exit--scm-review",
+      "constraintId": "only-cli-may-call-process-exit--scm-review",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/scm-review.ts",
+        "preconditionSha256": "4175155ef987f4a1c6ded582829e193608319c338d049be56462e2de0fd4b862",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/scm-review.ts",
       "allowedCollateralConstraints": []
     },
     {
@@ -433,10 +505,22 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "1cb2c55c5e6eb67d96f44a283cac164633d0c90ac70b5b4c5546031f467eb071",
+        "preconditionSha256": "2f9cbe0fcc13c150ed9e39ab342ff7f3cdad31fe62a0224fdda9627dd9a602b3",
         "content": "\nimport { Project as __BceMutationProject } from 'ts-morph';\n"
       },
       "expectedEvidencePath": "src/cli.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-review-core-no-io-imports",
+      "constraintId": "review-core-no-io-imports",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/review.ts",
+        "preconditionSha256": "ce0d4c1aeb3c645250022de92949d8922797dfb4267b025b936276f0e091512d",
+        "content": "\nimport * as __bceMutationFs from 'node:fs';\n"
+      },
+      "expectedEvidencePath": "src/review.ts",
       "allowedCollateralConstraints": []
     },
     {
@@ -445,7 +529,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "1cb2c55c5e6eb67d96f44a283cac164633d0c90ac70b5b4c5546031f467eb071",
+        "preconditionSha256": "2f9cbe0fcc13c150ed9e39ab342ff7f3cdad31fe62a0224fdda9627dd9a602b3",
         "content": "\nimport __bceMutationRuntimeDependency from 'ajv';\n"
       },
       "expectedEvidencePath": "src/cli.ts",

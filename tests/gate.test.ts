@@ -107,6 +107,14 @@ describe('runGate — hardening (re-verify round 6)', () => {
 });
 
 describe('runGate — fail-closed', () => {
+  it('refuses while a policy transition lock indicates interrupted or concurrent landing', () => {
+    const dir = arrangeRepo('conformant');
+    fs.writeFileSync(path.join(dir, '.blueprints', '.bce-policy-transition.lock'), '{"state":"transition-in-progress"}\n');
+    const r = runGate(dir, path.join(dir, '.blueprints'), null, 'ast');
+    expect(r.failed).toBe(true);
+    expect(r.refusals?.join(' ')).toContain('policy transition may have been interrupted');
+  });
+
   it('a malformed blueprint is a gate FAILURE, never a silent pass', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-gate-bad-'));
     fs.mkdirSync(path.join(dir, '.blueprints'), { recursive: true });

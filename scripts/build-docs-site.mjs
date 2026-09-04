@@ -92,6 +92,7 @@ const PAGES = [
   { route: 'guides/quickstart', source: 'docs/quickstart.md', nav: 'Quickstart', section: 'Guides' },
   { route: 'guides/onboarding', source: 'docs/onboarding.md', section: 'Guides' },
   { route: 'guides/first-win', source: 'docs/first-win.md', section: 'Guides' },
+  { route: 'guides/ai-first-review', source: 'docs/ai-first-review.md', section: 'Guides' },
 
   { route: 'spec', source: 'spec/SPEC.md', nav: 'Specification', section: 'Specification' },
   { route: 'spec/conformance-vectors', source: 'spec/conformance-vectors/README.md', section: 'Specification' },

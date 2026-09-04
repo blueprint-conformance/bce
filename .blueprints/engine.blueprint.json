@@ -56,6 +56,31 @@
         "owner": "maintainers"
       },
       {
+        "id": "proposal-core",
+        "type": "pureModule",
+        "owner": "maintainers"
+      },
+      {
+        "id": "review-core",
+        "type": "pureModule",
+        "owner": "maintainers"
+      },
+      {
+        "id": "assistant-io",
+        "type": "adapter",
+        "owner": "maintainers"
+      },
+      {
+        "id": "quarantine-io",
+        "type": "adapter",
+        "owner": "maintainers"
+      },
+      {
+        "id": "scm-review-io",
+        "type": "adapter",
+        "owner": "maintainers"
+      },
+      {
         "id": "ts-morph",
         "type": "externalDependency"
       },
@@ -106,6 +131,60 @@
         "to": "io-shell",
         "type": "imports",
         "allowed": false
+      },
+      {
+        "from": "cli",
+        "to": "proposal-core",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "cli",
+        "to": "review-core",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "cli",
+        "to": "assistant-io",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "cli",
+        "to": "quarantine-io",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "proposal-core",
+        "to": "assistant-io",
+        "type": "imports",
+        "allowed": false
+      },
+      {
+        "from": "review-core",
+        "to": "quarantine-io",
+        "type": "imports",
+        "allowed": false
+      },
+      {
+        "from": "cli",
+        "to": "scm-review-io",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "scm-review-io",
+        "to": "review-core",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "review-core",
+        "to": "scm-review-io",
+        "type": "imports",
+        "allowed": false
       }
     ]
   },
@@ -117,6 +196,7 @@
       "from": "*",
       "to": "ts-morph",
       "scopePaths": [
+        "src/assistant-adapter.ts",
         "src/baseline.ts",
         "src/benchmark.ts",
         "src/cli.ts",
@@ -139,12 +219,17 @@
         "src/policy-history.ts",
         "src/portfolio-collect.ts",
         "src/portfolio-compile.ts",
+        "src/proposal-io.ts",
         "src/python-extractor.ts",
         "src/recall-gate.ts",
         "src/report.ts",
-        "src/runtime-identity.ts",
-        "src/safe-regex.ts",
-        "src/schema.ts",
+        "src/review-contracts.ts",
+        "src/review-render.ts",
+        "src/review.ts",
+    "src/runtime-identity.ts",
+    "src/safe-regex.ts",
+    "src/scm-review.ts",
+    "src/schema.ts",
         "src/score.ts",
         "src/teeth-waiver.ts",
         "src/teeth.ts",
@@ -378,6 +463,14 @@
       "policyRef": "policy/library-modules-never-exit"
     },
     {
+      "id": "review-core-no-io-imports",
+      "type": "forbiddenPattern",
+      "severity": "critical",
+      "path": "src/review*.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"]node:(?:fs|child_process|https?|net|tls|dns)['\"]",
+      "policyRef": "policy/deterministic-review-core"
+    },
+    {
       "id": "only-cli-may-call-process-exit--safe-regex",
       "type": "forbiddenPattern",
       "severity": "high",
@@ -448,6 +541,54 @@
       "path": "src/extractor-registry.ts",
       "pattern": "process\\.exit\\s*\\(",
       "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--assistant-adapter",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/assistant-adapter.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--proposal-io",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/proposal-io.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--review-contracts",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/review-contracts.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--review-render",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/review-render.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--review",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/review.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--scm-review",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/scm-review.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
     }
   ],
   "evidenceRequirements": [
@@ -468,6 +609,6 @@
     "paths": [
       "src/**/*.ts"
     ],
-    "minFiles": 34
+    "minFiles": 40
   }
 }

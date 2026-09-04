@@ -96,8 +96,8 @@ export { runGate, discoverBlueprints, blueprintTouchesChanges, resolveTreeRevisi
 export type { GateResult, GateReportDoc, ComputedGate } from './gate.js';
 export { doctorRepository, checkEngineUpgrade } from './lifecycle.js';
 export type { DoctorReport, DoctorCheck, DoctorCheckStatus, EngineUpgradeCheck } from './lifecycle.js';
-export { ratifyBlueprint, amendBlueprint, readPolicyHistory, semverGreater, PolicyHistoryError, POLICY_HISTORY_RELPATH } from './policy-history.js';
-export type { PolicyHistoryEntry, PolicyOperation, ReviewInput } from './policy-history.js';
+export { readPolicyHistory, semverGreater, PolicyHistoryError, POLICY_HISTORY_RELPATH } from './policy-history.js';
+export type { PolicyHistoryEntry, PolicyOperation } from './policy-history.js';
 export { classifyPolicyChanges } from './policy-change.js';
 export type { PolicyChangeClass, FileChange, ClassifiedChange, PolicyChangeReport } from './policy-change.js';
 export { createEvidenceBundle, verifyEvidenceBundle } from './evidence-bundle.js';
@@ -179,3 +179,66 @@ export type {
   ViolationClass,
   UpsertDescriptor,
 } from './materializer.js';
+
+// AI-first proposal/review contracts and deterministic core. Provider transport and
+// repository I/O remain explicit shells; no renderer owns policy logic.
+export {
+  ProposalContextSchema,
+  BlueprintDraftPlanSchema,
+  BlueprintProposalSchema,
+  BlueprintReviewPacketSchema,
+  BlueprintDecisionRecordSchema,
+  PolicyChangeClassificationSchema,
+  PolicyComparisonSchema,
+  ConstraintReviewSchema,
+  BlueprintInspectionSchema,
+  ReviewEngineIdentitySchema,
+  ReviewExtractorIdentitySchema,
+  ReviewToolchainIdentitySchema,
+  RepositoryPolicyDiffSchema,
+} from './review-contracts.js';
+export type {
+  ProposalContext,
+  BlueprintDraftPlan,
+  BlueprintProposal,
+  BlueprintReviewPacket,
+  BlueprintDecisionRecord,
+  PolicyChangeClassification,
+  PolicyComparison,
+  ConstraintReview,
+  BlueprintInspection,
+  ReviewEngineIdentity,
+  ReviewExtractorIdentity,
+  ReviewToolchainIdentity,
+  RepositoryPolicyDiff,
+  ReviewPacketVerification,
+} from './review-contracts.js';
+export {
+  buildProposalContext,
+  compileDraftPlan,
+  inspectBlueprint,
+  explainConstraint,
+  compareBlueprintPolicy,
+  buildReviewPacket,
+  verifyReviewPacket,
+  recordReviewDecision,
+  reviewDigest,
+} from './review.js';
+export { renderReviewPacketText, renderReviewPacketHtml, reviewSafeText } from './review-render.js';
+export {
+  AssistantGenerationRecordSchema,
+  OPENAI_RESPONSES_ENDPOINT,
+  BLUEPRINT_PLAN_PROMPT,
+  blueprintPlanPromptDigest,
+  buildDisclosureManifest,
+  createOpenAIResponsesAdapter,
+  createRegisteredAssistant,
+  verifyDisclosureManifest,
+} from './assistant-adapter.js';
+export type {
+  AssistantGenerationRecord,
+  AssistantGenerationResult,
+  BlueprintAssistantAdapter,
+  DisclosureManifest,
+  OpenAIResponsesAdapterOptions,
+} from './assistant-adapter.js';

@@ -14,7 +14,7 @@
   path, a declared-but-missing MCP companion, and ambiguous YAML frontmatter.
 - Canonical authoring check: OpenAI's `plugin-creator` validator accepts the repository root.
 
-This deliberately does not declare `mcpServers`. BCE's six-tool MCP server is a local stdio binary
+This deliberately does not declare `mcpServers`. BCE's ten-tool MCP server is a local stdio binary
 installed with `bce-engine`; it is not a public HTTPS MCP service. A public plugin submission may be
 skills-only, so inventing a hosted connection would widen the product and misstate its data path.
 

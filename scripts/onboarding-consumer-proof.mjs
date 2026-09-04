@@ -25,10 +25,14 @@ const scratch = mkdtempSync(join(tmpdir(), 'bce-onboarding-consumer-proof-'));
 const expectedTools = [
   'assess_teeth',
   'check_baseline',
+  'compare_blueprint_policy',
   'doctor_repository',
+  'explain_constraint',
   'get_report',
+  'inspect_blueprint',
   'run_gate',
   'validate_blueprint',
+  'verify_review_packet',
 ];
 const npmBin = realpathSync(execFileSync('which', ['npm'], { encoding: 'utf8' }).trim());
 
@@ -230,7 +234,10 @@ for (const rel of [
   'scripts/model-adoption-eval.mjs',
   'integrations/AGENTS.md.snippet',
   'docs/onboarding.md',
+  'docs/ai-first-review.md',
   'spec/schemas/engineering-blueprint.schema.json',
+  'spec/schemas/blueprint-review-packet.schema.json',
+  'spec/schemas/blueprint-decision-record.schema.json',
   'spec/skill-standard/SKILL-STANDARD.md',
   'spec/skill-standard/skill-standard.blueprint.json',
   'examples/skill-standard/clean/skills/greet/SKILL.md',
@@ -315,7 +322,12 @@ const onboard = bce(
 );
 requireMarkers(
   onboard.stdout,
-  ['PROPOSED advisory adoption', 'MCP config:', 'doctor_repository, check_baseline, validate_blueprint, run_gate, assess_teeth, get_report', 'human ratification still required'],
+  [
+    'PROPOSED advisory adoption',
+    'MCP config:',
+    'inspect_blueprint, explain_constraint, compare_blueprint_policy, verify_review_packet',
+    'human ratification still required',
+  ],
   'onboard',
 );
 const blueprintPath = join(repoDir, '.blueprints', 'no-direct-http-client.blueprint.json');
@@ -399,12 +411,12 @@ const gitResponses = await rpcRoundTrip(gitMcp, gitConsumer, [
   { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
 ]);
 const gitTools = gitResponses.get(2)?.result?.tools?.map((tool) => tool.name).sort();
-assert(JSON.stringify(gitTools) === JSON.stringify(expectedTools), 'Git-installed MCP did not expose all six tools');
+assert(JSON.stringify(gitTools) === JSON.stringify(expectedTools), 'Git-installed MCP did not expose all ten tools');
 
 process.stdout.write(`packed artifact: ${basename(tarball)} (${packResult[0].files.length} files)\n`);
 process.stdout.write('packed binaries: bce + bce-mcp PASS\n');
 process.stdout.write('cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS\n');
-process.stdout.write('MCP: six tools listed and called successfully PASS\n');
+process.stdout.write('MCP: ten tools listed; six lifecycle tools called successfully PASS\n');
 process.stdout.write('Git install: prepare build + bce + bce-mcp PASS\n');
 process.stdout.write('onboarding consumer proof: PASS\n');
 

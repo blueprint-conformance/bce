@@ -1,7 +1,9 @@
 # bce — the blueprint conformance engine
 
-> A fail-closed architecture-conformance gate for AI-built systems. You author a blueprint (a durable
-> architectural contract for a repository); bce measures the code against it and produces a
+> A fail-closed architecture-conformance gate for AI-built systems. An AI can propose a draft from
+> bounded, disclosed repository context; bce deterministically reviews it, and an authenticated human
+> decides whether the exact packet may enter the policy ceremony. The resulting blueprint is a durable
+> architectural contract for a repository; bce measures the code against it and produces a
 > deterministic conformance score, a fail-closed required-check gate for merges, and hash-chained
 > evidence anyone can re-derive offline. Extraction is TypeScript/JavaScript today; the blueprint graph
 > model is language-neutral, the extractor seam is documented, and Python is the named next community
@@ -19,6 +21,8 @@ no skip flags — a refusal is a red, not a pass.
 - [First-win matrix](examples/first-win/README.md): the same loop on four starting shapes (empty repo, plain JavaScript, TypeScript, monorepo), each authoring its own contract with `bce author` and each wall-clock timed under 120s in CI.
 - [Pick your shape](docs/first-win.md): which first-win walkthrough matches your repository, and the checkout-vs-published-package distinction.
 - [README](README.md): what bce is, in a paragraph.
+- [AI-first proposal and review](docs/ai-first-review.md): bounded disclosure, draft-only generation,
+  deterministic packets, GitHub-bound decisions, and attended landing.
 
 ## Adoption
 
@@ -26,7 +30,7 @@ no skip flags — a refusal is a red, not a pass.
 - [FAQ](docs/faq.md): why baseline is not a bypass; why there is no skip flag.
 - [Run bce in an agent loop](docs/agent-loop.md): per-harness (Claude Code / Cursor / generic MCP); the violation→fix→re-gate loop.
 - [Integration snippets](integrations/README.md): drop-in CLAUDE.md / AGENTS.md / .cursorrules blocks + the MCP tools.
-- [Agent Skill](skills/README.md): the full author → validate → run → teeth → gate lifecycle as a loadable skill; copy `skills/bce` into `.claude/skills/`.
+- [Agent Skill](skills/README.md): proposal/review plus validate → run → teeth → gate as a loadable skill; copy `skills/bce` into `.claude/skills/`.
 
 ## Reference
 
@@ -37,9 +41,10 @@ no skip flags — a refusal is a red, not a pass.
 - [Published schemas](spec/schemas): generated JSON Schemas (draft-07).
 - [Conformance vectors](spec/conformance-vectors/README.md): input→expected-verdict data (no runner, no levels at v1alpha1).
 
-## Authoring blueprints
+## Proposing and authoring blueprints
 
-- [Blueprint-author prompt pack (experimental)](prompts/blueprint-author.md): drive an agent to draft a blueprint from an existing repo; always ends in `bce teeth` + human review.
+- [AI-first proposal and review](docs/ai-first-review.md): preferred bounded proposal path with one immutable review packet.
+- [Blueprint-author prompt pack (manual fallback)](prompts/blueprint-author.md): drive an agent to draft a blueprint from an existing repo; always ends in `bce teeth` + human review.
 - [Prompt-pack validation](prompts/VALIDATION.md): the 5-public-repo acceptance runs.
 
 ## The engine gates itself

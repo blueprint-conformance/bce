@@ -44,6 +44,9 @@ const cases = blueprint.constraints.map((constraint) => {
   if (constraint.id === 'evaluator-pure--teeth-imports-relative-only') {
     return appendCase(constraint, 'src/teeth.ts', "\nimport { randomBytes as __bceMutationRandomBytes } from 'node:crypto';\n");
   }
+  if (constraint.id === 'review-core-no-io-imports') {
+    return appendCase(constraint, 'src/review.ts', "\nimport * as __bceMutationFs from 'node:fs';\n");
+  }
   if (constraint.id.startsWith('only-cli-may-call-process-exit--') && constraint.type === 'forbiddenPattern' && constraint.path) {
     return appendCase(constraint, constraint.path, '\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n');
   }

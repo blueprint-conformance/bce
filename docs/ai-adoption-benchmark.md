@@ -13,8 +13,8 @@ harness it requires both complete skills to be discoverable in project scope, re
 MCP configuration, checks that existing Codex settings survive, and records onboarding wall time.
 After setup it launches the real `bce-mcp` binary from the consumer repository and requires:
 
-- all six tools, each marked read-only, non-destructive, idempotent, and closed-world;
-- initialization guidance that routes all six jobs;
+- all ten tools, each marked read-only, non-destructive, idempotent, and closed-world;
+- initialization guidance that routes all ten jobs;
 - `doctor_repository {}` and `run_gate {}` to work without redundant repository arguments;
 - clean GREEN, a live uncommitted `axios` drift reported RED at the exact file/line, and corrected
   GREEN through the same long-lived MCP process;

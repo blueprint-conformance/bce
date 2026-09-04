@@ -31,6 +31,8 @@ import { EngineeringBlueprintSchema, PortfolioBlueprintSchema, parseBlueprint } 
 import { evaluate } from '../src/report.js';
 import { emitRun, verifyEvidenceChain } from '../src/emit.js';
 import type { ArchitectureGraph } from '../src/graph.js';
+import { BlueprintProposalSchema } from '../src/review-contracts.js';
+import { makeProposalFixture } from './review-fixture.js';
 
 const ROOT = path.join(__dirname, '..');
 const SCHEMA_DIR = path.join(ROOT, 'spec', 'schemas');
@@ -44,6 +46,7 @@ for (const f of filenames) compiled[f] = ajv.compile(generated[f]!);
 
 const ebValidate = compiled['engineering-blueprint.schema.json']!;
 const pbValidate = compiled['portfolio-blueprint.schema.json']!;
+const proposalValidate = compiled['blueprint-proposal.schema.json']!;
 
 /** Every committed authored EngineeringBlueprint artifact (fixtures + the self-gate lane). */
 const engineeringArtifacts = (): string[] => {
@@ -125,6 +128,14 @@ describe('validator agreement — Zod and the generated schema on authored artif
     const b = base();
     const metadata = { ...(b.metadata as Record<string, unknown>), version: 'not-semver' };
     bothReject({ ...b, metadata }, 'metadata.version not x.y.z');
+  });
+
+  it('both proposal validators enforce the draft-only AI authority boundary', () => {
+    const proposal = makeProposalFixture();
+    const mutant = structuredClone(proposal) as unknown as { candidate: { metadata: { status: string } } };
+    mutant.candidate.metadata.status = 'approved';
+    expect(BlueprintProposalSchema.safeParse(mutant).success).toBe(false);
+    expect(proposalValidate(mutant), ajv.errorsText(proposalValidate.errors)).toBe(false);
   });
 
   it('PINNED DIVERGENCE: a forbiddenPattern constraint with no pattern is Zod-REJECTED but ' +

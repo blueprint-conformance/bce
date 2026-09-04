@@ -31,10 +31,29 @@ npx --no-install bce demo
 `demo` must print one GREEN and one RED result. If it cannot go red, stop: you do not have a
 functional engine. Never use `latest` or a range for a merge gate.
 
-## 2. Author one falsifiable draft
+## 2. Start with an AI-first reviewed proposal
 
-Start with one important rule over files that already exist. This example bans direct `axios`
-imports from TypeScript/JavaScript source:
+For releases that include `bce propose`, the preferred first repository action is to state intent and
+let the registered assistant draft inside quarantine. BCE then validates, scopes, grades, proves
+teeth, and compares the exact candidate before a human sees it:
+
+```bash
+export OPENAI_API_KEY='<credential supplied outside BCE>'
+npx --no-install bce propose \
+  --repo . \
+  --intent-file docs/architecture-intent.md \
+  --assistant openai-responses \
+  --assistant-model '<exact provider model id>' \
+  --new
+```
+
+The model cannot approve or install policy. Follow the [AI-first review ceremony](ai-first-review.md)
+to inspect the packet and bind a decision to a real pull-request review.
+
+### Manual draft path
+
+`bce author` remains the deterministic, offline lower-level path. Start with one important rule over
+files that already exist. This example bans direct `axios` imports from TypeScript/JavaScript source:
 
 ```bash
 npx --no-install bce author \
@@ -108,10 +127,13 @@ must be accepted, use `bce baseline --check` and the reviewed baseline ceremony.
 
 ## 5. Verify the agent surfaces
 
-The MCP server exposes six read-only tools:
+The MCP server exposes ten read-only tools:
 
 - `doctor_repository` and `check_baseline` diagnose adoption and debt;
 - `validate_blueprint`, `run_gate`, and `assess_teeth` drive the correction loop;
+- `inspect_blueprint`, `explain_constraint`, and `compare_blueprint_policy` expose the canonical
+  Promise/Lens/Proof/Limits and semantic-review functions;
+- `verify_review_packet` replays packet and optional decision integrity without writing;
 - `get_report` reads a report already produced by the engine.
 
 It deliberately cannot adopt, ratify, amend, graduate, or grow a baseline. Those are policy acts.
@@ -137,20 +159,24 @@ supports. Copy directories, not only `SKILL.md`, because `skill-tuning` has refe
 
 ## 6. Review and ratify
 
-Review the generated diff, the planted RED/GREEN proof, and `.bce-adoption.json`. Ratification is
-attended and requires an identified human reviewer, substantive rationale, and explicit UTC time:
+Review the generated diff, the planted RED/GREEN proof, and `.bce-adoption.json`. The current landing
+ceremony requires a deterministic packet and a GitHub review; local identity/rationale flags are not
+authentication. If onboarding installed a manual draft first, use it as the explicit semantic base:
 
 ```bash
-npx --no-install bce ratify \
+npx --no-install bce propose \
   --repo . \
-  --blueprint .blueprints/no-direct-http-client.blueprint.json \
-  --human-reviewer \
-  --reviewer '<reviewer identity>' \
-  --rationale '<what was reviewed and why this contract is correct>' \
-  --recorded-at 'YYYY-MM-DDTHH:MM:SSZ'
+  --intent-file docs/architecture-intent.md \
+  --assistant openai-responses \
+  --assistant-model '<exact provider model id>' \
+  --base .blueprints/no-direct-http-client.blueprint.json
 ```
 
-Do not automate that command through MCP. Keep advisory mode until the team is ready to graduate.
+Inspect the emitted packet, obtain the bound SCM decision, then ratify the candidate in quarantine
+with `--packet`, `--decision`, `--github-repo`, `--github-pull`, and `--github-review` as shown in
+[the complete review guide](ai-first-review.md). Ratification re-fetches the forge review before it
+replaces the existing draft. Do not automate that command through MCP. Keep advisory mode until the
+team is ready to graduate.
 
 ## 7. Emit reproducible evidence
 

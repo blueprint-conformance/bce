@@ -1,13 +1,13 @@
 # MCP compatibility contract
 
-`bce-mcp` is a read-only stdio adapter over the same exported engine functions used by the CLI. It exposes exactly six tools and contains no scoring, verdict, policy-mutation, or baseline-growth logic.
+`bce-mcp` is a read-only stdio adapter over the same exported engine functions used by the CLI. It exposes exactly ten tools and contains no scoring, verdict, policy-mutation, decision-recording, or baseline-growth logic. The four review tools are `inspect_blueprint`, `explain_constraint`, `compare_blueprint_policy`, and `verify_review_packet`; proposal generation and human decisions remain outside MCP.
 
 ## Enforced compatibility
 
 Every CI and release run builds the distributable server and executes `npm run test:mcp-compatibility`. That proof:
 
 1. starts `dist/mcp-server.js` through the exact `@modelcontextprotocol/inspector@2.5.0` version in `npm-shrinkwrap.json`;
-2. uses Inspector strict mode to discover the complete six-tool surface;
+2. uses Inspector strict mode to discover the complete ten-tool surface;
 3. repeats a real initialize, initialized-notification, and tools/list session ten times; and
 4. fails when startup plus discovery p95 exceeds 2,000 ms.
 

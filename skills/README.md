@@ -4,8 +4,8 @@ This directory holds bce packaged as **Agent Skills** — the folder-per-skill f
 (`<skill-name>/SKILL.md`, with YAML frontmatter naming and describing the skill) that Claude Code
 and other Agent-Skills consumers load on demand. Two skills ship here:
 
-- [`bce/SKILL.md`](bce/SKILL.md) — the whole lifecycle: author a blueprint, validate it, run it,
-  prove it can go red, wire it as a gate, plus the honesty invariants that keep the result
+- [`bce/SKILL.md`](bce/SKILL.md) — the whole lifecycle: propose and review a blueprint, validate it,
+  run it, prove it can go red, wire it as a gate, plus the honesty invariants that keep the result
   meaningful.
 - [`skill-tuning/SKILL.md`](skill-tuning/SKILL.md) — the engine turned on this format itself:
   grade a `skills/` tree against the [skill-standard](../spec/skill-standard/SKILL-STANDARD.md) and
@@ -111,9 +111,9 @@ Three surfaces, three different jobs. They compose; they are not alternatives to
 
 | Surface | What it is | Reach for it when |
 |---|---|---|
-| **Agent Skill** (this directory) | On-demand lifecycle instructions — the full author → validate → run → teeth → gate path, loaded when the agent needs it | An agent is *creating* a contract, or adopting the gate on a repository for the first time |
+| **Agent Skill** (this directory) | On-demand lifecycle instructions — AI-first proposal/review plus validate → run → teeth → gate, loaded when the agent needs it | An agent is *creating or reviewing* a contract, or adopting the gate on a repository for the first time |
 | **House-rules snippet** ([`integrations/`](../integrations/README.md)) | An always-loaded block of three standing rules for a repository that already has a blueprint | An agent is *working inside* a gated repository day to day |
-| **MCP server** (`bce-mcp`, ships with the package) | Six read-only tools: readiness + baseline diagnosis, validation, gate, teeth, and report reading | The agent speaks MCP and should call the gate rather than shell out |
+| **MCP server** (`bce-mcp`, ships with the package) | Ten read-only tools: readiness, review, baseline diagnosis, validation, gate, teeth, and report reading | The agent speaks MCP and should call the review/gate API rather than shell out |
 
 The snippet is the standing done-check; the skill is the thing that gets a contract to exist in the
 first place.
@@ -124,6 +124,8 @@ first place.
   minutes, no network beyond one install.
 - [`../docs/agent-loop.md`](../docs/agent-loop.md) — running the gate as an agent's done-check, per
   harness.
+- [`../docs/ai-first-review.md`](../docs/ai-first-review.md) — bounded proposal, deterministic packet,
+  authenticated decision, and attended landing.
 - [`../docs/onboarding.md`](../docs/onboarding.md) — install and compose CLI, skill, context, MCP,
   CI, lifecycle, and evidence as one stack.
 - [`../spec/SPEC.md`](../spec/SPEC.md) — the normative artifact model, taxonomy, scoring, and exit

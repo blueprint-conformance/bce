@@ -11,6 +11,16 @@
  *       is given, runs a scan-based sanity (scope must match >= 1 file — exit 2 else).
  *       No LLM, no network. See the usage footer for the full flag set + constraint grammar.
  *
+ *   bce propose --repo <dir> --intent-file <path> --assistant openai-responses
+ *       --assistant-model <exact> (--base <path> | --new)
+ *       Send a bounded, disclosed repository context to one registered assistant adapter, then
+ *       deterministically compile and inspect its draft. Writes only to a quarantined proposal
+ *       directory. It never approves, ratifies, amends, or writes governed policy.
+ *
+ *   bce review show|verify|decide --packet <review-packet.json> ...
+ *       Render and replay the immutable review packet. `decide` records an authenticated human
+ *       decision beside it; policy landing remains a separate, packet-bound ceremony.
+ *
  *   bce scan --ct-repo <dir> [--ref <sha|ref>] [--extractor ast|line-scan] --out <path>
  *       Materialize the target repo at a pinned revision, build the observed
  *       architecture-graph.json. Fail-closed: fewer than the expected route files → exit 2.
@@ -24,6 +34,8 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import {
   parseBlueprint,
@@ -78,9 +90,40 @@ import { architectureScore } from './score.js';
 import type { ArchitectureGraph, ObservedComponent } from './graph.js';
 import { loadObservations, observationBinding } from './observations.js';
 import { doctorRepository, checkEngineUpgrade } from './lifecycle.js';
-import { ratifyBlueprint, amendBlueprint, PolicyHistoryError, type ReviewInput, type PolicyHistoryEntry } from './policy-history.js';
+import { ratifyBlueprint, amendBlueprint, PolicyHistoryError, type PolicyHistoryEntry } from './policy-history.js';
 import { createEvidenceBundle, verifyEvidenceBundle, type EvidenceBundle } from './evidence-bundle.js';
 import { resolveToolchainIdentity } from './runtime-identity.js';
+import {
+  BlueprintDecisionRecordSchema,
+  BlueprintReviewPacketSchema,
+  type BlueprintDecisionRecord,
+  type BlueprintReviewPacket,
+} from './review-contracts.js';
+import {
+  buildReviewPacket,
+  compileDraftPlan,
+  reviewDigest,
+  verifyReviewPacket,
+} from './review.js';
+import { renderReviewPacketHtml, renderReviewPacketText } from './review-render.js';
+import { buildDisclosureManifest, createRegisteredAssistant } from './assistant-adapter.js';
+import {
+  authenticateGitHubDecision,
+  reauthenticateGitHubDecision,
+  type GitHubReviewSelector,
+} from './scm-review.js';
+import {
+  DEFAULT_PROPOSAL_OUT,
+  DEFAULT_GOVERNED_DIRS,
+  collectProposalContext,
+  collectRepositoryPolicyDiff,
+  createProposalStagingDirectory,
+  finalizeProposalDirectory,
+  prepareQuarantineRoot,
+  resolveProposalInput,
+  snapshotRepository,
+  writeProposalFile,
+} from './proposal-io.js';
 
 // Reviewed upstream Action commits. Generated workflows execute these exact objects;
 // the major versions are comments for human update tooling, never executable refs.
@@ -173,15 +216,6 @@ function codexMcpConfig(existing: string): string {
   }
   const prefix = existing.length === 0 || existing.endsWith('\n') ? existing : `${existing}\n`;
   return `${prefix}${existing.length === 0 ? '' : '\n'}[mcp_servers.bce]\ncommand = "npx"\nargs = ["--no-install", "bce-mcp"]\n`;
-}
-
-function policyReview(args: Args): ReviewInput {
-  const reviewer = typeof args.reviewer === 'string' ? args.reviewer : '';
-  const rationale = typeof args.rationale === 'string' ? args.rationale : '';
-  const recordedAt = typeof args['recorded-at'] === 'string' ? args['recorded-at'] : '';
-  const humanReviewer = args['human-reviewer'] === true || args['human-reviewer'] === 'true';
-  const acceptWeakening = args['accept-weakening'] === true || args['accept-weakening'] === 'true';
-  return { reviewer, rationale, recordedAt, humanReviewer, acceptWeakening };
 }
 
 /** Prove the exact candidate policy can be falsified against the live tree before approval. */
@@ -433,7 +467,281 @@ function buildGraph(
   }
 }
 
-function main(): void {
+function digestFiles(root: string, files: readonly string[]): string {
+  const manifest = files.map((file) => ({
+    path: file,
+    sha256: createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex'),
+  }));
+  return reviewDigest(manifest);
+}
+
+function engineSourceRevision(root: string): string {
+  try {
+    if (!fs.existsSync(path.join(root, '.git'))) throw new Error('installed package has no repository metadata');
+    return execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as { gitHead?: unknown };
+      return typeof pkg.gitHead === 'string' && pkg.gitHead ? pkg.gitHead : 'source-revision-unavailable';
+    } catch {
+      return 'source-revision-unavailable';
+    }
+  }
+}
+
+function currentReviewIdentities(kind: 'ast' | 'line-scan', profile: ResolvedExtraction['profile']) {
+  const root = packageRoot();
+  const executingDirectory = path.basename(path.dirname(fileURLToPath(import.meta.url)));
+  const artifactDirectory = executingDirectory === 'dist' ? 'dist' : 'src';
+  const sourceFiles = filesUnder(path.join(root, artifactDirectory)).map((file) => repoRelative(root, file)).sort();
+  const identityFiles = ['package.json', 'npm-shrinkwrap.json', ...sourceFiles]
+    .filter((file) => fs.existsSync(path.join(root, file)));
+  const engineVersion = resolveEngineVersion();
+  const runtime = resolveToolchainIdentity({ engineVersion, extractorKind: kind, extractionProfile: profile });
+  const artifactDigest = digestFiles(root, identityFiles);
+  const extractorFiles = sourceFiles.filter((file) => /(?:extractor|graph|observations|safe-regex|schema)\.(?:ts|js)$/.test(file));
+  const extractorArtifactDigest = digestFiles(root, extractorFiles.length > 0 ? extractorFiles : identityFiles);
+  return {
+    engine: {
+      name: 'bce-engine' as const,
+      version: engineVersion,
+      artifactDigest,
+      sourceRevision: engineSourceRevision(root),
+    },
+    extractor: {
+      provider: runtime.extractor.provider,
+      kind: runtime.extractor.kind,
+      profile: runtime.extractor.profile,
+      version: runtime.extractor.version,
+      artifactDigest: extractorArtifactDigest,
+    },
+    toolchain: {
+      runtime: 'node',
+      version: runtime.runtime.node,
+      platform: runtime.runtime.platform,
+      arch: runtime.runtime.arch,
+      packageManager: { name: 'npm' as const, version: runtime.runtime.npm },
+      dependencyLockDigest: runtime.dependencyLock.sha256,
+    },
+  };
+}
+
+function readCanonicalPacket(packetPath: string): BlueprintReviewPacket {
+  let raw: string;
+  let parsed: unknown;
+  try {
+    raw = fs.readFileSync(packetPath, 'utf8');
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    die(`review packet is unreadable JSON: ${(error as Error).message}`, 2);
+  }
+  let packet: BlueprintReviewPacket;
+  try { packet = BlueprintReviewPacketSchema.parse(parsed); }
+  catch (error) { die(`review packet failed schema validation: ${(error as Error).message}`, 2); }
+  if (raw !== stableStringify(packet)) die('review packet bytes are not canonical or were tampered', 2);
+  return packet;
+}
+
+function readCanonicalDecision(decisionPath: string): BlueprintDecisionRecord {
+  let raw: string;
+  let parsed: unknown;
+  try {
+    raw = fs.readFileSync(decisionPath, 'utf8');
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    die(`decision record is unreadable JSON: ${(error as Error).message}`, 2);
+  }
+  let decision: BlueprintDecisionRecord;
+  try { decision = BlueprintDecisionRecordSchema.parse(parsed); }
+  catch (error) { die(`decision record failed schema validation: ${(error as Error).message}`, 2); }
+  if (raw !== stableStringify(decision)) die('decision record bytes are not canonical or were tampered', 2);
+  return decision;
+}
+
+function readCanonicalCandidate(candidatePath: string): EngineeringBlueprint {
+  let raw: string;
+  let candidate: EngineeringBlueprint;
+  try {
+    raw = fs.readFileSync(candidatePath, 'utf8');
+    candidate = parseBlueprint(JSON.parse(raw));
+  } catch (error) {
+    die(`reviewed candidate is unreadable or invalid: ${(error as Error).message}`, 2);
+  }
+  if (raw !== stableStringify(candidate)) die('reviewed candidate bytes are not canonical or were tampered', 2);
+  return candidate;
+}
+
+function assertCanonicalPacketLocation(repoDir: string, packetPath: string, packet: BlueprintReviewPacket): void {
+  const expected = path.join(repoDir, DEFAULT_PROPOSAL_OUT, packet.proposalId, 'review-packet.json');
+  if (packetPath !== expected) die(`review packet must use canonical proposal location ${repoRelative(repoDir, expected)}`, 2);
+}
+
+function assertCanonicalDecisionLocation(
+  repoDir: string,
+  packet: BlueprintReviewPacket,
+  decisionPath: string,
+): void {
+  const expectedDirectory = path.join(repoDir, DEFAULT_PROPOSAL_OUT, packet.proposalId, 'decisions');
+  if (path.dirname(decisionPath) !== expectedDirectory) {
+    die(`decision record must be under ${repoRelative(repoDir, expectedDirectory)}`, 2);
+  }
+}
+
+function assertCanonicalCandidateLocation(
+  repoDir: string,
+  packet: BlueprintReviewPacket,
+  candidatePath: string,
+): void {
+  const candidateId = packet.artifacts.proposal.candidate.metadata.id;
+  const expected = path.join(repoDir, DEFAULT_PROPOSAL_OUT, packet.proposalId, `${candidateId}.blueprint.json`);
+  if (candidatePath !== expected) {
+    die(`reviewed candidate must use canonical proposal location ${repoRelative(repoDir, expected)}`, 2);
+  }
+}
+
+function packetFreshnessFailures(packet: BlueprintReviewPacket, repoDir: string): string[] {
+  const failures: string[] = [];
+  try {
+    const candidateRel = path.join(DEFAULT_PROPOSAL_OUT, packet.proposalId, `${packet.artifacts.proposal.candidate.metadata.id}.blueprint.json`);
+    const candidatePath = resolveProposalInput(repoDir, candidateRel, 'reviewed candidate');
+    const raw = fs.readFileSync(candidatePath, 'utf8');
+    const candidate = parseBlueprint(JSON.parse(raw));
+    if (raw !== stableStringify(candidate)) failures.push('reviewed candidate bytes are not canonical');
+    if (reviewDigest(candidate) !== packet.provenance.candidateDigest) failures.push('reviewed candidate digest changed');
+  } catch (error) {
+    failures.push(`reviewed candidate cannot be reproduced: ${(error as Error).message}`);
+  }
+  const snapshot = snapshotRepository(repoDir);
+  if (snapshot.identity !== packet.identity.repository.identity) failures.push('repository identity changed');
+  if (snapshot.revision !== packet.identity.repository.revision) failures.push('repository revision changed');
+  if (snapshot.worktreeDigest !== packet.identity.repository.worktreeDigest) failures.push('repository worktree bytes changed');
+  const current = currentReviewIdentities(packet.identity.extractor.kind, packet.identity.extractor.profile);
+  if (stableStringify(current.engine) !== stableStringify(packet.identity.engine)) failures.push('engine identity changed');
+  if (stableStringify(current.extractor) !== stableStringify(packet.identity.extractor)) failures.push('extractor identity changed');
+  if (stableStringify(current.toolchain) !== stableStringify(packet.identity.toolchain)) failures.push('toolchain identity changed');
+  try {
+    const dirty = execFileSync('git', [
+      '-C', repoDir, 'status', '--porcelain=v1', '--untracked-files=all', '--', '.', ':(exclude).bce/**',
+      ':(exclude).blueprints/.bce-policy-transition.lock',
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    if (dirty) failures.push('repository has changes outside the proposal quarantine that are not present at the reviewed commit');
+    for (const scanned of packet.artifacts.graph.coverage.scannedFiles ?? []) {
+      try {
+        execFileSync('git', ['-C', repoDir, 'ls-files', '--error-unmatch', '--', scanned], {
+          stdio: ['ignore', 'ignore', 'ignore'],
+        });
+      } catch {
+        failures.push(`reviewed extractor input is not tracked by the reviewed commit: ${scanned}`);
+      }
+    }
+  } catch (error) {
+    failures.push(`reviewed-commit cleanliness check failed: ${(error as Error).message}`);
+  }
+  const reviewedBase = packet.artifacts.repositoryPolicyDiff;
+  const policyDiff = reviewedBase.complete
+    ? collectRepositoryPolicyDiff(repoDir, {
+      baseRef: reviewedBase.baseRef!,
+      baseHeadRevision: reviewedBase.baseHeadRevision!,
+    })
+    : collectRepositoryPolicyDiff(repoDir);
+  if (stableStringify(policyDiff) !== stableStringify(packet.artifacts.repositoryPolicyDiff)) {
+    failures.push('repository policy diff changed');
+  }
+  try {
+    const candidate = packet.artifacts.proposal.candidate;
+    const cfg = resolveExtraction(candidate.extraction, candidate.constraints);
+    const graph = makeExtractor(packet.identity.extractor.kind, cfg).extract(repoDir, snapshot.revision);
+    if (graph.coverage.filesScanned < cfg.minFiles) failures.push(`live extraction scanned ${graph.coverage.filesScanned} file(s), below minFiles ${cfg.minFiles}`);
+    if (reviewDigest(graph) !== packet.provenance.graphDigest) failures.push('live repository extraction changed');
+  } catch (error) {
+    failures.push(`live repository extraction failed: ${(error as Error).message}`);
+  }
+  return failures;
+}
+
+function requiredStringArg(args: Args, key: string, message: string): string {
+  const value = args[key];
+  if (typeof value !== 'string' || value.trim().length === 0) die(message, 1);
+  return value;
+}
+
+function requiredPositiveIntegerArg(args: Args, key: string, label: string): number {
+  const raw = requiredStringArg(args, key, `${label} is required`);
+  if (!/^\d+$/.test(raw)) die(`${label} must be a positive integer`, 1);
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 1) die(`${label} must be a positive integer`, 1);
+  return value;
+}
+
+function githubReviewSelector(args: Args): GitHubReviewSelector {
+  return {
+    repository: requiredStringArg(args, 'github-repo', '--github-repo owner/name is required'),
+    pullRequest: requiredPositiveIntegerArg(args, 'github-pull', '--github-pull'),
+    reviewId: requiredPositiveIntegerArg(args, 'github-review', '--github-review'),
+  };
+}
+
+async function verifyLandingEvidence(
+  args: Args,
+  repoDir: string,
+  candidatePath: string,
+  candidate: EngineeringBlueprint,
+  expectedBase: EngineeringBlueprint | null,
+): Promise<{
+  packet: BlueprintReviewPacket;
+  decision: BlueprintDecisionRecord;
+  assertFresh: () => void;
+}> {
+  let packetPath: string;
+  try {
+    packetPath = resolveProposalInput(repoDir, requiredStringArg(args, 'packet', '--packet is required for policy landing'), '--packet');
+  } catch (error) {
+    die((error as Error).message, 2);
+  }
+  const packet = readCanonicalPacket(packetPath);
+  assertCanonicalPacketLocation(repoDir, packetPath, packet);
+  assertCanonicalCandidateLocation(repoDir, packet, candidatePath);
+  let decisionPath: string;
+  try {
+    decisionPath = resolveProposalInput(repoDir, requiredStringArg(args, 'decision', '--decision is required for policy landing'), '--decision');
+  } catch (error) {
+    die((error as Error).message, 2);
+  }
+  const decision = readCanonicalDecision(decisionPath);
+  assertCanonicalDecisionLocation(repoDir, packet, decisionPath);
+  const verification = verifyReviewPacket(packet, decision);
+  const freshness = packetFreshnessFailures(packet, repoDir);
+  if (!verification.valid || freshness.length > 0) {
+    die(`policy landing evidence is stale or invalid: ${[...verification.failures, ...freshness].join('; ')}`, 2);
+  }
+  if (decision.decision !== 'approve') die(`policy landing requires an approve decision, got ${decision.decision}`, 2);
+  if (packet.approval.status !== 'eligible') die(`policy landing packet is blocked: ${packet.approval.blockers.join('; ')}`, 2);
+  if (reviewDigest(candidate) !== packet.provenance.candidateDigest) die('policy landing candidate bytes do not match the reviewed candidate', 2);
+  const expectedBaseDigest = expectedBase === null ? null : reviewDigest(expectedBase);
+  if (packet.provenance.baseDigest !== expectedBaseDigest) die('policy landing base does not match the reviewed semantic baseline', 2);
+  try {
+    await reauthenticateGitHubDecision({
+      packet,
+      decision: decision.decision,
+      selector: githubReviewSelector(args),
+      savedDecision: decision,
+    });
+  } catch (error) {
+    die(`policy landing SCM authentication failed: ${(error as Error).message}`, 2);
+  }
+  const assertFresh = (): void => {
+    const currentFailures = packetFreshnessFailures(packet, repoDir);
+    if (currentFailures.length > 0) {
+      throw new PolicyHistoryError(`repository evidence changed during authenticated landing: ${currentFailures.join('; ')}`);
+    }
+  };
+  assertFresh();
+  return { packet, decision, assertFresh };
+}
+
+async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   // Help is a read-only short circuit. In particular, `bce gate --help` must
   // never run a gate and `bce baseline --help` must never write policy.
@@ -451,9 +759,15 @@ function main(): void {
     upgrade: ['check', 'repo', 'blueprint-dir', 'candidate-engine', 'out'],
     adopt: ['repo', 'blueprint', 'engine'],
     onboard: ['repo', 'blueprint', 'engine', 'harness', 'agent-file', 'mcp-config'],
-    ratify: ['repo', 'blueprint', 'human-reviewer', 'reviewer', 'rationale', 'recorded-at', 'reviewed-waiver'],
-    amend: ['repo', 'blueprint', 'replacement', 'compatibility', 'accept-weakening', 'human-reviewer', 'reviewer', 'rationale', 'recorded-at', 'reviewed-waiver'],
+    ratify: ['repo', 'blueprint', 'packet', 'decision', 'github-repo', 'github-pull', 'github-review'],
+    amend: ['repo', 'blueprint', 'replacement', 'packet', 'decision', 'compatibility', 'github-repo', 'github-pull', 'github-review'],
     validate: ['blueprint'],
+    propose: ['repo', 'intent-file', 'assistant', 'assistant-model', 'out', 'base', 'new', 'governed-dir', 'max-context-files', 'max-context-bytes'],
+    review: args._[1] === 'show'
+      ? ['packet', 'decision', 'format', 'repo']
+      : args._[1] === 'decide'
+        ? ['packet', 'decision', 'github-repo', 'github-pull', 'github-review', 'repo']
+        : ['packet', 'decision', 'repo'],
     author: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'min-files', 'repo', 'out'],
     init: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'min-files', 'repo', 'out'],
     scan: ['ct-repo', 'blueprint', 'ref', 'extractor', 'no-pin', 'out'],
@@ -641,20 +955,277 @@ function main(): void {
     if (cmd === 'onboard') {
       process.stdout.write(`agent context: ${repoRelative(repoDir, agentTarget)}\n`);
       process.stdout.write(`skills: ${skillRootRel}/bce, ${skillRootRel}/skill-tuning\n`);
-      process.stdout.write(`MCP config: ${repoRelative(repoDir, mcpTarget!)} (doctor_repository, check_baseline, validate_blueprint, run_gate, assess_teeth, get_report)\n`);
+      process.stdout.write(
+        `MCP config: ${repoRelative(repoDir, mcpTarget!)} ` +
+        `(doctor_repository, check_baseline, validate_blueprint, run_gate, assess_teeth, ` +
+        `inspect_blueprint, explain_constraint, compare_blueprint_policy, verify_review_packet, get_report)\n`,
+      );
       process.stdout.write(`next: run 'npx --no-install bce doctor --repo .' and review/commit the proposal; ratification remains attended\n`);
     }
     return;
   }
 
-  if (cmd === 'ratify') {
-    const repoDir = (args.repo as string) || '.';
-    if (!fs.existsSync(repoDir)) die(`--repo not found: ${repoDir}`, 2);
-    const blueprintPath = args.blueprint as string;
-    const blueprint = readBlueprint(blueprintPath);
-    const proof = policyProof(repoDir, blueprint, args['reviewed-waiver'] === true || args['reviewed-waiver'] === 'true');
+  if (cmd === 'propose') {
+    if (args._.length !== 1) die('usage: bce propose --repo <dir> --intent-file <path> --assistant openai-responses --assistant-model <exact> (--base <path> | --new)', 1);
+    const requestedRepo = typeof args.repo === 'string' ? args.repo : '.';
+    if (!fs.existsSync(requestedRepo)) die(`--repo not found: ${requestedRepo}`, 2);
+    const repoDir = fs.realpathSync(requestedRepo);
+    const intentFile = requiredStringArg(args, 'intent-file', '--intent-file <repository-relative path> is required');
+    const assistantId = requiredStringArg(args, 'assistant', '--assistant is required; registered adapters: openai-responses');
+    const model = requiredStringArg(args, 'assistant-model', '--assistant-model <exact provider model id> is required; BCE has no moving default');
+    const hasBase = typeof args.base === 'string';
+    const isNew = args.new === true || args.new === 'true';
+    if (hasBase === isNew) die('select exactly one semantic baseline: --base <repository-relative blueprint> or --new', 1);
+    const rawArgv = process.argv.slice(2);
+    const extraGoverned = collectRepeatable(rawArgv, 'governed-dir');
+    const governedDirs = [...DEFAULT_GOVERNED_DIRS, ...extraGoverned];
+    const parsePositive = (key: string): number | undefined => {
+      if (args[key] === undefined) return undefined;
+      const value = Number.parseInt(String(args[key]), 10);
+      if (!Number.isInteger(value) || value < 1) die(`--${key} must be a positive integer`, 1);
+      return value;
+    };
+    const maxContextFiles = parsePositive('max-context-files');
+    const maxContextBytes = parsePositive('max-context-bytes');
+    let baseBlueprint: EngineeringBlueprint | null = null;
+    if (hasBase) {
+      try { baseBlueprint = readBlueprint(resolveProposalInput(repoDir, args.base as string, '--base')); }
+      catch (error) { die((error as Error).message, 2); }
+    }
+    let context;
     try {
-      const result = ratifyBlueprint({ repoDir, blueprintPath, review: policyReview(args), proof });
+      context = collectProposalContext({
+        repoDir,
+        intentFile,
+        ...(maxContextFiles !== undefined ? { maxFiles: maxContextFiles } : {}),
+        ...(maxContextBytes !== undefined ? { maxBytes: maxContextBytes } : {}),
+      });
+    } catch (error) {
+      die(`proposal context refused: ${(error as Error).message}`, 2);
+    }
+    const repositoryPolicyDiff = collectRepositoryPolicyDiff(repoDir);
+    let quarantine: string;
+    try {
+      const proposalOut = typeof args.out === 'string' ? args.out.replace(/\\/g, '/').replace(/\/$/, '') : DEFAULT_PROPOSAL_OUT;
+      if (proposalOut !== DEFAULT_PROPOSAL_OUT) {
+        throw new Error(`--out must be ${DEFAULT_PROPOSAL_OUT}; decision evidence uses this canonical quarantine root`);
+      }
+      quarantine = prepareQuarantineRoot({
+        repoDir,
+        out: proposalOut,
+        governedDirs,
+      });
+    } catch (error) {
+      die(`proposal quarantine refused: ${(error as Error).message}`, 2);
+    }
+    const staging = createProposalStagingDirectory(quarantine);
+    const disclosure = buildDisclosureManifest(context);
+    writeProposalFile(path.join(staging, 'context.json'), stableStringify(context));
+    writeProposalFile(path.join(staging, 'disclosure.json'), stableStringify(disclosure));
+    process.stdout.write(`BCE disclosure preview — these exact context bytes will be sent to ${assistantId}:\n${stableStringify(disclosure)}`);
+
+    const schemaPath = path.join(packageRoot(), 'spec', 'schemas', 'blueprint-draft-plan.schema.json');
+    if (!fs.existsSync(schemaPath)) {
+      writeProposalFile(path.join(staging, 'processing-failure.json'), stableStringify({ error: 'installed package is missing blueprint-draft-plan.schema.json' }));
+      finalizeProposalDirectory(staging, `failed-${context.contextDigest.slice(0, 16)}`);
+      die('installed package is missing blueprint-draft-plan.schema.json', 2);
+    }
+    let adapter;
+    try {
+      adapter = createRegisteredAssistant(assistantId, {
+        model,
+        outputSchema: JSON.parse(fs.readFileSync(schemaPath, 'utf8')) as Record<string, unknown>,
+        ...(process.env.OPENAI_API_KEY !== undefined ? { apiKey: process.env.OPENAI_API_KEY } : {}),
+      });
+    } catch (error) {
+      writeProposalFile(path.join(staging, 'processing-failure.json'), stableStringify({ error: (error as Error).message }));
+      finalizeProposalDirectory(staging, `failed-${context.contextDigest.slice(0, 16)}`);
+      die((error as Error).message, 2);
+    }
+    const generation = await adapter.generate(context);
+    const generationDigest = reviewDigest(generation.record);
+    writeProposalFile(path.join(staging, 'generation.json'), stableStringify(generation.record));
+    writeProposalFile(path.join(staging, 'raw-response.txt'), generation.rawResponse);
+    const failAttempt = (message: string): never => {
+      writeProposalFile(path.join(staging, 'processing-failure.json'), stableStringify({
+        schemaVersion: '1', status: 'failed', error: message, generationDigest,
+      }));
+      const failed = finalizeProposalDirectory(staging, `failed-${generationDigest.slice(0, 16)}`);
+      die(`${message}; failed proposal retained at ${repoRelative(repoDir, failed)}`, 2);
+    };
+    const plan = generation.plan ?? failAttempt(generation.record.error ?? 'assistant did not produce a reviewable draft plan');
+
+    const afterContext = (() => {
+      try { return collectProposalContext({
+        repoDir,
+        intentFile,
+        ...(maxContextFiles !== undefined ? { maxFiles: maxContextFiles } : {}),
+        ...(maxContextBytes !== undefined ? { maxBytes: maxContextBytes } : {}),
+      }); }
+      catch (error) { return failAttempt(`repository freshness recheck failed: ${(error as Error).message}`); }
+    })();
+    if (afterContext.contextDigest !== context.contextDigest) failAttempt('repository or disclosed context changed while the assistant was running');
+    if (baseBlueprint && plan.metadata.id !== baseBlueprint.metadata.id) {
+      failAttempt(`assistant plan id '${plan.metadata.id}' does not match human-selected base '${baseBlueprint.metadata.id}'`);
+    }
+
+    const proposal = (() => {
+      try { return compileDraftPlan({
+        context,
+        plan,
+        promptDigest: generation.record.promptDigest,
+        generationDigest,
+      }); }
+      catch (error) { return failAttempt(`deterministic proposal compilation refused: ${(error as Error).message}`); }
+    })();
+    const cfg = resolveExtraction(proposal.candidate.extraction, proposal.candidate.constraints);
+    const graph = (() => {
+      try {
+        const observed = makeExtractor('ast', cfg).extract(repoDir, context.repository.revision);
+        if (observed.coverage.filesScanned < cfg.minFiles) {
+          return failAttempt(`scope resolution scanned ${observed.coverage.filesScanned} file(s), below minFiles ${cfg.minFiles}`);
+        }
+        return observed;
+      } catch (error) { return failAttempt(`deterministic scope/extraction refused: ${(error as Error).message}`); }
+    })();
+    const identities = currentReviewIdentities(graph.coverage.extractor, cfg.profile);
+    const packet = (() => {
+      try {
+        const built = buildReviewPacket({
+        proposal,
+        baseBlueprint,
+        graph,
+        ...identities,
+        repositoryPolicyDiff,
+        resolvedScope: {
+          matchedFiles: graph.coverage.scannedFiles ?? [],
+          excludedPaths: context.excluded.paths,
+          excludedClasses: context.excluded.classes,
+        },
+        });
+        const verification = verifyReviewPacket(built);
+        if (!verification.valid) return failAttempt(`generated review packet failed replay: ${verification.failures.join('; ')}`);
+        return built;
+      } catch (error) { return failAttempt(`deterministic review refused: ${(error as Error).message}`); }
+    })();
+    writeProposalFile(path.join(staging, 'draft-plan.json'), stableStringify(plan));
+    writeProposalFile(path.join(staging, `${proposal.candidate.metadata.id}.blueprint.json`), stableStringify(proposal.candidate));
+    writeProposalFile(path.join(staging, 'proposal.json'), stableStringify(proposal));
+    writeProposalFile(path.join(staging, 'review-packet.json'), stableStringify(packet));
+    writeProposalFile(path.join(staging, 'review.txt'), renderReviewPacketText(packet));
+    writeProposalFile(path.join(staging, 'review.html'), renderReviewPacketHtml(packet));
+    let finalDir: string;
+    try { finalDir = finalizeProposalDirectory(staging, proposal.proposalId); }
+    catch (error) { die(`proposal finalization refused: ${(error as Error).message}; staging retained at ${staging}`, 2); }
+    process.stdout.write(
+      `bce propose: REVIEWABLE draft ${proposal.candidate.metadata.id}@${proposal.candidate.metadata.version} -> ` +
+      `${repoRelative(repoDir, finalDir)} (packet sha256:${packet.packetDigest}; approval ${packet.approval.status})\n`,
+    );
+    return;
+  }
+
+  if (cmd === 'review') {
+    const sub = args._[1];
+    if (!['show', 'decide', 'verify'].includes(String(sub)) || args._.length !== 2) {
+      die('usage: bce review show|decide|verify --packet <review-packet.json>', 1);
+    }
+    const requestedRepo = typeof args.repo === 'string' ? args.repo : '.';
+    if (!fs.existsSync(requestedRepo)) die(`--repo not found: ${requestedRepo}`, 2);
+    const repoDir = fs.realpathSync(requestedRepo);
+    let packetPath: string;
+    try { packetPath = resolveProposalInput(repoDir, requiredStringArg(args, 'packet', '--packet is required'), '--packet'); }
+    catch (error) { die((error as Error).message, 2); }
+    const packet = readCanonicalPacket(packetPath);
+    assertCanonicalPacketLocation(repoDir, packetPath, packet);
+    const decisionPathArg = typeof args.decision === 'string' && sub !== 'decide' ? args.decision : undefined;
+    let savedDecision: BlueprintDecisionRecord | undefined;
+    if (decisionPathArg) {
+      const savedPath = resolveProposalInput(repoDir, decisionPathArg, '--decision');
+      assertCanonicalDecisionLocation(repoDir, packet, savedPath);
+      savedDecision = readCanonicalDecision(savedPath);
+    }
+    const verification = verifyReviewPacket(packet, savedDecision);
+    const freshness = packetFreshnessFailures(packet, repoDir);
+    if (!verification.valid || freshness.length > 0) {
+      die(`review verification failed: ${[...verification.failures, ...freshness].join('; ')}`, 2);
+    }
+
+    if (sub === 'show') {
+      const format = typeof args.format === 'string' ? args.format : 'text';
+      if (format === 'text') process.stdout.write(renderReviewPacketText(packet, savedDecision));
+      else if (format === 'json') process.stdout.write(stableStringify(packet));
+      else if (format === 'html') process.stdout.write(renderReviewPacketHtml(packet, savedDecision));
+      else die('--format must be text|json|html', 1);
+      return;
+    }
+    if (sub === 'verify') {
+      process.stdout.write(
+        `bce review verify: INTEGRITY VERIFIED packet sha256:${packet.packetDigest}` +
+        `${savedDecision ? ` + decision sha256:${savedDecision.decisionDigest}; SCM authentication is rechecked by ratify/amend` : ''}\n`,
+      );
+      return;
+    }
+
+    const decision = requiredStringArg(args, 'decision', '--decision approve|reject|request-changes is required');
+    if (!['approve', 'reject', 'request-changes'].includes(decision)) die('--decision must be approve|reject|request-changes', 1);
+    let record: BlueprintDecisionRecord;
+    try {
+      record = await authenticateGitHubDecision({
+        packet,
+        decision: decision as BlueprintDecisionRecord['decision'],
+        selector: githubReviewSelector(args),
+      });
+    } catch (error) {
+      die(`decision SCM authentication refused: ${(error as Error).message}`, 2);
+    }
+    const decisionsDir = path.join(path.dirname(packetPath), 'decisions');
+    fs.mkdirSync(decisionsDir, { recursive: true, mode: 0o700 });
+    if (fs.realpathSync(decisionsDir) !== decisionsDir) die('decision directory resolves through a symbolic link', 2);
+    const out = path.join(decisionsDir, `${record.decision}-${record.decisionDigest.slice(0, 16)}.json`);
+    try { writeProposalFile(out, stableStringify(record)); }
+    catch (error) { die(`decision persistence refused: ${(error as Error).message}`, 2); }
+    process.stdout.write(`bce review decide: ${record.decision} -> ${repoRelative(repoDir, out)} (sha256:${record.decisionDigest}); no policy files changed\n`);
+    return;
+  }
+
+  if (cmd === 'ratify') {
+    const requestedRepo = (args.repo as string) || '.';
+    if (!fs.existsSync(requestedRepo)) die(`--repo not found: ${requestedRepo}`, 2);
+    const repoDir = fs.realpathSync(requestedRepo);
+    const blueprintPath = resolveProposalInput(repoDir, requiredStringArg(args, 'blueprint', '--blueprint is required'), '--blueprint');
+    const blueprint = readCanonicalCandidate(blueprintPath);
+    const existingPolicyPath = path.join(repoDir, '.blueprints', `${blueprint.metadata.id}.blueprint.json`);
+    const existingDraft = blueprintPath !== existingPolicyPath && fs.existsSync(existingPolicyPath)
+      ? readBlueprint(resolveProposalInput(repoDir, repoRelative(repoDir, existingPolicyPath), 'existing policy'))
+      : null;
+    if (existingDraft && !['draft', 'proposed'].includes(existingDraft.metadata.status)) {
+      die(`ratify refuses to replace existing ${existingDraft.metadata.status} policy; use bce amend`, 2);
+    }
+    const { packet, decision, assertFresh } = await verifyLandingEvidence(args, repoDir, blueprintPath, blueprint, existingDraft);
+    const proof = policyProof(repoDir, blueprint, false);
+    try {
+      const result = ratifyBlueprint({
+        repoDir,
+        blueprintPath,
+        review: {
+          reviewer: decision.reviewer.id,
+          rationale: decision.rationale,
+          recordedAt: decision.decidedAt,
+          authentication: decision.reviewer.authentication,
+          evidence: {
+            packetDigest: decision.binding.packetDigest,
+            decisionDigest: decision.decisionDigest,
+            candidateDigest: decision.binding.candidateDigest,
+            baseDigest: packet.provenance.baseDigest,
+            repositoryRevision: decision.binding.repositoryRevision,
+            worktreeDigest: decision.binding.worktreeDigest,
+          },
+        },
+        proof,
+        assertFresh,
+        expectedCandidateDigest: packet.provenance.candidateDigest,
+        expectedBaseDigest: packet.provenance.baseDigest,
+      });
       process.stdout.write(`bce ratify: ${result.entry.fromRef} -> ${result.entry.toRef}; approved with ${proof} proof\n`);
     } catch (e) {
       if (e instanceof PolicyHistoryError) die(e.message, 2);
@@ -664,24 +1235,48 @@ function main(): void {
   }
 
   if (cmd === 'amend') {
-    const repoDir = (args.repo as string) || '.';
-    if (!fs.existsSync(repoDir)) die(`--repo not found: ${repoDir}`, 2);
-    const blueprintPath = args.blueprint as string;
-    const replacementPath = args.replacement as string;
-    const replacement = readBlueprint(replacementPath);
-    const compatibility = args.compatibility;
-    if (!['compatible', 'breaking', 'tightening', 'weakening'].includes(String(compatibility))) {
-      die(`--compatibility must be compatible|breaking|tightening|weakening`, 2);
+    const requestedRepo = (args.repo as string) || '.';
+    if (!fs.existsSync(requestedRepo)) die(`--repo not found: ${requestedRepo}`, 2);
+    const repoDir = fs.realpathSync(requestedRepo);
+    const blueprintPath = resolveProposalInput(repoDir, requiredStringArg(args, 'blueprint', '--blueprint is required'), '--blueprint');
+    const replacementPath = resolveProposalInput(repoDir, requiredStringArg(args, 'replacement', '--replacement is required'), '--replacement');
+    const current = readBlueprint(blueprintPath);
+    const replacement = readCanonicalCandidate(replacementPath);
+    const { packet, decision, assertFresh } = await verifyLandingEvidence(args, repoDir, replacementPath, replacement, current);
+    const compatibility = packet.semanticDiff.classification === 'relaxation'
+      ? 'weakening'
+      : packet.semanticDiff.classification === 'tightening'
+        ? 'tightening'
+        : 'compatible';
+    if (typeof args.compatibility === 'string' && args.compatibility !== compatibility) {
+      die(`--compatibility '${args.compatibility}' contradicts deterministic review classification '${compatibility}'`, 2);
     }
-    const proof = policyProof(repoDir, replacement, args['reviewed-waiver'] === true || args['reviewed-waiver'] === 'true');
+    const proof = policyProof(repoDir, replacement, false);
     try {
       const result = amendBlueprint({
         repoDir,
         blueprintPath,
         replacementPath,
-        review: policyReview(args),
-        compatibility: compatibility as 'compatible' | 'breaking' | 'tightening' | 'weakening',
+        review: {
+          reviewer: decision.reviewer.id,
+          rationale: decision.rationale,
+          recordedAt: decision.decidedAt,
+          authentication: decision.reviewer.authentication,
+          evidence: {
+            packetDigest: decision.binding.packetDigest,
+            decisionDigest: decision.decisionDigest,
+            candidateDigest: decision.binding.candidateDigest,
+            baseDigest: packet.provenance.baseDigest,
+            repositoryRevision: decision.binding.repositoryRevision,
+            worktreeDigest: decision.binding.worktreeDigest,
+          },
+          acceptWeakening: decision.weakeningAccepted,
+        },
+        compatibility,
         proof,
+        assertFresh,
+        expectedCandidateDigest: packet.provenance.candidateDigest,
+        expectedBaseDigest: packet.provenance.baseDigest!,
       });
       process.stdout.write(`bce amend: ${result.entry.fromRef} -> ${result.entry.toRef}; ${compatibility}; ${proof} proof\n`);
     } catch (e) {
@@ -1476,8 +2071,18 @@ function main(): void {
       `  bce onboard --repo <dir> --blueprint <draft.json> --engine <package|owner/repo@40-char-sha>\n` +
       `       [--harness agents|claude|cursor|codex] [--agent-file <repo-relative>] [--mcp-config <repo-relative>]\n` +
       `       Full-stack proposal: policy + immutable CI + preserved agent context + project skills + MCP wiring.\n` +
-      `  bce ratify --repo <dir> --blueprint <path> --human-reviewer --reviewer <id> --rationale <text> --recorded-at <UTC>\n` +
-      `  bce amend --repo <dir> --blueprint <current> --replacement <next> --compatibility <kind> [--accept-weakening] <review flags>\n` +
+      `  bce propose --repo <dir> --intent-file <path> --assistant openai-responses --assistant-model <exact> (--base <path> | --new)\n` +
+      `       [--out .bce/proposals] [--governed-dir <repo-relative-dir>] [--max-context-files <n>] [--max-context-bytes <n>]\n` +
+      `       AI drafts; BCE validates, extracts, classifies policy direction, and writes an immutable review packet to quarantine.\n` +
+      `  bce review show --repo <dir> --packet <path> [--decision <path>] [--format text|json|html]\n` +
+      `  bce review verify --repo <dir> --packet <path> [--decision <path>]\n` +
+      `  bce review decide --repo <dir> --packet <path> --decision approve|reject|request-changes\n` +
+      `       --github-repo <owner/name> --github-pull <n> --github-review <id>  Derives identity, rationale, and time from SCM.\n` +
+      `       Requires BCE_GITHUB_TOKEN or GITHUB_TOKEN. Records only; never mutates policy.\n` +
+      `  bce ratify --repo <dir> --blueprint <reviewed-draft> --packet <path> --decision <approved-decision.json> <GitHub selector>\n` +
+      `  bce amend --repo <dir> --blueprint <current> --replacement <reviewed-draft> --packet <path> --decision <approved-decision.json> <GitHub selector>\n` +
+      `       <GitHub selector> = --github-repo <owner/name> --github-pull <n> --github-review <id>.\n` +
+      `       [--compatibility compatible|tightening|weakening]  Replays exact packet/decision bindings before policy mutation.\n` +
       `  bce upgrade --check --repo <dir> --candidate-engine X.Y.Z [--out <json>]  Read-only compatibility preflight\n` +
       `  bce verify-bundle --bundle <json>  Re-hash and re-evaluate; reports integrity, never origin authenticity\n` +
       `  bce author --id <id> --intent-ref <ref> --constraint "<type>:<arg>[:<severity>]"\n` +
@@ -1526,4 +2131,6 @@ function main(): void {
   if (cmd && cmd !== 'help') process.exit(1);
 }
 
-main();
+void main().catch((error: unknown) => {
+  die(`unexpected CLI failure: ${(error as Error).message}`, 2);
+});
