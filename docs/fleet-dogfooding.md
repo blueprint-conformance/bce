@@ -16,7 +16,7 @@ to claim.
 The estate is a **private** repository operated by this project's authors.
 
 You cannot re-derive these numbers. Nobody outside the authors can. This is self-measurement, in
-exactly the sense [the Credibility section of the README](../README.md#credibility) already warns
+exactly the sense [the Evidence and limits section of the README](../README.md#evidence-and-limits) already warns
 about: proof produced by machinery its authors control, from code its authors wrote. It is not
 independent confirmation and no amount of care in this document converts it into any.
 

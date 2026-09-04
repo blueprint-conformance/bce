@@ -9,9 +9,10 @@
  * front page deserves the same discipline as the walkthrough, because it is read first and
  * trusted most.
  *
- * So the README does not carry a hand-written demo. It carries the OUTPUT OF THIS SCRIPT,
- * and `tests/root-readme-proof.test.ts` re-runs this same renderer on every push and asserts
- * the page still matches the engine byte-for-byte. This is `witness-kit-replay.mjs`'s
+ * So the README does not carry a hand-written demo. It carries a compact excerpt DERIVED BY
+ * THIS SCRIPT from a full live run, and `tests/root-readme-proof.test.ts` re-runs this same
+ * renderer on every push and asserts the page still matches it byte-for-byte. This is
+ * `witness-kit-replay.mjs`'s
  * discipline in reverse: there, the doc is the fixture and the script grades it; here, the
  * script PRODUCES the fixture the doc carries. Same invariant either way — the page can
  * never drift from the engine without a red check.
@@ -40,7 +41,7 @@
  * `examples/quickstart` fixtures — the same two trees the walkthrough and CI already prove.
  *
  * Usage:
- *   node scripts/hero-demo-record.mjs            # regenerate docs/launch/hero-demo.txt, print the hero block
+ *   node scripts/hero-demo-record.mjs            # regenerate docs/launch/hero-demo.txt, print the README excerpt
  *   node scripts/hero-demo-record.mjs --check    # verify README + transcript still match the engine
  *
  * Exit codes:
@@ -155,6 +156,44 @@ export function renderTranscript(commands, engine = resolveEngine()) {
 export const renderHero = (engine) => renderTranscript(HERO_COMMANDS, engine);
 export const renderFull = (engine) => renderTranscript(FULL_COMMANDS, engine);
 
+/**
+ * Cut the README's compact proof from the live RED/GREEN transcript.
+ *
+ * The front page needs the discriminating lines, not a second copy of every diagnostic detail.
+ * Every retained line is selected from the engine output above; a missing line is a hard refusal,
+ * so a formatter change cannot leave a plausible-looking hand-written excerpt behind.
+ */
+export function renderReadmeExcerpt(hero) {
+  const lines = hero.replace(/\r\n/g, '\n').split('\n');
+  const exact = (value) => {
+    const line = lines.find((candidate) => candidate === value);
+    if (line === undefined) throw new Error(`hero transcript is missing required line: ${value}`);
+    return line;
+  };
+  const prefix = (value) => {
+    const line = lines.find((candidate) => candidate.startsWith(value));
+    if (line === undefined) throw new Error(`hero transcript is missing required prefix: ${value}`);
+    return line;
+  };
+
+  return [
+    exact('$ bce gate --repo drift --blueprint-dir blueprint --extractor ast --all'),
+    prefix('::error::    - [no-direct-http-client/critical]'),
+    exact('        observed: forbidden edge extension:greeting.plugin -> axios is present'),
+    exact('        at:       src/greeting.plugin.ts#L16'),
+    exact('bce gate [enforced]: 1/1 blueprint(s) evaluated, 1 failing.'),
+    '$ echo $?',
+    '1',
+    '',
+    exact('$ bce gate --repo clean --blueprint-dir blueprint --extractor ast'),
+    prefix('  ✓ no-direct-http-client@0.1.0 — score 100'),
+    exact('bce gate [enforced]: 1/1 blueprint(s) evaluated, 0 failing.'),
+    '$ echo $?',
+    '0',
+    '',
+  ].join('\n');
+}
+
 // ---------------------------------------------------------------------------
 // CLI entry point. Guarded so the renderer can be imported by the byte-proof test
 // without executing anything.
@@ -180,15 +219,15 @@ function main() {
     mkdirSync(path.dirname(transcriptPath), { recursive: true });
     writeFileSync(transcriptPath, full);
     console.log(`hero-demo-record: wrote ${path.relative(repoRoot, transcriptPath)} (${full.length} bytes)`);
-    console.log('\n--- hero block (paste between the README fence) ---\n');
-    process.stdout.write(hero);
+    console.log('\n--- README excerpt (paste between the README fence) ---\n');
+    process.stdout.write(renderReadmeExcerpt(hero));
     process.exit(0);
   }
 
   const drift = [];
   if (!existsSync(readmePath)) fail('README.md missing');
-  if (!readFileSync(readmePath, 'utf8').includes(hero)) {
-    drift.push('README.md no longer carries the engine\'s actual hero transcript');
+  if (!readFileSync(readmePath, 'utf8').includes(renderReadmeExcerpt(hero))) {
+    drift.push('README.md no longer carries the engine-derived compact excerpt');
   }
   if (!existsSync(transcriptPath)) drift.push(`${path.relative(repoRoot, transcriptPath)} is missing`);
   else if (readFileSync(transcriptPath, 'utf8') !== full) {

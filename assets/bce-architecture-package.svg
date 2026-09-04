@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc">
+  <title id="title">The BCE architecture package</title>
+  <desc id="desc">A human-owned EngineeringBlueprint declares four architecture constraints. BCE compares them with the observed repository graph. The required plugin surface, governed registration, and path boundary conform, while an axios import fires C3 and returns a blocking file-and-line diagnosis.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#263249" stroke-width="1" opacity="0.28"/>
+    </pattern>
+    <marker id="cyanArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#61c9ef"/>
+    </marker>
+    <marker id="redArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#f05c67"/>
+    </marker>
+    <style>
+      .sans{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace}.title{font-size:28px;font-weight:720;fill:#e8ebed;letter-spacing:-.4px}.heading{font-size:18px;font-weight:700;fill:#e8ebed}.label{font-size:14px;font-weight:700;letter-spacing:1px;fill:#7890a3}.body{font-size:18px;fill:#c9d5e1}.code{font-size:16px;fill:#e8ebed}.small{font-size:14px;fill:#7890a3}.cyan{fill:#61c9ef}.green{fill:#48c99a}.red{fill:#f05c67}.stroke{vector-effect:non-scaling-stroke}
+    </style>
+  </defs>
+  <rect width="1280" height="520" rx="4" fill="#080919"/>
+  <rect width="1280" height="520" rx="4" fill="url(#grid)"/>
+
+  <text x="48" y="52" class="sans title">One contract. One observed graph. One verdict.</text>
+  <text x="1232" y="50" text-anchor="end" class="mono small">bce gate</text>
+  <path d="M48 72H1232" stroke="#36445b" stroke-width="1" class="stroke"/>
+
+  <text x="48" y="108" class="mono heading cyan">EngineeringBlueprint</text>
+  <text x="48" y="133" class="sans small">human-owned · reviewed · versioned</text>
+
+  <path d="M48 154H406M48 221H406M48 288H406M48 355H406M48 422H406" stroke="#303d53" stroke-width="1" class="stroke"/>
+
+  <text x="48" y="181" class="mono label cyan">C1</text>
+  <text x="91" y="181" class="mono code">requiredComponent</text>
+  <text x="91" y="204" class="mono small">pluginSurface</text>
+  <circle cx="390" cy="187" r="7" fill="#48c99a"/>
+
+  <text x="48" y="248" class="mono label cyan">C2</text>
+  <text x="91" y="248" class="mono code">requiredDependency</text>
+  <text x="91" y="271" class="mono small">pluginSurface → provides</text>
+  <circle cx="390" cy="254" r="7" fill="#48c99a"/>
+
+  <text x="48" y="315" class="mono label red">C3</text>
+  <text x="91" y="315" class="mono code">forbiddenDependency</text>
+  <text x="91" y="338" class="mono small">* → axios</text>
+  <circle cx="390" cy="321" r="7" fill="#f05c67"/>
+
+  <text x="48" y="382" class="mono label cyan">C4</text>
+  <text x="91" y="382" class="mono code">forbiddenPath</text>
+  <text x="91" y="405" class="mono small">src/legacy/**</text>
+  <circle cx="390" cy="388" r="7" fill="#48c99a"/>
+
+  <text x="48" y="460" class="sans small">four of eight enforcing types</text>
+  <text x="48" y="484" class="mono small">blueprint-conformance/v1alpha1</text>
+
+  <path d="M426 287H475" stroke="#61c9ef" stroke-width="2" marker-end="url(#cyanArrow)" class="stroke"/>
+
+  <text x="496" y="108" class="sans heading">Observed repository graph</text>
+  <text x="496" y="133" class="mono small">AST extraction + coverage envelope</text>
+
+  <rect x="496" y="159" width="344" height="76" rx="4" fill="#101629" stroke="#61c9ef" stroke-width="1.5" class="stroke"/>
+  <text x="516" y="189" class="mono label cyan">PLUGIN SURFACE</text>
+  <text x="516" y="217" class="mono code">extension:greeting.plugin</text>
+
+  <path d="M573 235V282" stroke="#61c9ef" stroke-width="2" marker-end="url(#cyanArrow)" class="stroke"/>
+  <text x="588" y="266" class="mono small cyan">provides</text>
+  <rect x="496" y="286" width="210" height="54" rx="4" fill="#101629" stroke="#566274" stroke-width="1.5" class="stroke"/>
+  <text x="516" y="320" class="mono code">registerTool</text>
+
+  <path d="M840 199H875V286" fill="none" stroke="#f05c67" stroke-width="2" marker-end="url(#redArrow)" class="stroke"/>
+  <text x="852" y="247" class="mono small red" transform="rotate(90 852 247)">imports</text>
+  <rect x="748" y="291" width="140" height="49" rx="4" fill="#24121e" stroke="#f05c67" stroke-width="1.5" class="stroke"/>
+  <text x="818" y="322" text-anchor="middle" class="mono code red">axios</text>
+
+  <path d="M496 376H888" stroke="#566274" stroke-width="1.5" stroke-dasharray="7 7" class="stroke"/>
+  <text x="496" y="401" class="mono small">src/greeting.plugin.ts</text>
+  <text x="888" y="401" text-anchor="end" class="sans small green">outside src/legacy/**</text>
+  <text x="496" y="443" class="sans small">C1 component found</text>
+  <text x="667" y="443" class="sans small">C2 edge found</text>
+  <text x="816" y="443" class="sans small red">C3 edge found</text>
+  <text x="496" y="474" class="mono small">real nodes · real edges · file anchors</text>
+
+  <path d="M906 287H951" stroke="#f05c67" stroke-width="2" marker-end="url(#redArrow)" class="stroke"/>
+
+  <text x="974" y="108" class="sans heading">Deterministic verdict</text>
+  <text x="974" y="140" class="mono label red">1 · BLOCK</text>
+  <rect x="974" y="159" width="258" height="260" rx="4" fill="#10101e" stroke="#f05c67" stroke-width="1.5" class="stroke"/>
+  <text x="994" y="190" class="mono small red">C3 · critical</text>
+  <text x="994" y="222" class="mono code">no-direct-http-client</text>
+  <text x="994" y="263" class="sans small">observed</text>
+  <text x="994" y="289" class="mono code">extension:greeting.plugin</text>
+  <text x="994" y="315" class="mono code red">→ axios</text>
+  <path d="M994 335H1212" stroke="#303d53" stroke-width="1" class="stroke"/>
+  <text x="994" y="363" class="mono small">src/greeting.plugin.ts</text>
+  <text x="994" y="388" class="mono code">line 16</text>
+  <text x="974" y="454" class="sans body">Fix code, then run the same gate.</text>
+  <text x="974" y="483" class="mono small green">0 · MERGE when conforming</text>
+</svg>
