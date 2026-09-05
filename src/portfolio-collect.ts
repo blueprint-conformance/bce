@@ -20,7 +20,7 @@
  * verdict.
  * One rollup implementation, package-owned (consume-don't-duplicate).
  */
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type { ComplianceReport } from './report.js';
 import type { ScoreSample } from './score.js';
 import type { EvidenceItemsCount } from './evidence-store.js';

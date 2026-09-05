@@ -5,7 +5,7 @@
  * authentication, rendering, and persistence belong to callers. The deterministic
  * core consumes already-bounded facts and produces content-addressed records.
  */
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import {
   ApprovalSchema,
   BlueprintArchitectureSchema,

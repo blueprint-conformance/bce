@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { makeExtractor } from './extractor-registry.js';
 import { resolveExtraction, sourceSyntaxDiagnostics } from './extractors.js';
 import { evaluate, stableStringify } from './report.js';
@@ -294,7 +294,7 @@ export function assessExtractorTeethCorpus(input: {
       sourceTreeSha256: sourceTreeSha256(input.repoDir, manifest.allowedMutationRoots),
       blueprintSha256: sha256(stableStringify(input.blueprint)),
       mutationManifestSha256: sha256(stableStringify(manifest)),
-      extractorIdentity: extractorKind === 'ast' ? 'bce-ast:ts-morph@23.0.0' : 'bce-line-scan:v1',
+      extractorIdentity: extractorKind === 'ast' ? 'bce-ast:ts-morph@28.0.0' : 'bce-line-scan:v1',
       nodeVersion: process.version,
     },
     cases: results,

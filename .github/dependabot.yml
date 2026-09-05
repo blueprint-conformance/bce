@@ -9,6 +9,12 @@ updates:
       timezone: Europe/Amsterdam
     open-pull-requests-limit: 5
     versioning-strategy: increase-if-necessary
+    # BCE executes and publishes against Node 22. Keep the ambient Node API
+    # surface on that supported floor; newer @types/node majors would make
+    # unavailable Node 23+ APIs look safe at compile time.
+    ignore:
+      - dependency-name: "@types/node"
+        versions: [">=23"]
     labels:
       - dependencies
       - security

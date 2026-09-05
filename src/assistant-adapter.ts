@@ -6,7 +6,7 @@
  * validates the untrusted response before it can cross into proposal compilation.
  */
 import { createHash } from 'node:crypto';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { stableStringify } from './report.js';
 import {
   BlueprintDraftPlanSchema,
