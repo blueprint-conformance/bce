@@ -1,2 +1,0 @@
-Refactor normalizedRoute(value) to remove dot path segments and produce a leading-slash URL path while remaining browser-safe.
-Only edit src/browser/normalize-route.mjs.

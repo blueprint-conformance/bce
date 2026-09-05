@@ -1,1 +1,0 @@
-src/browser/create-route.mjs must not directly import the path or node:path root specifier.

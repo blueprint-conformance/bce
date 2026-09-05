@@ -1,7 +1,0 @@
-diff --git a/src/browser/create-route.mjs b/src/browser/create-route.mjs
---- a/src/browser/create-route.mjs
-+++ b/src/browser/create-route.mjs
-@@ -1,1 +1,2 @@
--export function createRoute(base, child) { throw new Error('TODO'); }
-+import { joinRoute } from './path-tools.mjs';
-+export function createRoute(base, child) { return joinRoute(base, child); }

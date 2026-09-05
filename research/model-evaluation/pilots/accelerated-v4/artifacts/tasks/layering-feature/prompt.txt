@@ -1,2 +1,0 @@
-Implement createOrder(id) so it returns order:<trimmed-id> while preserving the domain-to-infrastructure boundary.
-Only edit src/domain/create-order.mjs.

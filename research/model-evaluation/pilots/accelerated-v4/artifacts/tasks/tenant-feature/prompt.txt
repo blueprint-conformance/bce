@@ -1,2 +1,0 @@
-Implement createSecretRoute(tenantId, user) so an authorized request returns secret:<tenantId>:<userId> and the route directly depends on the tenant-access module.
-Only edit src/routes/create-secret.mjs.

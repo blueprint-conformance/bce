@@ -1,1 +1,0 @@
-import test from 'node:test'; import assert from 'node:assert/strict'; import { summarize } from '../src/service.mjs'; test('summary', async () => assert.equal(await summarize('Ada'), 'summary:Ada'));

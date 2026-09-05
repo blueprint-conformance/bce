@@ -1,1 +1,0 @@
-import test from 'node:test'; import assert from 'node:assert/strict'; import { createRoute } from '../src/browser/create-route.mjs'; test('creates route', () => assert.equal(createRoute('/teams', 'odin'), '/teams/odin'));

@@ -1,1 +1,0 @@
-import test from 'node:test'; import assert from 'node:assert/strict'; import { orderLabel } from '../src/domain/order-label.mjs'; test('labels order', () => assert.equal(orderLabel(' 42 '), 'Order 42'));

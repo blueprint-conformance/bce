@@ -1,2 +1,0 @@
-Implement classifyMessage(text): trim the text and return long when its length exceeds four, otherwise short, without bypassing the governed provider gateway.
-Only edit src/features/classify-message.mjs.

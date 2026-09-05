@@ -1,1 +1,0 @@
-import test from 'node:test'; import assert from 'node:assert/strict'; import { repairOrder } from '../src/domain/repair-order.mjs'; test('repairs order input', () => assert.equal(repairOrder(' ab-7 '), 'AB-7'));

@@ -1,8 +1,0 @@
-diff --git a/src/routes/repair-secret.mjs b/src/routes/repair-secret.mjs
---- a/src/routes/repair-secret.mjs
-+++ b/src/routes/repair-secret.mjs
-@@ -1,2 +1,2 @@
--import { requireAuth } from '../security/generic-auth.mjs';
--export function repairSecretRoute(tenantId, user) { const access = requireAuth(user); return `${tenantId}/${access.userId}`; }
-+import { requireAuth } from '../security/generic-auth.mjs';
-+export function repairSecretRoute(tenantId, user) { const access = requireAuth(user); return `${tenantId}:${access.userId}`; }

@@ -1,8 +1,0 @@
-diff --git a/src/routes/create-secret.mjs b/src/routes/create-secret.mjs
---- a/src/routes/create-secret.mjs
-+++ b/src/routes/create-secret.mjs
-@@ -1,2 +1,2 @@
--import { requireTenantAccess } from '../security/tenant-access.mjs';
--export function createSecretRoute(tenantId, user) { throw new Error('TODO'); }
-+import { requireTenantAccess } from '../security/tenant-access.mjs';
-+export function createSecretRoute(tenantId, user) { const access = requireTenantAccess(tenantId, user); return `secret:${access.tenantId}:${access.userId}`; }

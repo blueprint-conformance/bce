@@ -1,1 +1,0 @@
-src/browser/normalize-route.mjs must not directly import the path or node:path root specifier.

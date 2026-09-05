@@ -1,1 +1,0 @@
-src/features/message-vector.mjs must not directly import src/vendor/raw-provider.mjs.

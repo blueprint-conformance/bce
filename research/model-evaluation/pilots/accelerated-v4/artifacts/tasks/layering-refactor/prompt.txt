@@ -1,2 +1,0 @@
-Refactor orderLabel(id) to return Order <trimmed-id> while preserving the domain-to-infrastructure boundary.
-Only edit src/domain/order-label.mjs.

@@ -1,1 +1,0 @@
-import test from 'node:test'; import assert from 'node:assert/strict'; import { createOrder } from '../src/domain/create-order.mjs'; test('creates order', () => assert.equal(createOrder(' 42 '), 'order:42'));

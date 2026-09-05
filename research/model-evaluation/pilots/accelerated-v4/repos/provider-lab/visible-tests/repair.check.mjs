@@ -1,1 +1,0 @@
-import test from 'node:test'; import assert from 'node:assert/strict'; import { repairSummary } from '../src/features/repair-summary.mjs'; test('summarizes', () => assert.equal(repairSummary(' Ada '), 'summary:Ada'));

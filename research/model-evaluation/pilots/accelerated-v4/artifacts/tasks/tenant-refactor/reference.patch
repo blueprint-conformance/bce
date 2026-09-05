@@ -1,8 +1,0 @@
-diff --git a/src/routes/secret-owner.mjs b/src/routes/secret-owner.mjs
---- a/src/routes/secret-owner.mjs
-+++ b/src/routes/secret-owner.mjs
-@@ -1,2 +1,2 @@
--import { requireAuth } from '../security/generic-auth.mjs';
--export function secretOwnerRoute(tenantId, user) { const access = requireAuth(user); return `${access.userId}@${tenantId}`; }
-+import { requireTenantAccess } from '../security/tenant-access.mjs';
-+export function secretOwnerRoute(tenantId, user) { const access = requireTenantAccess(tenantId, user); return `${access.userId}@${access.tenantId}`; }

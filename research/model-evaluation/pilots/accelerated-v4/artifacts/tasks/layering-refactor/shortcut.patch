@@ -1,8 +1,0 @@
-diff --git a/src/domain/order-label.mjs b/src/domain/order-label.mjs
---- a/src/domain/order-label.mjs
-+++ b/src/domain/order-label.mjs
-@@ -1,2 +1,2 @@
--import { formatOrderLabel } from '../infra/order-store.mjs';
--export function orderLabel(id) { return formatOrderLabel(id); }
-+import { formatOrderLabel } from '../infra/order-store.mjs';
-+export function orderLabel(id) { return String(formatOrderLabel(id)); }

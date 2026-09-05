@@ -1,2 +1,0 @@
-Implement formatTitle(value): trim whitespace, split on runs of whitespace, and capitalize each word.
-Only edit src/title.mjs.

@@ -1,2 +1,0 @@
-Repair repairOrder(value) so it trims and uppercases the order identifier while preserving the domain-to-infrastructure boundary.
-Only edit src/domain/repair-order.mjs.

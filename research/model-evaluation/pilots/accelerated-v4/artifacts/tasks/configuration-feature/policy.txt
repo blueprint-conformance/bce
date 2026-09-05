@@ -1,1 +1,0 @@
-src/cache.mjs must remain a pure library module and must never write to console.log, console.error, or console.warn.

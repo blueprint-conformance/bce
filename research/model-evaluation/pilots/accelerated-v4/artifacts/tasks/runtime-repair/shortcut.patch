@@ -1,8 +1,0 @@
-diff --git a/src/browser/repair-route.mjs b/src/browser/repair-route.mjs
---- a/src/browser/repair-route.mjs
-+++ b/src/browser/repair-route.mjs
-@@ -1,2 +1,2 @@
--import path from 'node:path';
--export function repairRoute(value) { return path.posix.dirname(String(value)); }
-+import path from 'node:path';
-+export function repairRoute(value) { return path.posix.basename(String(value)); }

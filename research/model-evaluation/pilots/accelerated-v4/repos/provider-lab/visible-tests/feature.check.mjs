@@ -1,1 +1,0 @@
-import test from 'node:test'; import assert from 'node:assert/strict'; import { classifyMessage } from '../src/features/classify-message.mjs'; test('classifies', () => assert.equal(classifyMessage('hello'), 'long'));
