@@ -1,10 +1,558 @@
 {
   "schemaVersion": "1",
   "studyId": "bce-accelerated-instrumentation-pilot-v4-2026-09-05",
-  "status": "unsealed",
-  "sealedAt": null,
-  "entries": [],
-  "rootSha256": null,
-  "publicTimestamp": null,
-  "attestation": null
+  "status": "sealed-before-first-trial",
+  "sealedAt": "2026-09-05T13:35:18.456Z",
+  "entries": [
+    {
+      "path": "artifacts/bce-treatment-runtime-v4.tgz",
+      "sha256": "8bed8a6feb499e59d388afb3ef3402e1ed018c2eb016dea61fbd76a380af1bbd",
+      "bytes": 5827737
+    },
+    {
+      "path": "artifacts/tasks/layering-feature/architecture-oracle.mjs",
+      "sha256": "0b376967cf771a2e313f8636c90303f56beda291feeb533ab938ce22e426a2cb",
+      "bytes": 4934
+    },
+    {
+      "path": "artifacts/tasks/layering-feature/blueprint.json",
+      "sha256": "3837596978e64e47906f669467d7c032abd320c97b6a66b4a28dcd79c1fe3b0e",
+      "bytes": 884
+    },
+    {
+      "path": "artifacts/tasks/layering-feature/functional-oracle.mjs",
+      "sha256": "38b356980abac29be1ece1d5fd6d79bb6ecd5688ce0df9f00e63ad1461a4fd2b",
+      "bytes": 718
+    },
+    {
+      "path": "artifacts/tasks/layering-feature/invariant.json",
+      "sha256": "0fd912a68544025f3899bb0b876dce2a952b7fa74f09fe6f81113ca7408cb556",
+      "bytes": 392
+    },
+    {
+      "path": "artifacts/tasks/layering-feature/policy.txt",
+      "sha256": "850a0297881d3d737cf1ff4ed10ccd0d7f6f63beea3767b6508eca1d39118c61",
+      "bytes": 80
+    },
+    {
+      "path": "artifacts/tasks/layering-feature/prompt.txt",
+      "sha256": "1edfb80e6556f55966c30c69a06075d7cb2a908b719f31653a1d0057edb50e83",
+      "bytes": 154
+    },
+    {
+      "path": "artifacts/tasks/layering-feature/reference.patch",
+      "sha256": "e7d97117eafb75fb003f6c4efc24fcf38fbc3557de67803efcf07aac7b81f66a",
+      "bytes": 339
+    },
+    {
+      "path": "artifacts/tasks/layering-feature/shortcut.patch",
+      "sha256": "1cbdb41fe9845b01372b999b9661e5cbc8fa2eca05c3bec449614c4f35609198",
+      "bytes": 347
+    },
+    {
+      "path": "artifacts/tasks/layering-refactor/architecture-oracle.mjs",
+      "sha256": "54e556d43b0b9e8abc7331747a0902d164f92c215b311cbec317947169d3a83d",
+      "bytes": 4933
+    },
+    {
+      "path": "artifacts/tasks/layering-refactor/blueprint.json",
+      "sha256": "10c65efa651aaf0735e0e4891dfc3562e135d07ce8fed1739134827b7bb51761",
+      "bytes": 886
+    },
+    {
+      "path": "artifacts/tasks/layering-refactor/functional-oracle.mjs",
+      "sha256": "cf61a45537238e9fe9cd35a2a5d02a1a52b6c3e22a81dc2830b9b882a28d4c4f",
+      "bytes": 716
+    },
+    {
+      "path": "artifacts/tasks/layering-refactor/invariant.json",
+      "sha256": "8cf363c8db1ead318e100fd7c37c7d2de5053c67622b055ea87f93d8d52f4de7",
+      "bytes": 391
+    },
+    {
+      "path": "artifacts/tasks/layering-refactor/policy.txt",
+      "sha256": "c3714479e3b3d0f9b30d73d8b4494aea9f0b6737499a72017138c02e8543ca74",
+      "bytes": 79
+    },
+    {
+      "path": "artifacts/tasks/layering-refactor/prompt.txt",
+      "sha256": "1f002b119f18cb55fff8ea28b6d85d5215050b5cdf7679fe5dbccffe05184556",
+      "bytes": 147
+    },
+    {
+      "path": "artifacts/tasks/layering-refactor/reference.patch",
+      "sha256": "1d11a07dd8c72e1e71b0cd948ea17b8848eddb59799cd45604c6a0e9364fe1f7",
+      "bytes": 397
+    },
+    {
+      "path": "artifacts/tasks/layering-refactor/shortcut.patch",
+      "sha256": "22c56e775e33ae8e580ed7bd12540c3e0ecf82a2d5db196cfdb4318a9cd39386",
+      "bytes": 413
+    },
+    {
+      "path": "artifacts/tasks/layering-repair/architecture-oracle.mjs",
+      "sha256": "c9a07ba805efc55e3d2a44fa84e61c4ed441807e335fb50df9b7b859db08249f",
+      "bytes": 4933
+    },
+    {
+      "path": "artifacts/tasks/layering-repair/blueprint.json",
+      "sha256": "0bf02a44e943ddc55bdcc18772ae8e98446bcf472bfe2af21fa5ec862badffb3",
+      "bytes": 881
+    },
+    {
+      "path": "artifacts/tasks/layering-repair/functional-oracle.mjs",
+      "sha256": "20f353731dd9b141e855a48b9e5449e81efdd87e38ac5de9d1e5c352d901db98",
+      "bytes": 717
+    },
+    {
+      "path": "artifacts/tasks/layering-repair/invariant.json",
+      "sha256": "7dc9f11f58787a36ac1d8dbd796cd97d19e41a3d63926ac83a87ef98e394c2f1",
+      "bytes": 391
+    },
+    {
+      "path": "artifacts/tasks/layering-repair/policy.txt",
+      "sha256": "d8b6b08b45fd53684001429c273410b6bed365e96f922bfbcdd17366439f687e",
+      "bytes": 80
+    },
+    {
+      "path": "artifacts/tasks/layering-repair/prompt.txt",
+      "sha256": "bfb8255dc60aa6697bf944ab1a86cc39f0866a4e94fad66de5d7a51f5a25f876",
+      "bytes": 169
+    },
+    {
+      "path": "artifacts/tasks/layering-repair/reference.patch",
+      "sha256": "d3634913ac7de4e006ccd2001ddae3659ada78e7c921a372005c8d2e6825a839",
+      "bytes": 441
+    },
+    {
+      "path": "artifacts/tasks/layering-repair/shortcut.patch",
+      "sha256": "c90cecadaaff8c26b0a74a5c63abe60285b8b5e6312e240eec0c4423fd840ea3",
+      "bytes": 449
+    },
+    {
+      "path": "artifacts/tasks/provider-feature/architecture-oracle.mjs",
+      "sha256": "4e9843e8b6b57cb07717d14075f07046d37a3b7fd87f902aea3810eead51497f",
+      "bytes": 4948
+    },
+    {
+      "path": "artifacts/tasks/provider-feature/blueprint.json",
+      "sha256": "00b5f8fa88953d6d3fa2ae0537377819003c275c37c22d63ff3a6e27730cd628",
+      "bytes": 892
+    },
+    {
+      "path": "artifacts/tasks/provider-feature/functional-oracle.mjs",
+      "sha256": "322b5c2eea0c5afa52cdf31d11356703d215c010bdd455b1cbd54c471d7dca48",
+      "bytes": 734
+    },
+    {
+      "path": "artifacts/tasks/provider-feature/invariant.json",
+      "sha256": "825eb68c74f3f00f16abacb71b31ffc8a72a5288397a257e43b1f2f4c530a345",
+      "bytes": 408
+    },
+    {
+      "path": "artifacts/tasks/provider-feature/policy.txt",
+      "sha256": "503bb98ec2a8d73e336fb06b074288665e1d36cb1e66730c787414d428b67c57",
+      "bytes": 88
+    },
+    {
+      "path": "artifacts/tasks/provider-feature/prompt.txt",
+      "sha256": "b93bccbe3acbad5bb101af6029bef08ae5d202c35c2881df38399daf478acb28",
+      "bytes": 204
+    },
+    {
+      "path": "artifacts/tasks/provider-feature/reference.patch",
+      "sha256": "3f4f4584b351f5a11e1c67403558aada6ae1c1dffc7634cb4d6d031366ea2284",
+      "bytes": 403
+    },
+    {
+      "path": "artifacts/tasks/provider-feature/shortcut.patch",
+      "sha256": "9a33c9a0b5ed4d2aea37d8890f80dbc4816e845df7ccea57d8d9f854475ac7f4",
+      "bytes": 397
+    },
+    {
+      "path": "artifacts/tasks/provider-refactor/architecture-oracle.mjs",
+      "sha256": "a018c77488f954453e5eebd36dd8c1fe53dc42c8c9f5432d027cb7afa04dd2de",
+      "bytes": 4945
+    },
+    {
+      "path": "artifacts/tasks/provider-refactor/blueprint.json",
+      "sha256": "ca4452b9d112caef914f98982fc07e39b509cc9351d24a3674eaf91ed5f0590a",
+      "bytes": 893
+    },
+    {
+      "path": "artifacts/tasks/provider-refactor/functional-oracle.mjs",
+      "sha256": "5d7f374d630de799721e95e0a3126fb419af80cfd65dbc93f83677f1486edf93",
+      "bytes": 758
+    },
+    {
+      "path": "artifacts/tasks/provider-refactor/invariant.json",
+      "sha256": "4590a95b85b05e080c08fc675714bb6566681712e2aadc3eea0acb622352f97f",
+      "bytes": 405
+    },
+    {
+      "path": "artifacts/tasks/provider-refactor/policy.txt",
+      "sha256": "9edda54746a4367ad8abea9eb62439fb225f7b640ed89b4da02a4b13b2a8be04",
+      "bytes": 86
+    },
+    {
+      "path": "artifacts/tasks/provider-refactor/prompt.txt",
+      "sha256": "161f68779c4fb35254aba9d3b4de4b6134e67bdde414cd5026684e99d53e3046",
+      "bytes": 151
+    },
+    {
+      "path": "artifacts/tasks/provider-refactor/reference.patch",
+      "sha256": "b4d164af1bf32c938a5cb01bc4a03efad0dc5ef1ab72cef316e67008d3405e26",
+      "bytes": 461
+    },
+    {
+      "path": "artifacts/tasks/provider-refactor/shortcut.patch",
+      "sha256": "2c2e38c3c682b9c8ced3a34976cc7bdfcb1c983cab05a2c9c405788bf567f907",
+      "bytes": 460
+    },
+    {
+      "path": "artifacts/tasks/provider-repair/architecture-oracle.mjs",
+      "sha256": "8e4487443fb605fd5b7d633eec50d528eec557106657c3468f1517383debbdcf",
+      "bytes": 4943
+    },
+    {
+      "path": "artifacts/tasks/provider-repair/blueprint.json",
+      "sha256": "dd8eb83cf8b49745cf545f4985eb594efd8c9f82422a05afff324ceab7b5ee28",
+      "bytes": 887
+    },
+    {
+      "path": "artifacts/tasks/provider-repair/functional-oracle.mjs",
+      "sha256": "67f564618911642c333e41f63f4ea2ed1d1dabe53a157b5c5fb2814bc5d4a19f",
+      "bytes": 737
+    },
+    {
+      "path": "artifacts/tasks/provider-repair/invariant.json",
+      "sha256": "04263b2b533b3af38c1ea1cf5d97c5158f607b81267ecbb0f1337425311c982b",
+      "bytes": 403
+    },
+    {
+      "path": "artifacts/tasks/provider-repair/policy.txt",
+      "sha256": "92b0d42bfc7e39b8406d509c16c6555c01119bd66c4fccf295d12bccabc4e73a",
+      "bytes": 86
+    },
+    {
+      "path": "artifacts/tasks/provider-repair/prompt.txt",
+      "sha256": "3a4f8615bfebd08e625538e3f2030b0590dbddc1ccf105b0f04b6660898c6241",
+      "bytes": 156
+    },
+    {
+      "path": "artifacts/tasks/provider-repair/reference.patch",
+      "sha256": "093e813af39762ba5a0e42869b2d273096d5ffd05ac18bdf252cdcb221b62a2e",
+      "bytes": 491
+    },
+    {
+      "path": "artifacts/tasks/provider-repair/shortcut.patch",
+      "sha256": "0a918042a947ff961a2c961b38f13b228e34c04508be1303b5d7f2013da105e8",
+      "bytes": 485
+    },
+    {
+      "path": "artifacts/tasks/runtime-feature/architecture-oracle.mjs",
+      "sha256": "873a3f119107ceff12ba58ecb24f2c51ab9d366ccdf92cda912a2a431d8f7d3e",
+      "bytes": 4915
+    },
+    {
+      "path": "artifacts/tasks/runtime-feature/blueprint.json",
+      "sha256": "9078369f6926fabb2bd236c3271ed4dff51539e3173e578e7c5fc35737358883",
+      "bytes": 861
+    },
+    {
+      "path": "artifacts/tasks/runtime-feature/functional-oracle.mjs",
+      "sha256": "a11cac8e3437cb3499861c8aa43656f4c145a31172e8cb159b4e35c03a501d10",
+      "bytes": 734
+    },
+    {
+      "path": "artifacts/tasks/runtime-feature/invariant.json",
+      "sha256": "19d1fe32d9c10841170e7f92c68edd4e78f69e471311da9be5aaf1dc1f69d10d",
+      "bytes": 384
+    },
+    {
+      "path": "artifacts/tasks/runtime-feature/policy.txt",
+      "sha256": "9e9100572bd8235282731d0ae7fee7ab92f514a6cc26c8d101440479563a5729",
+      "bytes": 92
+    },
+    {
+      "path": "artifacts/tasks/runtime-feature/prompt.txt",
+      "sha256": "55b88b28142d8a464a7f14634df327ca062570aab34bba2defcc00eb8729c931",
+      "bytes": 151
+    },
+    {
+      "path": "artifacts/tasks/runtime-feature/reference.patch",
+      "sha256": "3af67948fd7dbe1966a2da092f0c15daa57bcadeacd8b644aa1afcd35d01300a",
+      "bytes": 354
+    },
+    {
+      "path": "artifacts/tasks/runtime-feature/shortcut.patch",
+      "sha256": "4aa7c42eb757edccdf108d0906af8ec407fcb5c194cc0dd35bfc4d2b01ac1c55",
+      "bytes": 360
+    },
+    {
+      "path": "artifacts/tasks/runtime-refactor/architecture-oracle.mjs",
+      "sha256": "9fb38a455cebbb1c49e02a6b88ea078078c50f1c6d701e91d45cfcaebf5643e8",
+      "bytes": 4922
+    },
+    {
+      "path": "artifacts/tasks/runtime-refactor/blueprint.json",
+      "sha256": "d68e6992bf47bbee25a3f2292326d26f11a6423fa16deb4f5748a0fabbb7bb00",
+      "bytes": 867
+    },
+    {
+      "path": "artifacts/tasks/runtime-refactor/functional-oracle.mjs",
+      "sha256": "50f1d2f8f9f8575fa8fd0f22846e6516b9b89ca5ffd23a6230d8402d0df2de46",
+      "bytes": 741
+    },
+    {
+      "path": "artifacts/tasks/runtime-refactor/invariant.json",
+      "sha256": "a2ee8e288fca8e700bba9398ace77d2c6bf4e82cb58bb5ac4ccfc340becef388",
+      "bytes": 391
+    },
+    {
+      "path": "artifacts/tasks/runtime-refactor/policy.txt",
+      "sha256": "a6a0aa679fd3dddbf20713a63112f65c77be7b3d93f56d7bdba321a14479c815",
+      "bytes": 95
+    },
+    {
+      "path": "artifacts/tasks/runtime-refactor/prompt.txt",
+      "sha256": "c2380437a70a542670c0c7452ca6936009deee7a0b2d1b01bcf11935cc85d291",
+      "bytes": 170
+    },
+    {
+      "path": "artifacts/tasks/runtime-refactor/reference.patch",
+      "sha256": "1453141a09e65aa07eed47674fc45ce6508b8ee62d9bd971f3891b58cb0e7b49",
+      "bytes": 441
+    },
+    {
+      "path": "artifacts/tasks/runtime-refactor/shortcut.patch",
+      "sha256": "795e375e18ab87cabc4ae0b219c189950acf0caa8f44cf652afc0d540cfa3304",
+      "bytes": 467
+    },
+    {
+      "path": "artifacts/tasks/runtime-repair/architecture-oracle.mjs",
+      "sha256": "60479366ef51611fe09ebe8d213c79401d4000eaf2a9267d59f6a05edfd6657f",
+      "bytes": 4914
+    },
+    {
+      "path": "artifacts/tasks/runtime-repair/blueprint.json",
+      "sha256": "50469322a3eaf60c3010a2af27556a2b2971e22d2c7fce39ec1afac509356b3f",
+      "bytes": 858
+    },
+    {
+      "path": "artifacts/tasks/runtime-repair/functional-oracle.mjs",
+      "sha256": "cbde25371bb4f41dce255866ae485c364c13f0059fc523583c60436c1154cd58",
+      "bytes": 722
+    },
+    {
+      "path": "artifacts/tasks/runtime-repair/invariant.json",
+      "sha256": "e99829ebf5b258d0592153ed13b5da9fdfec08ac1b76107e9d9015567bd81503",
+      "bytes": 383
+    },
+    {
+      "path": "artifacts/tasks/runtime-repair/policy.txt",
+      "sha256": "265da44df613536c534788f80c3709de357cadee2af398bc98516ce7a8ddb8a9",
+      "bytes": 92
+    },
+    {
+      "path": "artifacts/tasks/runtime-repair/prompt.txt",
+      "sha256": "8e112804a464e30987022c876f6eca1aaa1468df9fdfab3408764dc3a37f5370",
+      "bytes": 143
+    },
+    {
+      "path": "artifacts/tasks/runtime-repair/reference.patch",
+      "sha256": "bccbc6253e94ee5c54422704fb9af07a59d913600107d7f0d668481b567e19f3",
+      "bytes": 392
+    },
+    {
+      "path": "artifacts/tasks/runtime-repair/shortcut.patch",
+      "sha256": "d26be43a33d154fb0bc056ce8ce5db4f7dbe606390c9e788def305029a6fbdaa",
+      "bytes": 386
+    },
+    {
+      "path": "artifacts/tasks/tenant-feature/architecture-oracle.mjs",
+      "sha256": "b27632803f5027fd9aad90bcc99fbd2f93a7a8209f5e22948faf62e4a125340c",
+      "bytes": 4938
+    },
+    {
+      "path": "artifacts/tasks/tenant-feature/blueprint.json",
+      "sha256": "12f28677030a6174de7b392302079a8a11fb013122b208360777237c12adf24a",
+      "bytes": 906
+    },
+    {
+      "path": "artifacts/tasks/tenant-feature/functional-oracle.mjs",
+      "sha256": "2c2646b28eb3a562e83c4c89ae68f1441671e9dcdfebee603481e1c90048c646",
+      "bytes": 805
+    },
+    {
+      "path": "artifacts/tasks/tenant-feature/invariant.json",
+      "sha256": "96910eb1aa328e2d52bc2238587ecf2848a961c400f90bbf59e58ce1244beb04",
+      "bytes": 422
+    },
+    {
+      "path": "artifacts/tasks/tenant-feature/policy.txt",
+      "sha256": "d0cc6dee909811bfd49f03df6ff8b129e55909b2ab814877372aef3cab2f482b",
+      "bytes": 82
+    },
+    {
+      "path": "artifacts/tasks/tenant-feature/prompt.txt",
+      "sha256": "592d1904ecb64558f131e0f64b16a1b7a64d106b569cceb88a32fbd24a70fb69",
+      "bytes": 204
+    },
+    {
+      "path": "artifacts/tasks/tenant-feature/reference.patch",
+      "sha256": "43bdc6cb09f2fd0196d27fa7d4768f4b6717e68578934f0f2b2e5d00847eb27c",
+      "bytes": 539
+    },
+    {
+      "path": "artifacts/tasks/tenant-feature/shortcut.patch",
+      "sha256": "a92e2d3523fa79fcebe31d45fcc1348095f8b3f1b0f298b0a9a422e49d871fad",
+      "bytes": 505
+    },
+    {
+      "path": "artifacts/tasks/tenant-refactor/architecture-oracle.mjs",
+      "sha256": "0ee81c761dcf1c1f29ee6e292b30916f225efa8927586034171108cbf9387afc",
+      "bytes": 4937
+    },
+    {
+      "path": "artifacts/tasks/tenant-refactor/blueprint.json",
+      "sha256": "cc71fc7ac5f80f795d53207f8d83794915c134c2634cff1785006ed518251379",
+      "bytes": 908
+    },
+    {
+      "path": "artifacts/tasks/tenant-refactor/functional-oracle.mjs",
+      "sha256": "80cd9708c82a7fe5aadedb3c14981ff73217b73ee855d16f1d74c8cc92c80c63",
+      "bytes": 789
+    },
+    {
+      "path": "artifacts/tasks/tenant-refactor/invariant.json",
+      "sha256": "dcd988072ffc8e967c43090d368a9ddd9761db52e0334e769bc75b492e101f9f",
+      "bytes": 421
+    },
+    {
+      "path": "artifacts/tasks/tenant-refactor/policy.txt",
+      "sha256": "42a9a71f2efc699182bda1494d326d5ef2e1298ca86766510fcb4fc6b15fa8ed",
+      "bytes": 81
+    },
+    {
+      "path": "artifacts/tasks/tenant-refactor/prompt.txt",
+      "sha256": "28462bbb532d00f3ba30720e599257f7e8148f51589be2412131520f1d77a0e1",
+      "bytes": 194
+    },
+    {
+      "path": "artifacts/tasks/tenant-refactor/reference.patch",
+      "sha256": "f6d0fd22d0657aae11ae11a0b38645c834c716adc36ccc05ba21f1cd6c53eafe",
+      "bytes": 565
+    },
+    {
+      "path": "artifacts/tasks/tenant-refactor/shortcut.patch",
+      "sha256": "4284a5555e9b4054c862fe9882d6235fc873b1d6196b12939c01bab04661681b",
+      "bytes": 539
+    },
+    {
+      "path": "artifacts/tasks/tenant-repair/architecture-oracle.mjs",
+      "sha256": "29a9c92854e1237d5d2cb27eeb323e57aafe1f5e7162937c87bdb02d89a9f648",
+      "bytes": 4937
+    },
+    {
+      "path": "artifacts/tasks/tenant-repair/blueprint.json",
+      "sha256": "ec867f35a2bd185eaa0dee171216e6d3ef01b147b94e27a9907cd26405d67c16",
+      "bytes": 903
+    },
+    {
+      "path": "artifacts/tasks/tenant-repair/functional-oracle.mjs",
+      "sha256": "304893b2bcc90bde318c9493b27305f36399b270b18844c974f494516719653f",
+      "bytes": 790
+    },
+    {
+      "path": "artifacts/tasks/tenant-repair/invariant.json",
+      "sha256": "dc21a885239c592ca6a3770c8ea1176cac3f8d05a20c585af51b9e6152bb24b3",
+      "bytes": 421
+    },
+    {
+      "path": "artifacts/tasks/tenant-repair/policy.txt",
+      "sha256": "7f150f830806a4951ab936c71a8c103227efc5aa3fbb29cd4373ab5cd87fb6a3",
+      "bytes": 82
+    },
+    {
+      "path": "artifacts/tasks/tenant-repair/prompt.txt",
+      "sha256": "96c5d1dc026a0c498755c482c841d1edf6ce63406d15ca061cf7511460f855ee",
+      "bytes": 194
+    },
+    {
+      "path": "artifacts/tasks/tenant-repair/reference.patch",
+      "sha256": "1a8474727e00819cf2bbfa9e4d748a0dcb36245ae343f6556a90a68ef3494dd5",
+      "bytes": 571
+    },
+    {
+      "path": "artifacts/tasks/tenant-repair/shortcut.patch",
+      "sha256": "59a864c75c618d0c3eb51fd8a5bad20481c49cf2134d8a10568c7ab0c47dd294",
+      "bytes": 537
+    },
+    {
+      "path": "protected-paths.v1.json",
+      "sha256": "5fc40d683d75e2f3c4d922ccc4e746945259f37a44f6bc36a6b2257f9e74ddd1",
+      "bytes": 1040
+    },
+    {
+      "path": "protocol-amendments.jsonl",
+      "sha256": "813f343dffdaa5ef1ec8993dc53dcc233e5ff05d26b2c735f65240e4a4c6483e",
+      "bytes": 906
+    },
+    {
+      "path": "protocol.v2.json",
+      "sha256": "5f7a8457e77c2b904a1ce5828daf3e1fc1f1f15cccdd877465bf3235be342957",
+      "bytes": 8663
+    },
+    {
+      "path": "schemas/protected-paths.schema.json",
+      "sha256": "54fc2c4398ebfc78981dd4834088b8db306a5d818c6971a7c6cfac1410cc9600",
+      "bytes": 918
+    },
+    {
+      "path": "schemas/protocol.schema.json",
+      "sha256": "e13e44f6df6ba08aad900eed9aa6e45ebf05809523013178a96f2eaa9a752587",
+      "bytes": 15077
+    },
+    {
+      "path": "schemas/seal.schema.json",
+      "sha256": "f05feef6b8dc2ad974feea9eb78953d6b59d6a71bf70ee053b61d0b9a5b5e9ce",
+      "bytes": 2260
+    },
+    {
+      "path": "schemas/task-manifest.schema.json",
+      "sha256": "de53643c82225d0f2088b2e516601534b761bb77f38de8d1d94ec1ee8bbdcb1e",
+      "bytes": 7125
+    },
+    {
+      "path": "schemas/terminal-record.schema.json",
+      "sha256": "6fab4748f96ec5c679f73c26bfeab1d7f34f41b822d236cadeeeab686090da6a",
+      "bytes": 7480
+    },
+    {
+      "path": "schemas/treatment-delta.schema.json",
+      "sha256": "92362d8d56d6c5c462c17097efef6bdec437e54dccdb4435b38f7bf86f8f65a6",
+      "bytes": 977
+    },
+    {
+      "path": "task-manifest.json",
+      "sha256": "055bd6e2fc9548dbbf712876f8020aa32c1f340320cbb68585ddfcb63a5598da",
+      "bytes": 55697
+    },
+    {
+      "path": "treatment-delta.v1.json",
+      "sha256": "37a94eb1d4ec77175d12ca88487178d04efa0353d5534c6aba0068114622f7a8",
+      "bytes": 1634
+    }
+  ],
+  "rootSha256": "810a718845a797bd8e766178e004e39e35506c7ca6a37cf0e5c74b35c3a03816",
+  "publicTimestamp": "https://github.com/blueprint-conformance/bce/commit/a0053ce2107f8fd9d80ec9de47ce7bd1e708c158",
+  "attestation": {
+    "kind": "local-git-commit",
+    "subjectRootSha256": "810a718845a797bd8e766178e004e39e35506c7ca6a37cf0e5c74b35c3a03816",
+    "uri": "https://github.com/blueprint-conformance/bce/commit/a0053ce2107f8fd9d80ec9de47ce7bd1e708c158",
+    "identity": "blueprint-conformance-maintainer",
+    "gitCommit": "a0053ce2107f8fd9d80ec9de47ce7bd1e708c158",
+    "eligibleForProductClaim": false
+  }
 }
