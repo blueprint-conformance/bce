@@ -91,9 +91,10 @@
     "restrictedEvidence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["retained", "pathPublished", "ledgerHeadSha256"],
+      "required": ["retained", "bundleRetained", "pathPublished", "ledgerHeadSha256"],
       "properties": {
         "retained": { "type": "boolean" },
+        "bundleRetained": { "type": "boolean" },
         "pathPublished": { "const": false },
         "ledgerHeadSha256": { "anyOf": [{ "$ref": "#/definitions/sha256" }, { "type": "null" }] }
       }

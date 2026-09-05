@@ -2,7 +2,7 @@
 /** Live sacrificial client/model/BCE capability canary. Never uses evaluation tasks. */
 import { spawnSync } from 'node:child_process';
 import {
-  chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync,
+  chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync,
   rmSync, writeFileSync,
 } from 'node:fs';
 import { arch, platform, tmpdir } from 'node:os';
@@ -40,6 +40,8 @@ if (existsSync(output)) throw new Error(`canary refuses to overwrite ${output}`)
 const scratch = mkdtempSync(join(tmpdir(), 'bce-live-canary-'));
 const bundle = join(scratch, 'bundle');
 const restrictedRuns = resolve(restrictedRunsArgument ?? join(scratch, 'restricted-runs'));
+const restrictedBundle = restrictedRunsArgument ? resolve(`${restrictedRunsArgument}.bundle`) : null;
+if (restrictedBundle && existsSync(restrictedBundle)) throw new Error(`canary refuses to overwrite retained bundle ${restrictedBundle}`);
 const endpoint = valueAfter('--ollama-endpoint') ?? 'http://127.0.0.1:11434';
 const studyId = `bce-sacrificial-capability-canary-${sha256Bytes(`${modelName}\0${Date.now()}`).slice(0, 16)}`;
 const run = (file, args, options = {}) => spawnSync(file, args, {
@@ -289,12 +291,18 @@ try {
     attestation: { kind: 'synthetic-self-test', subjectRootSha256: expected.rootSha256, uri: 'https://example.invalid/sacrificial-live-capability-canary', identity: 'bce-live-canary', eligibleForProductClaim: false },
   });
 
-  const executed = run(runtimePath, ['scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', restrictedRuns, '--execute-sealed-study'], { timeout: 600000 });
+  const executionBundle = restrictedBundle ?? bundle;
+  if (restrictedBundle) {
+    mkdirSync(dirname(restrictedBundle), { recursive: true });
+    cpSync(bundle, restrictedBundle, { recursive: true });
+    chmodSync(restrictedBundle, 0o700);
+  }
+  const executed = run(runtimePath, ['scripts/run-model-evaluation.mjs', '--bundle', executionBundle, '--runs', restrictedRuns, '--execute-sealed-study'], { timeout: 600000 });
   if (executed.status !== 0) process.stderr.write(`sacrificial canary controller diagnostic:\n${executed.stderr}\n`);
   const ledgerPath = join(restrictedRuns, 'ledger.jsonl');
   const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line)) : [];
   let verifiedRecords = [];
-  try { verifiedRecords = loadVerifiedRecords(bundle, restrictedRuns).records; }
+  try { verifiedRecords = loadVerifiedRecords(executionBundle, restrictedRuns).records; }
   catch (error) { if (ledger.length > 0) process.stderr.write(`sacrificial canary evidence verification diagnostic:\n${error instanceof Error ? error.message : String(error)}\n`); }
   const observations = [];
   const refusalReasons = [];
@@ -361,8 +369,8 @@ try {
       treatmentArtifactSha256: protocol.treatment.engineArtifactSha256, treatmentInstalledTreeSha256: treatment.installedTreeSha256,
       toolLoop: protocol.clientModelCells[0].toolLoop ?? null,
     },
-    requirements: ['independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm', 'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm', 'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest', 'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass', ...(clientKind === 'bce-ollama-tool-client' ? ['sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm'] : [])],
-    observations, refusalReasons, restrictedEvidence: { retained: Boolean(restrictedRunsArgument), pathPublished: false, ledgerHeadSha256: ledger.at(-1)?.entrySha256 ?? null },
+    requirements: ['retained-sealed-fixture-bundle', 'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm', 'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm', 'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest', 'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass', ...(clientKind === 'bce-ollama-tool-client' ? ['sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm'] : [])],
+    observations, refusalReasons, restrictedEvidence: { retained: Boolean(restrictedRunsArgument), bundleRetained: Boolean(restrictedBundle), pathPublished: false, ledgerHeadSha256: ledger.at(-1)?.entrySha256 ?? null },
     canaryRunnerSha256: protocol.implementation.canaryRunnerSha256,
     sealedFixtureProtocolSha256: sha256Bytes(readFileSync(join(bundle, 'protocol.v2.json'))),
     sealedFixtureManifestSha256: sha256Bytes(readFileSync(join(bundle, 'task-manifest.json'))),

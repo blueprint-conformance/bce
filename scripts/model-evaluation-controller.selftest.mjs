@@ -428,7 +428,7 @@ function verifyReferenceCanaryBinding() {
     const cell = protocol.clientModelCells[0];
     const sourceCommit = 'a'.repeat(40);
     const requirements = [
-      'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm',
+      'retained-sealed-fixture-bundle', 'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm',
       'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm',
       'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest',
       'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass',
@@ -452,7 +452,7 @@ function verifyReferenceCanaryBinding() {
         toolLoop: { ...cell.toolLoop, qualificationAttestation: null },
       },
       requirements, observations: [observation('baseline-no-bce'), observation('bce-enabled')], refusalReasons: [],
-      restrictedEvidence: { retained: true, pathPublished: false, ledgerHeadSha256: sha256Bytes('qualification-ledger-head') },
+      restrictedEvidence: { retained: true, bundleRetained: true, pathPublished: false, ledgerHeadSha256: sha256Bytes('qualification-ledger-head') },
       canaryRunnerSha256: protocol.implementation.canaryRunnerSha256,
       sealedFixtureProtocolSha256: sha256Bytes('qualification-protocol'), sealedFixtureManifestSha256: sha256Bytes('qualification-manifest'),
       sealedFixtureRootSha256: sha256Bytes('qualification-root'), attestationSha256: null,

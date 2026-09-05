@@ -346,14 +346,14 @@ function verifyQualificationAttestation(root, protocol, seal, cell, configuratio
     attestation.observations.find((observation) => observation.arm === 'bce-enabled')?.bceMcpRunGate === true &&
     attestation.observations.find((observation) => observation.arm === 'bce-enabled')?.bceLastVerifiedVerdict === 'pass';
   const requiredClaims = [
-    'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm',
+    'retained-sealed-fixture-bundle', 'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm',
     'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm',
     'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest',
     'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass',
     'sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm',
   ];
   if (attestation.qualified !== true || attestation.sourceTreeState !== 'clean' || attestation.refusalReasons.length !== 0 ||
-      attestation.restrictedEvidence.retained !== true || !/^[0-9a-f]{64}$/.test(attestation.restrictedEvidence.ledgerHeadSha256 ?? '') ||
+      attestation.restrictedEvidence.retained !== true || attestation.restrictedEvidence.bundleRetained !== true || !/^[0-9a-f]{64}$/.test(attestation.restrictedEvidence.ledgerHeadSha256 ?? '') ||
       !observationEligible || requiredClaims.some((requirement) => !attestation.requirements.includes(requirement))) {
     refusals.push(`${cell.id}: qualification attestation does not prove the complete clean two-arm capability contract`);
   }
