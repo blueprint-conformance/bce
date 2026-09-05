@@ -41,6 +41,7 @@ function responseFor(model, body) {
   if (model === 'hallucinate') return turn === 1 ? call('run_gate', {}) : { model, message: { role: 'assistant', content: 'done' }, prompt_eval_count: 4, eval_count: 2 };
   if (model === 'traversal') return turn === 1 ? call('write_file', { path: '../escape', content: 'x' }) : { model, message: { role: 'assistant', content: 'done' }, prompt_eval_count: 4, eval_count: 2 };
   if (model === 'symlink') return turn === 1 ? call('write_file', { path: 'linked/value.mjs', content: 'x' }) : { model, message: { role: 'assistant', content: 'done' }, prompt_eval_count: 4, eval_count: 2 };
+  if (model === 'bad-argv') return turn === 1 ? call('exec', { argv: [] }) : { model, message: { role: 'assistant', content: 'done' }, prompt_eval_count: 4, eval_count: 2 };
   if (model === 'orphan') return turn === 1
     ? call('exec', { argv: [process.execPath, '-e', `const{spawn}=require('child_process');spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'}).unref()`] })
     : { model, message: { role: 'assistant', content: 'done' }, prompt_eval_count: 4, eval_count: 2 };
@@ -73,19 +74,56 @@ async function runClient({ model, treatment = false, mcpError = false, symlink =
   if (symlink) symlinkSync(join(workspace, 'src'), join(workspace, 'linked'));
   const mcp = join(workspace, mcpError ? 'fake-mcp-error.mjs' : 'fake-mcp.mjs');
   fakeMcp(mcp, mcpError);
+  const execSandbox = {
+    driver: '/usr/bin/sandbox-exec', driverSha256: 'a'.repeat(64), networkPolicy: 'deny-all', processPolicy: 'deny-fork',
+    filesystemPolicy: 'controller-read-default-deny-workspace-write-protected-roots-denied',
+  };
   const args = [client, '--endpoint', endpoint, '--model', model, '--prompt', 'repair the fixture', '--system-prompt', systemPrompt, '--common-tools', commonTools,
-    '--reasoning-effort', 'low', '--max-turns', '12', '--temperature', '0', '--seed', '424242', '--num-ctx', '32768', '--keep-alive', '10m'];
+    '--exec-broker-config', JSON.stringify(execSandbox), '--reasoning-effort', 'low', '--max-turns', '12', '--temperature', '0', '--seed', '424242', '--num-ctx', '32768', '--keep-alive', '10m'];
   if (treatment) args.push('--mcp-runtime', process.execPath, '--mcp-server', mcp, '--mcp-tool-sha256', runGateToolSha256);
   const result = await new Promise((resolveResult) => {
-    const child = spawn(process.execPath, args, { cwd: workspace, env: process.env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, args, { cwd: workspace, env: process.env, detached: true, stdio: ['ignore', 'pipe', 'pipe', 'pipe', 'pipe'] });
     const stdout = [];
     const stderr = [];
+    const execBrokerEvidence = [];
+    let brokerBuffer = '';
+    let brokerQueue = Promise.resolve();
     child.stdout.on('data', (chunk) => stdout.push(chunk));
     child.stderr.on('data', (chunk) => stderr.push(chunk));
-    child.on('close', (status, signal) => {
+    child.stdio[3].on('data', (chunk) => {
+      brokerBuffer += chunk.toString();
+      const lines = brokerBuffer.split('\n');
+      brokerBuffer = lines.pop() ?? '';
+      for (const line of lines.filter((value) => value.trim())) {
+        brokerQueue = brokerQueue.then(async () => {
+          const request = JSON.parse(line);
+          let result;
+          if (request.argv.some((value) => value.includes('setInterval'))) {
+            result = { argv: request.argv, exitCode: 0, signal: null, timedOut: false, overflow: false, processGroupTerminated: false, stdout: '', stderr: '', execSandbox, sandboxProfileSha256: 'c'.repeat(64) };
+          } else {
+            result = await new Promise((resolveExec) => {
+              const command = spawn(request.argv[0], request.argv.slice(1), { cwd: workspace, env: process.env, detached: false, stdio: ['ignore', 'pipe', 'pipe'] });
+              const commandStdout = [];
+              const commandStderr = [];
+              command.stdout.on('data', (value) => commandStdout.push(value));
+              command.stderr.on('data', (value) => commandStderr.push(value));
+              command.once('error', (error) => resolveExec({ argv: request.argv, exitCode: null, signal: null, timedOut: false, overflow: false, processGroupTerminated: true, stdout: '', stderr: error.message, execSandbox, sandboxProfileSha256: 'c'.repeat(64) }));
+              command.once('close', (exitCode, signal) => resolveExec({ argv: request.argv, exitCode, signal, timedOut: false, overflow: false, processGroupTerminated: true, stdout: Buffer.concat(commandStdout).toString(), stderr: Buffer.concat(commandStderr).toString(), execSandbox, sandboxProfileSha256: 'c'.repeat(64) }));
+            });
+          }
+          const requestSha256 = sha256Json(request);
+          const response = { schemaVersion: '1', id: request.id, kind: 'exec-result', requestSha256, result };
+          const responseSha256 = sha256Json(response);
+          execBrokerEvidence.push({ request, requestSha256, response, responseSha256 });
+          child.stdio[4].write(`${JSON.stringify(response)}\n`);
+        });
+      }
+    });
+    child.on('close', async (status, signal) => {
+      await brokerQueue;
       let processGroupRemained = false;
       try { process.kill(-child.pid, 0); processGroupRemained = true; process.kill(-child.pid, 'SIGKILL'); } catch {}
-      resolveResult({ status, signal, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), processGroupRemained });
+      resolveResult({ status, signal, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), processGroupRemained, execBrokerEvidence });
     });
   });
   const configuration = {
@@ -95,12 +133,17 @@ async function runClient({ model, treatment = false, mcpError = false, symlink =
     commonToolContract: { path: 'client/tools.json', sha256: sha256Bytes(readFileSync(commonTools)) },
     clientEventSchema: { path: 'schemas/client-event.schema.json', sha256: 'a'.repeat(64) },
     modelOptions: { temperature: 0, seed: 424242, numCtx: 32768, keepAlive: '10m' },
+    execSandbox,
     limits: { maximumTurns: 64, maxFileBytes: 262144, maxToolOutputBytes: 32768, commandTimeoutMs: 120000, providerTimeoutMs: 180000 },
-    mcpRunGateToolSha256: runGateToolSha256, qualificationAttestationSha256: null,
+    mcpRunGateToolSha256: runGateToolSha256, qualificationAttestation: null,
   };
   const cell = { id: 'selftest-cell', client: 'bce-ollama-tool-client', clientVersion: 'bce-ollama-tool-client 1.0.0', requestedModel: model, resolvedModel: `${model}@sha256:${'b'.repeat(64)}`, reasoningEffort: 'low', toolLoop: configuration };
   const task = { budget: { maxTurns: 12 } };
-  return { result, workspace, cell, task, evidence: verifyOllamaClientEvents(result.stdout, { cell, arm: treatment ? 'bce-enabled' : 'baseline-no-bce', task }) };
+  let evidence = null;
+  let verificationError = null;
+  try { evidence = verifyOllamaClientEvents(result.stdout, { cell, arm: treatment ? 'bce-enabled' : 'baseline-no-bce', task, execBrokerEvidence: result.execBrokerEvidence }); }
+  catch (error) { verificationError = error; }
+  return { result, workspace, cell, task, evidence, verificationError };
 }
 
 function rehash(events) {
@@ -128,15 +171,42 @@ try {
   const tamperedEvents = treatment.evidence.events.map((event) => structuredClone(event));
   const toolResponse = tamperedEvents.find((event) => event.type === 'mcp.response' && event.payload.dispatchId !== null);
   toolResponse.payload.response.id += 1000;
-  assert.throws(() => verifyOllamaClientEvents(rehash(tamperedEvents), { cell: treatment.cell, arm: 'bce-enabled', task: treatment.task }), /MCP request\/response identity/);
+  assert.throws(() => verifyOllamaClientEvents(rehash(tamperedEvents), { cell: treatment.cell, arm: 'bce-enabled', task: treatment.task, execBrokerEvidence: treatment.result.execBrokerEvidence }), /MCP tools\/call response is not the exact matching success response/);
+
+  const duplicateProvider = treatment.evidence.events.map((event) => structuredClone(event));
+  const firstProviderRequest = duplicateProvider.findIndex((event) => event.type === 'provider.request');
+  duplicateProvider.splice(firstProviderRequest + 1, 0, structuredClone(duplicateProvider[firstProviderRequest]));
+  assert.throws(() => verifyOllamaClientEvents(rehash(duplicateProvider), { cell: treatment.cell, arm: 'bce-enabled', task: treatment.task, execBrokerEvidence: treatment.result.execBrokerEvidence }), /expected provider response/);
+
+  const reorderedBroker = treatment.evidence.events.map((event) => structuredClone(event));
+  const brokerRequestIndex = reorderedBroker.findIndex((event) => event.type === 'broker.request');
+  [reorderedBroker[brokerRequestIndex], reorderedBroker[brokerRequestIndex + 1]] = [reorderedBroker[brokerRequestIndex + 1], reorderedBroker[brokerRequestIndex]];
+  assert.throws(() => verifyOllamaClientEvents(rehash(reorderedBroker), { cell: treatment.cell, arm: 'bce-enabled', task: treatment.task, execBrokerEvidence: treatment.result.execBrokerEvidence }), /expected exec broker request/);
+
+  const forgedBroker = treatment.evidence.events.map((event) => structuredClone(event));
+  const forgedBrokerResponse = forgedBroker.find((event) => event.type === 'broker.response');
+  forgedBrokerResponse.payload.response.result.stdout = 'self-rehashed forgery';
+  forgedBrokerResponse.payload.responseSha256 = sha256Json(forgedBrokerResponse.payload.response);
+  const forgedExecResult = forgedBroker.find((event) => event.type === 'tool.result' && event.payload.name === 'exec');
+  forgedExecResult.payload.result.stdout = 'self-rehashed forgery';
+  assert.throws(() => verifyOllamaClientEvents(rehash(forgedBroker), { cell: treatment.cell, arm: 'bce-enabled', task: treatment.task, execBrokerEvidence: treatment.result.execBrokerEvidence }), /do not bijectively match controller broker evidence/);
+
+  const invalidVerdict = treatment.evidence.events.map((event) => structuredClone(event));
+  const gateResponse = invalidVerdict.find((event) => event.type === 'mcp.response' && event.payload.dispatchId !== null);
+  gateResponse.payload.response.result.structuredContent.gateFailed = 'false';
+  const gateToolResult = invalidVerdict.find((event) => event.type === 'tool.result' && event.payload.name === 'run_gate');
+  gateToolResult.payload.result.structuredContent.gateFailed = 'false';
+  assert.throws(() => verifyOllamaClientEvents(rehash(invalidVerdict), { cell: treatment.cell, arm: 'bce-enabled', task: treatment.task, execBrokerEvidence: treatment.result.execBrokerEvidence }), /not an exact successful BCE verdict/);
 
   const hallucination = await runClient({ model: 'hallucinate' });
   assert.equal(hallucination.evidence.mechanism.bceGateCalls, 0);
   assert.equal(hallucination.evidence.mechanism.malformedToolCalls, 1);
+  const badArgv = await runClient({ model: 'bad-argv' });
+  assert.equal(badArgv.evidence.mechanism.malformedToolCalls, 1);
+  assert.equal(badArgv.result.execBrokerEvidence.length, 0, 'malformed exec must be rejected before reaching the controller broker');
 
   const mcpError = await runClient({ model: 'normal', treatment: true, mcpError: true });
-  assert.equal(mcpError.evidence.mechanism.bceGateCalls, 0);
-  assert.equal(mcpError.evidence.mechanism.toolFailures >= 1, true);
+  assert.match(mcpError.verificationError?.message ?? '', /MCP tools\/call response is not the exact matching success response|not an exact successful BCE verdict/);
 
   const traversal = await runClient({ model: 'traversal' });
   assert.equal(traversal.evidence.mechanism.toolFailures, 1);
@@ -144,10 +214,10 @@ try {
   assert.equal(symlink.evidence.mechanism.toolFailures, 1);
 
   const orphan = await runClient({ model: 'orphan' });
-  assert.equal(orphan.result.processGroupRemained, true, 'orphan must remain in the enclosing client process group so the controller can detect and kill it');
-  assert.match(readFileSync(client, 'utf8'), /detached: false/, 'tool children must not escape the enclosing controller process group');
+  assert.match(orphan.verificationError?.message ?? '', /exec broker response .* is not the exact contained result/, 'exec must fail closed when the broker cannot prove process-group termination');
+  assert.equal(orphan.result.processGroupRemained, false, 'the client must not inherit or retain brokered command descendants');
 
-  process.stdout.write('model-evaluation Ollama tool-client self-test: PASS (sealed event chain; exact model dispatch and MCP JSON-RPC identity; fake nested evidence, baseline hallucination, MCP isError, traversal, symlink, and detached-orphan escape refused)\n');
+  process.stdout.write('model-evaluation Ollama tool-client self-test: PASS (sealed event chain; exact model dispatch, typed exec broker, and MCP JSON-RPC identity; fake evidence, hallucination, MCP error, traversal, symlink, and orphan proof failure refused)\n');
 } finally {
   await new Promise((resolveClose) => server.close(resolveClose));
   rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });

@@ -17,12 +17,31 @@ const fixtureClient = join(scratch, 'fixture-client.mjs');
 copyFileSync(join(root, 'scripts', 'fixtures', 'model-evaluation-fake-client.mjs'), fixtureClient);
 chmodSync(fixtureClient, 0o755);
 
-function startFakeOllama(name, { flipDigestAfterFirstTags = false, omitActiveModel = false } = {}) {
+function startFakeOllama(name, { flipDigestAfterFirstTags = false, omitActiveModel = false, serveToolLoop = false } = {}) {
   const serverPath = join(scratch, `${name}-ollama-server.mjs`);
   const portPath = join(scratch, `${name}-ollama-port.txt`);
   const modelDigest = sha256Bytes(`${name}-model`);
   const changedDigest = sha256Bytes(`${name}-changed-model`);
-  writeFileSync(serverPath, `import http from 'node:http'; import fs from 'node:fs'; let tags=0; const model=${JSON.stringify('fixture-local:32b')}; const expected=${JSON.stringify(modelDigest)}; const changed=${JSON.stringify(changedDigest)}; const flip=${JSON.stringify(flipDigestAfterFirstTags)}; const omit=${JSON.stringify(omitActiveModel)}; const server=http.createServer((req,res)=>{res.setHeader('content-type','application/json'); if(req.url==='/api/version') return res.end(JSON.stringify({version:'0.20.6-fixture'})); if(req.url==='/api/tags'){const digest=flip&&tags++>0?changed:expected;return res.end(JSON.stringify({models:[{name:model,model,digest,size:20201253829}]}));} if(req.url==='/api/ps'){const digest=flip&&tags>1?changed:expected;return res.end(JSON.stringify({models:omit?[]:[{name:model,model,digest,size:31232580640,size_vram:17179869184,context_length:40960}]}));} res.statusCode=404;res.end(JSON.stringify({error:'not found'}));}); server.listen(0,'127.0.0.1',()=>fs.writeFileSync(${JSON.stringify(portPath)},String(server.address().port))); process.on('SIGTERM',()=>server.close(()=>process.exit(0)));\n`);
+  writeFileSync(serverPath, `import http from 'node:http';
+import fs from 'node:fs';
+let tags=0;
+const model=${JSON.stringify('fixture-local:32b')};
+const expected=${JSON.stringify(modelDigest)};
+const changed=${JSON.stringify(changedDigest)};
+const flip=${JSON.stringify(flipDigestAfterFirstTags)};
+const omit=${JSON.stringify(omitActiveModel)};
+const serveToolLoop=${JSON.stringify(serveToolLoop)};
+const response=(res,value)=>{res.setHeader('content-type','application/json');res.end(JSON.stringify(value))};
+const server=http.createServer((req,res)=>{
+  if(req.url==='/api/version')return response(res,{version:'0.20.6-fixture'});
+  if(req.url==='/api/tags'){const digest=flip&&tags++>0?changed:expected;return response(res,{models:[{name:model,model,digest,size:20201253829}]});}
+  if(req.url==='/api/ps'){const digest=flip&&tags>1?changed:expected;return response(res,{models:omit?[]:[{name:model,model,digest,size:31232580640,size_vram:17179869184,context_length:40960}]});}
+  if(req.url==='/api/chat'&&serveToolLoop){const chunks=[];req.on('data',chunk=>chunks.push(chunk));req.on('end',()=>{const body=JSON.parse(Buffer.concat(chunks).toString());const turn=body.messages.filter(message=>message.role==='assistant').length+1;const hasGate=body.tools.some(tool=>tool.function?.name==='run_gate');let message;if(turn===1)message={role:'assistant',content:'',tool_calls:[{function:{name:'exec',arguments:{argv:['node','-e',\"process.stdout.write('broker-ok')\"]}}}]};else if(turn===2&&hasGate)message={role:'assistant',content:'',tool_calls:[{function:{name:'run_gate',arguments:{}}}]};else message={role:'assistant',content:'done'};response(res,{model,message,prompt_eval_count:7,eval_count:3})});return;}
+  res.statusCode=404;response(res,{error:'not found'});
+});
+server.listen(0,'127.0.0.1',()=>fs.writeFileSync(${JSON.stringify(portPath)},String(server.address().port)));
+process.on('SIGTERM',()=>server.close(()=>process.exit(0)));
+`);
   const child = spawn(process.execPath, [serverPath], { stdio: ['ignore', 'ignore', 'pipe'] });
   const deadline = Date.now() + 5000;
   while (!existsSync(portPath) && Date.now() < deadline) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
@@ -49,6 +68,7 @@ function prepareBundle(name) {
   copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'terminal-record.schema.json'), join(bundle, 'schemas', 'terminal-record.schema.json'));
   copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'study-halt.schema.json'), join(bundle, 'schemas', 'study-halt.schema.json'));
   copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'safety-halt-archive.schema.json'), join(bundle, 'schemas', 'safety-halt-archive.schema.json'));
+  copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'capability-canary-attestation.schema.json'), join(bundle, 'schemas', 'capability-canary-attestation.schema.json'));
   const protocolPath = join(bundle, 'protocol.v2.json');
   const manifestPath = join(bundle, 'task-manifest.json');
   const protocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
@@ -72,6 +92,7 @@ function prepareBundle(name) {
   protocol.implementation.ollamaSystemPromptSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'client', 'ollama-system-prompt.v1.txt')));
   protocol.implementation.ollamaCommonToolsSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'client', 'ollama-common-tools.v1.json')));
   protocol.implementation.ollamaClientEventSchemaSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'client-event.schema.json')));
+  protocol.implementation.capabilityCanaryAttestationSchemaSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'capability-canary-attestation.schema.json')));
   protocol.treatment.artifactProvenance.sourceTreeState = 'clean';
   const nvmRuntime = process.env.NVM_BIN ? join(process.env.NVM_BIN, 'node') : null;
   const runtimeExecutable = nvmRuntime && existsSync(nvmRuntime) ? nvmRuntime : process.execPath;
@@ -143,6 +164,78 @@ function prepareLocalProviderBundle(name, provider) {
       uri: 'https://example.invalid/synthetic-local-provider-controller-self-test', identity: 'controller-self-test',
       eligibleForProductClaim: false,
     },
+  }, null, 2)}\n`);
+  return prepared;
+}
+
+function probeBundledRunGateTool(bundle, protocol) {
+  const treatmentRoot = join(scratch, `reference-treatment-${Date.now()}`);
+  mkdirSync(treatmentRoot, { recursive: true });
+  const extracted = spawnSync('/usr/bin/tar', ['-xzf', join(bundle, protocol.treatment.engineArtifact), '-C', treatmentRoot], { encoding: 'utf8' });
+  if (extracted.status !== 0) throw new Error(`reference treatment extraction failed: ${extracted.stderr}`);
+  const mcpServer = join(treatmentRoot, 'node_modules', 'bce-engine', 'dist', 'mcp-server.js');
+  const input = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'controller-self-test', version: '1' } } },
+    { jsonrpc: '2.0', method: 'notifications/initialized', params: {} },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
+  ].map((value) => JSON.stringify(value)).join('\n') + '\n';
+  const result = spawnSync(protocol.isolation.runtimeExecutable, [mcpServer], { cwd: root, input, encoding: 'utf8', timeout: 30000 });
+  if (result.status !== 0) throw new Error(`reference treatment MCP probe failed: ${result.stderr}`);
+  const responses = result.stdout.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+  const tools = responses.find((response) => response.id === 2)?.result?.tools ?? [];
+  const runGate = tools.filter((tool) => tool?.name === 'run_gate');
+  if (runGate.length !== 1) throw new Error('reference treatment did not expose exactly one run_gate tool');
+  return sha256Json(runGate[0]);
+}
+
+function prepareReferenceClientBundle(name, provider) {
+  const prepared = prepareBundle(name);
+  const protocolPath = join(prepared.bundle, 'protocol.v2.json');
+  const manifestPath = join(prepared.bundle, 'task-manifest.json');
+  const protocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const clientPath = join(root, 'scripts', 'model-evaluation-ollama-tool-client.mjs');
+  const systemPromptSource = join(root, 'research', 'model-evaluation', 'client', 'ollama-system-prompt.v1.txt');
+  const commonToolsSource = join(root, 'research', 'model-evaluation', 'client', 'ollama-common-tools.v1.json');
+  const eventSchemaSource = join(root, 'research', 'model-evaluation', 'schemas', 'client-event.schema.json');
+  mkdirSync(join(prepared.bundle, 'client'), { recursive: true });
+  copyFileSync(systemPromptSource, join(prepared.bundle, 'client', 'ollama-system-prompt.v1.txt'));
+  copyFileSync(commonToolsSource, join(prepared.bundle, 'client', 'ollama-common-tools.v1.json'));
+  copyFileSync(eventSchemaSource, join(prepared.bundle, 'schemas', 'client-event.schema.json'));
+  protocol.isolation.modelNetworkPolicy = 'loopback-only-single-endpoint';
+  const clientVersion = `${spawnSync(protocol.isolation.runtimeExecutable, [clientPath, '--version'], { encoding: 'utf8' }).stdout}`.trim();
+  const runGateSha256 = probeBundledRunGateTool(prepared.bundle, protocol);
+  protocol.clientModelCells[0] = {
+    ...protocol.clientModelCells[0],
+    client: 'bce-ollama-tool-client', executable: clientPath, clientVersion,
+    clientArtifactSha256: sha256Bytes(readFileSync(clientPath)), adapterSha256: protocol.implementation.runnerSha256,
+    requestedModel: provider.modelName, resolvedModel: `${provider.modelName}@sha256:${provider.modelDigest}`,
+    modelIdentitySource: 'ollama-provider-api-version-tags-and-active-process', modelIdentityEvidence: 'provider-response',
+    reasoningEffort: 'low', localProvider: provider,
+    toolLoop: {
+      eventProtocol: 'bce-ollama-tool-client-events/v1', clientImplementationSha256: sha256Bytes(readFileSync(clientPath)),
+      systemPrompt: { path: 'client/ollama-system-prompt.v1.txt', sha256: sha256Bytes(readFileSync(systemPromptSource)) },
+      commonToolContract: { path: 'client/ollama-common-tools.v1.json', sha256: sha256Bytes(readFileSync(commonToolsSource)) },
+      clientEventSchema: { path: 'schemas/client-event.schema.json', sha256: sha256Bytes(readFileSync(eventSchemaSource)) },
+      modelOptions: { temperature: 0, seed: 424242, numCtx: 32768, keepAlive: '10m' },
+      execSandbox: {
+        driver: '/usr/bin/sandbox-exec', driverSha256: sha256Bytes(readFileSync('/usr/bin/sandbox-exec')),
+        networkPolicy: 'deny-all', processPolicy: 'deny-fork',
+        filesystemPolicy: 'controller-read-default-deny-workspace-write-protected-roots-denied',
+      },
+      limits: { maximumTurns: 64, maxFileBytes: 262144, maxToolOutputBytes: 32768, commandTimeoutMs: 120000, providerTimeoutMs: 180000 },
+      mcpRunGateToolSha256: runGateSha256, qualificationAttestation: null,
+    },
+  };
+  for (const task of manifest.tasks) task.budget.maxCostUsd = null;
+  writeFileSync(protocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const expected = expectedSeal(prepared.bundle, protocol, manifest);
+  writeFileSync(join(prepared.bundle, 'seal.json'), `${JSON.stringify({
+    schemaVersion: '1', studyId: protocol.studyId, status: 'sealed-before-first-trial',
+    sealedAt: '2026-09-05T00:00:00.000Z', entries: expected.entries, rootSha256: expected.rootSha256,
+    publicTimestamp: 'https://example.invalid/synthetic-reference-client-controller-self-test',
+    attestation: { kind: 'synthetic-self-test', subjectRootSha256: expected.rootSha256, uri: 'https://example.invalid/synthetic-reference-client-controller-self-test', identity: 'controller-self-test', eligibleForProductClaim: false },
   }, null, 2)}\n`);
   return prepared;
 }
@@ -283,6 +376,115 @@ function executeLocalProviderIsolation() {
     const refused = verifyBundle(bundle, { requireSealed: false });
     if (refused.ok || !refused.refusals.some((message) => message.includes('explicit loopback port'))) {
       throw new Error('non-loopback local provider endpoint was not refused');
+    }
+  } finally {
+    stopFakeOllama(server);
+  }
+}
+
+function executeReferenceClientBrokerIsolation() {
+  const server = startFakeOllama('reference-client-broker', { serveToolLoop: true });
+  try {
+    const { bundle, runs } = prepareReferenceClientBundle('reference-client-broker-isolation', server.provider);
+    const result = spawnSync(process.execPath, [
+      'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study', '--limit', '1',
+    ], { cwd: root, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 300000 });
+    if (result.status !== 0) throw new Error(`reference client broker fixture failed:\n${result.stdout}\n${result.stderr}`);
+    const manifest = JSON.parse(readFileSync(join(bundle, 'task-manifest.json'), 'utf8'));
+    const trialId = manifest.assignments[0].trialId;
+    const terminalPath = join(runs, 'trials', trialId, 'a0', 'terminal.json');
+    const terminal = JSON.parse(readFileSync(terminalPath, 'utf8'));
+    const bundleVerification = verifyBundle(bundle, { requireSealed: true });
+    if (!bundleVerification.ok) throw new Error(`reference client broker bundle refused: ${bundleVerification.refusals.join('; ')}`);
+    verifyTerminalRecord(terminal, { bundle: bundleVerification, runsRoot: runs, terminalPath });
+    const isolation = JSON.parse(readFileSync(join(runs, 'cas', 'sha256', terminal.evidence.isolationProof.sha256), 'utf8'));
+    const transcript = JSON.parse(readFileSync(join(runs, 'cas', 'sha256', terminal.evidence.transcript.sha256), 'utf8'));
+    const brokerEvidence = transcript.sealedClientEventVerification?.execBrokerControllerEvidence;
+    if (terminal.status !== 'completed' || transcript.sealedClientEventVerification?.passed !== true || transcript.sealedClientEventVerification?.execBrokerError !== null ||
+        !Array.isArray(brokerEvidence) || brokerEvidence.length !== 1 || brokerEvidence[0].response.result.processGroupTerminated !== true ||
+        isolation.execBroker?.workspaceReadWriteAllowed !== true || isolation.execBroker?.protectedWriteDenied !== true ||
+        isolation.execBroker?.toolchainWriteDenied !== true || isolation.execBroker?.controllerCanaryReadDenied !== true ||
+        isolation.execBroker?.processForkDenied !== true || isolation.execBroker?.providerNetworkDenied !== true ||
+        isolation.execBroker?.externalNetworkDenied !== true || isolation.execBroker?.wrongLoopbackDenied !== true ||
+        isolation.stagedToolchainIntegrityAfterExecution !== true || terminal.mechanism.commonToolCalls < 1) {
+      throw new Error(`reference client broker isolation proof was incomplete: ${JSON.stringify({ terminal, isolation, brokerEvidence })}`);
+    }
+    if (terminal.assignment.arm === 'bce-enabled' && (terminal.mechanism.bceGateCalls !== 1 || terminal.mechanism.bceVerdictSequence.length !== 1)) {
+      throw new Error('reference client treatment arm did not retain one exact MCP gate verdict');
+    }
+  } finally {
+    stopFakeOllama(server);
+  }
+}
+
+function verifyReferenceCanaryBinding() {
+  const server = startFakeOllama('reference-canary-binding');
+  try {
+    const { bundle } = prepareReferenceClientBundle('reference-canary-binding', server.provider);
+    const protocolPath = join(bundle, 'protocol.v2.json');
+    const manifestPath = join(bundle, 'task-manifest.json');
+    const protocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    const cell = protocol.clientModelCells[0];
+    const sourceCommit = 'a'.repeat(40);
+    const requirements = [
+      'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm',
+      'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm',
+      'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest',
+      'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass',
+      'sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm',
+    ];
+    const observation = (arm) => ({
+      trialId: `qualification-${arm}`, arm, status: 'completed', recordSha256: sha256Bytes(`record-${arm}`),
+      successfulCommands: 2, exactAllowedFileEdit: true, telemetryUsable: true, toolRouterErrors: 0,
+      bceMcpRunGate: arm === 'bce-enabled' ? true : null, bceLastVerifiedVerdict: arm === 'bce-enabled' ? 'pass' : null,
+      clientEventChainVerified: true, execBrokerControllerVerified: true, providerIdentityStable: true, safeSuccessfulCompletion: true,
+    });
+    const attestation = {
+      schemaVersion: '1', kind: 'sacrificial-live-capability-canary', eligibleForEvaluationEvidence: false, eligibleForProductClaim: false,
+      studyId: 'synthetic-reference-canary-binding', ranAt: '2026-09-05T00:00:00.000Z', sourceCommit, sourceTreeState: 'clean', qualified: true,
+      exactCell: {
+        client: cell.client, clientVersion: cell.clientVersion, clientArtifactSha256: cell.clientArtifactSha256,
+        reasoningEffort: cell.reasoningEffort, requestedModel: cell.requestedModel, resolvedModel: cell.resolvedModel,
+        provider: cell.localProvider, runtimeVersion: protocol.isolation.runtimeVersion, runtimeArtifactSha256: protocol.isolation.runtimeArtifactSha256,
+        controllerSha256: protocol.implementation.runnerSha256, implementation: protocol.implementation,
+        treatmentArtifactSha256: protocol.treatment.engineArtifactSha256, treatmentInstalledTreeSha256: protocol.treatment.installedTreeSha256,
+        toolLoop: { ...cell.toolLoop, qualificationAttestation: null },
+      },
+      requirements, observations: [observation('baseline-no-bce'), observation('bce-enabled')], refusalReasons: [],
+      restrictedEvidence: { retained: true, pathPublished: false, ledgerHeadSha256: sha256Bytes('qualification-ledger-head') },
+      canaryRunnerSha256: protocol.implementation.canaryRunnerSha256,
+      sealedFixtureProtocolSha256: sha256Bytes('qualification-protocol'), sealedFixtureManifestSha256: sha256Bytes('qualification-manifest'),
+      sealedFixtureRootSha256: sha256Bytes('qualification-root'), attestationSha256: null,
+    };
+    attestation.attestationSha256 = sha256Json(attestation);
+    const attestationPath = join(bundle, 'artifacts', 'qualified-canary.json');
+    writeFileSync(attestationPath, `${JSON.stringify(attestation, null, 2)}\n`);
+    cell.toolLoop.qualificationAttestation = { path: 'artifacts/qualified-canary.json', sha256: sha256Bytes(readFileSync(attestationPath)) };
+    writeFileSync(protocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
+    const sealBundle = () => {
+      const expected = expectedSeal(bundle, protocol, manifest);
+      writeFileSync(join(bundle, 'seal.json'), `${JSON.stringify({
+        schemaVersion: '1', studyId: protocol.studyId, status: 'sealed-before-first-trial', sealedAt: '2026-09-05T00:00:00.000Z',
+        entries: expected.entries, rootSha256: expected.rootSha256,
+        publicTimestamp: `https://github.com/blueprint-conformance/bce/commit/${sourceCommit}`,
+        attestation: { kind: 'local-git-commit', subjectRootSha256: expected.rootSha256, uri: `https://github.com/blueprint-conformance/bce/commit/${sourceCommit}`, identity: 'controller-self-test', eligibleForProductClaim: false, gitCommit: sourceCommit },
+      }, null, 2)}\n`);
+    };
+    sealBundle();
+    const accepted = verifyBundle(bundle, { requireSealed: true });
+    if (!accepted.ok) throw new Error(`valid sealed reference canary binding was refused: ${accepted.refusals.join('; ')}`);
+
+    attestation.observations[1].bceLastVerifiedVerdict = 'fail';
+    attestation.attestationSha256 = null;
+    attestation.attestationSha256 = sha256Json(attestation);
+    writeFileSync(attestationPath, `${JSON.stringify(attestation, null, 2)}\n`);
+    cell.toolLoop.qualificationAttestation.sha256 = sha256Bytes(readFileSync(attestationPath));
+    writeFileSync(protocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
+    sealBundle();
+    const refused = verifyBundle(bundle, { requireSealed: true });
+    if (refused.ok || !refused.refusals.some((message) => message.includes('complete clean two-arm capability contract'))) {
+      throw new Error('self-rehashed canary with a final failing gate verdict was not refused');
     }
   } finally {
     stopFakeOllama(server);
@@ -442,9 +644,11 @@ for (const arm of Object.values(faulted.analysis.cells['primary-codex-mini'].arm
 executeHardCrashRecovery();
 executeCredentialRetirement();
 executeLocalProviderIsolation();
+executeReferenceClientBrokerIsolation();
+verifyReferenceCanaryBinding();
 executeSymlinkReplayRefusal();
 executeProviderIdentityDriftRefusal();
 executeMissingActiveProviderRefusal();
 executeFirstClassSafetyHalt();
-process.stdout.write('model-evaluation controller self-test: PASS (outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable with unequal artifact/runtime sizes; external and wrong-port network denied; allowed-path symlink replay refused before oracles; provider digest drift and missing-active failures retained without erasing policy evidence; pre-trigger, replayed, and tampered safety-halt states fail closed; first-class halt exits 3; aggregate tamper refused; pilot recommendation impossible)\n');
+process.stdout.write('model-evaluation controller self-test: PASS (outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable; first-party typed exec broker denied provider/external network, forks, oracle reads, protected writes, and toolchain writes with bijective controller evidence; allowed-path symlink replay refused before oracles; provider digest drift and missing-active failures retained without erasing policy evidence; pre-trigger, replayed, and tampered safety-halt states fail closed; first-class halt exits 3; aggregate tamper refused; pilot recommendation impossible)\n');
 rmSync(scratch, { recursive: true, force: true });

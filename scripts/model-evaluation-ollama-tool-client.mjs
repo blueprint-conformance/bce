@@ -3,8 +3,9 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-  closeSync, existsSync, lstatSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync,
+  closeSync, existsSync, lstatSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync, writeSync,
 } from 'node:fs';
+import { Socket } from 'node:net';
 import { dirname, join, resolve, sep } from 'node:path';
 
 const VERSION = 'bce-ollama-tool-client 1.0.0';
@@ -33,16 +34,17 @@ const temperature = Number(valueAfter('--temperature') ?? '0');
 const seed = Number(valueAfter('--seed') ?? '424242');
 const numCtx = Number(valueAfter('--num-ctx') ?? '32768');
 const keepAlive = valueAfter('--keep-alive') ?? '10m';
+const execBrokerConfigurationText = valueAfter('--exec-broker-config');
 const mcpRuntime = valueAfter('--mcp-runtime');
 const mcpServer = valueAfter('--mcp-server');
 const expectedMcpToolSha256 = valueAfter('--mcp-tool-sha256');
-if (!endpoint || !model || !prompt || !systemPromptPath || !commonToolsPath ||
+if (!endpoint || !model || !prompt || !systemPromptPath || !commonToolsPath || !execBrokerConfigurationText ||
     !Number.isInteger(maxTurns) || maxTurns < 1 || maxTurns > 64 ||
     !['low', 'medium', 'high'].includes(reasoningEffort) ||
     !Number.isFinite(temperature) || !Number.isInteger(seed) || !Number.isInteger(numCtx) || numCtx < 1024 ||
     Boolean(mcpRuntime) !== Boolean(mcpServer) || Boolean(mcpServer) !== Boolean(expectedMcpToolSha256) ||
     (expectedMcpToolSha256 && !/^[0-9a-f]{64}$/.test(expectedMcpToolSha256))) {
-  process.stderr.write('usage: model-evaluation-ollama-tool-client --endpoint URL --model NAME --prompt TEXT --system-prompt FILE --common-tools FILE --reasoning-effort low|medium|high --max-turns N --temperature N --seed N --num-ctx N --keep-alive VALUE [--mcp-runtime NODE --mcp-server FILE --mcp-tool-sha256 DIGEST]\n');
+  process.stderr.write('usage: model-evaluation-ollama-tool-client --endpoint URL --model NAME --prompt TEXT --system-prompt FILE --common-tools FILE --exec-broker-config JSON --reasoning-effort low|medium|high --max-turns N --temperature N --seed N --num-ctx N --keep-alive VALUE [--mcp-runtime NODE --mcp-server FILE --mcp-tool-sha256 DIGEST]\n');
   process.exit(2);
 }
 
@@ -59,6 +61,16 @@ const workspace = resolve(process.cwd());
 const safeEnvironment = () => Object.fromEntries(
   ['PATH', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL'].filter((key) => process.env[key]).map((key) => [key, process.env[key]]),
 );
+let execSandbox;
+try { execSandbox = JSON.parse(execBrokerConfigurationText); }
+catch { process.stderr.write('Ollama tool client received invalid exec broker configuration\n'); process.exit(2); }
+if (canonicalJson(Object.keys(execSandbox).sort()) !== canonicalJson(['driver', 'driverSha256', 'filesystemPolicy', 'networkPolicy', 'processPolicy']) ||
+    execSandbox.driver !== '/usr/bin/sandbox-exec' || !/^[0-9a-f]{64}$/.test(execSandbox.driverSha256 ?? '') ||
+    execSandbox.networkPolicy !== 'deny-all' || execSandbox.processPolicy !== 'deny-fork' ||
+    execSandbox.filesystemPolicy !== 'controller-read-default-deny-workspace-write-protected-roots-denied') {
+  process.stderr.write('Ollama tool client received unsupported exec broker configuration\n');
+  process.exit(2);
+}
 
 let sequence = 0;
 let previousEventSha256 = null;
@@ -122,47 +134,62 @@ function writeFileAtomic(relativePath, content) {
   return { path: relativePath, bytes: bytes.byteLength, sha256: sha256(bytes) };
 }
 
-async function runProgram(argv) {
+let nextBrokerRequestId = 1;
+const brokerPending = new Map();
+let brokerBuffer = '';
+const brokerInput = new Socket({ fd: 4, readable: true, writable: false });
+brokerInput.unref();
+brokerInput.on('data', (chunk) => {
+  brokerBuffer += chunk.toString();
+  const lines = brokerBuffer.split('\n');
+  brokerBuffer = lines.pop() ?? '';
+  for (const line of lines.filter((value) => value.trim())) {
+    let response;
+    try { response = JSON.parse(line); }
+    catch {
+      for (const waiter of brokerPending.values()) waiter.reject(new Error('exec broker emitted non-JSON response'));
+      brokerPending.clear();
+      continue;
+    }
+    const waiter = brokerPending.get(response?.id);
+    if (!waiter) continue;
+    brokerPending.delete(response.id);
+    clearTimeout(waiter.timer);
+    waiter.resolve(response);
+  }
+});
+brokerInput.on('error', (error) => {
+  for (const waiter of brokerPending.values()) waiter.reject(error);
+  brokerPending.clear();
+});
+
+async function brokerExec(argv) {
   if (!Array.isArray(argv) || argv.length < 1 || argv.length > 32 || argv.some((value) => typeof value !== 'string' || value.length === 0 || value.length > 4096)) {
     throw new Error('argv must contain 1..32 non-empty strings of at most 4096 characters');
   }
-  return await new Promise((resolveResult) => {
-    const child = spawn(argv[0], argv.slice(1), {
-      cwd: workspace, env: safeEnvironment(), detached: false, stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    const stdout = [];
-    const stderr = [];
-    let stdoutBytes = 0;
-    let stderrBytes = 0;
-    let timedOut = false;
-    let overflow = false;
-    let settled = false;
-    const collect = (chunks, kind) => (chunk) => {
-      if (kind === 'stdout') stdoutBytes += chunk.length;
-      else stderrBytes += chunk.length;
-      if (stdoutBytes + stderrBytes > MAX_TOOL_OUTPUT_BYTES) {
-        overflow = true;
-        try { child.kill('SIGKILL'); } catch {}
-      } else chunks.push(chunk);
-    };
-    child.stdout.on('data', collect(stdout, 'stdout'));
-    child.stderr.on('data', collect(stderr, 'stderr'));
+  const id = nextBrokerRequestId++;
+  const request = { schemaVersion: '1', id, kind: 'exec', argv };
+  emit('broker.request', { request, requestSha256: sha256Json(request) });
+  const response = await new Promise((resolveResponse, rejectResponse) => {
     const timer = setTimeout(() => {
-      timedOut = true;
-      try { child.kill('SIGKILL'); } catch {}
-    }, COMMAND_TIMEOUT_MS);
-    const finish = (exitCode, signal, spawnError = null) => {
-      if (settled) return;
-      settled = true;
+      brokerPending.delete(id);
+      rejectResponse(new Error(`exec broker request ${id} timed out`));
+    }, COMMAND_TIMEOUT_MS + 5000);
+    brokerPending.set(id, { resolve: resolveResponse, reject: rejectResponse, timer });
+    try { writeSync(3, `${JSON.stringify(request)}\n`); }
+    catch (error) {
       clearTimeout(timer);
-      resolveResult({
-        argv, exitCode, signal, timedOut, overflow,
-        stdout: clipped(Buffer.concat(stdout).toString()), stderr: clipped(`${Buffer.concat(stderr).toString()}${spawnError ? `\n${spawnError.message}` : ''}`),
-      });
-    };
-    child.once('error', (error) => finish(null, null, error));
-    child.once('close', (code, signal) => finish(code, signal));
+      brokerPending.delete(id);
+      rejectResponse(error);
+    }
   });
+  if (!response || response.schemaVersion !== '1' || response.id !== id || response.kind !== 'exec-result' ||
+      response.requestSha256 !== sha256Json(request) || canonicalJson(response.result?.execSandbox) !== canonicalJson(execSandbox) ||
+      !/^[0-9a-f]{64}$/.test(response.result?.sandboxProfileSha256 ?? '')) {
+    throw new Error('exec broker response did not bind the exact request and sealed sandbox');
+  }
+  emit('broker.response', { response, responseSha256: sha256Json(response) });
+  return response.result;
 }
 
 function parseCommonTools(path) {
@@ -191,14 +218,28 @@ async function mcpRunGate(dispatchId, args) {
   let stderr = '';
   const pending = new Map();
   let protocolFailure = null;
+  let childClosed = false;
+  let shutdownRequested = false;
+  let protocolCompleted = false;
+  let closeStatus = null;
+  let resolveClosed;
+  const closed = new Promise((resolveClose) => { resolveClosed = resolveClose; });
+  const failProtocol = (error) => {
+    if (protocolFailure === null) protocolFailure = error instanceof Error ? error : new Error(String(error));
+    for (const waiter of pending.values()) {
+      clearTimeout(waiter.timer);
+      waiter.reject(protocolFailure);
+    }
+    pending.clear();
+  };
   const settleResponse = (message) => {
     if (!message || message.jsonrpc !== '2.0' || (!Number.isInteger(message.id) && typeof message.id !== 'string')) {
-      protocolFailure = new Error('MCP emitted an invalid JSON-RPC response');
+      failProtocol(new Error('MCP emitted an invalid JSON-RPC response'));
       return;
     }
     const waiter = pending.get(message.id);
     if (!waiter) {
-      protocolFailure = new Error(`MCP emitted an unmatched response id ${String(message.id)}`);
+      failProtocol(new Error(`MCP emitted an unmatched response id ${String(message.id)}`));
       return;
     }
     pending.delete(message.id);
@@ -211,12 +252,20 @@ async function mcpRunGate(dispatchId, args) {
     buffer = lines.pop() ?? '';
     for (const line of lines.filter((value) => value.trim())) {
       try { settleResponse(JSON.parse(line)); }
-      catch { protocolFailure = new Error('MCP emitted non-JSON stdout'); }
+      catch { failProtocol(new Error('MCP emitted non-JSON stdout')); }
     }
   });
   child.stderr.on('data', (chunk) => { stderr = clipped(`${stderr}${chunk.toString()}`, 8192); });
+  child.once('error', (error) => failProtocol(new Error(`MCP process error: ${error.message}`)));
+  child.once('close', (code, signal) => {
+    childClosed = true;
+    closeStatus = { code, signal };
+    if (!shutdownRequested) failProtocol(new Error(`MCP process closed before controlled shutdown (code=${String(code)}, signal=${String(signal)})`));
+    resolveClosed();
+  });
   const request = async (method, params, eventDispatchId = null) => {
     if (protocolFailure) throw protocolFailure;
+    if (childClosed) throw new Error('MCP process is already closed');
     const id = nextMcpRequestId++;
     const message = { jsonrpc: '2.0', id, method, params };
     emit('mcp.request', { dispatchId: eventDispatchId, request: message });
@@ -225,7 +274,7 @@ async function mcpRunGate(dispatchId, args) {
         pending.delete(id);
         rejectResponse(new Error(`MCP request ${id} timed out`));
       }, COMMAND_TIMEOUT_MS);
-      pending.set(id, { resolve: resolveResponse, timer });
+      pending.set(id, { resolve: resolveResponse, reject: rejectResponse, timer });
       child.stdin.write(`${JSON.stringify(message)}\n`, (error) => {
         if (error) {
           clearTimeout(timer);
@@ -243,17 +292,27 @@ async function mcpRunGate(dispatchId, args) {
     await request('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'bce-ollama-tool-client', version: '1.0.0' } });
     child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} })}\n`);
     const listed = await request('tools/list', {});
-    const tool = listed?.tools?.find((entry) => entry?.name === 'run_gate');
-    if (!tool || sha256Json(tool) !== expectedMcpToolSha256) throw new Error('MCP run_gate contract differs from the sealed digest');
+    const runGateTools = Array.isArray(listed?.tools) ? listed.tools.filter((entry) => entry?.name === 'run_gate') : [];
+    if (runGateTools.length !== 1 || sha256Json(runGateTools[0]) !== expectedMcpToolSha256) throw new Error('MCP run_gate contract differs from the sealed digest or is ambiguous');
     const result = await request('tools/call', { name: 'run_gate', arguments: args }, dispatchId);
-    if (!result || result.isError === true) throw new Error(`MCP run_gate returned an error result: ${clipped(JSON.stringify(result), 4096)}`);
+    if (!result || result.isError !== false || typeof result.structuredContent?.gateFailed !== 'boolean') throw new Error(`MCP run_gate returned an invalid or non-verdict result: ${clipped(JSON.stringify(result), 4096)}`);
+    protocolCompleted = true;
     return result;
   } finally {
-    child.stdin.end();
-    for (const waiter of pending.values()) clearTimeout(waiter.timer);
-    try { child.kill('SIGKILL'); } catch {}
+    shutdownRequested = true;
+    try { child.stdin.end(); } catch {}
+    if (!childClosed) {
+      try { child.kill('SIGKILL'); } catch {}
+      await closed;
+    }
+    for (const waiter of pending.values()) {
+      clearTimeout(waiter.timer);
+      waiter.reject(new Error('MCP request cancelled during controlled shutdown'));
+    }
+    pending.clear();
     if (protocolFailure) throw protocolFailure;
-    if (stderr && child.exitCode && child.exitCode !== 0) throw new Error(`MCP process failed: ${stderr}`);
+    if (!protocolCompleted) throw new Error('MCP exchange did not reach a verified run_gate result');
+    if (closeStatus?.code !== null && closeStatus?.code !== 0) throw new Error(`MCP process failed: ${stderr || `exit ${closeStatus.code}`}`);
   }
 }
 
@@ -274,7 +333,7 @@ let malformedToolCalls = 0;
 emit('session.started', {
   clientVersion: VERSION, requestedModel: model, mcpEnabled: Boolean(mcpServer),
   systemPromptSha256: sha256(readFileSync(systemPromptPath)), commonToolContractSha256: sha256(readFileSync(commonToolsPath)),
-  options, limits: { maxTurns, maxFileBytes: MAX_FILE_BYTES, maxToolOutputBytes: MAX_TOOL_OUTPUT_BYTES, commandTimeoutMs: COMMAND_TIMEOUT_MS, providerTimeoutMs: PROVIDER_TIMEOUT_MS },
+  options, execSandbox, limits: { maxTurns, maxFileBytes: MAX_FILE_BYTES, maxToolOutputBytes: MAX_TOOL_OUTPUT_BYTES, commandTimeoutMs: COMMAND_TIMEOUT_MS, providerTimeoutMs: PROVIDER_TIMEOUT_MS },
 });
 try {
   for (let turn = 1; turn <= maxTurns; turn += 1) {
@@ -314,7 +373,7 @@ try {
         if (!tools.some((tool) => tool.function.name === name)) throw new Error(`unknown or unavailable tool: ${String(name)}`);
         if (name === 'read_file' && canonicalJson(Object.keys(args).sort()) !== canonicalJson(['path'])) throw new Error('read_file requires exactly {path}');
         if (name === 'write_file' && canonicalJson(Object.keys(args).sort()) !== canonicalJson(['content', 'path'])) throw new Error('write_file requires exactly {path,content}');
-        if (name === 'exec' && canonicalJson(Object.keys(args).sort()) !== canonicalJson(['argv'])) throw new Error('exec requires exactly {argv}');
+        if (name === 'exec' && (canonicalJson(Object.keys(args).sort()) !== canonicalJson(['argv']) || !Array.isArray(args.argv) || args.argv.length < 1 || args.argv.length > 32 || args.argv.some((value) => typeof value !== 'string' || value.length === 0 || value.length > 4096))) throw new Error('exec requires exactly {argv} with 1..32 non-empty strings of at most 4096 characters');
         if (name === 'run_gate' && canonicalJson(args) !== '{}') throw new Error('run_gate requires exactly {}');
       } catch (error) {
         malformedToolCalls += 1;
@@ -328,10 +387,10 @@ try {
         let result;
         if (name === 'read_file') result = readFile(args.path);
         else if (name === 'write_file') result = writeFileAtomic(args.path, args.content);
-        else if (name === 'exec') result = await runProgram(args.argv);
+        else if (name === 'exec') result = await brokerExec(args.argv);
         else result = await mcpRunGate(dispatchId, args);
         const ok = name === 'exec'
-          ? result.exitCode === 0 && !result.timedOut && !result.overflow
+          ? result.exitCode === 0 && !result.timedOut && !result.overflow && result.processGroupTerminated === true
           : true;
         emit('tool.result', { turn, dispatchId, name, ok, result });
         messages.push({ role: 'tool', tool_name: name, content: clipped(JSON.stringify(result)) });

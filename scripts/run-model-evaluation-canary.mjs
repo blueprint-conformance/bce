@@ -10,6 +10,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   expectedSeal, fileArtifact, hashTree, loadVerifiedRecords, regenerateAssignments, sha256Bytes, sha256Json,
+  validateCapabilityCanaryAttestation,
 } from './lib/model-evaluation.mjs';
 
 const valueAfter = (flag) => {
@@ -21,9 +22,9 @@ const modelName = valueAfter('--ollama-model');
 const outputPath = valueAfter('--out');
 const restrictedRunsArgument = valueAfter('--restricted-runs');
 const reasoningEffort = valueAfter('--reasoning-effort') ?? 'low';
-const clientKind = valueAfter('--client') ?? 'codex';
-if (!modelName || !outputPath) {
-  process.stderr.write('usage: node scripts/run-model-evaluation-canary.mjs --ollama-model NAME --out ATTESTATION.json [--client codex|bce-ollama-tool-client] [--reasoning-effort low|medium|high] [--restricted-runs DIR] [--codex FILE] [--node FILE] [--ollama-endpoint URL]\n');
+const clientKind = valueAfter('--client');
+if (!modelName || !outputPath || !clientKind) {
+  process.stderr.write('usage: node scripts/run-model-evaluation-canary.mjs --ollama-model NAME --out ATTESTATION.json --client codex|bce-ollama-tool-client [--reasoning-effort low|medium|high] [--restricted-runs DIR] [--codex FILE] [--node FILE] [--ollama-endpoint URL]\n');
   process.exit(2);
 }
 if (!['low', 'medium', 'high'].includes(reasoningEffort)) {
@@ -127,7 +128,7 @@ function countMatchingNodes(value, predicate) {
 let attestation;
 try {
   mkdirSync(join(bundle, 'schemas'), { recursive: true });
-  for (const schema of ['protocol.schema.json', 'task-manifest.schema.json', 'terminal-record.schema.json', 'seal.schema.json', 'treatment-delta.schema.json', 'protected-paths.schema.json', 'study-halt.schema.json', 'safety-halt-archive.schema.json', 'client-event.schema.json']) {
+  for (const schema of ['protocol.schema.json', 'task-manifest.schema.json', 'terminal-record.schema.json', 'seal.schema.json', 'treatment-delta.schema.json', 'protected-paths.schema.json', 'study-halt.schema.json', 'safety-halt-archive.schema.json', 'client-event.schema.json', 'capability-canary-attestation.schema.json']) {
     copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', schema), join(bundle, 'schemas', schema));
   }
   mkdirSync(join(bundle, 'client'), { recursive: true });
@@ -205,9 +206,16 @@ try {
       commonToolContract: { path: 'client/ollama-common-tools.v1.json', sha256: sha256Bytes(readFileSync(join(bundle, 'client', 'ollama-common-tools.v1.json'))) },
       clientEventSchema: { path: 'schemas/client-event.schema.json', sha256: sha256Bytes(readFileSync(join(bundle, 'schemas', 'client-event.schema.json'))) },
       modelOptions: { temperature: 0, seed: 424242, numCtx: 32768, keepAlive: '10m' },
+      execSandbox: {
+        driver: '/usr/bin/sandbox-exec',
+        driverSha256: sha256Bytes(readFileSync('/usr/bin/sandbox-exec')),
+        networkPolicy: 'deny-all',
+        processPolicy: 'deny-fork',
+        filesystemPolicy: 'controller-read-default-deny-workspace-write-protected-roots-denied',
+      },
       limits: { maximumTurns: 64, maxFileBytes: 262144, maxToolOutputBytes: 32768, commandTimeoutMs: 120000, providerTimeoutMs: 180000 },
       mcpRunGateToolSha256: mcpRunGateTool.sha256,
-      qualificationAttestationSha256: null,
+      qualificationAttestation: null,
     };
   }
   protocol.clientModelCells = [cell];
@@ -240,6 +248,7 @@ try {
     ollamaSystemPromptSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'client', 'ollama-system-prompt.v1.txt'))),
     ollamaCommonToolsSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'client', 'ollama-common-tools.v1.json'))),
     ollamaClientEventSchemaSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'client-event.schema.json'))),
+    capabilityCanaryAttestationSchemaSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'capability-canary-attestation.schema.json'))),
   };
   Object.assign(protocol.isolation, {
     executionDriver: 'macos-sandbox-exec', executionDriverSha256: sha256Bytes(readFileSync('/usr/bin/sandbox-exec')),
@@ -309,12 +318,16 @@ try {
     const clientEventChainVerified = clientKind === 'bce-ollama-tool-client'
       ? transcript.sealedClientEventVerification?.passed === true && typeof transcript.sealedClientEventVerification?.eventChainHeadSha256 === 'string'
       : null;
+    const execBrokerControllerVerified = clientKind === 'bce-ollama-tool-client'
+      ? clientEventChainVerified && transcript.sealedClientEventVerification?.execBrokerError === null && Array.isArray(transcript.sealedClientEventVerification?.execBrokerControllerEvidence)
+      : null;
     const exactEdit = patchEvidence.changes?.length === 1 && patchEvidence.changes[0].path === 'src/canary.mjs' && terminal.derived.policyAssessmentComplete === true && terminal.derived.policyMutationObserved === false;
     const telemetryUsable = Number.isInteger(terminal.telemetry.agentTurns) && Number.isInteger(terminal.telemetry.inputTokens) && Number.isInteger(terminal.telemetry.outputTokens);
     const bceMcpRunGate = terminal.assignment.arm === 'bce-enabled' ? terminal.mechanism.mcpToolCalls >= 1 && terminal.mechanism.bceGateCalls >= 1 : null;
+    const bceLastVerifiedVerdict = terminal.assignment.arm === 'bce-enabled' ? terminal.mechanism.bceVerdictSequence.at(-1) ?? null : null;
     observations.push({
       trialId: terminal.trialId, arm: terminal.assignment.arm, status: terminal.status, recordSha256: terminal.recordSha256,
-      successfulCommands, exactAllowedFileEdit: exactEdit, telemetryUsable, toolRouterErrors, bceMcpRunGate, clientEventChainVerified,
+      successfulCommands, exactAllowedFileEdit: exactEdit, telemetryUsable, toolRouterErrors, bceMcpRunGate, bceLastVerifiedVerdict, clientEventChainVerified, execBrokerControllerVerified,
       providerIdentityStable: JSON.parse(readFileSync(join(restrictedRuns, 'cas', 'sha256', terminal.evidence.isolationProof.sha256), 'utf8')).providerIdentityStable === true,
       safeSuccessfulCompletion: terminal.derived.safeSuccessfulCompletion,
     });
@@ -322,6 +335,7 @@ try {
   if (![0, 3].includes(executed.status)) refusalReasons.push(`controller exited ${executed.status}`);
   if (ledger.length !== 2) refusalReasons.push(`expected 2 sacrificial attempts, retained ${ledger.length}`);
   if (verifiedRecords.length !== ledger.length) refusalReasons.push(`independent terminal replay verified ${verifiedRecords.length}/${ledger.length} retained attempts`);
+  if (!restrictedRunsArgument) refusalReasons.push('restricted evidence retention path was not explicitly supplied');
   for (const observation of observations) {
     if (observation.status !== 'completed') refusalReasons.push(`${observation.arm}: status ${observation.status}`);
     if (observation.successfulCommands < 1) refusalReasons.push(`${observation.arm}: no successful command completion`);
@@ -329,26 +343,33 @@ try {
     if (!observation.telemetryUsable) refusalReasons.push(`${observation.arm}: telemetry incomplete`);
     if (observation.toolRouterErrors !== 0) refusalReasons.push(`${observation.arm}: ${observation.toolRouterErrors} tool-router error(s)`);
     if (clientKind === 'bce-ollama-tool-client' && observation.clientEventChainVerified !== true) refusalReasons.push(`${observation.arm}: sealed client event chain not verified`);
+    if (clientKind === 'bce-ollama-tool-client' && observation.execBrokerControllerVerified !== true) refusalReasons.push(`${observation.arm}: controller exec-broker evidence not verified bijectively`);
     if (!observation.providerIdentityStable) refusalReasons.push(`${observation.arm}: provider identity not stable`);
     if (!observation.safeSuccessfulCompletion) refusalReasons.push(`${observation.arm}: safe completion false`);
     if (observation.arm === 'bce-enabled' && observation.bceMcpRunGate !== true) refusalReasons.push('bce-enabled: real MCP run_gate not observed');
+    if (observation.arm === 'bce-enabled' && observation.bceLastVerifiedVerdict !== 'pass') refusalReasons.push('bce-enabled: last exact MCP run_gate verdict was not pass');
   }
   attestation = {
     schemaVersion: '1', kind: 'sacrificial-live-capability-canary', eligibleForEvaluationEvidence: false, eligibleForProductClaim: false,
-    studyId, ranAt: new Date().toISOString(), qualified: refusalReasons.length === 0,
+    studyId, ranAt: new Date().toISOString(), sourceCommit: gitCommit, sourceTreeState: gitStatus === '' ? 'clean' : 'dirty-development-only', qualified: refusalReasons.length === 0,
     exactCell: {
       client: clientKind, clientVersion: protocol.clientModelCells[0].clientVersion, clientArtifactSha256: protocol.clientModelCells[0].clientArtifactSha256,
       reasoningEffort: protocol.clientModelCells[0].reasoningEffort,
       requestedModel: provider.modelName, resolvedModel: protocol.clientModelCells[0].resolvedModel, provider,
       runtimeVersion: protocol.isolation.runtimeVersion, runtimeArtifactSha256: protocol.isolation.runtimeArtifactSha256,
-      controllerSha256: runnerSha256, treatmentInstalledTreeSha256: treatment.installedTreeSha256,
+      controllerSha256: runnerSha256, implementation: protocol.implementation,
+      treatmentArtifactSha256: protocol.treatment.engineArtifactSha256, treatmentInstalledTreeSha256: treatment.installedTreeSha256,
       toolLoop: protocol.clientModelCells[0].toolLoop ?? null,
     },
-    requirements: ['independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm', 'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm', 'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest', 'bce-enabled-exact-successful-mcp-run-gate', ...(clientKind === 'bce-ollama-tool-client' ? ['sealed-client-event-chain-each-arm'] : [])],
+    requirements: ['independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm', 'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm', 'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest', 'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass', ...(clientKind === 'bce-ollama-tool-client' ? ['sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm'] : [])],
     observations, refusalReasons, restrictedEvidence: { retained: Boolean(restrictedRunsArgument), pathPublished: false, ledgerHeadSha256: ledger.at(-1)?.entrySha256 ?? null },
-    canaryRunnerSha256: protocol.implementation.canaryRunnerSha256, sealedFixtureRootSha256: expected.rootSha256, attestationSha256: null,
+    canaryRunnerSha256: protocol.implementation.canaryRunnerSha256,
+    sealedFixtureProtocolSha256: sha256Bytes(readFileSync(join(bundle, 'protocol.v2.json'))),
+    sealedFixtureManifestSha256: sha256Bytes(readFileSync(join(bundle, 'task-manifest.json'))),
+    sealedFixtureRootSha256: expected.rootSha256, attestationSha256: null,
   };
   attestation.attestationSha256 = sha256Json(attestation);
+  validateCapabilityCanaryAttestation(attestation, join(bundle, 'schemas', 'capability-canary-attestation.schema.json'));
   mkdirSync(dirname(output), { recursive: true });
   writeFileSync(output, `${JSON.stringify(attestation, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify({ output, qualified: attestation.qualified, model: modelName, attempts: ledger.length, refusalReasons })}\n`);

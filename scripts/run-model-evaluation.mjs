@@ -194,6 +194,16 @@ function stageToolchain(cell, stateRoot) {
   return { clientExecutable, runtimeExecutable, systemPrompt, commonTools };
 }
 
+function attestStagedToolchainAfterExecution(cell, toolchain) {
+  const clientArtifactSha256 = sha256Bytes(readFileSync(toolchain.clientExecutable));
+  const runtimeArtifactSha256 = sha256Bytes(readFileSync(toolchain.runtimeExecutable));
+  const systemPromptSha256 = toolchain.systemPrompt ? sha256Bytes(readFileSync(toolchain.systemPrompt)) : null;
+  const commonToolContractSha256 = toolchain.commonTools ? sha256Bytes(readFileSync(toolchain.commonTools)) : null;
+  const matched = clientArtifactSha256 === cell.clientArtifactSha256 && runtimeArtifactSha256 === protocol.isolation.runtimeArtifactSha256 &&
+    (cell.client !== 'bce-ollama-tool-client' || (systemPromptSha256 === cell.toolLoop.systemPrompt.sha256 && commonToolContractSha256 === cell.toolLoop.commonToolContract.sha256));
+  return { matched, clientArtifactSha256, runtimeArtifactSha256, systemPromptSha256, commonToolContractSha256 };
+}
+
 function copyTree(source, target, { includeNodeModules = false } = {}) {
   cpSync(source, target, {
     recursive: true, errorOnExist: false,
@@ -367,6 +377,7 @@ function adapterCommand(cell, workspace, prompt, clientEnv, task, treatment) {
         '--prompt', prompt,
         '--system-prompt', cell.systemPrompt,
         '--common-tools', cell.commonTools,
+        '--exec-broker-config', JSON.stringify(configuration.execSandbox),
         '--reasoning-effort', cell.reasoningEffort,
         '--max-turns', String(task.budget.maxTurns),
         '--temperature', String(configuration.modelOptions.temperature),
@@ -408,7 +419,7 @@ function sandboxProfile(workspace, clientState, controllerRoot, protectedPattern
   if (platform() !== 'darwin' || !existsSync('/usr/bin/sandbox-exec')) throw new Error('outer client isolation unavailable: this runner currently requires macOS sandbox-exec');
   const systemReadRoots = ['/System', '/usr', '/bin', '/sbin', '/Library', '/private/etc', '/private/var/db', '/private/var/run', '/dev']
     .filter((value) => existsSync(value));
-  const protectedRoots = new Set([join(workspace, '.git')]);
+  const protectedRoots = new Set([join(workspace, '.git'), join(clientState, 'executable')]);
   for (const pattern of protectedPatterns) {
     const prefix = pattern.split('*')[0].replace(/\/$/, '');
     if (prefix) protectedRoots.add(join(workspace, prefix));
@@ -440,6 +451,108 @@ function sandboxProfile(workspace, clientState, controllerRoot, protectedPattern
     ...allowReads, ...allowExec,
     ...allowWrites, '(allow file-write* (literal "/dev/null"))', ...denyWrites,
   ].join('\n');
+}
+
+function execBrokerSandboxProfile(workspace, clientState, protectedPatterns) {
+  const systemReadRoots = ['/System', '/usr', '/bin', '/sbin', '/Library', '/private/etc', '/private/var/db', '/private/var/run', '/dev']
+    .filter((value) => existsSync(value));
+  const readableRoots = [...systemReadRoots, workspace, join(clientState, 'executable')];
+  const protectedRoots = new Set([join(workspace, '.git'), join(clientState, 'executable')]);
+  for (const pattern of protectedPatterns) {
+    const prefix = pattern.split('*')[0].replace(/\/$/, '');
+    if (prefix) protectedRoots.add(join(workspace, prefix));
+  }
+  const ancestorReads = new Set(['/']);
+  for (const value of readableRoots) {
+    let cursor = realpathSync(value);
+    while (cursor !== '/') {
+      cursor = dirname(cursor);
+      ancestorReads.add(cursor);
+    }
+  }
+  const allowReads = readableRoots.map((value) => `(allow file-read* (subpath ${sandboxLiteral(value)}))`);
+  const allowExec = ['/usr', '/bin', '/sbin', join(clientState, 'executable')]
+    .filter((value) => existsSync(value))
+    .map((value) => `(allow process-exec (subpath ${sandboxLiteral(value)}))`);
+  const denyWrites = [...protectedRoots].map((value) => `(deny file-write* (subpath ${sandboxLiteral(value)}))`);
+  return [
+    '(version 1)', '(deny default)', '(deny network*)', '(deny process-fork)',
+    '(allow signal (target self))', '(allow process-info* (target self))',
+    '(allow sysctl*)', '(allow mach*)', '(allow ipc*)', '(allow file-read-metadata)',
+    `(allow file-read-data ${[...ancestorReads].sort().map((value) => `(literal ${JSON.stringify(value)})`).join(' ')})`,
+    ...allowReads, ...allowExec,
+    `(allow file-write* (subpath ${sandboxLiteral(workspace)}))`,
+    '(allow file-write* (literal "/dev/null"))',
+    ...denyWrites,
+  ].join('\n');
+}
+
+function processGroupExists(pid) {
+  if (!Number.isInteger(pid) || pid < 1) return false;
+  try { process.kill(-pid, 0); return true; }
+  catch (error) { return error?.code !== 'ESRCH'; }
+}
+
+function killProcessGroup(pid) {
+  if (!Number.isInteger(pid) || pid < 1) return;
+  try { process.kill(-pid, 'SIGKILL'); } catch {}
+}
+
+async function waitForProcessGroupExit(pid, timeoutMs = 2000) {
+  const deadline = performance.now() + timeoutMs;
+  while (processGroupExists(pid) && performance.now() < deadline) {
+    await new Promise((resolveWait) => setTimeout(resolveWait, 20));
+  }
+  return !processGroupExists(pid);
+}
+
+async function runBrokeredExec(request, context, activeGroups) {
+  if (!request || typeof request !== 'object' || Array.isArray(request) ||
+      canonicalJson(Object.keys(request).sort()) !== canonicalJson(['argv', 'id', 'kind', 'schemaVersion']) ||
+      request.schemaVersion !== '1' || request.kind !== 'exec' || !Number.isInteger(request.id) || request.id < 1 ||
+      !Array.isArray(request.argv) || request.argv.length < 1 || request.argv.length > 32 ||
+      request.argv.some((value) => typeof value !== 'string' || value.length < 1 || value.length > 4096)) {
+    throw new Error('exec broker refused malformed or unsupported request');
+  }
+  const profileSha256 = sha256Bytes(context.profile);
+  return await new Promise((resolveResult) => {
+    const child = spawn('/usr/bin/sandbox-exec', ['-p', context.profile, request.argv[0], ...request.argv.slice(1)], {
+      cwd: context.workspace, env: context.env, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (Number.isInteger(child.pid)) activeGroups.add(child.pid);
+    const stdout = [];
+    const stderr = [];
+    let bytes = 0;
+    let timedOut = false;
+    let overflow = false;
+    let settled = false;
+    const killGroup = () => killProcessGroup(child.pid);
+    const collect = (chunks) => (chunk) => {
+      bytes += chunk.length;
+      if (bytes > 32768) { overflow = true; killGroup(); }
+      else chunks.push(chunk);
+    };
+    child.stdout.on('data', collect(stdout));
+    child.stderr.on('data', collect(stderr));
+    const timer = setTimeout(() => { timedOut = true; killGroup(); }, 120000);
+    const finish = async (exitCode, signal, spawnError = null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (processGroupExists(child.pid)) killGroup();
+      const processGroupTerminated = await waitForProcessGroupExit(child.pid);
+      activeGroups.delete(child.pid);
+      resolveResult({
+        argv: request.argv, exitCode, signal, timedOut, overflow, processGroupTerminated,
+        stdout: redact(Buffer.concat(stdout).toString()),
+        stderr: redact(`${Buffer.concat(stderr).toString()}${spawnError ? `\n${spawnError.message}` : ''}`),
+        execSandbox: context.configuration,
+        sandboxProfileSha256: profileSha256,
+      });
+    };
+    child.once('error', (error) => { void finish(null, null, error); });
+    child.once('close', (code, signal) => { void finish(code, signal); });
+  });
 }
 
 function generatedMcpCommand(workspace, cell, expectedRuntime, expectedMcp) {
@@ -507,7 +620,53 @@ function probeLocalProviderIdentity(profile, workspace, cell, runtimeExecutable,
   return proof;
 }
 
-function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchain, clientEnv, authPath, treatment) {
+function proveExecBrokerIsolation(profile, controllerRoot, workspace, task, cell, toolchain, clientEnv) {
+  if (!profile) return null;
+  const canary = join(controllerRoot, 'hidden-oracle.canary');
+  const workspaceProbe = join(workspace, '.bce-exec-broker-probe.tmp');
+  const protectedProbe = join(workspace, '.blueprints', 'exec-broker-write-probe.tmp');
+  mkdirSync(dirname(protectedProbe), { recursive: true });
+  const positiveScript = "const fs=require('fs');fs.readFileSync('package.json');fs.writeFileSync(process.argv[1],'ok');fs.unlinkSync(process.argv[1]);process.stdout.write('ok')";
+  const writeDeniedScript = "const fs=require('fs');try{fs.writeFileSync(process.argv[1],'x');process.exit(1)}catch(error){process.stderr.write(String(error.code??error.message));process.exit(['EPERM','EACCES'].includes(error.code)?0:2)}";
+  const readDeniedScript = "const fs=require('fs');try{fs.readFileSync(process.argv[1]);process.exit(1)}catch(error){process.stderr.write(String(error.code??error.message));process.exit(['EPERM','EACCES'].includes(error.code)?0:2)}";
+  const forkDeniedScript = "const{spawnSync}=require('child_process');const r=spawnSync('/usr/bin/true');process.stderr.write(String(r.error?.code??r.status));process.exit(['EPERM','EACCES'].includes(r.error?.code)?0:1)";
+  const positive = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', positiveScript, workspaceProbe], workspace, { env: clientEnv, timeout: 5000 });
+  const protectedWrite = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeDeniedScript, protectedProbe], workspace, { env: clientEnv, timeout: 5000 });
+  const toolchainWrite = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeDeniedScript, toolchain.clientExecutable], workspace, { env: clientEnv, timeout: 5000 });
+  const canaryRead = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', readDeniedScript, canary], workspace, { env: clientEnv, timeout: 5000 });
+  const referencePatchPath = task.referencePatch ? resolveInside(bundleDir, task.referencePatch.path, `${task.id} reference patch`) : null;
+  const referenceRead = referencePatchPath
+    ? run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', readDeniedScript, referencePatchPath], workspace, { env: clientEnv, timeout: 5000 })
+    : null;
+  const shortcutPatchPath = task.shortcutPatch ? resolveInside(bundleDir, task.shortcutPatch.path, `${task.id} shortcut patch`) : null;
+  const shortcutRead = shortcutPatchPath
+    ? run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', readDeniedScript, shortcutPatchPath], workspace, { env: clientEnv, timeout: 5000 })
+    : null;
+  const fork = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', forkDeniedScript], workspace, { env: clientEnv, timeout: 5000 });
+  const providerPort = Number(new URL(cell.localProvider.endpoint).port);
+  const provider = probeDeniedConnection(profile, workspace, toolchain.runtimeExecutable, clientEnv, '127.0.0.1', providerPort);
+  const external = probeDeniedConnection(profile, workspace, toolchain.runtimeExecutable, clientEnv, '192.0.2.1', 9);
+  const wrongLoopback = probeDeniedConnection(profile, workspace, toolchain.runtimeExecutable, clientEnv, '127.0.0.1', providerPort === 1 ? 2 : 1);
+  if (existsSync(workspaceProbe)) unlinkSync(workspaceProbe);
+  if (existsSync(protectedProbe)) unlinkSync(protectedProbe);
+  return {
+    driver: '/usr/bin/sandbox-exec', driverSha256: executableDigest('/usr/bin/sandbox-exec'), profileSha256: sha256Bytes(profile),
+    workspaceReadWriteAllowed: positive.status === 0 && positive.stdout === 'ok', protectedWriteDenied: protectedWrite.status === 0,
+    toolchainWriteDenied: toolchainWrite.status === 0, controllerCanaryReadDenied: canaryRead.status === 0,
+    referencePatchReadDenied: referenceRead === null ? null : referenceRead.status === 0,
+    shortcutPatchReadDenied: shortcutRead === null ? null : shortcutRead.status === 0,
+    processForkDenied: fork.status === 0,
+    providerNetworkDenied: provider.denied, externalNetworkDenied: external.denied, wrongLoopbackDenied: wrongLoopback.denied,
+    positiveExitCode: positive.status, protectedWriteExitCode: protectedWrite.status, toolchainWriteExitCode: toolchainWrite.status,
+    controllerCanaryReadExitCode: canaryRead.status, referencePatchReadExitCode: referenceRead?.status ?? null, shortcutPatchReadExitCode: shortcutRead?.status ?? null,
+    forkExitCode: fork.status,
+    providerNetworkProbeExitCode: provider.exitCode, externalNetworkProbeExitCode: external.exitCode, wrongLoopbackProbeExitCode: wrongLoopback.exitCode,
+    positiveStderr: redact(positive.stderr), protectedWriteStderr: redact(protectedWrite.stderr), toolchainWriteStderr: redact(toolchainWrite.stderr),
+    controllerCanaryReadStderr: redact(canaryRead.stderr), referencePatchReadStderr: redact(referenceRead?.stderr), shortcutPatchReadStderr: redact(shortcutRead?.stderr), forkStderr: redact(fork.stderr),
+  };
+}
+
+function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchain, clientEnv, authPath, treatment, execBrokerProfile = null) {
   const canary = join(controllerRoot, 'hidden-oracle.canary');
   const hostWriteProbe = join(controllerRoot, 'host-write-probe.tmp');
   writeFileSync(canary, 'controller-only\n');
@@ -528,6 +687,7 @@ function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchai
     : null;
   const hostWriteResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeProbe, hostWriteProbe], workspace, { env: clientEnv });
   const writeResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeProbe, protectedProbe], workspace, { env: clientEnv });
+  const clientToolchainWriteResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeProbe, toolchain.clientExecutable], workspace, { env: clientEnv });
   const workspaceResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', workspaceProbeScript, workspaceProbe], workspace, { env: clientEnv });
   const runtimeVersion = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '--version'], workspace, { env: clientEnv });
   const clientVersion = cell.client === 'bce-ollama-tool-client'
@@ -539,6 +699,7 @@ function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchai
   const providerPort = cell.localProvider ? Number(new URL(cell.localProvider.endpoint).port) : null;
   const external = cell.localProvider ? probeDeniedConnection(profile, workspace, toolchain.runtimeExecutable, clientEnv, '192.0.2.1', 9) : null;
   const nonProviderLoopback = cell.localProvider ? probeDeniedConnection(profile, workspace, toolchain.runtimeExecutable, clientEnv, '127.0.0.1', providerPort === 1 ? 2 : 1) : null;
+  const execBroker = cell.client === 'bce-ollama-tool-client' ? proveExecBrokerIsolation(execBrokerProfile, controllerRoot, workspace, task, cell, toolchain, clientEnv) : null;
   if (existsSync(protectedProbe)) unlinkSync(protectedProbe);
   if (existsSync(workspaceProbe)) unlinkSync(workspaceProbe);
   if (existsSync(hostWriteProbe)) unlinkSync(hostWriteProbe);
@@ -550,6 +711,7 @@ function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchai
     referencePatchReadDenied: referenceReadResult === null ? null : referenceReadResult.status === 0,
     shortcutPatchReadDenied: shortcutReadResult === null ? null : shortcutReadResult.status === 0,
     hostCanaryWriteDenied: hostWriteResult.status === 0, protectedWriteDenied: writeResult.status === 0,
+    clientToolchainWriteDenied: clientToolchainWriteResult.status === 0,
     workspaceReadWriteAllowed: workspaceResult.status === 0 && workspaceResult.stdout === 'ok',
     stagedRuntimeVersionVerified: runtimeVersion.status === 0 && runtimeVersion.stdout.trim() === protocol.isolation.runtimeVersion,
     stagedClientVersionVerified: clientVersion.status === 0 && `${clientVersion.stdout}${clientVersion.stderr}`.trim().split('\n')[0] === cell.clientVersion,
@@ -561,20 +723,22 @@ function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchai
     clientExecutableStagedSha256: sha256Bytes(readFileSync(toolchain.clientExecutable)),
     runtimeExecutableStagedSha256: sha256Bytes(readFileSync(toolchain.runtimeExecutable)),
     readProbeExitCode: readResult.status, hostWriteProbeExitCode: hostWriteResult.status, writeProbeExitCode: writeResult.status,
+    clientToolchainWriteProbeExitCode: clientToolchainWriteResult.status,
     readProbeSignal: readResult.signal, hostWriteProbeSignal: hostWriteResult.signal, writeProbeSignal: writeResult.signal, workspaceProbeSignal: workspaceResult.signal,
     runtimeProbeSignal: runtimeVersion.signal, clientProbeSignal: clientVersion.signal,
     runtimeProbeStderr: redact(runtimeVersion.stderr), clientProbeStderr: redact(clientVersion.stderr),
-    readProbeStderr: redact(readResult.stderr), referenceReadProbeStderr: redact(referenceReadResult?.stderr), shortcutReadProbeStderr: redact(shortcutReadResult?.stderr), hostWriteProbeStderr: redact(hostWriteResult.stderr), writeProbeStderr: redact(writeResult.stderr), mcpExitCode: mcp.exitCode, mcpStderr: mcp.stderr,
+    readProbeStderr: redact(readResult.stderr), referenceReadProbeStderr: redact(referenceReadResult?.stderr), shortcutReadProbeStderr: redact(shortcutReadResult?.stderr), hostWriteProbeStderr: redact(hostWriteResult.stderr), writeProbeStderr: redact(writeResult.stderr), clientToolchainWriteProbeStderr: redact(clientToolchainWriteResult.stderr), mcpExitCode: mcp.exitCode, mcpStderr: mcp.stderr,
     externalNetworkProbeExitCode: external?.exitCode ?? null, externalNetworkProbeStderr: external?.stderr ?? '',
     nonProviderLoopbackProbeExitCode: nonProviderLoopback?.exitCode ?? null, nonProviderLoopbackProbeStderr: nonProviderLoopback?.stderr ?? '',
+    execBroker,
   };
 }
 
-async function runClient(command, workspace, profile, timeoutMs, credentialPath = null) {
+async function runClient(command, workspace, profile, timeoutMs, credentialPath = null, execBroker = null) {
   return new Promise((resolveResult) => {
     const started = performance.now();
     const child = spawn('/usr/bin/sandbox-exec', ['-p', profile, command.file, ...command.args], {
-      cwd: workspace, env: command.env, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: workspace, env: command.env, detached: true, stdio: execBroker ? ['ignore', 'pipe', 'pipe', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe'],
     });
     const stdout = [];
     const stderr = [];
@@ -586,6 +750,13 @@ async function runClient(command, workspace, profile, timeoutMs, credentialPath 
     let clientSessionObserved = false;
     let credentialRetiredBeforeModelToolExecution = credentialPath === null;
     let modelToolExecutionObservedBeforeCredentialRetirement = false;
+    const execBrokerEvidence = [];
+    let execBrokerError = null;
+    let execBrokerBuffer = '';
+    let nextExecBrokerId = 1;
+    let execBrokerQueue = Promise.resolve();
+    let execBrokerAborted = false;
+    const activeExecBrokerGroups = new Set();
     const isModelToolEvent = (event) => {
       const type = String(event?.type ?? '').toLowerCase();
       const itemType = String(event?.item?.type ?? '').toLowerCase();
@@ -613,7 +784,25 @@ async function runClient(command, workspace, profile, timeoutMs, credentialPath 
       stdoutLines = lines.pop() ?? '';
       for (const line of lines) observeLine(line);
     };
-    const finish = (result) => { if (!settled) { settled = true; resolveResult(result); } };
+    const recordBrokerError = (error) => {
+      if (execBrokerError === null) execBrokerError = error instanceof Error ? error.message : String(error);
+    };
+    const stopBrokerGroups = async () => {
+      execBrokerAborted = true;
+      const pids = [...activeExecBrokerGroups];
+      for (const pid of pids) killProcessGroup(pid);
+      await Promise.all(pids.map((pid) => waitForProcessGroupExit(pid)));
+    };
+    const finish = async (result) => {
+      if (settled) return;
+      settled = true;
+      await stopBrokerGroups();
+      try { await execBrokerQueue; }
+      catch (error) { recordBrokerError(error); }
+      await stopBrokerGroups();
+      if (execBrokerBuffer.trim()) recordBrokerError(new Error('exec broker request stream ended with a partial record'));
+      resolveResult({ ...result, execBrokerEvidence, execBrokerError });
+    };
     const collect = (chunks) => (chunk) => {
       bytes += chunk.length;
       if (bytes > 64 * 1024 * 1024) {
@@ -623,6 +812,39 @@ async function runClient(command, workspace, profile, timeoutMs, credentialPath 
     };
     child.stdout.on('data', (chunk) => { collect(stdout)(chunk); observeClientEvent(chunk); });
     child.stderr.on('data', collect(stderr));
+    if (execBroker) {
+      const failBroker = (error) => {
+        recordBrokerError(error);
+        execBrokerAborted = true;
+        try { process.kill(-child.pid, 'SIGKILL'); } catch {}
+        for (const pid of activeExecBrokerGroups) killProcessGroup(pid);
+      };
+      child.stdio[3].on('data', (chunk) => {
+        execBrokerBuffer += chunk.toString();
+        const lines = execBrokerBuffer.split('\n');
+        execBrokerBuffer = lines.pop() ?? '';
+        for (const line of lines.filter((value) => value.trim())) {
+          execBrokerQueue = execBrokerQueue.then(async () => {
+            if (execBrokerAborted) throw new Error('exec broker refused a request after client termination');
+            let request;
+            try { request = JSON.parse(line); }
+            catch { throw new Error('exec broker request is not JSON'); }
+            if (request.id !== nextExecBrokerId) throw new Error(`exec broker request id ${String(request.id)} is not the next id ${nextExecBrokerId}`);
+            nextExecBrokerId += 1;
+            const requestSha256 = sha256Json(request);
+            const result = await runBrokeredExec(request, execBroker, activeExecBrokerGroups);
+            if (result.processGroupTerminated !== true) throw new Error(`exec broker command ${request.id} left a live process group`);
+            const response = { schemaVersion: '1', id: request.id, kind: 'exec-result', requestSha256, result };
+            const responseSha256 = sha256Json(response);
+            execBrokerEvidence.push({ request, requestSha256, response, responseSha256 });
+            if (execBrokerAborted || child.stdio[4].destroyed || !child.stdio[4].writable) throw new Error(`exec broker response channel closed before response ${request.id}`);
+            await new Promise((resolveWrite, rejectWrite) => child.stdio[4].write(`${JSON.stringify(response)}\n`, (error) => error ? rejectWrite(error) : resolveWrite()));
+          }).catch(failBroker);
+        }
+      });
+      child.stdio[3].on('error', failBroker);
+      child.stdio[4].on('error', (error) => { if (!settled) failBroker(error); });
+    }
     const timer = setTimeout(() => {
       timedOut = true;
       try { process.kill(-child.pid, 'SIGKILL'); } catch {}
@@ -631,15 +853,18 @@ async function runClient(command, workspace, profile, timeoutMs, credentialPath 
       clearTimeout(timer);
       if (credentialPath && existsSync(credentialPath)) unlinkSync(credentialPath);
       if (stdoutLines.trim()) observeLine(stdoutLines);
-      finish({ status: null, signal: null, stdout: Buffer.concat(stdout).toString(), stderr: `${Buffer.concat(stderr).toString()}\n${error.message}`, timedOut, overflow, latencyMs: Math.round(performance.now() - started), processGroupTerminated: true, clientSessionObserved, credentialRetiredBeforeModelToolExecution, modelToolExecutionObservedBeforeCredentialRetirement });
+      void finish({ status: null, signal: null, stdout: Buffer.concat(stdout).toString(), stderr: `${Buffer.concat(stderr).toString()}\n${error.message}`, timedOut, overflow, latencyMs: Math.round(performance.now() - started), processGroupTerminated: true, clientSessionObserved, credentialRetiredBeforeModelToolExecution, modelToolExecutionObservedBeforeCredentialRetirement });
     });
-    child.on('close', (code, signal) => {
+    child.on('close', async (code, signal) => {
       clearTimeout(timer);
-      let processGroupTerminated = true;
-      try { process.kill(-child.pid, 0); processGroupTerminated = false; process.kill(-child.pid, 'SIGKILL'); } catch {}
+      const processGroupTerminated = !processGroupExists(child.pid);
+      if (!processGroupTerminated) {
+        killProcessGroup(child.pid);
+        await waitForProcessGroupExit(child.pid);
+      }
       if (stdoutLines.trim()) observeLine(stdoutLines);
       if (credentialPath && existsSync(credentialPath)) unlinkSync(credentialPath);
-      finish({ status: code, signal, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), timedOut, overflow, latencyMs: Math.round(performance.now() - started), processGroupTerminated, clientSessionObserved, credentialRetiredBeforeModelToolExecution, modelToolExecutionObservedBeforeCredentialRetirement });
+      await finish({ status: code, signal, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), timedOut, overflow, latencyMs: Math.round(performance.now() - started), processGroupTerminated, clientSessionObserved, credentialRetiredBeforeModelToolExecution, modelToolExecutionObservedBeforeCredentialRetirement });
     });
   });
 }
@@ -1115,13 +1340,28 @@ async function executeAssignment(assignment) {
     const protectedPatterns = [...new Set([...globalPolicy.patterns, ...(globalPolicy.packagePolicy?.files ?? []), ...task.protectedPaths])];
     const { env: clientEnv, authPath } = freshClientEnvironment(clientState, cell, toolchain.runtimeExecutable);
     const profile = sandboxProfile(workspace, clientState, controllerRoot, protectedPatterns, cell);
-    isolationProof = proveIsolation(profile, controllerRoot, workspace, task, cell, toolchain, clientEnv, authPath, treatment);
+    const execBrokerProfile = cell.client === 'bce-ollama-tool-client'
+      ? execBrokerSandboxProfile(workspace, clientState, protectedPatterns)
+      : null;
+    isolationProof = proveIsolation(profile, controllerRoot, workspace, task, cell, toolchain, clientEnv, authPath, treatment, execBrokerProfile);
+    const execBrokerProof = isolationProof.execBroker;
+    const execBrokerQualified = cell.client !== 'bce-ollama-tool-client' || (
+      execBrokerProof?.driver === cell.toolLoop.execSandbox.driver &&
+      execBrokerProof?.driverSha256 === cell.toolLoop.execSandbox.driverSha256 &&
+      execBrokerProof?.profileSha256 === sha256Bytes(execBrokerProfile) &&
+      execBrokerProof?.workspaceReadWriteAllowed === true && execBrokerProof?.protectedWriteDenied === true &&
+      execBrokerProof?.toolchainWriteDenied === true && execBrokerProof?.controllerCanaryReadDenied === true &&
+      (!task.referencePatch || execBrokerProof?.referencePatchReadDenied === true) &&
+      (!task.shortcutPatch || execBrokerProof?.shortcutPatchReadDenied === true) &&
+      execBrokerProof?.processForkDenied === true && execBrokerProof?.providerNetworkDenied === true &&
+      execBrokerProof?.externalNetworkDenied === true && execBrokerProof?.wrongLoopbackDenied === true
+    );
     if (!isolationProof.oracleReadDenied || !isolationProof.hostCanaryReadDenied || !isolationProof.hostCanaryWriteDenied || !isolationProof.protectedWriteDenied ||
-        !isolationProof.workspaceReadWriteAllowed || !isolationProof.stagedRuntimeVersionVerified || !isolationProof.stagedClientVersionVerified ||
+        !isolationProof.workspaceReadWriteAllowed || !isolationProof.stagedRuntimeVersionVerified || !isolationProof.stagedClientVersionVerified || !isolationProof.clientToolchainWriteDenied ||
         (task.referencePatch && isolationProof.referencePatchReadDenied !== true) ||
         (task.shortcutPatch && isolationProof.shortcutPatchReadDenied !== true) ||
         (authPath && isolationProof.authenticationReadableToClientProcess !== true) ||
-        (treatment.mcp && (isolationProof.mcpHandshakePassed !== true || isolationProof.mcpDoneCheckAvailable !== true)) ||
+        (treatment.mcp && (isolationProof.mcpHandshakePassed !== true || isolationProof.mcpDoneCheckAvailable !== true)) || !execBrokerQualified ||
         (cell.localProvider && (isolationProof.authenticationAbsent !== true || isolationProof.providerReachable !== true || isolationProof.externalNetworkDenied !== true || isolationProof.nonProviderLoopbackDenied !== true))) {
       throw new Error(`outer sandbox capability/isolation preflight failed: ${JSON.stringify(isolationProof)}`);
     }
@@ -1146,15 +1386,22 @@ async function executeAssignment(assignment) {
     controllerAttemptedExposure = true;
     startedAt = new Date().toISOString();
     const visibleStart = performance.now();
-    clientResult = await runClient(command, workspace, profile, task.budget.timeoutMs, authPath);
+    const execBrokerContext = execBrokerProfile ? {
+      profile: execBrokerProfile,
+      workspace,
+      env: clientEnv,
+      configuration: cell.toolLoop.execSandbox,
+    } : null;
+    clientResult = await runClient(command, workspace, profile, task.budget.timeoutMs, authPath, execBrokerContext);
+    const stagedToolchainAfterExecution = attestStagedToolchainAfterExecution(cell, toolchain);
     const clientDocuments = jsonDocuments(clientResult.stdout);
     let status = clientResult.timedOut ? 'timeout' : clientResult.status === 0 ? 'completed' :
       clientDocuments.length === 0 || /auth|credential|rate.?limit|overloaded|network|operation not permitted|\bEPERM\b|sandbox-exec|execvp/i.test(`${clientResult.stderr}\n${clientResult.stdout}`) ? 'infrastructure-error' : 'failed';
-    if (!clientResult.timedOut && cell.client === 'bce-ollama-tool-client' && clientResult.status === 2) status = 'infrastructure-error';
+    if (!clientResult.timedOut && cell.client === 'bce-ollama-tool-client' && (clientResult.status === 2 || clientResult.execBrokerError !== null)) status = 'infrastructure-error';
     let sealedClientEvidence = null;
     let sealedClientEvidenceError = null;
     if (cell.client === 'bce-ollama-tool-client') {
-      try { sealedClientEvidence = verifyOllamaClientEvents(clientResult.stdout, { cell, arm: assignment.arm, task }); }
+      try { sealedClientEvidence = verifyOllamaClientEvents(clientResult.stdout, { cell, arm: assignment.arm, task, execBrokerEvidence: clientResult.execBrokerEvidence }); }
       catch (error) {
         sealedClientEvidenceError = error instanceof Error ? error.message : String(error);
         status = 'infrastructure-error';
@@ -1184,6 +1431,8 @@ async function executeAssignment(assignment) {
           passed: sealedClientEvidence !== null,
           error: sealedClientEvidenceError,
           eventChainHeadSha256: sealedClientEvidence?.eventChainHeadSha256 ?? null,
+          execBrokerControllerEvidence: clientResult.execBrokerEvidence,
+          execBrokerError: clientResult.execBrokerError,
         } : null,
       },
       patch: { schemaVersion: '1', authority: 'controller-before-after-inventory', changes },
@@ -1191,6 +1440,12 @@ async function executeAssignment(assignment) {
       policy,
       mechanism: extractMechanism(stdout, assignment, sealedClientEvidence, cell),
     };
+    isolationProof = {
+      ...isolationProof,
+      stagedToolchainAfterExecution,
+      stagedToolchainIntegrityAfterExecution: stagedToolchainAfterExecution.matched,
+    };
+    if (!stagedToolchainAfterExecution.matched) throw new Error('staged client/runtime/configuration bytes changed during model execution');
     const providerIdentityAfter = probeLocalProviderIdentity(profile, workspace, cell, toolchain.runtimeExecutable, clientEnv, { requireActiveModel: true });
     isolationProof = {
       ...isolationProof,

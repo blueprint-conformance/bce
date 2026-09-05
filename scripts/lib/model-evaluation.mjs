@@ -40,6 +40,7 @@ export const FROZEN_IMPLEMENTATIONS = {
   ollamaSystemPromptSha256: fileURLToPath(new URL('../../research/model-evaluation/client/ollama-system-prompt.v1.txt', import.meta.url)),
   ollamaCommonToolsSha256: fileURLToPath(new URL('../../research/model-evaluation/client/ollama-common-tools.v1.json', import.meta.url)),
   ollamaClientEventSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/client-event.schema.json', import.meta.url)),
+  capabilityCanaryAttestationSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/capability-canary-attestation.schema.json', import.meta.url)),
 };
 
 export function canonical(value) {
@@ -138,6 +139,14 @@ function compileSchema(schemaPath) {
 function validateOrThrow(value, schemaPath, label) {
   const { ajv, validate } = compileSchema(schemaPath);
   if (!validate(value)) throw new Error(`${label}: ${ajv.errorsText(validate.errors, { separator: '; ' })}`);
+}
+
+export function validateCapabilityCanaryAttestation(attestation, schemaPath) {
+  validateOrThrow(attestation, schemaPath, 'capability canary attestation');
+  if (attestation.attestationSha256 !== sha256Json({ ...attestation, attestationSha256: null })) {
+    throw new Error('capability canary attestation self-digest does not recompute');
+  }
+  return true;
 }
 
 function rank(seed, domain, id) {
@@ -261,12 +270,12 @@ function collectExpectedSealEntries(bundleDir, protocol, manifest) {
     'schemas/treatment-delta.schema.json',
     'schemas/protected-paths.schema.json',
   ]);
-  for (const optionalSchema of ['schemas/study-halt.schema.json', 'schemas/safety-halt-archive.schema.json', 'schemas/client-event.schema.json']) {
+  for (const optionalSchema of ['schemas/study-halt.schema.json', 'schemas/safety-halt-archive.schema.json', 'schemas/client-event.schema.json', 'schemas/capability-canary-attestation.schema.json']) {
     if (existsSync(resolve(bundleDir, optionalSchema))) paths.add(optionalSchema);
   }
   if (protocol.treatment.engineArtifact) paths.add(protocol.treatment.engineArtifact);
   for (const cell of protocol.clientModelCells ?? []) {
-    for (const artifact of [cell.toolLoop?.systemPrompt, cell.toolLoop?.commonToolContract, cell.toolLoop?.clientEventSchema].filter(Boolean)) paths.add(artifact.path);
+    for (const artifact of [cell.toolLoop?.systemPrompt, cell.toolLoop?.commonToolContract, cell.toolLoop?.clientEventSchema, cell.toolLoop?.qualificationAttestation].filter(Boolean)) paths.add(artifact.path);
   }
   for (const task of manifest.tasks) for (const artifact of artifactRefs(task)) paths.add(artifact.path);
   const entries = [...paths].sort().map((path) => {
@@ -280,6 +289,74 @@ function collectExpectedSealEntries(bundleDir, protocol, manifest) {
 export function expectedSeal(bundleDir, protocol, manifest) {
   const entries = collectExpectedSealEntries(bundleDir, protocol, manifest);
   return { entries, rootSha256: sha256Json(entries) };
+}
+
+function verifyQualificationAttestation(root, protocol, seal, cell, configuration, refusals) {
+  const artifact = configuration.qualificationAttestation;
+  if (!artifact) {
+    refusals.push(`${cell.id}: first-party Ollama client has no sealed qualified canary attestation artifact`);
+    return;
+  }
+  let attestation;
+  try {
+    const path = resolveSealedFile(root, artifact.path, `${cell.id} qualification attestation`);
+    const bytes = readFileSync(path);
+    if (sha256Bytes(bytes) !== artifact.sha256) throw new Error('artifact digest mismatch');
+    attestation = JSON.parse(bytes);
+    validateOrThrow(attestation, resolve(root, 'schemas', 'capability-canary-attestation.schema.json'), `${cell.id} qualification attestation`);
+  } catch (error) {
+    refusals.push(`${cell.id}: qualification attestation: ${error.message}`);
+    return;
+  }
+  if (attestation.attestationSha256 !== sha256Json({ ...attestation, attestationSha256: null })) {
+    refusals.push(`${cell.id}: qualification attestation self-digest does not recompute`);
+  }
+  const expectedExactCell = {
+    client: cell.client,
+    clientVersion: cell.clientVersion,
+    clientArtifactSha256: cell.clientArtifactSha256,
+    reasoningEffort: cell.reasoningEffort,
+    requestedModel: cell.requestedModel,
+    resolvedModel: cell.resolvedModel,
+    provider: cell.localProvider,
+    runtimeVersion: protocol.isolation.runtimeVersion,
+    runtimeArtifactSha256: protocol.isolation.runtimeArtifactSha256,
+    controllerSha256: protocol.implementation.runnerSha256,
+    implementation: protocol.implementation,
+    treatmentArtifactSha256: protocol.treatment.engineArtifactSha256,
+    treatmentInstalledTreeSha256: protocol.treatment.installedTreeSha256,
+    toolLoop: { ...configuration, qualificationAttestation: null },
+  };
+  if (canonicalJson(attestation.exactCell) !== canonicalJson(expectedExactCell)) {
+    refusals.push(`${cell.id}: qualification attestation does not bind the exact client/model/provider/runtime/controller/treatment/tool-loop cell`);
+  }
+  if (attestation.canaryRunnerSha256 !== protocol.implementation.canaryRunnerSha256) {
+    refusals.push(`${cell.id}: qualification attestation runner differs from the frozen implementation`);
+  }
+  const arms = attestation.observations.map((observation) => observation.arm).sort();
+  const requiredArms = [...ARMS].sort();
+  const observationEligible = attestation.observations.length === 2 && canonicalJson(arms) === canonicalJson(requiredArms) &&
+    new Set(attestation.observations.map((observation) => observation.trialId)).size === 2 &&
+    attestation.observations.every((observation) => observation.status === 'completed' && observation.successfulCommands >= 1 &&
+      observation.exactAllowedFileEdit === true && observation.telemetryUsable === true && observation.toolRouterErrors === 0 &&
+      observation.clientEventChainVerified === true && observation.execBrokerControllerVerified === true &&
+      observation.providerIdentityStable === true && observation.safeSuccessfulCompletion === true) &&
+    attestation.observations.find((observation) => observation.arm === 'baseline-no-bce')?.bceMcpRunGate === null &&
+    attestation.observations.find((observation) => observation.arm === 'baseline-no-bce')?.bceLastVerifiedVerdict === null &&
+    attestation.observations.find((observation) => observation.arm === 'bce-enabled')?.bceMcpRunGate === true &&
+    attestation.observations.find((observation) => observation.arm === 'bce-enabled')?.bceLastVerifiedVerdict === 'pass';
+  const requiredClaims = [
+    'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm',
+    'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm',
+    'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest',
+    'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass',
+    'sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm',
+  ];
+  if (attestation.qualified !== true || attestation.sourceTreeState !== 'clean' || attestation.refusalReasons.length !== 0 ||
+      attestation.restrictedEvidence.retained !== true || !/^[0-9a-f]{64}$/.test(attestation.restrictedEvidence.ledgerHeadSha256 ?? '') ||
+      !observationEligible || requiredClaims.some((requirement) => !attestation.requirements.includes(requirement))) {
+    refusals.push(`${cell.id}: qualification attestation does not prove the complete clean two-arm capability contract`);
+  }
 }
 
 export function loadBundle(bundleDir) {
@@ -451,6 +528,10 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
       const configuration = cell.toolLoop;
       if (!configuration) refusals.push(`${cell.id}: first-party Ollama client lacks frozen toolLoop configuration`);
       else {
+        const canarySchemaPath = resolve(root, 'schemas', 'capability-canary-attestation.schema.json');
+        if (!existsSync(canarySchemaPath) || protocol.implementation.capabilityCanaryAttestationSchemaSha256 !== sha256Bytes(readFileSync(canarySchemaPath))) {
+          refusals.push(`${cell.id}: capability-canary attestation schema is not sealed and implementation-bound`);
+        }
         if (cell.clientArtifactSha256 !== protocol.implementation.ollamaToolClientSha256 ||
             configuration.clientImplementationSha256 !== cell.clientArtifactSha256 ||
             configuration.eventProtocol !== 'bce-ollama-tool-client-events/v1') {
@@ -466,10 +547,12 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
             if (sha256Bytes(bytes) !== artifact.sha256 || artifact.sha256 !== protocol.implementation[implementationField]) refusals.push(`${cell.id}: ${label} digest is not bound consistently`);
           } catch (error) { refusals.push(`${cell.id}: ${label}: ${error.message}`); }
         }
-        if (manifest.tasks.some((task) => task.budget.maxTurns > configuration.limits.maximumTurns)) refusals.push(`${cell.id}: a task exceeds the frozen tool-loop turn cap`);
-        if (seal.attestation?.kind !== 'synthetic-self-test' && !/^[0-9a-f]{64}$/.test(configuration.qualificationAttestationSha256 ?? '')) {
-          refusals.push(`${cell.id}: first-party Ollama client has no frozen qualified canary attestation`);
+        if (configuration.execSandbox?.driver !== '/usr/bin/sandbox-exec' ||
+            configuration.execSandbox?.driverSha256 !== protocol.isolation.executionDriverSha256) {
+          refusals.push(`${cell.id}: exec broker driver is not the exact frozen study isolation driver`);
         }
+        if (manifest.tasks.some((task) => task.budget.maxTurns > configuration.limits.maximumTurns)) refusals.push(`${cell.id}: a task exceeds the frozen tool-loop turn cap`);
+        if (seal.attestation?.kind !== 'synthetic-self-test') verifyQualificationAttestation(root, protocol, seal, cell, configuration, refusals);
       }
     } else if (cell.toolLoop != null) refusals.push(`${cell.id}: non-reference client unexpectedly declares toolLoop configuration`);
     if (cell.localProvider) {
@@ -628,10 +711,12 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
   }
   if (cell.client === 'bce-ollama-tool-client') {
     if (record.mechanism.eventEvidenceAvailable === true) {
-      const clientEvidence = verifyOllamaClientEvents(transcript.stdout, { cell, arm: assignment.arm, task });
+      const brokerEvidence = transcript.sealedClientEventVerification?.execBrokerControllerEvidence;
+      const clientEvidence = verifyOllamaClientEvents(transcript.stdout, { cell, arm: assignment.arm, task, execBrokerEvidence: brokerEvidence });
       if (canonicalJson(record.mechanism) !== canonicalJson(clientEvidence.mechanism) ||
           transcript.sealedClientEventVerification?.passed !== true ||
           transcript.sealedClientEventVerification?.error !== null ||
+          transcript.sealedClientEventVerification?.execBrokerError !== null ||
           transcript.sealedClientEventVerification?.eventChainHeadSha256 !== clientEvidence.eventChainHeadSha256) {
         throw new Error(`${terminalPath}: sealed Ollama mechanism evidence does not rederive from the client event chain`);
       }
@@ -647,6 +732,21 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
       (bundle.protocol.isolation.positiveCapabilityProofRequired === true && (isolation.workspaceReadWriteAllowed !== true || isolation.stagedRuntimeVersionVerified !== true || isolation.stagedClientVersionVerified !== true)) ||
       (task.referencePatch && isolation.referencePatchReadDenied !== true) ||
       (task.shortcutPatch && isolation.shortcutPatchReadDenied !== true) ||
+      (cell.client === 'bce-ollama-tool-client' && record.status !== 'infrastructure-error' &&
+        (isolation.clientToolchainWriteDenied !== true || isolation.stagedToolchainIntegrityAfterExecution !== true ||
+          isolation.execBroker?.driver !== cell.toolLoop.execSandbox.driver ||
+          isolation.execBroker?.driverSha256 !== cell.toolLoop.execSandbox.driverSha256 ||
+          !/^[0-9a-f]{64}$/.test(isolation.execBroker?.profileSha256 ?? '') ||
+          isolation.execBroker?.workspaceReadWriteAllowed !== true || isolation.execBroker?.protectedWriteDenied !== true ||
+          isolation.execBroker?.toolchainWriteDenied !== true || isolation.execBroker?.controllerCanaryReadDenied !== true ||
+          (task.referencePatch && isolation.execBroker?.referencePatchReadDenied !== true) ||
+          (task.shortcutPatch && isolation.execBroker?.shortcutPatchReadDenied !== true) ||
+          isolation.execBroker?.processForkDenied !== true || isolation.execBroker?.providerNetworkDenied !== true ||
+          isolation.execBroker?.externalNetworkDenied !== true || isolation.execBroker?.wrongLoopbackDenied !== true ||
+          isolation.stagedToolchainAfterExecution?.clientArtifactSha256 !== cell.clientArtifactSha256 ||
+          isolation.stagedToolchainAfterExecution?.runtimeArtifactSha256 !== bundle.protocol.isolation.runtimeArtifactSha256 ||
+          isolation.stagedToolchainAfterExecution?.systemPromptSha256 !== cell.toolLoop.systemPrompt.sha256 ||
+          isolation.stagedToolchainAfterExecution?.commonToolContractSha256 !== cell.toolLoop.commonToolContract.sha256)) ||
       (assignment.arm === 'bce-enabled' && bundle.protocol.isolation.positiveCapabilityProofRequired === true && (isolation.mcpHandshakePassed !== true || !Array.isArray(isolation.mcpToolNames) || isolation.mcpToolNames.length === 0 || (hardenedEvidenceRequired && (isolation.mcpDoneCheckAvailable !== true || !isolation.mcpToolNames.includes('run_gate'))))) ||
       (cell.localProvider && (isolation.authenticationAbsent !== true || isolation.providerReachable !== true || isolation.externalNetworkDenied !== true || isolation.nonProviderLoopbackDenied !== true ||
         !localProviderProofMatches(isolation.providerIdentityBefore, cell.localProvider) || !localProviderProofWellFormed(isolation.providerIdentityAfter, cell.localProvider) ||

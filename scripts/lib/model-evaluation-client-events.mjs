@@ -19,11 +19,37 @@ function exactKeys(value, keys, label) {
 
 function integerOrNull(value) { return value === null || Number.isInteger(value); }
 
+function validArgv(value) {
+  return Array.isArray(value) && value.length >= 1 && value.length <= 32 &&
+    value.every((entry) => typeof entry === 'string' && entry.length >= 1 && entry.length <= 4096);
+}
+
+function validateBrokerRequest(request) {
+  exactKeys(request, ['schemaVersion', 'id', 'kind', 'argv'], 'exec broker request');
+  if (request.schemaVersion !== '1' || !Number.isInteger(request.id) || request.id < 1 ||
+      request.kind !== 'exec' || !validArgv(request.argv)) throw new Error('exec broker request is invalid');
+}
+
+function validateBrokerResult(result) {
+  exactKeys(result, [
+    'argv', 'exitCode', 'signal', 'timedOut', 'overflow', 'processGroupTerminated',
+    'stdout', 'stderr', 'execSandbox', 'sandboxProfileSha256',
+  ], 'exec broker result');
+  if (!validArgv(result.argv) || !integerOrNull(result.exitCode) ||
+      (result.signal !== null && typeof result.signal !== 'string') ||
+      typeof result.timedOut !== 'boolean' || typeof result.overflow !== 'boolean' ||
+      typeof result.processGroupTerminated !== 'boolean' || typeof result.stdout !== 'string' ||
+      typeof result.stderr !== 'string' || !result.execSandbox || typeof result.execSandbox !== 'object' ||
+      Array.isArray(result.execSandbox) || !/^[0-9a-f]{64}$/.test(result.sandboxProfileSha256)) {
+    throw new Error('exec broker result is invalid');
+  }
+}
+
 function validatePayload(event) {
   const value = event.payload;
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`client event ${event.sequence} payload is not an object`);
   if (event.type === 'session.started') {
-    exactKeys(value, ['clientVersion', 'requestedModel', 'mcpEnabled', 'systemPromptSha256', 'commonToolContractSha256', 'options', 'limits'], 'session.started');
+    exactKeys(value, ['clientVersion', 'requestedModel', 'mcpEnabled', 'systemPromptSha256', 'commonToolContractSha256', 'options', 'execSandbox', 'limits'], 'session.started');
     if (typeof value.clientVersion !== 'string' || typeof value.requestedModel !== 'string' || typeof value.mcpEnabled !== 'boolean' ||
         !/^[0-9a-f]{64}$/.test(value.systemPromptSha256) || !/^[0-9a-f]{64}$/.test(value.commonToolContractSha256)) throw new Error('session.started identity is invalid');
   } else if (event.type === 'provider.request') {
@@ -46,18 +72,32 @@ function validatePayload(event) {
   } else if (event.type === 'tool.rejected') {
     exactKeys(value, ['turn', 'dispatchId', 'name', 'reason'], 'tool.rejected');
     if (!Number.isInteger(value.turn) || typeof value.dispatchId !== 'string' || ![null, 'string'].includes(value.name === null ? null : typeof value.name) || typeof value.reason !== 'string') throw new Error('tool.rejected is invalid');
+  } else if (event.type === 'broker.request') {
+    exactKeys(value, ['request', 'requestSha256'], 'broker.request');
+    validateBrokerRequest(value.request);
+    if (value.requestSha256 !== sha256Json(value.request)) throw new Error('broker.request digest is invalid');
+  } else if (event.type === 'broker.response') {
+    exactKeys(value, ['response', 'responseSha256'], 'broker.response');
+    const response = value.response;
+    exactKeys(response, ['schemaVersion', 'id', 'kind', 'requestSha256', 'result'], 'exec broker response');
+    if (response.schemaVersion !== '1' || !Number.isInteger(response.id) || response.id < 1 ||
+        response.kind !== 'exec-result' || !/^[0-9a-f]{64}$/.test(response.requestSha256)) {
+      throw new Error('exec broker response is invalid');
+    }
+    validateBrokerResult(response.result);
+    if (value.responseSha256 !== sha256Json(response)) throw new Error('broker.response digest is invalid');
   } else if (event.type === 'mcp.request') {
     exactKeys(value, ['dispatchId', 'request'], 'mcp.request');
     if (value.dispatchId !== null && typeof value.dispatchId !== 'string') throw new Error('mcp.request dispatch id is invalid');
     const request = value.request;
     exactKeys(request, ['jsonrpc', 'id', 'method', 'params'], 'MCP request');
-    if (request.jsonrpc !== '2.0' || (!Number.isInteger(request.id) && typeof request.id !== 'string') || typeof request.method !== 'string' ||
+    if (request.jsonrpc !== '2.0' || !Number.isInteger(request.id) || request.id < 1 || typeof request.method !== 'string' ||
         !request.params || typeof request.params !== 'object' || Array.isArray(request.params)) throw new Error('MCP request is invalid');
   } else if (event.type === 'mcp.response') {
     exactKeys(value, ['dispatchId', 'response'], 'mcp.response');
     if (value.dispatchId !== null && typeof value.dispatchId !== 'string') throw new Error('mcp.response dispatch id is invalid');
     const response = value.response;
-    if (!response || response.jsonrpc !== '2.0' || (!Number.isInteger(response.id) && typeof response.id !== 'string') ||
+    if (!response || response.jsonrpc !== '2.0' || !Number.isInteger(response.id) || response.id < 1 ||
         (!Object.hasOwn(response, 'result') && !Object.hasOwn(response, 'error')) || (Object.hasOwn(response, 'result') && Object.hasOwn(response, 'error'))) throw new Error('MCP response is invalid');
     exactKeys(response, Object.hasOwn(response, 'result') ? ['jsonrpc', 'id', 'result'] : ['jsonrpc', 'id', 'error'], 'MCP response');
   } else if (event.type === 'session.completed') {
@@ -71,20 +111,25 @@ function validatePayload(event) {
 
 function verdictFromGateResult(result) {
   const structured = result?.structuredContent;
-  if (!structured || typeof structured !== 'object') return null;
+  if (!structured || typeof structured !== 'object' || Array.isArray(structured)) return null;
   if (structured.gateFailed === false) return 'pass';
   if (structured.gateFailed === true) return 'fail';
-  const verdicts = [];
-  const visit = (value) => {
-    if (!value || typeof value !== 'object') return;
-    if (value.verdict === 'pass' || value.verdict === 'fail') verdicts.push(value.verdict);
-    for (const child of Object.values(value)) if (typeof child === 'object') visit(child);
-  };
-  visit(structured);
-  return verdicts.length > 0 && verdicts.every((value) => value === verdicts[0]) ? verdicts[0] : null;
+  return null;
 }
 
-export function verifyOllamaClientEvents(stdout, { cell, arm, task }) {
+function routedToolCall(call, expectedTools) {
+  const name = call?.function?.name;
+  const args = call?.function?.arguments;
+  if (!args || typeof args !== 'object' || Array.isArray(args) || !expectedTools.includes(name)) return false;
+  const keys = Object.keys(args).sort();
+  if (name === 'read_file') return canonicalJson(keys) === canonicalJson(['path']);
+  if (name === 'write_file') return canonicalJson(keys) === canonicalJson(['content', 'path']);
+  if (name === 'exec') return canonicalJson(keys) === canonicalJson(['argv']) && validArgv(args.argv);
+  if (name === 'run_gate') return canonicalJson(args) === '{}';
+  return false;
+}
+
+export function verifyOllamaClientEvents(stdout, { cell, arm, task, execBrokerEvidence }) {
   const lines = String(stdout ?? '').split('\n').filter((line) => line.trim().length > 0);
   if (lines.length === 0) throw new Error('sealed Ollama client emitted no events');
   const events = [];
@@ -122,70 +167,197 @@ export function verifyOllamaClientEvents(stdout, { cell, arm, task }) {
   if (started.payload.clientVersion !== cell.clientVersion || started.payload.requestedModel !== cell.requestedModel ||
       started.payload.mcpEnabled !== expectedMcp || started.payload.systemPromptSha256 !== configuration.systemPrompt.sha256 ||
       started.payload.commonToolContractSha256 !== configuration.commonToolContract.sha256 ||
-      canonicalJson(started.payload.options) !== canonicalJson(expectedOptions) || canonicalJson(started.payload.limits) !== canonicalJson(expectedLimits)) {
+      canonicalJson(started.payload.options) !== canonicalJson(expectedOptions) || canonicalJson(started.payload.execSandbox) !== canonicalJson(configuration.execSandbox) ||
+      canonicalJson(started.payload.limits) !== canonicalJson(expectedLimits)) {
     throw new Error('sealed Ollama client session does not match frozen cell configuration');
   }
 
+  if (!Array.isArray(execBrokerEvidence)) throw new Error('sealed Ollama client verification requires controller exec-broker evidence');
   const expectedTools = expectedMcp ? ['read_file', 'write_file', 'exec', 'run_gate'] : ['read_file', 'write_file', 'exec'];
-  const requests = events.filter((event) => event.type === 'provider.request');
-  const responses = events.filter((event) => event.type === 'provider.response');
-  if (requests.length !== responses.length || requests.some((event, index) => event.payload.turn !== index + 1 || canonicalJson(event.payload.offeredToolNames) !== canonicalJson(expectedTools)) ||
-      responses.some((event, index) => event.payload.turn !== index + 1 || event.payload.model !== cell.requestedModel)) throw new Error('provider request/response sequence is invalid');
-
-  const dispatches = events.filter((event) => event.type === 'tool.dispatch');
-  const rejections = events.filter((event) => event.type === 'tool.rejected');
-  const dispatchIds = new Set();
-  for (const dispatch of dispatches) {
-    if (dispatchIds.has(dispatch.payload.dispatchId) || !expectedTools.includes(dispatch.payload.name)) throw new Error('tool dispatch identity is invalid');
-    dispatchIds.add(dispatch.payload.dispatchId);
-    const response = responses.find((event) => event.payload.turn === dispatch.payload.turn);
-    const callIndex = Number(dispatch.payload.dispatchId.match(/-call-(\d+)$/)?.[1] ?? 0) - 1;
-    const call = response?.payload.assistant.toolCalls?.[callIndex];
-    if (!call || call.function?.name !== dispatch.payload.name || canonicalJson(call.function?.arguments) !== canonicalJson(dispatch.payload.arguments)) {
-      throw new Error('tool dispatch is not bound to the model-requested call');
-    }
-  }
-  for (const rejection of rejections) {
-    const response = responses.find((event) => event.payload.turn === rejection.payload.turn);
-    const callIndex = Number(rejection.payload.dispatchId.match(/-call-(\d+)$/)?.[1] ?? 0) - 1;
-    if (!response?.payload.assistant.toolCalls?.[callIndex]) throw new Error('tool rejection is not bound to a model-requested call');
-  }
-  for (const response of responses) {
-    const represented = events.filter((event) => ['tool.dispatch', 'tool.rejected'].includes(event.type) && event.payload.turn === response.payload.turn);
-    if (represented.length !== response.payload.assistant.toolCalls.length) throw new Error(`not every model tool call has one dispatch or rejection at turn ${response.payload.turn}: ${represented.length}/${response.payload.assistant.toolCalls.length}`);
-  }
-  const results = events.filter((event) => event.type === 'tool.result');
-  if (results.some((result) => !dispatches.some((dispatch) => dispatch.payload.dispatchId === result.payload.dispatchId && dispatch.payload.name === result.payload.name)) ||
-      dispatches.some((dispatch) => !results.some((result) => result.payload.dispatchId === dispatch.payload.dispatchId && result.payload.name === dispatch.payload.name))) {
-    throw new Error('tool dispatch/result pairing is invalid');
-  }
-
-  const mcpRequests = events.filter((event) => event.type === 'mcp.request');
-  const mcpResponses = events.filter((event) => event.type === 'mcp.response');
-  if (!expectedMcp && (mcpRequests.length > 0 || mcpResponses.length > 0 || dispatches.some((event) => event.payload.name === 'run_gate'))) throw new Error('baseline client chain contains BCE MCP evidence');
-  const responseById = new Map(mcpResponses.map((event) => [event.payload.response.id, event]));
-  if (mcpRequests.length !== mcpResponses.length || mcpRequests.some((event) => {
-    const response = responseById.get(event.payload.request.id);
-    return !response || response.payload.dispatchId !== event.payload.dispatchId;
-  })) throw new Error('MCP request/response identity is invalid');
-
+  const requests = [];
+  const responses = [];
+  const dispatches = [];
+  const rejections = [];
+  const results = [];
+  const mcpRequests = [];
+  const mcpResponses = [];
   const creditedGateResults = [];
-  for (const dispatch of dispatches.filter((event) => event.payload.name === 'run_gate')) {
-    if (canonicalJson(dispatch.payload.arguments) !== '{}') continue;
-    const request = mcpRequests.find((event) => event.payload.dispatchId === dispatch.payload.dispatchId && event.payload.request.method === 'tools/call');
-    if (!request || canonicalJson(request.payload.request.params) !== canonicalJson({ name: 'run_gate', arguments: {} })) continue;
-    const response = responseById.get(request.payload.request.id);
-    const toolResult = results.find((event) => event.payload.dispatchId === dispatch.payload.dispatchId && event.payload.name === 'run_gate');
-    if (!response || Object.hasOwn(response.payload.response, 'error') || response.payload.response.result?.isError === true || toolResult?.payload.ok !== true ||
-        canonicalJson(toolResult.payload.result) !== canonicalJson(response.payload.response.result)) continue;
-    creditedGateResults.push(response.payload.response.result);
+  const observedBrokerEvidence = [];
+  let nextMcpId = 1;
+  let nextBrokerId = 1;
+  let cursor = 1;
+  let turn = 1;
+  let completed = null;
+  let clientErrored = false;
+
+  const take = (type, label = type) => {
+    const event = events[cursor];
+    if (!event || event.type !== type) throw new Error(`sealed Ollama client expected ${label} at event ${cursor}, found ${event?.type ?? 'end-of-chain'}`);
+    cursor += 1;
+    return event;
+  };
+  const takeToolResult = (expectedTurn, dispatchId, name) => {
+    const event = take('tool.result', `${name} tool.result`);
+    if (event.payload.turn !== expectedTurn || event.payload.dispatchId !== dispatchId || event.payload.name !== name) {
+      throw new Error(`${name} tool.result is not bound to its dispatch`);
+    }
+    results.push(event);
+    return event;
+  };
+  const takeMcpExchange = (method, params, dispatchId) => {
+    const requestEvent = take('mcp.request', `MCP ${method} request`);
+    const request = requestEvent.payload.request;
+    if (requestEvent.payload.dispatchId !== dispatchId || request.id !== nextMcpId || request.method !== method ||
+        canonicalJson(request.params) !== canonicalJson(params)) throw new Error(`MCP ${method} request is not the exact next exchange`);
+    mcpRequests.push(requestEvent);
+    const responseEvent = take('mcp.response', `MCP ${method} response`);
+    const response = responseEvent.payload.response;
+    if (responseEvent.payload.dispatchId !== dispatchId || response.id !== nextMcpId || Object.hasOwn(response, 'error')) {
+      throw new Error(`MCP ${method} response is not the exact matching success response`);
+    }
+    mcpResponses.push(responseEvent);
+    nextMcpId += 1;
+    return response.result;
+  };
+
+  while (cursor < events.length) {
+    const requestEvent = take('provider.request', `provider request for turn ${turn}`);
+    if (requestEvent.payload.turn !== turn || canonicalJson(requestEvent.payload.offeredToolNames) !== canonicalJson(expectedTools)) {
+      throw new Error(`provider request ${turn} differs from the frozen tool surface`);
+    }
+    requests.push(requestEvent);
+    if (events[cursor]?.type === 'client.error') {
+      if (cursor !== events.length - 1) throw new Error('client.error is not terminal');
+      cursor += 1;
+      clientErrored = true;
+      break;
+    }
+
+    const responseEvent = take('provider.response', `provider response for turn ${turn}`);
+    if (responseEvent.payload.turn !== turn || responseEvent.payload.model !== cell.requestedModel ||
+        (responseEvent.payload.promptEvalCount !== null && responseEvent.payload.promptEvalCount < 0) ||
+        (responseEvent.payload.evalCount !== null && responseEvent.payload.evalCount < 0)) {
+      throw new Error(`provider response ${turn} is invalid`);
+    }
+    exactKeys(responseEvent.payload.assistant, ['content', 'thinking', 'toolCalls'], `provider response ${turn} assistant`);
+    if (typeof responseEvent.payload.assistant.content !== 'string' || typeof responseEvent.payload.assistant.thinking !== 'string') {
+      throw new Error(`provider response ${turn} assistant text is invalid`);
+    }
+    responses.push(responseEvent);
+    const calls = responseEvent.payload.assistant.toolCalls;
+
+    for (let callIndex = 0; callIndex < calls.length; callIndex += 1) {
+      const call = calls[callIndex];
+      const dispatchId = `turn-${turn}-call-${callIndex + 1}`;
+      const representation = events[cursor];
+      const routable = routedToolCall(call, expectedTools);
+      if (representation?.type === 'tool.rejected') {
+        cursor += 1;
+        const expectedName = typeof call?.function?.name === 'string' ? call.function.name : null;
+        if (routable || representation.payload.turn !== turn || representation.payload.dispatchId !== dispatchId ||
+            representation.payload.name !== expectedName) throw new Error(`tool rejection ${dispatchId} is not the exact unroutable model call`);
+        rejections.push(representation);
+        continue;
+      }
+      const dispatch = take('tool.dispatch', `tool dispatch ${dispatchId}`);
+      if (!routable || dispatch.payload.turn !== turn || dispatch.payload.dispatchId !== dispatchId ||
+          dispatch.payload.name !== call.function.name || canonicalJson(dispatch.payload.arguments) !== canonicalJson(call.function.arguments)) {
+        throw new Error(`tool dispatch ${dispatchId} is not the exact routable model call`);
+      }
+      dispatches.push(dispatch);
+      const name = dispatch.payload.name;
+      if (name === 'exec') {
+        const brokerRequestEvent = take('broker.request', `exec broker request ${nextBrokerId}`);
+        const brokerRequest = brokerRequestEvent.payload.request;
+        if (brokerRequest.id !== nextBrokerId || canonicalJson(brokerRequest.argv) !== canonicalJson(dispatch.payload.arguments.argv)) {
+          throw new Error(`exec broker request ${nextBrokerId} is not bound to ${dispatchId}`);
+        }
+        const brokerResponseEvent = take('broker.response', `exec broker response ${nextBrokerId}`);
+        const brokerResponse = brokerResponseEvent.payload.response;
+        if (brokerResponse.id !== nextBrokerId || brokerResponse.requestSha256 !== brokerRequestEvent.payload.requestSha256 ||
+            canonicalJson(brokerResponse.result.argv) !== canonicalJson(brokerRequest.argv) ||
+            canonicalJson(brokerResponse.result.execSandbox) !== canonicalJson(configuration.execSandbox) ||
+            brokerResponse.result.processGroupTerminated !== true) {
+          throw new Error(`exec broker response ${nextBrokerId} is not the exact contained result for ${dispatchId}`);
+        }
+        const result = takeToolResult(turn, dispatchId, name);
+        const expectedOk = brokerResponse.result.exitCode === 0 && !brokerResponse.result.timedOut && !brokerResponse.result.overflow && brokerResponse.result.processGroupTerminated;
+        if (result.payload.ok !== expectedOk || canonicalJson(result.payload.result) !== canonicalJson(brokerResponse.result)) {
+          throw new Error(`exec tool.result ${dispatchId} differs from controller broker evidence`);
+        }
+        observedBrokerEvidence.push({
+          request: brokerRequest,
+          requestSha256: brokerRequestEvent.payload.requestSha256,
+          response: brokerResponse,
+          responseSha256: brokerResponseEvent.payload.responseSha256,
+        });
+        nextBrokerId += 1;
+      } else if (name === 'run_gate') {
+        const initialized = takeMcpExchange('initialize', {
+          protocolVersion: '2025-11-25', capabilities: {},
+          clientInfo: { name: 'bce-ollama-tool-client', version: '1.0.0' },
+        }, null);
+        if (!initialized || typeof initialized !== 'object' || typeof initialized.protocolVersion !== 'string') {
+          throw new Error(`MCP initialize result for ${dispatchId} is invalid`);
+        }
+        const listed = takeMcpExchange('tools/list', {}, null);
+        if (!listed || !Array.isArray(listed.tools)) throw new Error(`MCP tools/list result for ${dispatchId} is invalid`);
+        const matchingTools = listed.tools.filter((tool) => tool?.name === 'run_gate' && sha256Json(tool) === configuration.mcpRunGateToolSha256);
+        if (matchingTools.length !== 1 || listed.tools.filter((tool) => tool?.name === 'run_gate').length !== 1) {
+          throw new Error(`MCP tools/list does not contain exactly one frozen run_gate contract for ${dispatchId}`);
+        }
+        const gateResult = takeMcpExchange('tools/call', { name: 'run_gate', arguments: {} }, dispatchId);
+        const verdict = verdictFromGateResult(gateResult);
+        if (!gateResult || typeof gateResult !== 'object' || gateResult.isError !== false || verdict === null) {
+          throw new Error(`MCP run_gate result for ${dispatchId} is not an exact successful BCE verdict`);
+        }
+        const result = takeToolResult(turn, dispatchId, name);
+        if (result.payload.ok !== true || canonicalJson(result.payload.result) !== canonicalJson(gateResult)) {
+          throw new Error(`run_gate tool.result ${dispatchId} differs from the exact MCP response`);
+        }
+        creditedGateResults.push(gateResult);
+      } else {
+        const result = takeToolResult(turn, dispatchId, name);
+        if (result.payload.ok === false) {
+          exactKeys(result.payload.result, ['error'], `${name} failed result`);
+          if (typeof result.payload.result.error !== 'string') throw new Error(`${name} failed result is invalid`);
+        }
+      }
+    }
+
+    if (calls.length === 0) {
+      const completionEvent = take('session.completed', 'assistant-finished session completion');
+      completed = completionEvent.payload;
+      if (completed.reason !== 'assistant-finished') throw new Error('zero-tool-call final response did not complete as assistant-finished');
+      break;
+    }
+    if (turn === task.budget.maxTurns) {
+      const completionEvent = take('session.completed', 'turn-limit session completion');
+      completed = completionEvent.payload;
+      if (completed.reason !== 'turn-limit') throw new Error('maximum-turn response did not complete as turn-limit');
+      break;
+    }
+    turn += 1;
   }
-  const verdicts = creditedGateResults.map(verdictFromGateResult).filter(Boolean);
-  const firstFail = verdicts.indexOf('fail');
-  const completed = events.at(-1).type === 'session.completed' ? events.at(-1).payload : null;
-  if (completed && (completed.providerRequests !== requests.length || completed.malformedToolCalls !== rejections.length || completed.model !== cell.requestedModel ||
+
+  if (cursor !== events.length) throw new Error(`sealed Ollama client chain contains ${events.length - cursor} unconsumed event(s)`);
+  if (!completed && !clientErrored) throw new Error('sealed Ollama client chain has no valid terminal lifecycle');
+  if (canonicalJson(observedBrokerEvidence) !== canonicalJson(execBrokerEvidence)) {
+    throw new Error('sealed Ollama exec events do not bijectively match controller broker evidence');
+  }
+  if (!expectedMcp && (mcpRequests.length > 0 || mcpResponses.length > 0 || creditedGateResults.length > 0)) {
+    throw new Error('baseline client chain contains BCE MCP evidence');
+  }
+  if (completed && (completed.turns !== requests.length || completed.providerRequests !== requests.length || requests.length !== responses.length ||
+      completed.malformedToolCalls !== rejections.length || completed.model !== cell.requestedModel || completed.cachedTokens !== 0 ||
       completed.inputTokens !== responses.reduce((sum, event) => sum + (event.payload.promptEvalCount ?? 0), 0) ||
-      completed.outputTokens !== responses.reduce((sum, event) => sum + (event.payload.evalCount ?? 0), 0))) throw new Error('session completion telemetry does not rederive from provider events');
+      completed.outputTokens !== responses.reduce((sum, event) => sum + (event.payload.evalCount ?? 0), 0))) {
+    throw new Error('session completion telemetry does not rederive from provider events');
+  }
+  if (clientErrored && requests.length !== responses.length + 1) throw new Error('client.error does not follow one unmatched provider request');
+
+  const verdicts = creditedGateResults.map(verdictFromGateResult);
+  const firstFail = verdicts.indexOf('fail');
 
   return {
     events,

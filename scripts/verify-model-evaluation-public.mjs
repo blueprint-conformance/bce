@@ -156,6 +156,21 @@ for (let index = 0; index < records.length; index += 1) {
       (protocol.isolation.positiveCapabilityProofRequired === true && (!isolation.workspaceReadWriteAllowed || !isolation.stagedRuntimeVersionVerified || !isolation.stagedClientVersionVerified)) ||
       (task.referencePatch && isolation.referencePatchReadDenied !== true) ||
       (task.shortcutPatch && isolation.shortcutPatchReadDenied !== true) ||
+      (cell.client === 'bce-ollama-tool-client' && record.status !== 'infrastructure-error' &&
+        (isolation.clientToolchainWriteDenied !== true || isolation.stagedToolchainIntegrityAfterExecution !== true ||
+          isolation.execBroker?.driver !== cell.toolLoop.execSandbox.driver ||
+          isolation.execBroker?.driverSha256 !== cell.toolLoop.execSandbox.driverSha256 ||
+          !/^[0-9a-f]{64}$/.test(isolation.execBroker?.profileSha256 ?? '') ||
+          isolation.execBroker?.workspaceReadWriteAllowed !== true || isolation.execBroker?.protectedWriteDenied !== true ||
+          isolation.execBroker?.toolchainWriteDenied !== true || isolation.execBroker?.controllerCanaryReadDenied !== true ||
+          (task.referencePatch && isolation.execBroker?.referencePatchReadDenied !== true) ||
+          (task.shortcutPatch && isolation.execBroker?.shortcutPatchReadDenied !== true) ||
+          isolation.execBroker?.processForkDenied !== true || isolation.execBroker?.providerNetworkDenied !== true ||
+          isolation.execBroker?.externalNetworkDenied !== true || isolation.execBroker?.wrongLoopbackDenied !== true ||
+          isolation.stagedToolchainAfterExecution?.clientArtifactSha256 !== cell.clientArtifactSha256 ||
+          isolation.stagedToolchainAfterExecution?.runtimeArtifactSha256 !== protocol.isolation.runtimeArtifactSha256 ||
+          isolation.stagedToolchainAfterExecution?.systemPromptSha256 !== cell.toolLoop.systemPrompt.sha256 ||
+          isolation.stagedToolchainAfterExecution?.commonToolContractSha256 !== cell.toolLoop.commonToolContract.sha256)) ||
       (assignment.arm === 'bce-enabled' && protocol.isolation.positiveCapabilityProofRequired === true && (!isolation.mcpHandshakePassed || !Array.isArray(isolation.mcpToolNames) || isolation.mcpToolNames.length === 0 || (hardenedEvidenceRequired && (isolation.mcpDoneCheckAvailable !== true || !isolation.mcpToolNames.includes('run_gate'))))) ||
       (cell.localProvider && (isolation.authenticationAbsent !== true || isolation.providerReachable !== true || isolation.externalNetworkDenied !== true || isolation.nonProviderLoopbackDenied !== true ||
         !localProviderProofMatches(isolation.providerIdentityBefore, cell.localProvider) || !localProviderProofWellFormed(isolation.providerIdentityAfter, cell.localProvider) ||

@@ -201,7 +201,8 @@
         "ollamaToolClientEventVerifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "ollamaSystemPromptSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "ollamaCommonToolsSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
-        "ollamaClientEventSchemaSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
+        "ollamaClientEventSchemaSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "capabilityCanaryAttestationSchemaSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
       }
     },
     "stopping": {
@@ -297,7 +298,7 @@
     "toolLoop": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["eventProtocol", "clientImplementationSha256", "systemPrompt", "commonToolContract", "clientEventSchema", "modelOptions", "limits", "mcpRunGateToolSha256", "qualificationAttestationSha256"],
+      "required": ["eventProtocol", "clientImplementationSha256", "systemPrompt", "commonToolContract", "clientEventSchema", "modelOptions", "execSandbox", "limits", "mcpRunGateToolSha256", "qualificationAttestation"],
       "properties": {
         "eventProtocol": { "const": "bce-ollama-tool-client-events/v1" },
         "clientImplementationSha256": { "$ref": "#/definitions/sha256" },
@@ -315,6 +316,18 @@
             "keepAlive": { "type": "string", "minLength": 1 }
           }
         },
+        "execSandbox": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["driver", "driverSha256", "networkPolicy", "processPolicy", "filesystemPolicy"],
+          "properties": {
+            "driver": { "const": "/usr/bin/sandbox-exec" },
+            "driverSha256": { "$ref": "#/definitions/sha256" },
+            "networkPolicy": { "const": "deny-all" },
+            "processPolicy": { "const": "deny-fork" },
+            "filesystemPolicy": { "const": "controller-read-default-deny-workspace-write-protected-roots-denied" }
+          }
+        },
         "limits": {
           "type": "object",
           "additionalProperties": false,
@@ -328,10 +341,10 @@
           }
         },
         "mcpRunGateToolSha256": { "$ref": "#/definitions/sha256" },
-        "qualificationAttestationSha256": {
+        "qualificationAttestation": {
           "anyOf": [
             { "type": "null" },
-            { "$ref": "#/definitions/sha256" }
+            { "$ref": "#/definitions/sealedArtifact" }
           ]
         }
       }

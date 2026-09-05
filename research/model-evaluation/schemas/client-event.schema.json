@@ -15,7 +15,7 @@
       ]
     },
     "type": {
-      "enum": ["session.started", "provider.request", "provider.response", "tool.dispatch", "tool.result", "tool.rejected", "mcp.request", "mcp.response", "session.completed", "client.error"]
+      "enum": ["session.started", "provider.request", "provider.response", "tool.dispatch", "tool.result", "tool.rejected", "broker.request", "broker.response", "mcp.request", "mcp.response", "session.completed", "client.error"]
     },
     "payload": { "type": "object" },
     "eventSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
