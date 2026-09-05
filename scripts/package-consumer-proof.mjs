@@ -21,7 +21,8 @@ const tarball = join(scratch, packed[0].filename);
 npm(['init', '-y'], { cwd: scratch, stdio: 'ignore' });
 npm(['install', '--ignore-scripts', tarball], { cwd: scratch, stdio: 'inherit' });
 const installedRoot = join(scratch, 'node_modules', 'bce-engine');
-const output = execFileSync(process.execPath, [join(installedRoot, 'dist', 'cli.js'), 'demo'], { cwd: scratch, encoding: 'utf8' });
+const installedCli = join(installedRoot, 'dist', 'cli.js');
+const output = execFileSync(process.execPath, [installedCli, 'demo'], { cwd: scratch, encoding: 'utf8' });
 
 for (const marker of [
   'GREEN conformant: score 100, exit 0',
@@ -30,6 +31,21 @@ for (const marker of [
   'package fixtures discriminate GREEN from RED',
 ]) {
   if (!output.includes(marker)) throw new Error(`packed consumer proof missing marker: ${marker}`);
+}
+
+const recipeOutput = execFileSync(process.execPath, [installedCli, 'demo', '--recipe', 'all'], {
+  cwd: scratch,
+  encoding: 'utf8',
+});
+for (const marker of [
+  'recipe extension-contract',
+  'recipe tenant-route-guard',
+  'recipe governed-egress',
+  'recipe python-provider-import',
+  'recipe configuration-allowlist',
+  'bce demo: 5/5 packaged recipes discriminate GREEN from RED',
+]) {
+  if (!recipeOutput.includes(marker)) throw new Error(`packed recipe proof missing marker: ${marker}`);
 }
 
 const installed = JSON.parse(readFileSync(join(scratch, 'node_modules', 'bce-engine', 'package.json'), 'utf8'));
@@ -99,7 +115,6 @@ globalThis.fetch = async (_url, init) => {
   return new Response(JSON.stringify({ id: 'resp_installed', status: 'completed', model: 'fixture-model', output_text: JSON.stringify(plan) }));
 };
 `);
-const installedCli = join(installedRoot, 'dist', 'cli.js');
 execFileSync(process.execPath, [
   '--import', pathToFileURL(preload).href, installedCli, 'propose', '--repo', reviewRepo, '--intent-file', 'docs/intent.md',
   '--assistant', 'openai-responses', '--assistant-model', 'fixture-model', '--new',

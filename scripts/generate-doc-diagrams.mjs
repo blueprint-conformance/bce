@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generate the ten responsive diagrams used by the public documentation.
+ * Generate the eleven responsive diagrams used by the public documentation.
  *
  * The source of truth is the semantic content below. Each concept is rendered
  * twice: a wide reading-column composition and a narrow composition that
@@ -604,6 +604,76 @@ const diagrams = [
       <rect x="36" y="964" width="688" height="116" rx="4" class="node"/>
       <text x="62" y="1012" class="mono m-label steel">DOWNGRADE</text>
       <text x="62" y="1054" class="sans m-small">Requires visible reviewed rationale.</text>`,
+  },
+  {
+    slug: 'first-win-recipes',
+    title: 'Choose the architecture boundary that must hold',
+    desc: 'Five packaged BCE recipes branch from the boundary a maintainer needs to protect: extension registration, tenant route access, governed network egress, Python provider imports, or configuration widening. Each recipe executes one conforming tree and one planted drift tree through the shipped engine.',
+    desktop: `${wideHeader('Choose the boundary that must hold', '5 EXECUTABLE RECIPES')}
+      <rect x="44" y="170" width="220" height="118" rx="4" class="node cyan-node"/>
+      <text x="68" y="210" class="mono label cyan">YOUR REPOSITORY</text>
+      <text x="68" y="246" class="sans body">What cannot drift?</text>
+      <text x="68" y="270" class="sans small">Pick one real proof.</text>
+      <path d="M264 229H330V115H410" class="route"/>
+      <path d="M330 179H410" class="route"/>
+      <path d="M330 243H410" class="route"/>
+      <path d="M330 307H410" class="route"/>
+      <path d="M330 371H410" class="route"/>
+      <rect x="410" y="90" width="468" height="50" rx="4" class="node"/>
+      <text x="430" y="121" class="mono code">extension-contract</text>
+      <path d="M878 115H914" class="green-route"/>
+      <rect x="914" y="90" width="322" height="50" rx="4" class="node green-node"/>
+      <text x="934" y="121" class="mono label green">TS/JS · MATURE AST</text>
+      <rect x="410" y="154" width="468" height="50" rx="4" class="node"/>
+      <text x="430" y="185" class="mono code">tenant-route-guard</text>
+      <path d="M878 179H914" class="green-route"/>
+      <rect x="914" y="154" width="322" height="50" rx="4" class="node green-node"/>
+      <text x="934" y="185" class="mono label green">NEXT.JS · MATURE AST</text>
+      <rect x="410" y="218" width="468" height="50" rx="4" class="node"/>
+      <text x="430" y="249" class="mono code">governed-egress</text>
+      <path d="M878 243H914" class="green-route"/>
+      <rect x="914" y="218" width="322" height="50" rx="4" class="node green-node"/>
+      <text x="934" y="249" class="mono label green">TS/JS · MATURE AST</text>
+      <rect x="410" y="282" width="468" height="50" rx="4" class="node"/>
+      <text x="430" y="313" class="mono code">python-provider-import</text>
+      <path d="M878 307H914" class="steel-route"/>
+      <rect x="914" y="282" width="322" height="50" rx="4" class="node"/>
+      <text x="934" y="313" class="mono label steel">PYTHON · MVP</text>
+      <rect x="410" y="346" width="468" height="50" rx="4" class="node"/>
+      <text x="430" y="377" class="mono code">configuration-allowlist</text>
+      <path d="M878 371H914" class="steel-route"/>
+      <rect x="914" y="346" width="322" height="50" rx="4" class="node"/>
+      <text x="934" y="377" class="mono label steel">CONFIG · REAL-SOURCE PAIR</text>
+      <path d="M44 424H1236" class="rule"/>
+      <text x="44" y="459" class="sans body">Every route executes: conforming tree → GREEN · planted drift → named RED.</text>`,
+    mobile: `${narrowHeader('Choose what must hold', '5 EXECUTABLE RECIPES')}
+      <rect x="36" y="148" width="688" height="118" rx="4" class="node cyan-node"/>
+      <text x="62" y="194" class="mono m-label cyan">YOUR REPOSITORY</text>
+      <text x="62" y="238" class="sans m-body">What cannot drift?</text>
+      <path d="M380 266V288H70V958" fill="none" stroke="#61c9ef" stroke-width="2.7" vector-effect="non-scaling-stroke"/>
+      <path d="M70 354H110" class="route"/>
+      <rect x="110" y="304" width="614" height="100" rx="4" class="node green-node"/>
+      <text x="136" y="346" class="mono m-label green">TS/JS · MATURE AST</text>
+      <text x="136" y="382" class="mono m-code">extension-contract</text>
+      <path d="M70 480H110" class="route"/>
+      <rect x="110" y="430" width="614" height="100" rx="4" class="node green-node"/>
+      <text x="136" y="472" class="mono m-label green">NEXT.JS · MATURE AST</text>
+      <text x="136" y="508" class="mono m-code">tenant-route-guard</text>
+      <path d="M70 606H110" class="route"/>
+      <rect x="110" y="556" width="614" height="100" rx="4" class="node green-node"/>
+      <text x="136" y="598" class="mono m-label green">TS/JS · MATURE AST</text>
+      <text x="136" y="634" class="mono m-code">governed-egress</text>
+      <path d="M70 732H110" class="steel-route"/>
+      <rect x="110" y="682" width="614" height="100" rx="4" class="node"/>
+      <text x="136" y="724" class="mono m-label steel">PYTHON · MVP</text>
+      <text x="136" y="760" class="mono m-code">python-provider-import</text>
+      <path d="M70 858H110" class="steel-route"/>
+      <rect x="110" y="808" width="614" height="100" rx="4" class="node"/>
+      <text x="136" y="850" class="mono m-label steel">CONFIG · REAL-SOURCE PAIR</text>
+      <text x="136" y="886" class="mono m-code">configuration-allowlist</text>
+      <rect x="36" y="958" width="688" height="126" rx="4" class="node cyan-node"/>
+      <text x="62" y="1002" class="mono m-label cyan">EACH RECIPE EXECUTES</text>
+      <text x="62" y="1048" class="mono m-code"><tspan class="green">GREEN 100</tspan><tspan class="steel">  ·  </tspan><tspan class="red">NAMED RED</tspan></text>`,
   },
 ];
 

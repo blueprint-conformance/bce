@@ -197,6 +197,99 @@ function packageRoot(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 }
 
+interface DemoRecipe {
+  id: string;
+  title: string;
+  support: string;
+  protects: string;
+  blueprint: string;
+  greenTree: string;
+  redTree: string;
+  expectedConstraintId: string;
+}
+
+/**
+ * Packaged architecture recipes are executable product claims, not screenshots. Every entry
+ * names one checked-in blueprint, one conforming repository, one drifted repository, and the
+ * exact constraint the RED leg must fire. Keep this catalog small enough to scan and broad
+ * enough to show the real support envelope across every shipped extractor profile.
+ */
+const DEMO_RECIPES = [
+  {
+    id: 'extension-contract',
+    title: 'Govern a plugin or agent extension',
+    support: 'TypeScript/JavaScript · mature AST',
+    protects: 'required surface + governed registration + no direct provider SDK',
+    blueprint: 'fixtures/luna-chat-extension.blueprint.json',
+    greenTree: 'fixtures/extension-surface/conformant',
+    redTree: 'fixtures/extension-surface/drift-forbidden-import',
+    expectedConstraintId: 'no-direct-provider-sdk',
+  },
+  {
+    id: 'tenant-route-guard',
+    title: 'Require access control in every tenant route',
+    support: 'Next.js TypeScript · mature AST',
+    protects: 'every exported route handler calls the governed tenant guard',
+    blueprint: 'fixtures/route-guard.blueprint.json',
+    greenTree: 'fixtures/route-surface/conformant-guarded',
+    redTree: 'fixtures/route-surface/drift-missing-guard',
+    expectedConstraintId: 'd6-tenant-guard',
+  },
+  {
+    id: 'governed-egress',
+    title: 'Keep outbound calls on approved hosts',
+    support: 'TypeScript/JavaScript · mature AST',
+    protects: 'raw network calls cannot bypass the governed gateway',
+    blueprint: 'fixtures/egress-reader.blueprint.json',
+    greenTree: 'fixtures/egress-surface/conformant-houseidiom',
+    redTree: 'fixtures/egress-surface/drift-egress-new-url',
+    expectedConstraintId: 'reader-egress-governed-only',
+  },
+  {
+    id: 'python-provider-import',
+    title: 'Keep provider SDKs behind a Python gateway',
+    support: 'Python · MVP import graph',
+    protects: 'Python modules cannot import the provider SDK directly',
+    blueprint: 'fixtures/python-service.blueprint.json',
+    greenTree: 'fixtures/python-surface/conformant',
+    redTree: 'fixtures/python-surface/drift-forbidden-import',
+    expectedConstraintId: 'no-direct-provider-sdk',
+  },
+  {
+    id: 'configuration-allowlist',
+    title: 'Stop a governed manifest from silently widening',
+    support: 'JSON/Markdown · real-source pattern pair',
+    protects: 'configuration content cannot silently widen',
+    blueprint: 'examples/config-guard/blueprint/minimal-feature-manifest.blueprint.json',
+    greenTree: 'examples/config-guard/clean',
+    redTree: 'examples/config-guard/drift',
+    expectedConstraintId: 'no-feature-beyond-the-day-one-trio',
+  },
+] as const satisfies readonly DemoRecipe[];
+
+function runDemoRecipe(root: string, recipe: DemoRecipe): { clean: ComplianceReport; drift: ComplianceReport } {
+  const blueprint = readBlueprint(path.join(root, recipe.blueprint));
+  const cfg = resolveExtraction(blueprint.extraction, blueprint.constraints);
+  const run = (tree: string): ComplianceReport => {
+    const graph = makeExtractor('ast', cfg).extract(path.join(root, tree), `demo:${recipe.id}:${tree}`);
+    return evaluate(blueprint, graph, cfg.profile);
+  };
+  const clean = run(recipe.greenTree);
+  const drift = run(recipe.redTree);
+  const expectedDrift = drift.violations.some((violation) => violation.constraintId === recipe.expectedConstraintId);
+  if (clean.verdict !== 'pass' || clean.score !== 100 || drift.verdict !== 'fail' || !expectedDrift) {
+    die(`demo REFUSED: packaged recipe '${recipe.id}' did not match its GREEN/RED oracle`, 2);
+  }
+  return { clean, drift };
+}
+
+function printDemoRecipe(recipe: DemoRecipe, clean: ComplianceReport, drift: ComplianceReport): void {
+  process.stdout.write(`recipe ${recipe.id} [${recipe.support}] — ${recipe.title}\n`);
+  process.stdout.write(`GREEN conformant: score ${clean.score}, exit 0\n`);
+  process.stdout.write(`RED drift: score ${drift.score}, would exit 1, violation ${recipe.expectedConstraintId}\n`);
+  process.stdout.write(`bce demo: ${recipe.id} discriminates GREEN from RED\n`);
+}
+
 function filesUnder(root: string): string[] {
   const files: string[] = [];
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -753,7 +846,7 @@ async function main(): Promise<void> {
     return;
   }
   const allowedByCommand: Record<string, readonly string[]> = {
-    demo: [],
+    demo: ['list', 'recipe'],
     doctor: ['repo', 'blueprint-dir', 'out'],
     'verify-bundle': ['bundle'],
     upgrade: ['check', 'repo', 'blueprint-dir', 'candidate-engine', 'out'],
@@ -787,26 +880,46 @@ async function main(): Promise<void> {
   const noPin = args['no-pin'] === true || args['no-pin'] === 'true';
 
   if (cmd === 'demo') {
-    // Package-only first win: fixtures are part of the published tarball, unlike examples/.
-    // Execute one conformant and one seeded-drift tree through the same extractor/evaluator.
-    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-    const bp = readBlueprint(path.join(root, 'fixtures', 'luna-chat-extension.blueprint.json'));
-    const cfg = resolveExtraction(bp.extraction, bp.constraints);
-    const run = (name: string): ComplianceReport => {
-      const tree = path.join(root, 'fixtures', 'extension-surface', name);
-      const graph = makeExtractor('ast', cfg).extract(tree, `demo:${name}`);
-      return evaluate(bp, graph, cfg.profile);
-    };
-    const clean = run('conformant');
-    const drift = run('drift-forbidden-import');
-    const expectedDrift = drift.violations.some((v) => v.constraintId === 'no-direct-provider-sdk');
-    if (clean.verdict !== 'pass' || clean.score !== 100 || drift.verdict !== 'fail' || !expectedDrift) {
-      die(`demo REFUSED: packaged RED/GREEN discrimination did not match its expected oracle`, 2);
+    const root = packageRoot();
+    const recipeSelections = process.argv.slice(2).filter((arg) => arg === '--recipe').length;
+    if (args.list !== undefined && args.list !== true) die(`--list does not accept a value`, 1);
+    const listRequested = args.list === true;
+    const recipeArg = typeof args.recipe === 'string' ? args.recipe : undefined;
+    if (listRequested && recipeArg) die(`bce demo accepts --list or --recipe <id|all>, not both`, 1);
+    if (args.recipe === true) die(`--recipe requires an id (use 'bce demo --list')`, 1);
+    if (recipeSelections > 1) die(`bce demo accepts exactly one --recipe selection`, 1);
+
+    if (listRequested) {
+      process.stdout.write(`bce demo recipes — packaged architecture RED/GREEN proofs\n`);
+      for (const recipe of DEMO_RECIPES) {
+        process.stdout.write(`  ${recipe.id.padEnd(25)} ${recipe.support}\n`);
+        process.stdout.write(`    ${recipe.protects}\n`);
+      }
+      process.stdout.write(`run one: bce demo --recipe <id>\nrun all: bce demo --recipe all\n`);
+      return;
     }
+
+    if (recipeArg) {
+      const selected = recipeArg === 'all'
+        ? DEMO_RECIPES
+        : DEMO_RECIPES.filter((recipe) => recipe.id === recipeArg);
+      if (selected.length === 0) die(`unknown demo recipe '${recipeArg}' (use 'bce demo --list')`, 1);
+      for (const [index, recipe] of selected.entries()) {
+        if (index > 0) process.stdout.write(`\n`);
+        const { clean, drift } = runDemoRecipe(root, recipe);
+        printDemoRecipe(recipe, clean, drift);
+      }
+      if (recipeArg === 'all') {
+        process.stdout.write(`\nbce demo: ${selected.length}/${DEMO_RECIPES.length} packaged recipes discriminate GREEN from RED\n`);
+      }
+      return;
+    }
+
+    // Preserve the v0.2.0 zero-argument contract byte-for-byte for existing consumers.
+    const defaultRecipe = DEMO_RECIPES[0];
+    const { clean, drift } = runDemoRecipe(root, defaultRecipe);
     process.stdout.write(`GREEN conformant: score ${clean.score}, exit 0\n`);
-    process.stdout.write(
-      `RED drift-forbidden-import: score ${drift.score}, would exit 1, violation no-direct-provider-sdk\n`,
-    );
+    process.stdout.write(`RED drift-forbidden-import: score ${drift.score}, would exit 1, violation no-direct-provider-sdk\n`);
     process.stdout.write(`bce demo: package fixtures discriminate GREEN from RED\n`);
     return;
   }
@@ -2065,7 +2178,8 @@ async function main(): Promise<void> {
 
   process.stdout.write(
       `bce — Blueprint Conformance Engine\n\n` +
-      `  bce demo  Package-only offline RED/GREEN proof (no repository or configuration required)\n` +
+      `  bce demo [--list | --recipe <id|all>]  Package-only architecture RED/GREEN proofs\n` +
+      `       No repository, account, configuration, network, or API key required. Zero arguments preserves the original extension-contract proof.\n` +
       `  bce doctor [--repo <dir>] [--blueprint-dir <dir>] [--out <json>]  Read-only lifecycle readiness audit\n` +
       `  bce adopt --repo <dir> --blueprint <draft.json> --engine bce-engine@<exact>  Minimal advisory proposal; never ratifies\n` +
       `  bce onboard --repo <dir> --blueprint <draft.json> --engine <package|owner/repo@40-char-sha>\n` +
