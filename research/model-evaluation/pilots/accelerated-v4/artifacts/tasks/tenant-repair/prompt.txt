@@ -1,0 +1,2 @@
+Repair repairSecretRoute(tenantId, user) so an authorized request returns <tenantId>:<userId> and the route directly depends on the tenant-access module.
+Only edit src/routes/repair-secret.mjs.

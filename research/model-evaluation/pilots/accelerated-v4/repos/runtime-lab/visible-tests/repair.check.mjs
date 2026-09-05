@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { repairRoute } from '../src/browser/repair-route.mjs'; test('repairs route', () => assert.equal(repairRoute('/teams/odin'), 'odin'));

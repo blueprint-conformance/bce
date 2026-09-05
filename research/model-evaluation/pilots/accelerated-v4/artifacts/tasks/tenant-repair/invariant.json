@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "writtenPolicyText": "src/routes/repair-secret.mjs must directly import src/security/tenant-access.mjs.",
+  "constraint": {
+    "id": "tenant-repair-requires-governed-edge",
+    "type": "requiredDependency",
+    "severity": "critical",
+    "component": "typescriptModule",
+    "to": "module:src/security/tenant-access.mjs",
+    "scopePaths": [
+      "src/routes/repair-secret.mjs"
+    ]
+  }
+}

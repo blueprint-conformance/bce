@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { normalizedRoute } from '../src/browser/normalize-route.mjs'; test('normalizes route', () => assert.equal(normalizedRoute('/teams/./odin'), '/teams/odin'));

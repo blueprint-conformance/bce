@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { repairSecretRoute } from '../src/routes/repair-secret.mjs'; test('repairs tenant route', () => assert.equal(repairSecretRoute('acme', { id: 'u1', tenantId: 'acme' }), 'acme:u1'));

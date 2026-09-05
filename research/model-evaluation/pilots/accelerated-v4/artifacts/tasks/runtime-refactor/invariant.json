@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "writtenPolicyText": "src/browser/normalize-route.mjs must not directly import the path or node:path root specifier.",
+  "constraint": {
+    "id": "runtime-refactor-no-forbidden-edge",
+    "type": "forbiddenDependency",
+    "severity": "critical",
+    "from": "*",
+    "to": "builtin:path",
+    "scopePaths": [
+      "src/browser/normalize-route.mjs"
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+diff --git a/src/features/message-vector.mjs b/src/features/message-vector.mjs
+--- a/src/features/message-vector.mjs
++++ b/src/features/message-vector.mjs
+@@ -1,2 +1,2 @@
+-import { embedThroughGateway } from '../vendor/raw-provider.mjs';
+-export function messageVector(text) { return embedThroughGateway(text); }
++import { embedThroughGateway } from '../platform/provider-gateway.mjs';
++export function messageVector(text) { return embedThroughGateway(text); }

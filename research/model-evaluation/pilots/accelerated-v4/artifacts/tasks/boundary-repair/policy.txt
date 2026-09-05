@@ -1,0 +1,1 @@
+src/service.mjs must never import or reference provider-sdk directly.

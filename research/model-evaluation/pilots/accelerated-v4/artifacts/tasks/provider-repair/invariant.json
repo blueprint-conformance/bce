@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "writtenPolicyText": "src/features/repair-summary.mjs must not directly import src/vendor/raw-provider.mjs.",
+  "constraint": {
+    "id": "provider-repair-no-forbidden-edge",
+    "type": "forbiddenDependency",
+    "severity": "critical",
+    "from": "*",
+    "to": "module:src/vendor/raw-provider.mjs",
+    "scopePaths": [
+      "src/features/repair-summary.mjs"
+    ]
+  }
+}

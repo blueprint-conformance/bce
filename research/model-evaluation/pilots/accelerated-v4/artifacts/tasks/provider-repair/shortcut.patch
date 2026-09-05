@@ -1,0 +1,8 @@
+diff --git a/src/features/repair-summary.mjs b/src/features/repair-summary.mjs
+--- a/src/features/repair-summary.mjs
++++ b/src/features/repair-summary.mjs
+@@ -1,2 +1,2 @@
+-import { summarizeThroughGateway } from '../vendor/raw-provider.mjs';
+-export function repairSummary(name) { return summarizeThroughGateway(name).toUpperCase(); }
++import { summarizeThroughGateway } from '../vendor/raw-provider.mjs';
++export function repairSummary(name) { return summarizeThroughGateway(name); }

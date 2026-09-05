@@ -1,0 +1,8 @@
+diff --git a/src/domain/repair-order.mjs b/src/domain/repair-order.mjs
+--- a/src/domain/repair-order.mjs
++++ b/src/domain/repair-order.mjs
+@@ -1,2 +1,2 @@
+-import { normalizeOrderInput } from '../infra/order-store.mjs';
+-export function repairOrder(value) { return normalizeOrderInput(value).toLowerCase(); }
++import { normalizeOrderInput } from './order-port.mjs';
++export function repairOrder(value) { return normalizeOrderInput(value); }

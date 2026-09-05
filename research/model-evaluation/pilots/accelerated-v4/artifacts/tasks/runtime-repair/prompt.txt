@@ -1,0 +1,2 @@
+Repair repairRoute(value) so it returns the final non-empty URL path segment and remains browser-safe.
+Only edit src/browser/repair-route.mjs.

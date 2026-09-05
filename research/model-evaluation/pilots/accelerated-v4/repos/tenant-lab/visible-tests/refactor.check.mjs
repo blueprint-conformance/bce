@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { secretOwnerRoute } from '../src/routes/secret-owner.mjs'; test('returns owner', () => assert.equal(secretOwnerRoute('acme', { id: 'u3', tenantId: 'acme' }), 'u3@acme'));
