@@ -205,6 +205,20 @@ const PROBES = [
     },
   },
   {
+    name: 'trust page renders the data-bound Evidence Foundry v3 status',
+    plant: () => {},
+    exit: 0,
+    expect: '',
+    verify: (dir) => {
+      const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
+      return page.includes('Evidence Foundry v3 is design-draft and not execution-ready') &&
+        page.includes('<td class="align-right">240</td>') &&
+        page.includes('<code>no-efficacy-claim</code>')
+        ? null
+        : 'the built /trust page omitted or rewrote the v3 lifecycle, claim boundary, or primary denominator';
+    },
+  },
+  {
     name: 'trust page refuses a tampered v6 denominator',
     plant: (dir) => {
       const summaryPath = path.join(dir, V6_SUMMARY);
