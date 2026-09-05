@@ -58,10 +58,12 @@ try {
     }
   }
   if (failures.length > 0) throw new Error(failures.join('\n'));
+  const foundryReadiness = evidence.foundryStudy.ready ? 'ready' : 'not-ready';
+  const foundryClaims = evidence.foundryStudy.currentClaimClasses.join(',');
   process.stdout.write(
     `evidence-claim-policy: PASS (${evidence.matrix.claims.length} claims; v6 ${evidence.summary.verifiedTrials}/` +
-    `${evidence.summary.runDisposition.plannedTrials} retained; v3 ${evidence.foundryStudy.lifecycle}/not-ready/` +
-    `${evidence.foundryStudy.primaryStage.retainedAttempts}-attempt primary; product decision ineligible; result ${evidence.study.resultSha256})\n`,
+    `${evidence.summary.runDisposition.plannedTrials} retained; v3 ${evidence.foundryStudy.lifecycle}/${foundryReadiness}/` +
+    `${evidence.foundryStudy.primaryStage.retainedAttempts}-attempt primary; claims ${foundryClaims}; result ${evidence.study.resultSha256})\n`,
   );
 } catch (error) {
   process.stderr.write(`evidence-claim-policy: FAIL\n- ${String(error.message).replaceAll('\n', '\n- ')}\n`);
