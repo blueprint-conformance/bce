@@ -9,9 +9,8 @@ the snippet to drop into *another* repo so an agent treats bce as its done-check
 **bce, the blueprint conformance engine** — a fail-closed architecture-conformance gate. You author an
 `EngineeringBlueprint` (a durable architectural contract for a repository), and bce measures the code
 against it: a deterministic conformance score, a fail-closed required-check gate, and hash-chained
-evidence anyone can re-derive offline. Extraction is TypeScript/JavaScript today; the blueprint graph
-model is language-neutral and the extractor seam is documented (Python is the named next community
-target).
+evidence anyone can re-derive offline. TypeScript/JavaScript AST extraction is the mature path;
+Python import extraction is an explicit MVP behind the same language-neutral provider seam.
 
 ## The rules that never bend
 
@@ -32,7 +31,7 @@ target).
 | Path | What it is |
 |---|---|
 | `src/` | the engine (extraction → evaluate → score → verdict); `src/extractors.ts` is the only ts-morph importer |
-| `src/cli.ts` | the `bce` CLI: `validate` `init` `author` `scan` `run` `teeth` `gate` `baseline` `graduate` `portfolio` |
+| `src/cli.ts` | the `bce` CLI: lifecycle, proposal/review, extraction, gate, evidence, and portfolio commands; `bce --help` is authoritative |
 | `src/mcp-server.ts` | the `bce-mcp` THIN stdio server (logic-free shell over the engine API) |
 | `spec/SPEC.md` | the normative specification (artifact model, taxonomy, scoring, exit codes §13, report contract §11) |
 | `spec/schemas/` | published JSON Schemas — generated, never hand-edited |

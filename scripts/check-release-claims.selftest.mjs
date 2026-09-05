@@ -16,6 +16,9 @@ const paths = [
   'npm-shrinkwrap.json', 'release-state.json', 'docs/onboarding.md', 'docs/launch/skill-listing-drafts.md',
   'docs/launch/openai-plugin-submission.md', 'docs/launch/public-flip-checklist.md',
   'docs/launch/show-hn-draft.md',
+  'docs/quickstart.md', 'docs/first-win.md', 'docs/agent-loop.md',
+  'examples/quickstart/README.md', 'examples/first-win/README.md', 'skills/README.md',
+  'skills/bce/references/lifecycle.md',
   'docs/governance-enforcement.md',
   releaseRecord, 'integrations/gitlab-ci.yml', 'research/claim-evidence-matrix.json', 'src/cli.ts',
 ];
@@ -103,7 +106,22 @@ reject('dormant release marker', () => {
   writeFileSync(join(fixture, 'integrations/gitlab-ci.yml'), `${originals.get('integrations/gitlab-ci.yml')}\n# VERSION_NOT_PUBLISHED\n`);
 }, 'pre-release marker');
 
+reject('public quickstart installs a non-release', () => {
+  const state = JSON.parse(originals.get('release-state.json'));
+  writeFileSync(
+    join(fixture, 'docs/quickstart.md'),
+    originals.get('docs/quickstart.md').replace(
+      `npm install --save-dev --save-exact bce-engine@${state.currentVersion}`,
+      'npm install --save-dev --save-exact bce-engine@9.9.9',
+    ),
+  );
+}, 'released install target');
+
+reject('README hard-codes a volatile test count', () => {
+  writeFileSync(join(fixture, 'README.md'), `${originals.get('README.md')}\nThe repository has 999 tests.\n`);
+}, 'hard-codes a test count');
+
 restore();
 const accepted = execFileSync(process.execPath, [checker, '--root', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`clean claim set did not pass:\n${accepted}`);
-process.stdout.write('release-claim-policy self-test: PASS (candidate drift/non-monotonicity, premature Lane-A pin, integrity/source/context drift, false immutability/independence, erased recovery/firewall claims, and dormant marker rejected)\n');
+process.stdout.write('release-claim-policy self-test: PASS (candidate drift/non-monotonicity, premature Lane-A pin, unreleased install target, integrity/source/context drift, false immutability/independence, erased recovery/firewall claims, and dormant marker rejected)\n');

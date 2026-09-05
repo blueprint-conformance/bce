@@ -42,7 +42,7 @@ to fit a directory's field.
 Distinct from the two surfaces already shipped, and the listing text should say
 so rather than blur them: the [house-rules snippets](../../integrations/README.md)
 are the always-loaded done-check for a repository that already has a blueprint,
-and the `bce-mcp` server exposes the engine as six logic-free, read-only tools. The skill
+and the `bce-mcp` server exposes the engine as ten logic-free, read-only tools. The skill
 is the one that gets a contract to exist in the first place.
 
 ## Pre-submission gates (all must hold)

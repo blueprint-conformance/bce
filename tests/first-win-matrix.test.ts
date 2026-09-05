@@ -478,6 +478,9 @@ describe('first-win matrix — four shapes, each a real author → RED → fix �
    * check on an unrelated PR, which is how a gate stops being believed. The number on the page
    * is therefore chosen to clear the measured CI worst case with room for a loaded runner, and
    * the SPECIFIC measured range is published next to it, where it does the honest bragging.
+   * A 2026-09-05 Node 22 local full-suite run measured 15.024s for the TypeScript shape while
+   * the synchronous extractor-teeth proof shared the machine. The front-page budget is therefore
+   * 30s: still four times tighter than the 120s hard ceiling, with measured loaded-runner margin.
    * Tightening the claim later is fine; tightening it to within noise of the measurement is
    * how this check becomes the flaky one everybody learns to ignore.
    */

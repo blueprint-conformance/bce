@@ -34,9 +34,9 @@ functional engine. Never use `latest` or a range for a merge gate.
 
 ## 2. Start with an AI-first reviewed proposal
 
-For releases that include `bce propose`, the preferred first repository action is to state intent and
-let the registered assistant draft inside quarantine. BCE then validates, scopes, grades, proves
-teeth, and compares the exact candidate before a human sees it:
+The preferred first repository action is to state intent and let the registered assistant draft
+inside quarantine. BCE then validates, scopes, grades, proves teeth, and compares the exact
+candidate before a human sees it:
 
 ```bash
 export OPENAI_API_KEY='<credential supplied outside BCE>'

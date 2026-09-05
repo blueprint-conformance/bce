@@ -5,9 +5,9 @@
 > decides whether the exact packet may enter the policy ceremony. The resulting blueprint is a durable
 > architectural contract for a repository; bce measures the code against it and produces a
 > deterministic conformance score, a fail-closed required-check gate for merges, and hash-chained
-> evidence anyone can re-derive offline. Extraction is TypeScript/JavaScript today; the blueprint graph
-> model is language-neutral, the extractor seam is documented, and Python is the named next community
-> target. The current source and registry release are v0.2.0 at exact npm integrity
+> evidence anyone can re-derive offline. TypeScript/JavaScript AST extraction is the mature path;
+> Python import extraction is an explicit MVP behind the same language-neutral provider seam. The
+> current source and registry release are v0.2.0 at exact npm integrity
 > `sha512-hFKOHO+EYgQbp+jaOW7/WTBGEqjHDEEKfB+O1ALo8KLnmIAr708mQWeXxRUMi3YAmWxz1RhfiAY1Rdpk81NNrA==`;
 > verify registry metadata before installation. Compatibility remains pre-1.0.
 

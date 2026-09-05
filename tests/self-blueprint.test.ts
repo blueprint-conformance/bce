@@ -36,12 +36,14 @@ const BLUEPRINT_PATH = path.join(ROOT, '.blueprints', 'engine.blueprint.json');
 const EXTRACTOR_TEETH_MANIFEST = JSON.parse(
   fs.readFileSync(path.join(ROOT, '.blueprints', 'engine.teeth-mutations.json'), 'utf8'),
 ) as { cases: unknown[] };
-// Each case materializes a fresh real-source mutation and runs the AST extractor.
-// Supported runtimes differ materially here, so scale this one proof's finite ceiling
-// with its declared corpus instead of weakening the global timeout or the assertions.
+// Each case materializes a fresh real-source mutation and runs the AST extractor. This
+// synchronous proof completed in 663-715s on loaded Node 20/22 local runs on 2026-09-05;
+// Vitest can only observe its timeout after that synchronous work returns. Scale this one
+// finite ceiling with the declared corpus and keep 50% measured margin without weakening
+// the global timeout, mutation coverage, or assertions.
 const EXTRACTOR_TEETH_TIMEOUT_MS = Math.min(
-  300_000,
-  Math.max(60_000, EXTRACTOR_TEETH_MANIFEST.cases.length * 6_000),
+  1_200_000,
+  Math.max(120_000, EXTRACTOR_TEETH_MANIFEST.cases.length * 24_000),
 );
 
 function loadBlueprint(): EngineeringBlueprint {

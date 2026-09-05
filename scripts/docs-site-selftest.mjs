@@ -168,6 +168,34 @@ const PROBES = [
     },
   },
   {
+    name: 'footer derives the public version from release state',
+    plant: (dir) => {
+      const f = path.join(dir, 'release-state.json');
+      const state = JSON.parse(fs.readFileSync(f, 'utf8'));
+      state.currentVersion = '0.1.4';
+      fs.writeFileSync(f, `${JSON.stringify(state, null, 2)}\n`);
+    },
+    exit: 0,
+    expect: '',
+    verify: (dir) => {
+      const page = fs.readFileSync(path.join(dir, '_site/index.html'), 'utf8');
+      return page.includes('registry release: bce-engine@0.1.4')
+        ? null
+        : 'the staged release state says 0.1.4 but the built footer did not move with it';
+    },
+  },
+  {
+    name: 'footer refuses malformed release state',
+    plant: (dir) => {
+      const f = path.join(dir, 'release-state.json');
+      const state = JSON.parse(fs.readFileSync(f, 'utf8'));
+      state.currentVersion = 'latest';
+      fs.writeFileSync(f, `${JSON.stringify(state)}\n`);
+    },
+    exit: 2,
+    expect: 'must carry exact current and optional candidate versions',
+  },
+  {
     name: 'trust page refuses an unreadable ledger headline',
     plant: (dir) => {
       const f = path.join(dir, 'ATTESTATIONS.md');

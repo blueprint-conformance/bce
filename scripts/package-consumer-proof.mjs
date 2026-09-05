@@ -33,7 +33,12 @@ for (const marker of [
 }
 
 const installed = JSON.parse(readFileSync(join(scratch, 'node_modules', 'bce-engine', 'package.json'), 'utf8'));
+const releaseState = JSON.parse(readFileSync(join(scratch, 'node_modules', 'bce-engine', 'release-state.json'), 'utf8'));
 if (installed.engines?.node !== '>=22') throw new Error('packed package does not enforce Node >=22');
+const sourceVersion = releaseState.candidateVersion ?? releaseState.currentVersion;
+if (sourceVersion !== installed.version) {
+  throw new Error(`packed version ${installed.version} differs from release-state source version ${sourceVersion}`);
+}
 const publicApi = await import(pathToFileURL(join(installedRoot, 'dist', 'index.js')).href);
 for (const symbol of [
   'buildProposalContext', 'compileDraftPlan', 'inspectBlueprint', 'explainConstraint',
@@ -132,10 +137,11 @@ for (const rel of [
   readFileSync(join(installedRoot, rel));
 }
 
-// Release-facing instructions are part of the package interface. Every exact
-// engine/Action/provenance pin they teach must describe THIS tarball, never the
-// previously published patch. Historical Lane-A ceremony docs are deliberately
-// outside this set because they describe the last admitted engine.
+// Release-facing instructions are part of the package interface. A staged
+// candidate may carry its own version plus the predecessor registry release;
+// a stable source tree carries one version. Any third version is stale guidance.
+// Historical Lane-A ceremony docs are outside this set because they describe
+// earlier admitted engines.
 for (const rel of [
   'README.md',
   'docs/agent-loop.md',
@@ -156,6 +162,7 @@ for (const rel of [
       `packed release guidance lacks an exact registry-integrity preflight in ${rel}: ${exactPackage}`,
     );
   }
+  const allowedVersions = new Set([installed.version, releaseState.currentVersion]);
   for (const pattern of [
     /bce-engine@(\d+\.\d+\.\d+)/g,
     /bce-engine\/v\/(\d+\.\d+\.\d+)/g,
@@ -163,9 +170,9 @@ for (const rel of [
     /Status: v(\d+\.\d+\.\d+) released/g,
   ]) {
     for (const match of text.matchAll(pattern)) {
-      if (match[1] !== installed.version) {
+      if (!allowedVersions.has(match[1])) {
         throw new Error(
-          `packed release guidance is stale in ${rel}: ${match[0]} describes ${match[1]}, tarball is ${installed.version}`,
+          `packed release guidance is stale in ${rel}: ${match[0]} is neither source ${installed.version} nor registry release ${releaseState.currentVersion}`,
         );
       }
     }

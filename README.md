@@ -33,7 +33,7 @@ npx --no-install bce demo
 ```
 
 The packaged demo runs one conforming tree and one drifted tree. To reach the same first win on
-your code in under 10 seconds, [choose your repository shape](docs/first-win.md).
+your code in under 30 seconds, [choose your repository shape](docs/first-win.md).
 
 ## The architecture package
 
@@ -121,7 +121,8 @@ The mode is committed policy—not a skip flag—and moving backward requires a 
 ## Evidence and limits
 
 **Mechanism evidence is strong; causal product benefit is not established.** This repository has
-857 tests, replayed RED/GREEN fixtures, 45/45 killed self-blueprint mutants, deterministic reports,
+a generated suite whose current count is shown above, replayed RED/GREEN fixtures, 45/45 killed
+self-blueprint mutants, deterministic reports,
 and cross-platform CI. Those are first-party proofs on author-controlled infrastructure;
 [independent witnesses remain 0](ATTESTATIONS.md).
 

@@ -6,6 +6,11 @@
 # scan surface without embedding a banned literal.
 set -euo pipefail
 
+MODE="scan"
+if [ "${1:-}" = "--pattern-count" ]; then
+  MODE="pattern-count"
+  shift
+fi
 SCAN_ROOT="${1:-.}"
 if [ ! -d "$SCAN_ROOT" ]; then
   echo "leakage-gate: FAIL — scan root is not a directory: ${SCAN_ROOT}" >&2
@@ -78,6 +83,25 @@ fi
     "${CRED_PATTERNS[@]}"
   )
 
+  if [ "$MODE" = "pattern-count" ]; then
+    printf '%s\n' "${#PATTERNS[@]}"
+    exit 0
+  fi
+
+  # Escape the one regex metacharacter in the exact public contact before sed.
+  # Without this, the dot could match any byte and silently widen the exception.
+  PUBLIC_SECURITY_CONTACT_PATTERN="${PUBLIC_SECURITY_CONTACT//./\\.}"
+
+  # One grep per file, not one grep per pattern. The previous nested loop read
+  # every repository byte 33 times and measured beyond six minutes on this tree.
+  # Wrapping every class preserves alternation boundaries and the independent
+  # self-test still plants one probe per original policy class.
+  COMBINED_PATTERN=""
+  for p in "${PATTERNS[@]}"; do
+    [ -n "$COMBINED_PATTERN" ] && COMBINED_PATTERN="${COMBINED_PATTERN}|"
+    COMBINED_PATTERN="${COMBINED_PATTERN}(${p})"
+  done
+
   # These files may contain only the exact public steward attribution. Every
   # other byte in them remains subject to every pattern.
   STEWARD_ALLOWLIST=("NOTICE" "GOVERNANCE.md" "TRADEMARKS.md")
@@ -120,24 +144,22 @@ fi
       if [ "$rel" = "$a" ]; then allow=1; fi
     done
 
-    for p in "${PATTERNS[@]}"; do
-      if [ "$allow" -eq 1 ] && [ "$p" = "$NAME_PAT" ]; then
-        hits="$(LC_ALL=C tr -d '\000' < "$f" | sed "s/${STEWARD}//g" | { grep -a -i -n -E -- "$p" || true; })"
-      elif [ "$rel" = "SECURITY.md" ] && [ "$p" = "$NAME_PAT" ]; then
-        hits="$(LC_ALL=C tr -d '\000' < "$f" | sed "s/${PUBLIC_SECURITY_CONTACT}//g" | { grep -a -i -n -E -- "$p" || true; })"
-      else
-        hits="$(LC_ALL=C tr -d '\000' < "$f" | { grep -a -i -n -E -- "$p" || true; })"
-      fi
-      if [ -n "$hits" ]; then
-        echo "LEAKAGE HIT in ${rel} (pattern: ${p}):"
-        echo "$hits" | head -20
-        fail=1
-      fi
-    done
+    if [ "$allow" -eq 1 ]; then
+      hits="$(LC_ALL=C tr -d '\000' < "$f" | sed "s/${STEWARD}//g" | { grep -a -i -n -E -- "$COMBINED_PATTERN" || true; })"
+    elif [ "$rel" = "SECURITY.md" ]; then
+      hits="$(LC_ALL=C tr -d '\000' < "$f" | sed "s/${PUBLIC_SECURITY_CONTACT_PATTERN}//g" | { grep -a -i -n -E -- "$COMBINED_PATTERN" || true; })"
+    else
+      hits="$(LC_ALL=C tr -d '\000' < "$f" | { grep -a -i -n -E -- "$COMBINED_PATTERN" || true; })"
+    fi
+    if [ -n "$hits" ]; then
+      echo "LEAKAGE HIT in ${rel}:"
+      echo "$hits" | head -20
+      fail=1
+    fi
   # node_modules is lockfile-restored third-party code and is outside both the
   # repository and npm package surfaces. Excluding it keeps checkout and release
   # scans identical; all first-party and shipped paths remain covered.
-  done < <(find . -type f ! -path './.git/*' ! -path './node_modules/*' -print0)
+  done < <(find . -type f ! -path './.git' ! -path './.git/*' ! -path './node_modules/*' -print0)
 
   if [ "$fail" -ne 0 ]; then
     echo "leakage-gate: FAIL — banned strings found (see hits above)."
