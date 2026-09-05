@@ -4,7 +4,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import {
   appendFileSync, chmodSync, closeSync, copyFileSync, cpSync, existsSync, lstatSync,
   mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync,
-  rmSync, statSync, symlinkSync, unlinkSync, writeFileSync,
+  rmSync, statSync, unlinkSync, writeFileSync,
 } from 'node:fs';
 import { homedir, platform, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -233,7 +233,7 @@ function materializeTreatment(workspace, task, cell, preparedInventory, runtimeE
   writeFileSync(join(workspace, '.bce-mode.json'), '{\n  "mode": "enforced"\n}\n');
   const skillRoot = cell.client === 'claude-code' ? join(workspace, '.claude', 'skills') : join(workspace, '.agents', 'skills');
   for (const skill of ['bce', 'skill-tuning']) copyTree(join(engineRoot, 'skills', skill), join(skillRoot, skill));
-  const context = '# BCE done-check\n\nUse the project BCE skill and MCP server when useful. The final visible pipeline includes the BCE gate. Fix code; do not edit policy, blueprint, BCE configuration, tests, CI, or evaluation surfaces.';
+  const context = '# BCE done-check\n\nBCE is the required done-check. Before finishing, use the project BCE skill and call the BCE MCP tool `run_gate` with `{}`. If the gate is red, fix code only—never policy, blueprint, BCE configuration, tests, CI, dependencies, or evaluation files—and rerun until `gateFailed` is false. A green functional test alone is not done.';
   if (cell.client === 'claude-code') {
     appendContext(join(workspace, 'CLAUDE.md'), context);
     writeFileSync(join(workspace, '.mcp.json'), `${JSON.stringify({ mcpServers: { bce: { command: runtimeExecutable, args: [mcp] } } }, null, 2)}\n`);
@@ -274,11 +274,16 @@ function freshClientEnvironment(stateRoot, cell, runtimeExecutable) {
     const codexHome = join(stateRoot, 'codex');
     mkdirSync(codexHome, { recursive: true, mode: 0o700 });
     env.CODEX_HOME = codexHome;
-    const sourceAuth = join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'auth.json');
-    if (!existsSync(sourceAuth)) throw new Error('Codex auth-only mount unavailable');
-    authPath = join(codexHome, 'auth.json');
-    copyFileSync(sourceAuth, authPath);
-    chmodSync(authPath, 0o600);
+    if (cell.localProvider?.authentication === 'none') {
+      env.OLLAMA_HOST = cell.localProvider.endpoint;
+      if (existsSync(join(codexHome, 'auth.json'))) throw new Error('local-provider Codex state unexpectedly contains authentication');
+    } else {
+      const sourceAuth = join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'auth.json');
+      if (!existsSync(sourceAuth)) throw new Error('Codex auth-only mount unavailable');
+      authPath = join(codexHome, 'auth.json');
+      copyFileSync(sourceAuth, authPath);
+      chmodSync(authPath, 0o600);
+    }
   }
   if (cell.client === 'claude-code') env.CLAUDE_CONFIG_DIR = join(stateRoot, 'claude');
   return { env, authPath };
@@ -288,13 +293,16 @@ function adapterCommand(cell, workspace, prompt, clientEnv, task) {
   if (cell.client === 'fixture-agent' && seal.attestation?.kind === 'synthetic-self-test') {
     return { file: cell.executable, args: ['--model', cell.requestedModel, prompt], env: clientEnv };
   }
-  if (cell.client === 'codex') return {
+  if (cell.client === 'codex') {
+    const providerArgs = cell.localProvider ? ['--oss', '--local-provider', cell.localProvider.kind] : [];
+    return {
     file: cell.executable,
-    args: ['-a', 'never', 'exec', '--ephemeral', '--ignore-user-config', '--json', '--sandbox',
+    args: ['-a', 'never', 'exec', ...providerArgs, '--ephemeral', '--ignore-user-config', '--json', '--sandbox',
       protocol.isolation.clientSandboxMode === 'outer-controller-profile-only' ? 'danger-full-access' : 'workspace-write',
       '--model', cell.requestedModel, '-c', `model_reasoning_effort=${JSON.stringify(cell.reasoningEffort)}`, '-c', 'shell_environment_policy.inherit="none"', '-C', workspace, prompt],
     env: clientEnv,
-  };
+    };
+  }
   if (cell.client === 'claude-code') {
     const args = ['-p', '--output-format', 'json', '--no-session-persistence', '--permission-mode', 'acceptEdits', '--setting-sources', 'project', '--model', cell.requestedModel, '--effort', cell.reasoningEffort];
     if (task.budget.maxCostUsd !== null) args.push('--max-budget-usd', String(task.budget.maxCostUsd));
@@ -322,7 +330,7 @@ function sandboxLiteral(value) {
   return JSON.stringify(resolve(canonicalBase, relative(existing, target)));
 }
 
-function sandboxProfile(workspace, clientState, controllerRoot, protectedPatterns) {
+function sandboxProfile(workspace, clientState, controllerRoot, protectedPatterns, cell) {
   if (platform() !== 'darwin' || !existsSync('/usr/bin/sandbox-exec')) throw new Error('outer client isolation unavailable: this runner currently requires macOS sandbox-exec');
   const systemReadRoots = ['/System', '/usr', '/bin', '/sbin', '/Library', '/private/etc', '/private/var/db', '/private/var/run', '/dev']
     .filter((value) => existsSync(value));
@@ -346,10 +354,13 @@ function sandboxProfile(workspace, clientState, controllerRoot, protectedPattern
       ancestorReads.add(cursor);
     }
   }
+  const networkRules = cell.localProvider
+    ? [`(allow network-outbound (remote ip ${JSON.stringify(`localhost:${new URL(cell.localProvider.endpoint).port}`)}))`]
+    : ['(allow network*)', '(allow system-socket)'];
   return [
     '(version 1)', '(deny default)',
     '(allow process-fork)', '(allow signal (target self))', '(allow process-info* (target self))',
-    '(allow sysctl*)', '(allow mach*)', '(allow ipc*)', '(allow network*)', '(allow system-socket)',
+    '(allow sysctl*)', '(allow mach*)', '(allow ipc*)', ...networkRules,
     '(allow file-read-metadata)',
     `(allow file-read-data ${[...ancestorReads].sort().map((value) => `(literal ${JSON.stringify(value)})`).join(' ')})`,
     ...allowReads, ...allowExec,
@@ -393,7 +404,35 @@ function probeMcpHandshake(profile, workspace, command, env) {
   };
 }
 
-function proveIsolation(profile, controllerRoot, workspace, cell, toolchain, clientEnv, authPath, treatment) {
+function probeDeniedConnection(profile, workspace, runtimeExecutable, env, host, port) {
+  const probe = "const net=require('net');const [host,port]=process.argv.slice(1);let done=false;const finish=c=>{if(!done){done=true;process.exit(c)}};const s=net.connect(Number(port),host);s.once('connect',()=>finish(1));s.once('error',e=>{process.stderr.write(String(e.code??e.message));finish(['EPERM','EACCES'].includes(e.code)?0:2)});setTimeout(()=>finish(3),3000)";
+  const result = run('/usr/bin/sandbox-exec', ['-p', profile, runtimeExecutable, '-e', probe, host, String(port)], workspace, { env, timeout: 5000 });
+  return { denied: result.status === 0, exitCode: result.status, signal: result.signal, stderr: redact(result.stderr) };
+}
+
+function probeLocalProviderIdentity(profile, workspace, cell, runtimeExecutable, env, { requireActiveModel = false } = {}) {
+  if (!cell.localProvider) return null;
+  const script = "const http=require('http');const base=new URL(process.argv[1]);const get=p=>new Promise((ok,no)=>{const r=http.get(new URL(p,base),x=>{let b='';x.setEncoding('utf8');x.on('data',c=>b+=c);x.on('end',()=>{if(x.statusCode!==200)return no(new Error('HTTP '+x.statusCode));try{ok(JSON.parse(b))}catch(e){no(e)}})});r.on('error',no)});(async()=>{const active=process.argv[3]==='1';const [v,t,p]=await Promise.all([get('/api/version'),get('/api/tags'),active?get('/api/ps'):Promise.resolve(null)]);const m=t.models?.find(x=>x.name===process.argv[2]||x.model===process.argv[2]);if(!m)throw new Error('sealed model missing');const loaded=p?.models?.find(x=>x.name===process.argv[2]||x.model===process.argv[2])??null;process.stdout.write(JSON.stringify({identity:{serverVersion:v.version,modelName:m.name??m.model,modelDigest:m.digest,modelSizeBytes:m.size},activeModel:loaded?{modelName:loaded.name??loaded.model,modelDigest:loaded.digest,modelSizeBytes:loaded.size}:null}))})().catch(e=>{process.stderr.write(String(e.message));process.exit(2)})";
+  const result = run('/usr/bin/sandbox-exec', ['-p', profile, runtimeExecutable, '-e', script, cell.localProvider.endpoint, cell.localProvider.modelName, requireActiveModel ? '1' : '0'], workspace, { env, timeout: 10000 });
+  const document = jsonDocuments(result.stdout).at(-1) ?? null;
+  const expected = {
+    serverVersion: cell.localProvider.serverVersion,
+    modelName: cell.localProvider.modelName,
+    modelDigest: cell.localProvider.modelDigest,
+    modelSizeBytes: cell.localProvider.modelSizeBytes,
+  };
+  const activeExpected = { modelName: expected.modelName, modelDigest: expected.modelDigest, modelSizeBytes: expected.modelSizeBytes };
+  const matched = result.status === 0 && canonicalJson(document?.identity) === canonicalJson(expected) && (!requireActiveModel || canonicalJson(document?.activeModel) === canonicalJson(activeExpected));
+  return {
+    matched, endpoint: cell.localProvider.endpoint, response: document?.identity ?? null,
+    responseSha256: document?.identity ? sha256Json(document.identity) : null,
+    activeModelRequired: requireActiveModel, activeModel: document?.activeModel ?? null,
+    activeModelSha256: document?.activeModel ? sha256Json(document.activeModel) : null,
+    exitCode: result.status, signal: result.signal, stderr: redact(result.stderr),
+  };
+}
+
+function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchain, clientEnv, authPath, treatment) {
   const canary = join(controllerRoot, 'hidden-oracle.canary');
   const hostWriteProbe = join(controllerRoot, 'host-write-probe.tmp');
   writeFileSync(canary, 'controller-only\n');
@@ -404,6 +443,10 @@ function proveIsolation(profile, controllerRoot, workspace, cell, toolchain, cli
   const writeProbe = "const fs=require('fs');try{fs.writeFileSync(process.argv[1],'x');process.exit(1)}catch(error){process.stderr.write(String(error.code ?? error.message));process.exit(0)}";
   const workspaceProbeScript = "const fs=require('fs');fs.readFileSync('package.json');fs.writeFileSync(process.argv[1],'ok');fs.unlinkSync(process.argv[1]);process.stdout.write('ok')";
   const readResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', readProbe, canary], workspace, { env: clientEnv });
+  const referencePatchPath = task.referencePatch ? resolveInside(bundleDir, task.referencePatch.path, `${task.id} reference patch`) : null;
+  const referenceReadResult = referencePatchPath
+    ? run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', readProbe, referencePatchPath], workspace, { env: clientEnv })
+    : null;
   const hostWriteResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeProbe, hostWriteProbe], workspace, { env: clientEnv });
   const writeResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeProbe, protectedProbe], workspace, { env: clientEnv });
   const workspaceResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', workspaceProbeScript, workspaceProbe], workspace, { env: clientEnv });
@@ -411,6 +454,10 @@ function proveIsolation(profile, controllerRoot, workspace, cell, toolchain, cli
   const clientVersion = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.clientExecutable, '--version'], workspace, { env: clientEnv });
   const authResult = authPath ? run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', "require('fs').accessSync(process.argv[1]);process.stdout.write('ok')", authPath], workspace, { env: clientEnv }) : null;
   const mcp = probeMcpHandshake(profile, workspace, generatedMcpCommand(workspace, cell, toolchain.runtimeExecutable, treatment.mcp), clientEnv);
+  const provider = probeLocalProviderIdentity(profile, workspace, cell, toolchain.runtimeExecutable, clientEnv);
+  const providerPort = cell.localProvider ? Number(new URL(cell.localProvider.endpoint).port) : null;
+  const external = cell.localProvider ? probeDeniedConnection(profile, workspace, toolchain.runtimeExecutable, clientEnv, '192.0.2.1', 9) : null;
+  const nonProviderLoopback = cell.localProvider ? probeDeniedConnection(profile, workspace, toolchain.runtimeExecutable, clientEnv, '127.0.0.1', providerPort === 1 ? 2 : 1) : null;
   if (existsSync(protectedProbe)) unlinkSync(protectedProbe);
   if (existsSync(workspaceProbe)) unlinkSync(workspaceProbe);
   if (existsSync(hostWriteProbe)) unlinkSync(hostWriteProbe);
@@ -419,19 +466,25 @@ function proveIsolation(profile, controllerRoot, workspace, cell, toolchain, cli
     clientSandboxMode: protocol.isolation.clientSandboxMode ?? 'nested-client-sandbox',
     readDefaultDeny: true,
     oracleReadDenied: readResult.status === 0, hostCanaryReadDenied: readResult.status === 0,
+    referencePatchReadDenied: referenceReadResult === null ? null : referenceReadResult.status === 0,
     hostCanaryWriteDenied: hostWriteResult.status === 0, protectedWriteDenied: writeResult.status === 0,
     workspaceReadWriteAllowed: workspaceResult.status === 0 && workspaceResult.stdout === 'ok',
     stagedRuntimeVersionVerified: runtimeVersion.status === 0 && runtimeVersion.stdout.trim() === protocol.isolation.runtimeVersion,
     stagedClientVersionVerified: clientVersion.status === 0 && `${clientVersion.stdout}${clientVersion.stderr}`.trim().split('\n')[0] === cell.clientVersion,
     authenticationReadableToClientProcess: authResult === null ? null : authResult.status === 0,
-    mcpHandshakePassed: mcp.passed, mcpToolNames: mcp.toolNames,
+    authenticationAbsent: cell.localProvider ? authPath === null && (!clientEnv.CODEX_HOME || !existsSync(join(clientEnv.CODEX_HOME, 'auth.json'))) : null,
+    mcpHandshakePassed: mcp.passed, mcpDoneCheckAvailable: mcp.toolNames.includes('run_gate'), mcpToolNames: mcp.toolNames,
+    providerReachable: provider?.matched ?? null, providerIdentityBefore: provider,
+    externalNetworkDenied: external?.denied ?? null, nonProviderLoopbackDenied: nonProviderLoopback?.denied ?? null,
     clientExecutableStagedSha256: sha256Bytes(readFileSync(toolchain.clientExecutable)),
     runtimeExecutableStagedSha256: sha256Bytes(readFileSync(toolchain.runtimeExecutable)),
     readProbeExitCode: readResult.status, hostWriteProbeExitCode: hostWriteResult.status, writeProbeExitCode: writeResult.status,
     readProbeSignal: readResult.signal, hostWriteProbeSignal: hostWriteResult.signal, writeProbeSignal: writeResult.signal, workspaceProbeSignal: workspaceResult.signal,
     runtimeProbeSignal: runtimeVersion.signal, clientProbeSignal: clientVersion.signal,
     runtimeProbeStderr: redact(runtimeVersion.stderr), clientProbeStderr: redact(clientVersion.stderr),
-    readProbeStderr: redact(readResult.stderr), hostWriteProbeStderr: redact(hostWriteResult.stderr), writeProbeStderr: redact(writeResult.stderr), mcpExitCode: mcp.exitCode, mcpStderr: mcp.stderr,
+    readProbeStderr: redact(readResult.stderr), referenceReadProbeStderr: redact(referenceReadResult?.stderr), hostWriteProbeStderr: redact(hostWriteResult.stderr), writeProbeStderr: redact(writeResult.stderr), mcpExitCode: mcp.exitCode, mcpStderr: mcp.stderr,
+    externalNetworkProbeExitCode: external?.exitCode ?? null, externalNetworkProbeStderr: external?.stderr ?? '',
+    nonProviderLoopbackProbeExitCode: nonProviderLoopback?.exitCode ?? null, nonProviderLoopbackProbeStderr: nonProviderLoopback?.stderr ?? '',
   };
 }
 
@@ -544,7 +597,7 @@ function extractUsage(stdout, cell) {
       outputTokens: Number.isFinite(usage.output_tokens) ? usage.output_tokens : null,
       cachedTokens: Number.isFinite(usage.cached_input_tokens) ? usage.cached_input_tokens : null,
       costUsd: null,
-      resolvedModel: cell.modelIdentitySource === 'codex-requested-model-cli-accepted-no-provider-id' ? cell.requestedModel : null,
+      resolvedModel: cell.localProvider ? cell.resolvedModel : cell.modelIdentitySource === 'codex-requested-model-cli-accepted-no-provider-id' ? cell.requestedModel : null,
       raw: documents,
     };
   }
@@ -637,19 +690,22 @@ function applyAllowedChanges(preparedRoot, finalWorkspace, target, changes, allo
   for (const change of changes.filter((entry) => matchesAny(entry.path, allowedPaths))) {
     const source = resolve(finalWorkspace, change.path);
     const destination = resolve(target, change.path);
+    for (const entry of [change.before, change.after].filter(Boolean)) {
+      if (entry.type === 'symlink') throw new Error(`symbolic-link output replay is refused: ${change.path}`);
+    }
     if (!change.after) {
       if (lstatExists(destination)) rmSync(destination, { recursive: true, force: true });
       continue;
     }
+    if (change.after.type !== 'file') throw new Error(`allowed output is not a regular file: ${change.path}`);
     mkdirSync(dirname(destination), { recursive: true });
-    if (change.after.type === 'file') {
-      if (!lstatSync(source).isFile()) throw new Error(`allowed output changed type unexpectedly: ${change.path}`);
-      copyFileSync(source, destination);
-      chmodSync(destination, change.after.mode);
-    } else if (change.after.type === 'symlink') {
-      if (lstatExists(destination)) rmSync(destination, { recursive: true, force: true });
-      symlinkSync(change.after.target, destination);
-    }
+    if (!lstatSync(source).isFile() || lstatSync(source).isSymbolicLink()) throw new Error(`allowed output changed type unexpectedly: ${change.path}`);
+    const sourceReal = realpathSync(source);
+    const workspaceReal = realpathSync(finalWorkspace);
+    if (sourceReal !== workspaceReal && !sourceReal.startsWith(`${workspaceReal}${sep}`)) throw new Error(`allowed output real path escapes the model workspace: ${change.path}`);
+    if (lstatExists(destination) && lstatSync(destination).isSymbolicLink()) throw new Error(`prepared replay destination is a symbolic link: ${change.path}`);
+    copyFileSync(source, destination);
+    chmodSync(destination, change.after.mode);
   }
 }
 
@@ -924,8 +980,10 @@ async function executeAssignment(assignment) {
     const preparedTreeSha256 = hashTree(workspace);
     if (preparedTreeSha256 !== repository.preparedTreeSha256) throw new Error('prepared tree differs from frozen preparedTreeSha256');
     preparation = { successful: true, preparedTreeSha256, commands: setupRuns };
-    copyTree(workspace, preparedRoot, { includeNodeModules: true });
     const preparedInventory = treeInventory(workspace);
+    const preparedSymlinks = preparedInventory.filter((entry) => entry.type === 'symlink').map((entry) => entry.path);
+    if (preparedSymlinks.length) throw new Error(`prepared repository contains refused symbolic links: ${preparedSymlinks.join(', ')}`);
+    copyTree(workspace, preparedRoot, { includeNodeModules: true });
     const toolchain = stageToolchain(cell, clientState);
     if (assignment.arm === 'bce-enabled') treatment = materializeTreatment(workspace, task, cell, preparedInventory, toolchain.runtimeExecutable);
     preparation = { ...preparation, treatmentDelta: treatment.treatmentDelta, treatmentConfigSha256: treatment.treatmentConfigSha256 };
@@ -934,11 +992,14 @@ async function executeAssignment(assignment) {
     const globalPolicy = JSON.parse(readFileSync(resolve(bundleDir, protocol.protectedPaths), 'utf8'));
     const protectedPatterns = [...new Set([...globalPolicy.patterns, ...(globalPolicy.packagePolicy?.files ?? []), ...task.protectedPaths])];
     const { env: clientEnv, authPath } = freshClientEnvironment(clientState, cell, toolchain.runtimeExecutable);
-    const profile = sandboxProfile(workspace, clientState, controllerRoot, protectedPatterns);
-    isolationProof = proveIsolation(profile, controllerRoot, workspace, cell, toolchain, clientEnv, authPath, treatment);
+    const profile = sandboxProfile(workspace, clientState, controllerRoot, protectedPatterns, cell);
+    isolationProof = proveIsolation(profile, controllerRoot, workspace, task, cell, toolchain, clientEnv, authPath, treatment);
     if (!isolationProof.oracleReadDenied || !isolationProof.hostCanaryReadDenied || !isolationProof.hostCanaryWriteDenied || !isolationProof.protectedWriteDenied ||
         !isolationProof.workspaceReadWriteAllowed || !isolationProof.stagedRuntimeVersionVerified || !isolationProof.stagedClientVersionVerified ||
-        (authPath && isolationProof.authenticationReadableToClientProcess !== true) || (treatment.mcp && isolationProof.mcpHandshakePassed !== true)) {
+        (task.referencePatch && isolationProof.referencePatchReadDenied !== true) ||
+        (authPath && isolationProof.authenticationReadableToClientProcess !== true) ||
+        (treatment.mcp && (isolationProof.mcpHandshakePassed !== true || isolationProof.mcpDoneCheckAvailable !== true)) ||
+        (cell.localProvider && (isolationProof.authenticationAbsent !== true || isolationProof.providerReachable !== true || isolationProof.externalNetworkDenied !== true || isolationProof.nonProviderLoopbackDenied !== true))) {
       throw new Error(`outer sandbox capability/isolation preflight failed: ${JSON.stringify(isolationProof)}`);
     }
     appendEvent(state, 'controller', 'isolation-proven', isolationProof);
@@ -954,13 +1015,17 @@ async function executeAssignment(assignment) {
     startedAt = new Date().toISOString();
     const visibleStart = performance.now();
     clientResult = await runClient(command, workspace, profile, task.budget.timeoutMs, authPath);
+    const providerIdentityAfter = probeLocalProviderIdentity(profile, workspace, cell, toolchain.runtimeExecutable, clientEnv, { requireActiveModel: true });
     isolationProof = {
       ...isolationProof,
+      providerIdentityAfter,
+      providerIdentityStable: cell.localProvider ? providerIdentityAfter?.matched === true && providerIdentityAfter.responseSha256 === isolationProof.providerIdentityBefore?.responseSha256 : null,
       clientSessionObserved: clientResult.clientSessionObserved,
       credentialRetiredBeforeModelToolExecution: clientResult.credentialRetiredBeforeModelToolExecution,
       modelToolExecutionObservedBeforeCredentialRetirement: clientResult.modelToolExecutionObservedBeforeCredentialRetirement,
       shellEnvironmentPolicy: cell.client === 'codex' ? 'inherit-none' : 'adapter-specific',
     };
+    if (cell.localProvider && isolationProof.providerIdentityStable !== true) throw new Error('local provider identity changed or became unavailable after model execution');
     if (!clientResult.processGroupTerminated) throw new Error('client process group remained alive after termination');
     if (seal.attestation?.kind === 'synthetic-self-test' && process.env.BCE_MODEL_EVAL_FAULT_AT === 'after-client') {
       throw new Error('synthetic fault injection after model exposure');

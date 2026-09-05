@@ -89,6 +89,9 @@ jobs:
       - name: Synthetic sealed v2 model-evaluation replay + causal-integrity controls (not efficacy evidence)
         run: npm run test:model-eval-protocol
 
+      - name: Reference solutions apply safely and pass independent proof surfaces
+        run: npm run test:model-eval-references
+
       - name: Restricted-network runtime + hostile proxy/registry proof
         run: npm run test:restricted-network
 

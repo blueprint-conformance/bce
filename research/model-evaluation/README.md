@@ -16,6 +16,12 @@ the sealed BCE artifact, blueprint, project skill/MCP configuration, and visible
 That estimates the effect of the **whole adoption bundle**, not the isolated engine or any one MCP
 tool.
 
+Protected policy/evaluator paths are denied by the controller in both arms. A zero mutation count
+therefore establishes containment, not that BCE changed an agent's willingness to manipulate
+policy. Out-of-scope edits still make safe success false, but any future claim that BCE *prevents*
+policy manipulation requires a separate disposable adversarial cohort where the attempted behavior
+is observable without endangering the frozen study inputs.
+
 ## Evidence classes
 
 - `protocol`: machinery and preregistration only; no efficacy result.
@@ -45,9 +51,14 @@ npm run research:model-eval-readiness
 ```
 
 The protocol self-test drives the same verifier and analyzer through a fully materialized synthetic
-240-trial bundle, then proves they reject arm-blocked assignment, missing/modified artifacts,
+600-trial bundle, then proves they reject arm-blocked assignment, missing/modified artifacts,
 self-asserted outcomes, policy weakening, incomplete denominators, and missing telemetry presented
 as zero. Synthetic results are harness tests only and are ineligible for product claims.
+
+The confirmatory matrix uses 75 tasks per arm in each cell. This is a statistical coherence fix,
+not scope inflation: with zero false blocks, the 95% Wilson upper bound is about 11.35% at 30 trials
+and about 4.87% at 75. The frozen 5% decision threshold was therefore impossible to satisfy under
+the earlier 30-trial denominator. The threshold was not weakened.
 
 The real-controller self-test uses the separate eight-attempt pilot with a deterministic no-model
 fixture. It proves the macOS sandbox is read-default-deny, denies hidden-input reads and
@@ -97,6 +108,18 @@ state, proves initialization access, then deletes that file on the first
 The sealed adapter also sets shell environment inheritance to none. A dedicated spend-capped
 credential remains the confirmatory-study standard; this pilot does not claim credential-broker
 isolation.
+
+Local Ollama pilots use a different, credential-free cell. The controller refuses non-loopback
+endpoints, allows the model process to reach one sealed loopback port only, proves external and
+wrong-port connections fail with an OS permission denial, checks Ollama version and model artifact
+digest before exposure, and requires `/api/ps` to return that exact active digest after the client
+finishes. The pre/post provider evidence is public; no API token is mounted.
+
+A task's `referencePatchSha256` is never sufficient on its own. The corresponding patch bytes must
+be a sealed artifact. Before a task set can be used, `npm run model-eval:verify-references` applies
+each patch in a fresh prepared tree, refuses symlinks or changes outside the exact allowlist, runs
+the visible checks, runs both independent oracles twice, and requires the sealed BCE gate to pass.
+The model sandbox is separately probed to prove it cannot read that patch during an attempt.
 
 The controller owns the macOS confinement boundary. It therefore invokes Codex with its inner
 sandbox disabled (`danger-full-access` in Codex CLI terminology) *inside* the frozen outer

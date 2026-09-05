@@ -43,15 +43,15 @@
   },
   "matrix": {
     "clientModelCells": 4,
-    "repositories": 10,
+    "repositories": 25,
     "tasksPerRepository": 3,
     "taskTypes": [
       "repair",
       "feature",
       "refactor"
     ],
-    "trialsPerArmPerCell": 30,
-    "totalRandomizedTrials": 240,
+    "trialsPerArmPerCell": 75,
+    "totalRandomizedTrials": 600,
     "exactCartesianPairing": true
   },
   "clientModelCells": [
@@ -151,6 +151,7 @@
     "oracleOutsideAgentWorkspace": true,
     "oracleReadIsolationProofRequired": true,
     "networkPolicyRecorded": true,
+    "modelNetworkPolicy": null,
     "sameNonBceToolsAndPermissions": true
   },
   "attemptPolicy": {
@@ -171,7 +172,8 @@
     "assignmentGeneratorSha256": null,
     "runnerSha256": null,
     "analyzerSha256": null,
-    "analysisCoreSha256": null
+    "analysisCoreSha256": null,
+    "referenceVerifierSha256": null
   },
   "stopping": {
     "outcomeDependentStopping": false,
