@@ -1,7 +1,7 @@
 # The authoring matrix — six layouts, six measured RED→GREEN loops
 
 The [First Win recipe catalog](../../docs/first-win.md) proves six architecture boundaries in the
-`v0.3.0` source candidate. This directory answers the next question: **how do I author one of those
+`v0.3.0` release. This directory answers the next question: **how do I author one of those
 contracts against files laid out like mine?**
 
 Six starting layouts. Each one authors its own contract with `bce author`, gates it to a real
@@ -30,17 +30,17 @@ bce author …   →   bce gate  (RED, exit 1)   →   edit the code   →   bce
 Install the exact public package and copy its shipped examples to a writable directory:
 
 ```bash
-npm view bce-engine@0.2.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.2.0
+npm view bce-engine@0.3.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.0
 cp -R node_modules/bce-engine/examples/first-win ./bce-first-win
 # then, wherever a walkthrough says `bce`:
 npx --no-install bce …
 ```
 
-The published package manifest includes `examples/`: four `v0.2.0` walkthroughs plus the full
-onboarding assets. The module-layering and python-layering walkthroughs are candidate-only and must
-run from a built checkout until `v0.3.0` resolves on npm. Registry signatures and provenance verify
-only the released package path; the candidate has a separate clean-room local-tarball proof.
+The published package manifest includes `examples/`, with all six walkthroughs plus the full
+onboarding assets.
+Registry signatures and provenance verify the released package path; the source tree retains a
+separate clean-room local-tarball proof.
 
 Both statements are checked against the repository's own state by the matrix test, so they cannot
 quietly go stale after a publish.

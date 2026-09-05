@@ -4,14 +4,14 @@ Use `python-module-graph` when a Python rule is about which repository modules m
 other modules. Every scanned `.py` file becomes a `pythonModule` component. A pinned structured
 parser records statically declared imports as policy-independent `imports` edges before evaluation.
 
-This profile is in the unpublished `v0.3.0` source candidate. It is additive: the released
-`python-import-surface` profile remains available with its existing behavior. From a source
-checkout, build and run the structured proof:
+This profile is in the `v0.3.0` registry release. It is additive: the released
+`python-import-surface` profile remains available with its existing behavior. Install the exact
+version and run the structured proof:
 
 ```bash
-npm ci
-npm run build
-node dist/cli.js demo --recipe python-module-layering
+npm view bce-engine@0.3.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.0
+npx --no-install bce demo --recipe python-module-layering
 ```
 
 The conforming tree has the API adapter depend inward on domain code and scores 100. The drift tree

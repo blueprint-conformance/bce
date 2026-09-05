@@ -36,7 +36,7 @@ npm run build
 npm run eval:ai-adoption
 ```
 
-The eval packs the current candidate, installs it into a clean Git repository, authors and onboards
+The eval packs the current source tree, installs it into a clean Git repository, authors and onboards
 an advisory blueprint, plants one forbidden Axios import, and gives Codex a generic repair prompt.
 It parses Codex JSONL and the final Git diff. PASS requires all of the following observable events:
 

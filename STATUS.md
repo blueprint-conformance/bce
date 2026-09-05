@@ -7,23 +7,23 @@ source tree.
 
 | Surface | Status | What a user may rely on |
 |---|---|---|
-| Source checkout | Working, internally tested candidate | `v0.3.0` candidate; Node 22.22.2, `npm ci`, `npm run build`, then `node dist/cli.js`; it is not the registry release |
-| Packed local tarball | Working, clean-room tested candidate | `npm run test:package` installs the candidate tarball outside the source tree, preserves the zero-argument `bce demo` contract, and executes all six packaged architecture recipes; this does not establish registry availability |
-| npm | Released | [`bce-engine@0.2.0`](https://www.npmjs.com/package/bce-engine/v/0.2.0) is public with SLSA provenance and integrity `sha512-hFKOHO+EYgQbp+jaOW7/WTBGEqjHDEEKfB+O1ALo8KLnmIAr708mQWeXxRUMi3YAmWxz1RhfiAY1Rdpk81NNrA==`; install the exact version on Node 22+ |
-| Git tag / GitHub Release | Released, immutable | [`v0.2.0`](https://github.com/blueprint-conformance/bce/releases/tag/v0.2.0) is immutable at source `14716bf655d8dd6020b9dcf8905678ef2abe2760`; it froze before asset upload, so the exact signed record is preserved in the separate [`evidence-v0.2.0`](https://github.com/blueprint-conformance/bce/releases/tag/evidence-v0.2.0) immutable release ([verification record](docs/release-v0.2.0.md)) |
-| GitHub Action | Released | Pin `blueprint-conformance/bce@14716bf655d8dd6020b9dcf8905678ef2abe2760` (the v0.2.0 source commit), never a tag; the creator-maintained external RED/GREEN witness below remains evidence for its recorded v0.1.5 Action pin, not v0.2.0 |
-| GitLab template | Unsupported reference | It uses exact `bce-engine@0.2.0` and is fail-closed, but no real GitLab runner/client matrix has been completed; GitLab is not a supported integration |
+| Source checkout | Working, released | `v0.3.0`; Node 22.22.2, `npm ci`, `npm run build`, then `node dist/cli.js`; source and registry identities are bound in the release record |
+| Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree, preserves the zero-argument `bce demo` contract, and executes all six packaged architecture recipes; the released tarball digest also matches npm |
+| npm | Released | [`bce-engine@0.3.0`](https://www.npmjs.com/package/bce-engine/v/0.3.0) is public with SLSA provenance and integrity `sha512-KwWyEYOZu70xrQG5JYEyHNhz3eqTalno9d9+KUugytYBiWtHGO7Wpa+X/7xgi9xDc49V7OUchTJtN8Pu8T37iw==`; install the exact version on Node 22+ |
+| Git tag / GitHub Release | Released, immutable | [`v0.3.0`](https://github.com/blueprint-conformance/bce/releases/tag/v0.3.0) is immutable at source `9fe4a02d39c05dbdf280b359e9b364de84e1eda8` with six digest-bound assets: the exact tarball, payload manifest and signature, EvidenceRecord and signature, and compliance report ([verification and incident record](docs/release-v0.3.0.md)) |
+| GitHub Action | Released | Pin `blueprint-conformance/bce@9fe4a02d39c05dbdf280b359e9b364de84e1eda8` (the v0.3.0 source commit), never a tag; the creator-maintained external RED/GREEN witness below remains evidence for its recorded v0.1.5 Action pin, not v0.3.0 |
+| GitLab template | Unsupported reference | It uses exact `bce-engine@0.3.0` and is fail-closed, but no real GitLab runner/client matrix has been completed; GitLab is not a supported integration |
 | OpenAI plugin | Packaged, unsubmitted | `.codex-plugin/plugin.json` validates as a skills-only ChatGPT/Codex plugin; there is no portal submission, public listing URL, or clean-account directory install |
 
 ## What the engine currently proves
 
 - For supported extractor/constraint combinations, it can discriminate committed conformant and
   seeded-drift fixtures and produce deterministic reports.
-- The `v0.3.0` source-candidate First Win catalog executes six GREEN/named-RED architecture recipes
+- The released `v0.3.0` First Win catalog executes six GREEN/named-RED architecture recipes
   across the mature TypeScript/JavaScript AST path, direct TypeScript/JavaScript and structured
   Python module graphs, and a real-source configuration pattern pair. The released Python
-  import-surface MVP remains available unchanged. These are mechanism
-  demonstrations; their breadth does not establish efficacy or registry availability.
+  import-surface MVP remains available unchanged. These are mechanism demonstrations; their
+  breadth does not establish efficacy.
 - Gate outcomes are three-state: pass (exit 0), violation (exit 1), and structural refusal
   (exit 2). A missing blueprint set, unsupported critical analysis, unknown constraint, unbound
   runtime constraint, unsafe evidence path, or unresolved allowlist destination cannot pass.
@@ -32,7 +32,7 @@ source tree.
   probe definition, stimulus set, collector, and environment before they can affect a verdict.
 - `bce run --emit` can emit hash-chained integrity records. Ordinary gate runs do not emit them,
   and a local hash chain is not authenticated provenance.
-- The v0.2.0 release evidence embeds the exact dependency-lock digest and extractor/provider
+- The v0.3.0 release evidence embeds the exact dependency-lock digest and extractor/provider
   identity. Its reproducibility proof obtains the same production graph and report hash from two
   clean installs. Historical 0.1.5 records predate this additive field.
 - The built MCP server passes strict discovery through locked Inspector 2.5.0, boundary/framing
@@ -42,8 +42,8 @@ source tree.
   enforces a 30-second p95 ceiling per structured provider, and requires a planted cross-package
   import to redden at its exact line. It is a regression budget, not real-repository
   generalization evidence.
-- The v0.2.0 source and packed artifact passed the public Ubuntu/macOS/Windows × Node 22/24
-  [portability matrix](https://github.com/blueprint-conformance/bce/actions/runs/33709587798), including
+- The v0.3.0 source and packed artifact passed the public Ubuntu/macOS/Windows × Node 22/24
+  [portability matrix](https://github.com/blueprint-conformance/bce/actions/runs/33985032085), including
   build, typecheck, cross-platform engine/CLI/evidence/MCP tests, restricted-network operation, and
   a packed-consumer proof. This establishes the current source path, not a retrospective claim that
   every platform executed the historical `v0.1.5` release workflow.
@@ -64,8 +64,8 @@ source tree.
   [GREEN after the fix](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33690296051).
   That RED is evidence of enforced blocking in an external consumer. It remains creator-maintained
   (see the consumer's `WITNESS.md`), so it does not change the independent-witness count below, and
-  the sequence has not yet been rerun against the v0.2.0 Action commit.
-- The v0.2.0 AI-adoption proof runs all four supported harness layouts. It checks project-local
+  the sequence has not yet been rerun against the v0.3.0 Action commit.
+- The v0.3.0 AI-adoption proof runs all four supported harness layouts. It checks project-local
   discovery of both skills, project-local MCP configuration, read-only tool affordances,
   zero-argument repository calls, and live GREEN → RED → GREEN correction. This is a deterministic
   agent-harness simulation, not an LLM comparison or independent-human usability evidence.
@@ -94,7 +94,7 @@ source tree.
   oracles, artifact-backed terminal records, caught-failure terminalization, hard-crash recovery,
   public aggregate recomputation, and restricted-transcript exclusion. Synthetic rehearsal is
   machinery evidence only.
-- The candidate controller's adversarial self-test uses a local Ollama-compatible fixture to prove
+- The v0.3.0 controller's adversarial self-test uses a local Ollama-compatible fixture to prove
   the model process can reach only one sealed loopback port, binds provider/model identity before
   exposure and the exact active model name/digest after execution while retaining distinct artifact,
   runtime-allocation, VRAM, and context diagnostics. It denies external and wrong-port connections,
@@ -108,7 +108,7 @@ source tree.
 
 ## What has not been established
 
-- The AI-first `propose`/review surface is released in v0.2.0 and passes deterministic source and
+- The AI-first `propose`/review surface is released in v0.3.0 and passes deterministic source and
   packed-consumer proofs. No independent user has yet completed or evaluated that proposal journey;
   its usability or benefit relative to manual authoring is not established.
 - No independent user witness has completed the adoption journey. The external consumer above
@@ -155,11 +155,12 @@ source tree.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;
   the accepted implementation count remains zero.
-- The v0.2.0 EvidenceRecord has authenticated Sigstore identity bound to the GitHub OIDC issuer and
-  exact `release.yml@refs/tags/v0.2.0` workflow identity. The canonical immutable Release froze before
-  its assets uploaded; the Rekor-recovered bundle and exact record are therefore held by the separate
-  immutable evidence release. [The release record](docs/release-v0.2.0.md) preserves the failure and
-  fix-forward. This establishes producer identity for the release evidence, not product efficacy.
+- The v0.3.0 EvidenceRecord and payload manifest have authenticated Sigstore identities bound to the
+  GitHub OIDC issuer and exact `release.yml@refs/tags/v0.3.0` workflow identity. The canonical
+  immutable Release carries both bundles and all four corresponding artifacts. The tag workflow
+  needed a Rekor-timeout retry and a manually completed, independently verified finalizer after a
+  checkout-free GitHub CLI inference bug. [The release record](docs/release-v0.3.0.md) preserves both
+  incidents and the fix-forward. This establishes producer identity, not product efficacy.
 - The OpenAI skills-only plugin archive validates locally, but required operator identity/legal
   materials and portal review are incomplete; it is not publicly listed.
 - This repository's `main` requires seven CI contexts: `build-test-prove`, `lane-b-self-gate`,

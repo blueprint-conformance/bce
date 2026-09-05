@@ -56,7 +56,7 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
     `lane-b-self-gate`, `lane-a-pinned-gate`, `leakage-gate`, `banned-phrases`,
     `launch promises (inert while private, blocking once public)`, and
     `model-evaluation-controller-macos`.
-    Lane A is live at the published 0.2.0 pin; this item now concerns required-check enforcement,
+    Lane A is live at the published 0.3.0 pin; this item now concerns required-check enforcement,
     not activation.
     `gh api -X PUT repos/blueprint-conformance/bce/branches/main/protection ...`
 
@@ -190,10 +190,11 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
     re-bound in the same change.
 
 15. ~~**[operator]** Publish the first tag through `release.yml`.~~ **DONE** — current public release
-    is `v0.2.0`, with npm provenance and an immutable canonical GitHub Release. Its asset-ordering
-    incident and separate immutable evidence release are recorded in `docs/release-v0.2.0.md`.
+    is `v0.3.0`, with npm provenance and one immutable canonical GitHub Release carrying all six
+    assets. Its Rekor retry and explicit-repository finalizer fix-forward are recorded in
+    `docs/release-v0.3.0.md`.
 16. ~~**[agent]** Verify npm, smoke the packed/published path, and activate Lane A.~~ **DONE** —
-    `.engine-pin.json` is live at exact `bce-engine@0.2.0`, and `lane-a-pinned-gate` is required.
+    `.engine-pin.json` is live at exact `bce-engine@0.3.0`, and `lane-a-pinned-gate` is required.
 17. ~~**[agent]** Replace README placeholder links.~~ **DONE** — guarded by launch-readiness checks.
 
 ## Phase 4 — launch post
