@@ -26,6 +26,9 @@ const manifestPath = join(bundle, 'task-manifest.json');
 const protocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 protocol.isolation.modelNetworkPolicy = null;
+protocol.isolation.runtimeExecutable = process.execPath;
+protocol.isolation.runtimeVersion = process.version;
+protocol.isolation.runtimeArtifactSha256 = sha256Bytes(readFileSync(process.execPath));
 protocol.implementation = {
   verifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation.mjs'))),
   assignmentGeneratorSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'generate-model-evaluation-assignments.mjs'))),
