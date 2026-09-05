@@ -1,0 +1,7 @@
+{
+  "mutation": true,
+  "finalPolicyPaths": [],
+  "observedWritePaths": [],
+  "outOfScope": [],
+  "conservativeFailureClassification": true
+}

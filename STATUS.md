@@ -99,7 +99,8 @@ source tree.
   exposure and the exact active model after execution, denies external and wrong-port connections,
   refuses repository/output symlinks, and keeps sealed reference solutions unreadable to the model.
   Every reference patch must apply inside its allowlist and pass visible tests, both hidden oracles
-  twice, and the real BCE gate. A real local-model run remains unexecuted at this checkpoint.
+  twice, and the real BCE gate. The v4 local-model run below showed that this model-free rehearsal
+  did not yet qualify the complete client/model tool loop.
 
 ## What has not been established
 
@@ -135,7 +136,16 @@ source tree.
   zero escaped defects, and zero policy mutations. That is apparatus validation, not uplift: the
   easy development tasks saturated both arms, no BCE skill/MCP use was observed, only one
   model-initiated BCE gate call was observed, cost was unavailable, and model identity remained
-  requested configuration rather than provider-returned evidence.
+  requested configuration rather than provider-returned evidence. Pilot v4 was publicly sealed,
+  executed exactly once, and safety-halted after the first 6/24 frozen assignments produced six
+  consecutive infrastructure errors; 18 assignments were never executed. The active model name
+  and digest matched, but the runner incorrectly required `/api/tags` artifact size to equal the
+  `/api/ps` active allocation size and discarded otherwise recoverable outcome evidence. Its
+  conservative policy-mutation flags are unknown assessments, not observed edits. Restricted
+  diagnostics also show the exact local client/model tool loop was not qualified. The public v4
+  archive proves only the sealed prefix, terminal artifacts, ledger, and halt. It contains no
+  efficacy analysis or product decision. V5 requires fresh inputs and a live sacrificial tool-loop
+  canary before sealing.
 - No conventional precision/recall study with independent annotation has been completed.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;

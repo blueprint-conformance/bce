@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1",
+  "studyId": "bce-accelerated-instrumentation-pilot-v4-2026-09-05",
+  "status": "safety-halt",
+  "reason": "stopped after 6 consecutive post-exposure infrastructure failures",
+  "committedTrials": 6,
+  "ledgerHeadSha256": "dc460aa27d08fda7e6e9faf9206ebc922f9a9725c560c863c625fc2e82869a5c",
+  "recordedAt": "2026-09-05T14:17:10.263Z"
+}

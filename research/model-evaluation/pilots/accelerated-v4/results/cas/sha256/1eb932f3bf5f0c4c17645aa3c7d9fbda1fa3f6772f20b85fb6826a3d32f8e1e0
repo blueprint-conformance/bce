@@ -1,0 +1,10 @@
+{
+  "successful": true,
+  "preparedTreeSha256": "5a9e8d20ff303abddf668c25639dc03ac89976a61ba9a7ea49db48e2d47c9022",
+  "commands": [],
+  "treatmentDelta": {
+    "arm": "baseline-no-bce",
+    "changes": []
+  },
+  "treatmentConfigSha256": "282980e4beda5caff8df7d6a37f0b99d58b0b336ae50f92e17c19d662d521f53"
+}

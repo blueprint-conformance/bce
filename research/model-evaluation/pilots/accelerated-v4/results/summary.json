@@ -1,0 +1,446 @@
+{
+  "schemaVersion": "2",
+  "resultKind": "safety-halt-archive",
+  "studyId": "bce-accelerated-instrumentation-pilot-v4-2026-09-05",
+  "evidenceClass": "author-operated-safety-halted-instrumentation-prefix",
+  "claimBoundary": "safety-halted apparatus record only; no efficacy estimate, arm comparison, cost/latency comparison, uplift claim, or product recommendation",
+  "exporterSha256": "cd6ce33dd6c0d0d2c49e88217807b7338f001628198456f9a74f96b2e0029859",
+  "verifiedTrials": 6,
+  "runDisposition": {
+    "status": "safety-halt",
+    "plannedTrials": 24,
+    "committedTrials": 6,
+    "unexposedTrials": 18,
+    "haltPath": "study-halt.json",
+    "haltSha256": "9c6fb790d1c0cbf1028faacbdbf5fddc65e5caafe6300bfd474886de9fe6c4bb"
+  },
+  "sealedInputs": {
+    "rootSha256": "810a718845a797bd8e766178e004e39e35506c7ca6a37cf0e5c74b35c3a03816",
+    "publicTimestamp": "https://github.com/blueprint-conformance/bce/commit/a0053ce2107f8fd9d80ec9de47ce7bd1e708c158",
+    "attestation": {
+      "kind": "local-git-commit",
+      "subjectRootSha256": "810a718845a797bd8e766178e004e39e35506c7ca6a37cf0e5c74b35c3a03816",
+      "uri": "https://github.com/blueprint-conformance/bce/commit/a0053ce2107f8fd9d80ec9de47ce7bd1e708c158",
+      "identity": "blueprint-conformance-maintainer",
+      "gitCommit": "a0053ce2107f8fd9d80ec9de47ce7bd1e708c158",
+      "eligibleForProductClaim": false
+    },
+    "implementation": {
+      "verifierSha256": "6ab5a317efa72a601dd3f089cb3c12f6be22e1986c5e58e04fa709cc94d1fdd3",
+      "assignmentGeneratorSha256": "feab649dbb27f016ed59385e24256f39396824aa272f7a7cbf672e5d872cc0ef",
+      "runnerSha256": "a6f03994fc7563c444501da4e3a8ce59546f808c9e5de3cf24d80de28e498df1",
+      "analyzerSha256": "63bdf331a3a47be38ba828b6d7e5abb52c044d7622c9dd901f1fab9cb6390767",
+      "analysisCoreSha256": "e4d582a9c0c15296a45b6ac19e0daad442a9ca1215137f393c699d26a8c77704",
+      "referenceVerifierSha256": "a4116b245b424085b8bfb8eec663e8ffbbdc48def4191a692ce0b9e3f4680938"
+    }
+  },
+  "publicReplay": {
+    "ledgerSha256": "f1b4e97d97daf19643915f309d52f6cce0f3f0a373741f7ddcd65f56384cb978",
+    "ledgerHeadSha256": "dc460aa27d08fda7e6e9faf9206ebc922f9a9725c560c863c625fc2e82869a5c",
+    "terminalRecordsSha256": "1ff92bf1043736906088dee3b0b3a14480ce5bbb4e6b9c06d857d5940afd8baf",
+    "publicArtifactCount": 18,
+    "publicCasPath": "cas/sha256"
+  },
+  "restrictedEvidence": {
+    "published": false,
+    "reason": "model transcripts remain in access-restricted run storage; immutable digests retain integrity binding",
+    "sanitizedFailureClasses": {
+      "local-provider-post-run-identity-verification-failure": 6
+    },
+    "commitments": [
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-base",
+        "label": "transcript",
+        "sha256": "d8e9ca3668f466bb2b75e50c9a761164710cddcef9f835d529a9077fabea40cf",
+        "bytes": 20660,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-bce",
+        "label": "transcript",
+        "sha256": "b1a863f00f76232edcba4645152a35d0e6cfe4c57793a76e95208ad218ad819c",
+        "bytes": 19269,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-base",
+        "label": "transcript",
+        "sha256": "d3a5922a18f8c9f2890e93e218e7d782a95f35477593f08663f1a24e18933327",
+        "bytes": 24510,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-bce",
+        "label": "transcript",
+        "sha256": "39c40084034583662c6950820d5151022d14a5716f524f02312d9fdc3b840e7e",
+        "bytes": 8010,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-base",
+        "label": "transcript",
+        "sha256": "b97af8e85ca182f6f74dde31ce199819b52cedace8720e637fbcb47e3598a231",
+        "bytes": 2936,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-bce",
+        "label": "transcript",
+        "sha256": "f76010943636650063b436a5c64ae8bf99fc3c313aa443d6b0a33c2f89c5a9b6",
+        "bytes": 21955,
+        "mediaType": "application/json",
+        "redaction": "credentials-only"
+      }
+    ]
+  },
+  "withheldPublicEvidence": {
+    "published": false,
+    "reason": "artifacts declared public by the frozen runner were withheld because post-hoc leakage review found controller host paths; terminal commitments remain intact",
+    "commitments": [
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-base",
+        "label": "architectureOracle",
+        "sha256": "0143aa1d43d9a329deceb883293d497c8040faeabff56aa7e2702c4e3ed831c6",
+        "bytes": 550,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-base",
+        "label": "finalTree",
+        "sha256": "1500953c5691f2fb96a0331dd7485294b27df7e8968853c2993c6550ae44195f",
+        "bytes": 487,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-base",
+        "label": "functionalOracle",
+        "sha256": "2c5250a9c7fcd753bdc8669f43087eaaf1e2e1882d7b3c2521ee46084b13289d",
+        "bytes": 564,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-base",
+        "label": "patch",
+        "sha256": "3f4daed9e191bf118f94f16d7e78daee369a9cdee5f81ac7a5b88c20f2639127",
+        "bytes": 528,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-base",
+        "label": "visiblePipeline",
+        "sha256": "9eb002c00a3de03606f26a11708face9f23cc91c3890090574726d962e5372c0",
+        "bytes": 555,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-bce",
+        "label": "architectureOracle",
+        "sha256": "0143aa1d43d9a329deceb883293d497c8040faeabff56aa7e2702c4e3ed831c6",
+        "bytes": 550,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-bce",
+        "label": "finalTree",
+        "sha256": "1500953c5691f2fb96a0331dd7485294b27df7e8968853c2993c6550ae44195f",
+        "bytes": 487,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-bce",
+        "label": "functionalOracle",
+        "sha256": "2c5250a9c7fcd753bdc8669f43087eaaf1e2e1882d7b3c2521ee46084b13289d",
+        "bytes": 564,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-bce",
+        "label": "patch",
+        "sha256": "3f4daed9e191bf118f94f16d7e78daee369a9cdee5f81ac7a5b88c20f2639127",
+        "bytes": 528,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-feature-r0-bce",
+        "label": "visiblePipeline",
+        "sha256": "473f60e616c6c227f864dd4ff00e2a48050dccded0af962f45f8f935e2e6de61",
+        "bytes": 556,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-base",
+        "label": "architectureOracle",
+        "sha256": "0143aa1d43d9a329deceb883293d497c8040faeabff56aa7e2702c4e3ed831c6",
+        "bytes": 550,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-base",
+        "label": "finalTree",
+        "sha256": "1500953c5691f2fb96a0331dd7485294b27df7e8968853c2993c6550ae44195f",
+        "bytes": 487,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-base",
+        "label": "functionalOracle",
+        "sha256": "2c5250a9c7fcd753bdc8669f43087eaaf1e2e1882d7b3c2521ee46084b13289d",
+        "bytes": 564,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-base",
+        "label": "patch",
+        "sha256": "3f4daed9e191bf118f94f16d7e78daee369a9cdee5f81ac7a5b88c20f2639127",
+        "bytes": 528,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-base",
+        "label": "visiblePipeline",
+        "sha256": "9eb002c00a3de03606f26a11708face9f23cc91c3890090574726d962e5372c0",
+        "bytes": 555,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-bce",
+        "label": "architectureOracle",
+        "sha256": "0143aa1d43d9a329deceb883293d497c8040faeabff56aa7e2702c4e3ed831c6",
+        "bytes": 550,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-bce",
+        "label": "finalTree",
+        "sha256": "1500953c5691f2fb96a0331dd7485294b27df7e8968853c2993c6550ae44195f",
+        "bytes": 487,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-bce",
+        "label": "functionalOracle",
+        "sha256": "2c5250a9c7fcd753bdc8669f43087eaaf1e2e1882d7b3c2521ee46084b13289d",
+        "bytes": 564,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-bce",
+        "label": "patch",
+        "sha256": "3f4daed9e191bf118f94f16d7e78daee369a9cdee5f81ac7a5b88c20f2639127",
+        "bytes": 528,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-provider-repair-r0-bce",
+        "label": "visiblePipeline",
+        "sha256": "473f60e616c6c227f864dd4ff00e2a48050dccded0af962f45f8f935e2e6de61",
+        "bytes": 556,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-base",
+        "label": "architectureOracle",
+        "sha256": "0143aa1d43d9a329deceb883293d497c8040faeabff56aa7e2702c4e3ed831c6",
+        "bytes": 550,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-base",
+        "label": "finalTree",
+        "sha256": "1500953c5691f2fb96a0331dd7485294b27df7e8968853c2993c6550ae44195f",
+        "bytes": 487,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-base",
+        "label": "functionalOracle",
+        "sha256": "2c5250a9c7fcd753bdc8669f43087eaaf1e2e1882d7b3c2521ee46084b13289d",
+        "bytes": 564,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-base",
+        "label": "patch",
+        "sha256": "3f4daed9e191bf118f94f16d7e78daee369a9cdee5f81ac7a5b88c20f2639127",
+        "bytes": 528,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-base",
+        "label": "visiblePipeline",
+        "sha256": "9eb002c00a3de03606f26a11708face9f23cc91c3890090574726d962e5372c0",
+        "bytes": 555,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-bce",
+        "label": "architectureOracle",
+        "sha256": "0143aa1d43d9a329deceb883293d497c8040faeabff56aa7e2702c4e3ed831c6",
+        "bytes": 550,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-bce",
+        "label": "finalTree",
+        "sha256": "1500953c5691f2fb96a0331dd7485294b27df7e8968853c2993c6550ae44195f",
+        "bytes": 487,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-bce",
+        "label": "functionalOracle",
+        "sha256": "2c5250a9c7fcd753bdc8669f43087eaaf1e2e1882d7b3c2521ee46084b13289d",
+        "bytes": 564,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-bce",
+        "label": "patch",
+        "sha256": "3f4daed9e191bf118f94f16d7e78daee369a9cdee5f81ac7a5b88c20f2639127",
+        "bytes": 528,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      },
+      {
+        "trialId": "codex-ollama-qwen3-32b-runtime-refactor-r0-bce",
+        "label": "visiblePipeline",
+        "sha256": "473f60e616c6c227f864dd4ff00e2a48050dccded0af962f45f8f935e2e6de61",
+        "bytes": 556,
+        "mediaType": "application/json",
+        "redaction": "none",
+        "originalSensitivity": "public",
+        "withheldReason": "controller-host-path-present"
+      }
+    ]
+  },
+  "analysis": null,
+  "archive": {
+    "schemaVersion": "1",
+    "studyId": "bce-accelerated-instrumentation-pilot-v4-2026-09-05",
+    "resultKind": "safety-halt-archive",
+    "evidenceClass": "author-operated-safety-halted-instrumentation-prefix",
+    "archiveMethod": "post-hoc-v1-not-preregistered",
+    "claimEligibility": "none",
+    "efficacyEstimatesProduced": false,
+    "verifiedTrials": 6,
+    "plannedTrials": 24,
+    "unexposedTrials": 18,
+    "runDisposition": {
+      "status": "safety-halt",
+      "reason": "stopped after 6 consecutive post-exposure infrastructure failures",
+      "committedTrials": 6,
+      "ledgerHeadSha256": "dc460aa27d08fda7e6e9faf9206ebc922f9a9725c560c863c625fc2e82869a5c"
+    },
+    "observedPrefixStatuses": {
+      "infrastructure-error": 6
+    },
+    "claimDecision": {
+      "decision": "not-evaluated-safety-halted-partial-run",
+      "reasons": [
+        "the frozen safety rule stopped the study before the randomized denominator completed",
+        "the retained prefix contains post-exposure infrastructure failures",
+        "pilot tasks and repositories are development-exposed",
+        "no comparative, product, cost, latency, safety, default-adoption, or transportability claim is permitted"
+      ]
+    },
+    "archiveSha256": "22e1ad8131c7d0bdf6e5a5803e3940cded3b2d70422143060c09d19594ef835a"
+  },
+  "archiveTooling": {
+    "exporterSha256": "cd6ce33dd6c0d0d2c49e88217807b7338f001628198456f9a74f96b2e0029859",
+    "publicVerifierSha256": "4cc204c3582cebafb3015b033014d23b87cc544e532a2312a5e7d544abd91dee",
+    "haltHelperSha256": "8e9a2d40dc00d8926b95982528441872b76644260e37f01484d7ad5e4c93537b",
+    "archiveSchemaSha256": "55754ad9439faf01b9456ac2e14f7d7863f019961e203b1d430461421795c84a"
+  },
+  "resultSha256": "528b851e2bc88419666a1c90bb5257e6e3ea97434e84252b7c01795986ba752b"
+}

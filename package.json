@@ -69,6 +69,7 @@
     "test:external-contract": "node scripts/verify-external-implementation-report.selftest.mjs && node scripts/verify-external-implementation-report.mjs",
     "test:model-eval-protocol": "node scripts/model-evaluation-protocol.selftest.mjs",
     "test:model-eval-controller": "node scripts/model-evaluation-controller.selftest.mjs",
+    "test:model-eval-halt": "node scripts/model-evaluation-safety-halt.selftest.mjs",
     "test:model-eval-references": "node scripts/model-evaluation-reference-patches.selftest.mjs",
     "build:model-eval-pilot": "node scripts/build-accelerated-model-pilot.mjs",
     "model-eval:assign": "node scripts/generate-model-evaluation-assignments.mjs",

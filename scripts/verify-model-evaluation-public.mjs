@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyzeModelEvaluationRecords } from './lib/model-evaluation-analysis.mjs';
 import { canonicalJson, expectedSeal, sha256Bytes, sha256Json } from './lib/model-evaluation.mjs';
+import { SAFETY_HALT_ARCHIVE_SCHEMA_PATH, verifyPublishedSafetyHalt } from './lib/model-evaluation-halt.mjs';
 
 const valueAfter = (flag) => {
   const index = process.argv.indexOf(flag);
@@ -36,12 +37,25 @@ const manifest = readJson(join(bundleRoot, 'task-manifest.json'));
 const seal = readJson(join(bundleRoot, 'seal.json'));
 const summary = readJson(join(resultsRoot, 'summary.json'));
 if (summary.resultSha256 !== sha256Json({ ...summary, resultSha256: null })) throw new Error('public summary self-digest mismatch');
-if (summary.analysis.resultSha256 !== sha256Json({ ...summary.analysis, resultSha256: null })) throw new Error('analysis self-digest mismatch');
+const safetyHalted = summary.resultKind === 'safety-halt-archive' && summary.runDisposition?.status === 'safety-halt';
+if (safetyHalted) {
+  const runningArchiveTooling = {
+    exporterSha256: sha256Bytes(readFileSync(fileURLToPath(new URL('./export-model-evaluation-public.mjs', import.meta.url)))),
+    publicVerifierSha256: sha256Bytes(readFileSync(fileURLToPath(import.meta.url))),
+    haltHelperSha256: sha256Bytes(readFileSync(fileURLToPath(new URL('./lib/model-evaluation-halt.mjs', import.meta.url)))),
+    archiveSchemaSha256: sha256Bytes(readFileSync(SAFETY_HALT_ARCHIVE_SCHEMA_PATH)),
+  };
+  if (canonicalJson(summary.archiveTooling) !== canonicalJson(runningArchiveTooling)) throw new Error('safety-halt archive tooling digest mismatch');
+  if (summary.analysis !== null || summary.archive?.archiveSha256 !== sha256Json({ ...summary.archive, archiveSha256: null }) || summary.archive?.efficacyEstimatesProduced !== false) {
+    throw new Error('safety-halt archive contains an analysis or has an invalid self-digest');
+  }
+} else if (summary.analysis.resultSha256 !== sha256Json({ ...summary.analysis, resultSha256: null })) throw new Error('analysis self-digest mismatch');
 if (summary.studyId !== protocol.studyId || summary.studyId !== manifest.studyId || summary.studyId !== seal.studyId) throw new Error('studyId mismatch');
 const expected = expectedSeal(bundleRoot, protocol, manifest);
 if (seal.rootSha256 !== expected.rootSha256 || canonicalJson(seal.entries) !== canonicalJson(expected.entries)) throw new Error('sealed input root mismatch');
 if (summary.sealedInputs.rootSha256 !== seal.rootSha256 || canonicalJson(summary.sealedInputs.attestation) !== canonicalJson(seal.attestation)) throw new Error('summary seal binding mismatch');
-if (protocol.phase === 'pilot' && (seal.attestation?.eligibleForProductClaim !== false || summary.analysis.productDecision.decision !== 'ineligible-instrumentation-pilot-no-efficacy-decision')) {
+if (protocol.phase === 'pilot' && (seal.attestation?.eligibleForProductClaim !== false ||
+    (safetyHalted ? summary.archive.claimDecision.decision !== 'not-evaluated-safety-halted-partial-run' : summary.analysis.productDecision.decision !== 'ineligible-instrumentation-pilot-no-efficacy-decision'))) {
   throw new Error('pilot export is not permanently claim-ineligible');
 }
 
@@ -51,9 +65,14 @@ if (sha256Bytes(terminalBytes) !== summary.publicReplay.terminalRecordsSha256) t
 if (sha256Bytes(ledgerBytes) !== summary.publicReplay.ledgerSha256) throw new Error('ledger export digest mismatch');
 const records = terminalBytes.toString('utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
 const ledger = ledgerBytes.toString('utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
-if (records.length !== manifest.assignments.length || records.length !== summary.verifiedTrials || ledger.length !== records.length) throw new Error('public denominator mismatch');
+const plannedTrials = manifest.assignments.length;
+if (records.length !== summary.verifiedTrials || ledger.length !== records.length ||
+    (safetyHalted ? (records.length === 0 || records.length > plannedTrials || summary.runDisposition.plannedTrials !== plannedTrials || summary.runDisposition.committedTrials !== records.length || summary.runDisposition.unexposedTrials !== plannedTrials - records.length) : records.length !== plannedTrials)) {
+  throw new Error('public denominator or safety-halt prefix mismatch');
+}
 const recordsByTrial = new Map(records.map((record) => [record.trialId, record]));
 const restricted = new Map(summary.restrictedEvidence.commitments.map((item) => [`${item.trialId}/${item.label}`, item]));
+const withheld = new Map((summary.withheldPublicEvidence?.commitments ?? []).map((item) => [`${item.trialId}/${item.label}`, item]));
 let previousLedger = null;
 
 function publicArtifact(record, label) {
@@ -65,7 +84,7 @@ function publicArtifact(record, label) {
   return JSON.parse(bytes.toString('utf8'));
 }
 
-for (let index = 0; index < manifest.assignments.length; index += 1) {
+for (let index = 0; index < records.length; index += 1) {
   const assignment = manifest.assignments[index];
   const record = recordsByTrial.get(assignment.trialId);
   const entry = ledger[index];
@@ -79,8 +98,18 @@ for (let index = 0; index < manifest.assignments.length; index += 1) {
   previousLedger = entry.entrySha256;
   for (const [label, artifact] of Object.entries(record.evidence)) {
     if (artifact.sensitivity === 'public') {
-      const bytes = readFileSync(join(resultsRoot, 'cas', 'sha256', artifact.sha256));
-      if (bytes.byteLength !== artifact.bytes || sha256Bytes(bytes) !== artifact.sha256) throw new Error(`${record.trialId}/${label}: public CAS mismatch`);
+      const withheldCommitment = withheld.get(`${record.trialId}/${label}`);
+      const publicPath = join(resultsRoot, 'cas', 'sha256', artifact.sha256);
+      if (withheldCommitment) {
+        if (!safetyHalted || withheldCommitment.sha256 !== artifact.sha256 || withheldCommitment.bytes !== artifact.bytes ||
+            withheldCommitment.mediaType !== artifact.mediaType || withheldCommitment.originalSensitivity !== 'public' ||
+            withheldCommitment.withheldReason !== 'controller-host-path-present' || existsSync(publicPath)) {
+          throw new Error(`${record.trialId}/${label}: invalid withheld-public commitment`);
+        }
+      } else {
+        const bytes = readFileSync(publicPath);
+        if (bytes.byteLength !== artifact.bytes || sha256Bytes(bytes) !== artifact.sha256) throw new Error(`${record.trialId}/${label}: public CAS mismatch`);
+      }
     } else if (artifact.sensitivity === 'restricted') {
       const commitment = restricted.get(`${record.trialId}/${label}`);
       if (!commitment || commitment.sha256 !== artifact.sha256 || commitment.bytes !== artifact.bytes) throw new Error(`${record.trialId}/${label}: restricted commitment mismatch`);
@@ -95,9 +124,9 @@ for (let index = 0; index < manifest.assignments.length; index += 1) {
     if (event.sequence !== eventIndex || event.previousEventSha256 !== previousEvent || event.eventSha256 !== sha256Json({ ...event, eventSha256: null })) throw new Error(`${record.trialId}: event chain mismatch`);
     previousEvent = event.eventSha256;
   }
-  const visible = publicArtifact(record, 'visiblePipeline');
-  const functional = publicArtifact(record, 'functionalOracle');
-  const architecture = publicArtifact(record, 'architectureOracle');
+  const visible = safetyHalted ? null : publicArtifact(record, 'visiblePipeline');
+  const functional = safetyHalted ? null : publicArtifact(record, 'functionalOracle');
+  const architecture = safetyHalted ? null : publicArtifact(record, 'architectureOracle');
   const policy = publicArtifact(record, 'policyDiff');
   const preparation = publicArtifact(record, 'preparation');
   const isolation = publicArtifact(record, 'isolationProof');
@@ -121,6 +150,13 @@ for (let index = 0; index < manifest.assignments.length; index += 1) {
         (isolation.providerIdentityStable !== true && record.status !== 'infrastructure-error'))) ||
       (cell.client === 'codex' && isolation.clientSessionObserved === true && (isolation.credentialRetiredBeforeModelToolExecution !== true || isolation.modelToolExecutionObservedBeforeCredentialRetirement !== false)) ||
       (cell.client === 'codex' && record.status === 'completed' && isolation.clientSessionObserved !== true)) throw new Error(`${record.trialId}: client isolation proof mismatch`);
+  if (safetyHalted) {
+    if (record.status !== 'infrastructure-error' || policy.conservativeFailureClassification !== true || policy.mutation !== true ||
+        policy.finalPolicyPaths?.length !== 0 || policy.observedWritePaths?.length !== 0 || policy.outOfScope?.length !== 0) {
+      throw new Error(`${record.trialId}: safety-halt policy evidence is not the frozen conservative unknown placeholder`);
+    }
+    continue;
+  }
   if (hardenedEvidenceRequired && assignment.arm === 'bce-enabled') {
     const gateMissingAfterFailure = visible.bceRun == null && record.status !== 'completed' && typeof visible.failure === 'string';
     if (!gateMissingAfterFailure && (canonicalJson(visible.bceRun?.command) !== canonicalJson(['bce', 'gate']) || typeof visible.bceRun?.exitCode !== 'number' || visible.bceGateAccepted !== (visible.bceRun.exitCode === 0))) {
@@ -147,8 +183,11 @@ for (let index = 0; index < manifest.assignments.length; index += 1) {
   if (canonicalJson(record.derived) !== canonicalJson(expectedDerived)) throw new Error(`${record.trialId}: public outcomes do not rederive`);
 }
 if (previousLedger !== summary.publicReplay.ledgerHeadSha256) throw new Error('ledger head mismatch');
-if (summary.analysis.verifiedTrials !== records.length) throw new Error('analysis denominator mismatch');
-if (protocol.implementation.analysisCoreSha256) {
+if ((safetyHalted ? summary.archive.verifiedTrials : summary.analysis.verifiedTrials) !== records.length) throw new Error('result denominator mismatch');
+if (safetyHalted) {
+  const haltBytes = readFileSync(join(resultsRoot, 'study-halt.json'));
+  verifyPublishedSafetyHalt(summary, { root: bundleRoot, protocol, manifest, seal }, records, ledger, haltBytes);
+} else if (protocol.implementation.analysisCoreSha256) {
   const analysisCorePath = fileURLToPath(new URL('./lib/model-evaluation-analysis.mjs', import.meta.url));
   if (sha256Bytes(readFileSync(analysisCorePath)) !== protocol.implementation.analysisCoreSha256) throw new Error('public analysis core differs from sealed implementation');
   const replayedAnalysis = analyzeModelEvaluationRecords(

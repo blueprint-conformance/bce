@@ -50,7 +50,7 @@ The distinguishing mechanism is a fail-closed, local-first architecture gate tha
 - Live RED/GREEN transcript and byte-for-byte proof: `docs/launch/hero-demo.txt`, `tests/root-readme-proof.test.ts`, and `scripts/hero-demo-record.mjs`.
 - Self-gate and mutation evidence: `.blueprints/`, `extractor-teeth-report.json`, and the repository workflows.
 - Public claim ledger: `STATUS.md`.
-- Reproducible model-evaluation pilot and explicit limits: `research/model-evaluation/pilots/accelerated-v3/RESULTS.md` and `research/model-evaluation/README.md`.
+- Reproducible completed-path pilot plus the latest safety-halted apparatus record and explicit limits: `research/model-evaluation/pilots/accelerated-v3/RESULTS.md`, `research/model-evaluation/pilots/accelerated-v4/RESULTS.md`, and `research/model-evaluation/README.md`.
 - External but creator-maintained Action witness: `https://github.com/blueprint-conformance/bce-action-witness`.
 - Independent attestation ledger, currently zero: `ATTESTATIONS.md`.
 - No testimonials, customer logos, independent benchmarks, peer-reviewed paper, DOI, or causal efficacy result may be invented.

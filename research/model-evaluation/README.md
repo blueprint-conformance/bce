@@ -74,13 +74,15 @@ npm run build
 npm run test:model-eval-controller
 ```
 
-The latest fix-forward real-model design is v4; v1 through v3 and every exposed denominator remain
-immutable beside it. V3 completed the apparatus path but saturated both arms. V4 is a faster,
-still permanently claim-ineligible calibration: four dependency-free JavaScript module-graph
+The latest attempted real-model design is v4; v1 through v3 and every exposed denominator remain
+immutable beside it. V3 completed the apparatus path but saturated both arms. V4 was a faster,
+permanently claim-ineligible calibration: four dependency-free JavaScript module-graph
 microcosms, three distinct base states (`repair`, `feature`, and `refactor`) per repository, two
 paired arms, and one exact content-addressed local Codex/Ollama `qwen3:32b` cell, for 24 retained
-attempts. It can reveal directional apparatus behavior in that exact cell; it cannot establish
-product efficacy, default-adoption value, cost benefit, safety benefit, or transportability.
+attempts. It safety-halted after the exact first six assignments because of a post-run provider
+identity comparator defect; 18 assignments were never executed, and no analysis was produced.
+[The v4 result](pilots/accelerated-v4/RESULTS.md) is an integrity-verified apparatus-failure archive,
+not efficacy evidence. A fix-forward v5 is not yet frozen.
 
 Every v4 task freezes both a conforming reference patch and an architecture-violating shortcut
 witness. The verifier requires the reference to pass visible checks, the twice-run functional and
@@ -90,7 +92,7 @@ the exact named constraint. It also proves the starting trees have different tas
 tables: repair is functional-red/architecture-red, feature is functional-red/architecture-green,
 and refactor is functional-green/architecture-red.
 
-The v4 pre-exposure lifecycle is:
+The historical v4 pre-exposure lifecycle was:
 
 ```sh
 npm run build:model-eval-pilot -- --pilot-version v4 # clean source commit; generated path must not exist

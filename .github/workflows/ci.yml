@@ -103,6 +103,9 @@ jobs:
             fi
           fi
 
+      - name: Safety-halted model-evaluation evidence replays without efficacy claims
+        run: npm run test:model-eval-halt
+
       - name: Restricted-network runtime + hostile proxy/registry proof
         run: npm run test:restricted-network
 
