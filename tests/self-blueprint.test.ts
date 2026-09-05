@@ -148,7 +148,7 @@ describe('self-blueprint: the engine gates its own architecture', () => {
     expect(report.killed).toBe(bp.constraints.length);
     expect(report.survived).toBe(0);
     expect(report.refused).toBe(0);
-    expect(report.inputBindings.extractorIdentity).toBe('bce-ast:ts-morph@23.0.0');
+    expect(report.inputBindings.extractorIdentity).toBe('bce-ast:ts-morph@28.0.0');
   }, EXTRACTOR_TEETH_TIMEOUT_MS);
 });
 

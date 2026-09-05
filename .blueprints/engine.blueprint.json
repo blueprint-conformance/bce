@@ -304,7 +304,7 @@
       "type": "forbiddenPattern",
       "severity": "critical",
       "path": "src/**/*.ts",
-      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod['\"]|ts-morph['\"]|@lezer/(?:common|python)['\"]|node:|\\.{1,2}/)",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod(?:/v3)?['\"]|ts-morph['\"]|@lezer/(?:common|python)['\"]|node:|\\.{1,2}/)",
       "policyRef": "policy/runtime-dep-allowlist"
     },
     {
@@ -312,7 +312,7 @@
       "type": "forbiddenPattern",
       "severity": "high",
       "path": "src/schema.ts",
-      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod['\"]|\\./safe-regex\\.js['\"])",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod(?:/v3)?['\"]|\\./safe-regex\\.js['\"])",
       "policyRef": "policy/schema-single-source-of-truth"
     },
     {

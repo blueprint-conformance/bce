@@ -15,7 +15,7 @@
  * This module is the SINGLE SOURCE OF TRUTH for the shape — never re-describe it from
  * a prose summary (the prompt summary omitted `intentRefs`, which the schema requires).
  */
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { safeCompilePattern, UnsafePatternError } from './safe-regex.js';
 
 /** Constraint kinds a blueprint can declare (json-schema `constraints[].type` enum). */
