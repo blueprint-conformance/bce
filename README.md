@@ -136,9 +136,11 @@ self-blueprint mutants, deterministic reports,
 and cross-platform CI. Those are first-party proofs on author-controlled infrastructure;
 [independent witnesses remain 0](ATTESTATIONS.md).
 
-The accelerated model pilot proved the evaluation machinery runs, but its easy tasks saturated both
-arms. The held-out 600-trial study has not run. We do not yet claim that BCE makes agents more
-successful, cheaper, faster, or safer than a baseline. [Check the public truth ledger](STATUS.md) or
+Accelerated pilot v3 completed the evaluation path but saturated both arms. V4 then safety-halted
+at 6/24 after exposing an identity-comparator defect and an unqualified local agent/tool loop; its
+18 remaining assignments were never run and it produced no analysis. The held-out 600-trial study
+has not run. We do not yet claim that BCE makes agents more successful, cheaper, faster, or safer
+than a baseline. [Check the public truth ledger](STATUS.md) or
 [inspect the study contract](research/model-evaluation/README.md).
 
 <!-- fleet-record:begin -->
