@@ -20,6 +20,22 @@ try {
   if (error.status !== 1 || !String(error.stderr).includes('deterministic Agent Skills + MCP adoption proof')) throw error;
 }
 
+writeFileSync(fixture, source.replace('          corepack install --global npm@11.19.1\n', '          echo exact npm bootstrap removed\n'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a gate without an exact isolated npm bootstrap');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('exact Corepack npm bootstrap')) throw error;
+}
+
+writeFileSync(fixture, source.replace('      - name: Resolve release mode (tag push = real; dispatch = dry_run input)', '      - run: npm install -g npm@11.19.1\n\n      - name: Resolve release mode (tag push = real; dispatch = dry_run input)'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted an in-place npm self-upgrade');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('in-place npm self-upgrade is forbidden')) throw error;
+}
+
 writeFileSync(fixture, source.replace('--certificate-issuer https://token.actions.githubusercontent.com', '--certificate-issuer https://example.invalid'));
 try {
   execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -58,4 +74,4 @@ writeFileSync(fixture, source);
 const accepted = execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`intact release policy did not pass:\n${accepted}`);
 
-process.stdout.write('release-proof-policy self-test: PASS (missing adoption/source-mutation/controller proof, wrong issuer, and publish-before-evidence ordering rejected; intact gate accepted)\n');
+process.stdout.write('release-proof-policy self-test: PASS (missing adoption/source-mutation/controller/toolchain proof, in-place npm upgrade, wrong issuer, and publish-before-evidence ordering rejected; intact gate accepted)\n');

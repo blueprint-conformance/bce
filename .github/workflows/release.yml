@@ -120,11 +120,25 @@ jobs:
 
       # node-version:22 ships npm 10.9.x. npm's Trusted Publishing (OIDC) requires
       # npm >= 11.5.1 (and node >= 22.14.0), so auth path (B) is DEAD ON ARRIVAL on
-      # the stock toolchain — the publish would fail no matter what the gate said.
-      # Upgraded in BOTH jobs: the gate must measure the same npm the publish uses,
-      # or the gate's verdict is about a different toolchain than the one that ships.
-      - name: Upgrade npm to the Trusted-Publishing floor (>=11.5.1)
-        run: npm install -g npm@^11.5.1
+      # the stock toolchain. Do not ask that bundled npm to overwrite itself: the
+      # 22.22.2 hosted toolcache can be missing one of npm's own Arborist modules.
+      # Corepack downloads the exact CLI without executing the broken npm, then
+      # installs its shim in RUNNER_TEMP. This exact ceremony runs in BOTH jobs.
+      - name: Bootstrap exact npm 11.19.1 through Corepack
+        shell: bash
+        env:
+          COREPACK_DEFAULT_TO_LATEST: "0"
+        run: |
+          set -euo pipefail
+          npm_bin="${RUNNER_TEMP}/corepack-bin"
+          mkdir -p "$npm_bin"
+          corepack install --global npm@11.19.1
+          corepack enable npm --install-directory "$npm_bin"
+          echo "$npm_bin" >> "$GITHUB_PATH"
+          actual="$("$npm_bin/npm" --version)"
+          [ "$actual" = "11.19.1" ] || { echo "::error::expected npm 11.19.1, got ${actual}"; exit 1; }
+          echo "COREPACK_DEFAULT_TO_LATEST=0" >> "$GITHUB_ENV"
+          echo "npm ${actual} bootstrapped outside the hosted Node toolcache"
 
       - name: Resolve release mode (tag push = real; dispatch = dry_run input)
         id: mode
@@ -375,7 +389,7 @@ jobs:
               echo "::error::publish-auth gate: FAIL — the ACK is set but npm ${npmv} is BELOW the"
               echo "Trusted-Publishing floor of 11.5.1, so OIDC cannot be used and the publish would"
               echo "fail regardless of the attestation. node-version:22 ships npm 10.9.x; install"
-              echo "npm@^11.5.1 in BOTH the gate and publish jobs. npm also requires node >= 22.14.0."
+              echo "npm@11.19.1 through Corepack in BOTH the gate and publish jobs. npm also requires node >= 22.14.0."
               exit 1
             fi
             echo "publish-auth gate: PASS (attested + floor proven) — npm ${npmv} meets the OIDC"
@@ -422,11 +436,23 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
 
-      # Must match the gate job's floor. If the gate measures npm >= 11.5.1 and the
-      # publish job then runs the stock npm 10.9.x, the gate's verdict was about a
-      # toolchain that never ships — the gate would be measuring the wrong thing.
-      - name: Upgrade npm to the Trusted-Publishing floor (>=11.5.1)
-        run: npm install -g npm@^11.5.1
+      # Must exactly match the gate job. Corepack avoids an in-place self-upgrade
+      # of the hosted npm 10.9.x tree, which may be missing its own Arborist module.
+      - name: Bootstrap exact npm 11.19.1 through Corepack
+        shell: bash
+        env:
+          COREPACK_DEFAULT_TO_LATEST: "0"
+        run: |
+          set -euo pipefail
+          npm_bin="${RUNNER_TEMP}/corepack-bin"
+          mkdir -p "$npm_bin"
+          corepack install --global npm@11.19.1
+          corepack enable npm --install-directory "$npm_bin"
+          echo "$npm_bin" >> "$GITHUB_PATH"
+          actual="$("$npm_bin/npm" --version)"
+          [ "$actual" = "11.19.1" ] || { echo "::error::expected npm 11.19.1, got ${actual}"; exit 1; }
+          echo "COREPACK_DEFAULT_TO_LATEST=0" >> "$GITHUB_ENV"
+          echo "npm ${actual} bootstrapped outside the hosted Node toolcache"
 
       - name: Pre-flight — honest auth check (NPM_TOKEN present, else OIDC-only path)
         shell: bash

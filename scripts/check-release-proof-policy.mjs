@@ -17,6 +17,9 @@ if (gateStart < 0 || publishStart < 0 || publishStart <= gateStart) {
 const gate = text.slice(gateStart, publishStart);
 const publish = text.slice(publishStart);
 const requirements = [
+  ['exact Corepack npm bootstrap', /corepack install --global npm@11\.19\.1/],
+  ['temporary Corepack npm shim', /corepack enable npm --install-directory "\$npm_bin"/],
+  ['Corepack latest-resolution disabled', /COREPACK_DEFAULT_TO_LATEST:\s*"0"/],
   ['full test suite', /^\s*run:\s*npm test\s*$/m],
   ['fresh-consumer onboarding proof', /^\s*run:\s*npm run test:onboarding\s*$/m],
   ['deterministic Agent Skills + MCP adoption proof', /^\s*run:\s*npm run test:ai-adoption\s*$/m],
@@ -26,6 +29,9 @@ const requirements = [
 const missing = requirements.filter(([, pattern]) => !pattern.test(gate)).map(([name]) => name);
 
 const signingRequirements = [
+  ['publish exact Corepack npm bootstrap', /corepack install --global npm@11\.19\.1/],
+  ['publish temporary Corepack npm shim', /corepack enable npm --install-directory "\$npm_bin"/],
+  ['publish Corepack latest-resolution disabled', /COREPACK_DEFAULT_TO_LATEST:\s*"0"/],
   ['publish job OIDC permission', /^\s*id-token:\s*write\b/m],
   ['Sigstore evidence attestation', /@sigstore\/cli\/bin\/run attest[\s\\]*\n\s*release-evidence-record\.json/],
   ['Sigstore issuer constraint', /--certificate-issuer https:\/\/token\.actions\.githubusercontent\.com/],
@@ -33,6 +39,7 @@ const signingRequirements = [
   ['Sigstore bundle release asset', /^\s*release-evidence-record\.sigstore \\/m],
 ];
 missing.push(...signingRequirements.filter(([, pattern]) => !pattern.test(publish)).map(([name]) => name));
+if (/npm install (?:--global|-g) npm@/.test(text)) missing.push('in-place npm self-upgrade is forbidden');
 
 if (!/^  model-evaluation-controller-macos:\s*$/m.test(text) || !/^\s*run:\s*npm run test:model-eval-controller\s*$/m.test(text)) {
   missing.push('macOS real-controller rehearsal');
