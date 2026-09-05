@@ -5,8 +5,7 @@
 **The rule:** application code may use domain code; domain code must never import the application
 layer. The starting tree contains one reverse import in `packages/domain/order.ts`.
 
-**Availability:** this walkthrough uses `typescript-module-graph` from the unpublished `v0.3.0`
-source candidate. Run it with a built source checkout; `bce-engine@0.2.0` cannot parse this profile.
+**Availability:** this walkthrough uses `typescript-module-graph` from the `v0.3.0` release.
 
 ## 0. Work in a copy
 
@@ -16,7 +15,7 @@ cd /tmp/bce-first-win-module-layering
 mkdir -p .blueprints
 ```
 
-`bce` below means `node /path/to/bce/dist/cli.js` from a built candidate checkout.
+`bce` below means `npx --no-install bce` after installing exact `bce-engine@0.3.0`.
 
 ## 1. Author one directional boundary
 
@@ -41,7 +40,7 @@ author sanity: scope matches 1 file(s) in . (1 component(s) observed)
 ```
 
 The generated draft carries `minEngineVersion: "0.3.0"`, so an older pinned gate produces an
-upgrade diagnosis instead of misreading the candidate vocabulary.
+upgrade diagnosis instead of misreading newer vocabulary.
 
 ## 2. Gate it — RED at the reverse edge
 

@@ -80,7 +80,14 @@ if (!/^https:\/\/github\.com\/blueprint-conformance\/bce\/actions\/runs\/\d+\/at
 if (!/^https:\/\/github\.com\/blueprint-conformance\/bce\/releases\/tag\/.+/.test(state.evidenceReleaseUrl ?? '')) {
   failures.push('evidence release URL is not an exact repository release');
 }
-for (const field of ['evidenceRecordSha256', 'sigstoreBundleSha256', 'complianceReportSha256']) {
+for (const field of [
+  'evidenceRecordSha256',
+  'sigstoreBundleSha256',
+  'complianceReportSha256',
+  'payloadManifestSha256',
+  'payloadSigstoreBundleSha256',
+  'tarballSha256',
+]) {
   if (!/^[0-9a-f]{64}$/.test(state[field] ?? '')) failures.push(`${field} is not a full SHA-256 digest`);
 }
 if (!Array.isArray(state.requiredStatusChecks) || state.requiredStatusChecks.length !== 7 ||
@@ -129,6 +136,9 @@ if (!existsSync(join(root, releaseRecord))) {
     state.evidenceRecordSha256,
     state.sigstoreBundleSha256,
     state.complianceReportSha256,
+    state.payloadManifestSha256,
+    state.payloadSigstoreBundleSha256,
+    state.tarballSha256,
   ]) {
     requireText(releaseRecord, value, 'release verification identity');
   }

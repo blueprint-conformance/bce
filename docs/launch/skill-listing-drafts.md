@@ -54,7 +54,7 @@ is the one that gets a contract to exist in the first place.
    contract test (`tests/skill-contract.test.ts`) runs inside `build-test-prove`.
 3. **[agent]** `bce` is installable by the exact command the listing prints,
    **and what it installs can actually go red**. The listing must use the exact
-   `bce-engine@0.2.0` pin, never a range or `latest`. Verify the registry artifact's
+   `bce-engine@0.3.0` pin, never a range or `latest`. Verify the registry artifact's
    signatures and provenance, then run `bce demo` and require its GREEN/RED
    discrimination before printing any install line.
 4. **[operator]** Read each directory's own submission rules before filing.
@@ -129,7 +129,7 @@ a stronger claim, the answer is no.
 | Deterministic, re-derivable evidence | [`docs/evidence-format.md`](../evidence-format.md) |
 | A constraint's refutability is graded | the `teeth` verdict set: `toothed`, `evaluator-refutable`, `toothless` |
 | Graduated adoption path | [`docs/adopt-existing-repo.md`](../adopt-existing-repo.md) |
-| Released TypeScript/JavaScript framework AST plus the Python import-surface MVP; candidate direct TypeScript/JavaScript and structured Python module graphs | [`docs/extending-extractors.md`](../extending-extractors.md) and [`docs/python-module-graph.md`](../python-module-graph.md) — listings must distinguish the `v0.2.0` registry release from the unpublished `v0.3.0` source candidate and must not imply call, egress, transitive, or cycle analysis for Python |
+| Released TypeScript/JavaScript framework AST, direct TypeScript/JavaScript module graph, Python import-surface MVP, and structured Python module graph | [`docs/extending-extractors.md`](../extending-extractors.md) and [`docs/python-module-graph.md`](../python-module-graph.md) — listings must not imply call, egress, transitive, or cycle analysis for Python |
 
 Claims **not** to make: any superlative, any comparison to a named competitor,
 any figure about adoption or users, and anything about language support beyond

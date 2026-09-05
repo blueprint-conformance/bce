@@ -5,13 +5,13 @@ not a framework-specific route or plugin shape. Every scanned module becomes a
 `typescriptModule` component. Every statically named dependency becomes an `imports` edge before
 any policy is applied.
 
-This profile is in the `v0.3.0` source candidate, not the current `v0.2.0` registry release. From a
-source checkout, build and run its packaged proof:
+This profile is in the `v0.3.0` registry release. Install the exact version and run its packaged
+proof:
 
 ```bash
-npm ci
-npm run build
-node dist/cli.js demo --recipe module-layering
+npm view bce-engine@0.3.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.0
+npx --no-install bce demo --recipe module-layering
 ```
 
 The clean tree imports from application code into domain code and scores 100. The drift tree adds
@@ -33,17 +33,10 @@ the same constraint, importer, target, and source line as the CLI; after the sou
 same zero-argument call must return `gateFailed: false` and `outcome: "pass"`. MCP cannot author,
 approve, weaken, or land policy.
 
-For the source candidate, run the built `dist/mcp-server.js` with the target repository as its
-working directory. After the release preflight below resolves, normal `bce onboard` installs the
-same Agent Skill, project-local MCP wiring, advisory mode, and immutable CI in one operation:
-
-```bash
-npm view bce-engine@0.3.0 version dist.integrity
-```
-
-Until that command succeeds, do not pin or onboard the candidate as though it were a registry
-release. See [agent-loop.md](agent-loop.md) for client wiring and [onboarding.md](onboarding.md) for
-the generated setup path.
+Launch the installed `bce-mcp` binary with the target repository as its working directory. Normal
+`bce onboard` installs the same Agent Skill, project-local MCP wiring, advisory mode, and immutable
+CI in one operation. See [agent-loop.md](agent-loop.md) for client wiring and
+[onboarding.md](onboarding.md) for the generated setup path.
 
 ## Directional layering
 
@@ -73,7 +66,7 @@ from the [complete executable fixture](../fixtures/typescript-module-layering.bl
 `scopePaths` always selects importer modules. `to` selects the dependency target. The profile
 requires both fields on C2 and C3 so a stale or accidentally global boundary cannot look green.
 It also requires `minEngineVersion >=0.3.0`; an older gate can then say “upgrade” before it tries to
-parse candidate vocabulary.
+parse newer vocabulary.
 
 Run the measured [author → RED → fix → GREEN module-layering walkthrough](../examples/first-win/module-layering/README.md)
 to create this boundary against a real two-layer tree. The example deliberately includes an

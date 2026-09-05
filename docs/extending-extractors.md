@@ -2,7 +2,7 @@
 
 The two additive Python providers are the reference for adding a language. The released
 `python-import-surface` shows how to add a deliberately bounded provider without changing prior
-behavior. The candidate `python-module-graph` shows how to add a structured parser, explicit
+behavior. The released `python-module-graph` shows how to add a structured parser, explicit
 resolution inputs, and fail-closed uncertainty. This checklist is grounded in their code, not
 aspiration.
 

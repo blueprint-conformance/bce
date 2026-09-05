@@ -8,15 +8,14 @@ code fix → GREEN task, the primary `SKILL.md` is sufficient.
 Use an exact provenance-backed version, never a range or `latest` for a merge gate:
 
 ```bash
-npm view bce-engine@0.2.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.2.0
+npm view bce-engine@0.3.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.0
 npx --no-install bce demo
 ```
 
 The demo must produce GREEN and RED. A gate no one has seen fail is not evidence.
 
-That immutable release predates `typescript-module-graph`. Do not author or onboard a module-graph
-blueprint with the `v0.2.0` binary.
+That immutable release includes both TypeScript/JavaScript and Python direct-module graphs.
 
 ## Propose first
 
@@ -71,13 +70,13 @@ or `critical`.
 
 `requiredEvidence`, `minimumMetric`, and `customPolicy` are reserved/run-only in v0.1; do not use
 one as the enforcing constraint in a first blueprint. Extraction profiles are
-`next-route-handler`, `plugin-surface`, and `python-import-surface` in the released `v0.2.0` binary.
-The `v0.3.0` source candidate adds `typescript-module-graph`; it requires explicit scope paths,
-uses `module:`, `package:`, or `builtin:` dependency targets, and automatically writes
-`minEngineVersion: "0.3.0"`. Use it only through the built candidate and follow
-`docs/typescript-module-graph.md`; do not hand the result to the released pin. The normal primary
-skill loop remains unchanged: after setup, `doctor_repository {}` diagnoses readiness and
-zero-argument MCP `run_gate {}` grades the live module graph through the same engine as the CLI.
+`next-route-handler`, `plugin-surface`, `python-import-surface`, `typescript-module-graph`, and
+`python-module-graph` in the released `v0.3.0` binary. The direct-module profiles require explicit
+scope paths, use `module:`, `package:`, or `builtin:` dependency targets, and automatically write
+`minEngineVersion: "0.3.0"`. Follow `docs/typescript-module-graph.md` or
+`docs/python-module-graph.md`. The normal primary skill loop remains unchanged: after setup,
+`doctor_repository {}` diagnoses readiness and zero-argument MCP `run_gate {}` grades the live
+module graph through the same engine as the CLI.
 
 Validate the draft:
 
@@ -91,12 +90,12 @@ bce validate --blueprint parameterized-queries-only.blueprint.json
 bce onboard \
   --repo . \
   --blueprint parameterized-queries-only.blueprint.json \
-  --engine bce-engine@0.2.0 \
+  --engine bce-engine@0.3.0 \
   --harness codex
 ```
 
-This exact onboarding command is for profiles supported by `v0.2.0`. A module-graph blueprint must
-wait for the candidate publish and subsequent predecessor-gated pin ceremony.
+This exact onboarding command supports the framework, import-surface, and direct-module profiles in
+`v0.3.0`.
 
 Harnesses are `agents`, `claude`, `cursor`, and `codex`. Onboarding installs project skills, agent
 context, project-local MCP configuration, immutable CI, advisory mode, and an adoption manifest. It

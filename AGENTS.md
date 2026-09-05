@@ -10,8 +10,8 @@ the snippet to drop into *another* repo so an agent treats bce as its done-check
 `EngineeringBlueprint` (a durable architectural contract for a repository), and bce measures the code
 against it: a deterministic conformance score, a fail-closed required-check gate, and hash-chained
 evidence anyone can re-derive offline. TypeScript/JavaScript framework AST extraction is the mature
-released path; the source candidate also carries direct TypeScript/JavaScript and structured Python
-module graphs behind the same language-neutral provider seam.
+released path; v0.3.0 also carries direct TypeScript/JavaScript and structured Python module graphs
+behind the same language-neutral provider seam.
 
 ## The rules that never bend
 

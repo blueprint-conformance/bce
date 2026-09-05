@@ -6,9 +6,8 @@ exist, and does an extracted component live under a prohibited path? This is a v
 the [constraint taxonomy in the specification](../spec/SPEC.md#3-constraint-taxonomy--11-types) is
 normative.
 
-The module-graph notes on C2 and C3 describe the unpublished `v0.3.0` source candidate. The current
-`bce-engine@0.2.0` registry release supports the framework-specific semantics shown in the diagrams,
-not `typescript-module-graph` or `python-module-graph`.
+The module-graph notes on C2 and C3 describe profiles released in `bce-engine@0.3.0`, alongside the
+framework-specific semantics shown in the diagrams.
 
 | Constraint | Question BCE answers | Evidence graded |
 |---|---|---|
