@@ -152,6 +152,7 @@ BCE arm. A non-qualified canary is useful apparatus evidence but cannot authoriz
 ```sh
 npm run model-eval:canary -- \
   --ollama-model MODEL \
+  --reasoning-effort low \
   --out /path/to/canary-attestation.json \
   --restricted-runs /access-controlled/path
 ```

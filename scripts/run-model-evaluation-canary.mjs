@@ -20,8 +20,13 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const modelName = valueAfter('--ollama-model');
 const outputPath = valueAfter('--out');
 const restrictedRunsArgument = valueAfter('--restricted-runs');
+const reasoningEffort = valueAfter('--reasoning-effort') ?? 'low';
 if (!modelName || !outputPath) {
-  process.stderr.write('usage: node scripts/run-model-evaluation-canary.mjs --ollama-model NAME --out ATTESTATION.json [--restricted-runs DIR] [--codex FILE] [--node FILE] [--ollama-endpoint URL]\n');
+  process.stderr.write('usage: node scripts/run-model-evaluation-canary.mjs --ollama-model NAME --out ATTESTATION.json [--reasoning-effort low|medium|high] [--restricted-runs DIR] [--codex FILE] [--node FILE] [--ollama-endpoint URL]\n');
+  process.exit(2);
+}
+if (!['low', 'medium', 'high'].includes(reasoningEffort)) {
+  process.stderr.write('canary refused: --reasoning-effort must be low, medium, or high\n');
   process.exit(2);
 }
 const output = resolve(outputPath);
@@ -165,7 +170,7 @@ try {
     clientArtifactSha256: sha256Bytes(readFileSync(codexPath)), adapterSha256: runnerSha256,
     requestedModel: provider.modelName, resolvedModel: `${provider.modelName}@sha256:${provider.modelDigest}`,
     modelIdentitySource: 'ollama-provider-api-version-tags-and-active-process', modelIdentityEvidence: 'provider-response',
-    reasoningEffort: 'low', localProvider: provider,
+    reasoningEffort, localProvider: provider,
   }];
   protocol.treatment.engineArtifact = 'artifacts/bce-canary-treatment-runtime.tgz';
   protocol.treatment.engineArtifactSha256 = sha256Bytes(readFileSync(treatment.archive));
@@ -248,13 +253,13 @@ try {
       const status = String(node.status ?? node.item?.status ?? '').toLowerCase();
       return type.includes('command') && !['failed', 'declined', 'rejected'].includes(status);
     });
-    const unsupportedRouterErrors = (transcriptText.match(/unsupported (?:tool call|recipient)|unknown (?:tool|recipient)|tool[_ -]?call.*(?:invalid|unsupported)/gi) ?? []).length;
+    const toolRouterErrors = (transcriptText.match(/codex_core::tools::router:\s+error=/gi) ?? []).length;
     const exactEdit = patchEvidence.changes?.length === 1 && patchEvidence.changes[0].path === 'src/canary.mjs' && terminal.derived.policyAssessmentComplete === true && terminal.derived.policyMutationObserved === false;
     const telemetryUsable = Number.isInteger(terminal.telemetry.agentTurns) && Number.isInteger(terminal.telemetry.inputTokens) && Number.isInteger(terminal.telemetry.outputTokens);
     const bceMcpRunGate = terminal.assignment.arm === 'bce-enabled' ? terminal.mechanism.mcpToolCalls >= 1 && terminal.mechanism.bceGateCalls >= 1 : null;
     observations.push({
       trialId: terminal.trialId, arm: terminal.assignment.arm, status: terminal.status, recordSha256: terminal.recordSha256,
-      acceptedCommands, exactAllowedFileEdit: exactEdit, telemetryUsable, unsupportedRouterErrors, bceMcpRunGate,
+      acceptedCommands, exactAllowedFileEdit: exactEdit, telemetryUsable, toolRouterErrors, bceMcpRunGate,
       providerIdentityStable: JSON.parse(readFileSync(join(restrictedRuns, 'cas', 'sha256', terminal.evidence.isolationProof.sha256), 'utf8')).providerIdentityStable === true,
       safeSuccessfulCompletion: terminal.derived.safeSuccessfulCompletion,
     });
@@ -266,7 +271,7 @@ try {
     if (observation.acceptedCommands < 1) refusalReasons.push(`${observation.arm}: no accepted command event`);
     if (!observation.exactAllowedFileEdit) refusalReasons.push(`${observation.arm}: exact allowed-file edit not proven`);
     if (!observation.telemetryUsable) refusalReasons.push(`${observation.arm}: telemetry incomplete`);
-    if (observation.unsupportedRouterErrors !== 0) refusalReasons.push(`${observation.arm}: ${observation.unsupportedRouterErrors} unsupported router error(s)`);
+    if (observation.toolRouterErrors !== 0) refusalReasons.push(`${observation.arm}: ${observation.toolRouterErrors} tool-router error(s)`);
     if (!observation.providerIdentityStable) refusalReasons.push(`${observation.arm}: provider identity not stable`);
     if (!observation.safeSuccessfulCompletion) refusalReasons.push(`${observation.arm}: safe completion false`);
     if (observation.arm === 'bce-enabled' && observation.bceMcpRunGate !== true) refusalReasons.push('bce-enabled: real MCP run_gate not observed');
@@ -276,11 +281,12 @@ try {
     studyId, ranAt: new Date().toISOString(), qualified: refusalReasons.length === 0,
     exactCell: {
       client: 'codex', clientVersion: protocol.clientModelCells[0].clientVersion, clientArtifactSha256: protocol.clientModelCells[0].clientArtifactSha256,
+      reasoningEffort: protocol.clientModelCells[0].reasoningEffort,
       requestedModel: provider.modelName, resolvedModel: protocol.clientModelCells[0].resolvedModel, provider,
       runtimeVersion: protocol.isolation.runtimeVersion, runtimeArtifactSha256: protocol.isolation.runtimeArtifactSha256,
       controllerSha256: runnerSha256, treatmentInstalledTreeSha256: treatment.installedTreeSha256,
     },
-    requirements: ['accepted-command-event-each-arm', 'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm', 'zero-unsupported-router-errors', 'stable-provider-name-and-digest', 'bce-enabled-real-mcp-run-gate'],
+    requirements: ['accepted-command-event-each-arm', 'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm', 'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest', 'bce-enabled-real-mcp-run-gate'],
     observations, refusalReasons, restrictedEvidence: { retained: Boolean(restrictedRunsArgument), pathPublished: false, ledgerHeadSha256: ledger.at(-1)?.entrySha256 ?? null },
     canaryRunnerSha256: protocol.implementation.canaryRunnerSha256, sealedFixtureRootSha256: expected.rootSha256, attestationSha256: null,
   };

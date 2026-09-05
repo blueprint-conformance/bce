@@ -260,7 +260,7 @@ function materializeTreatment(workspace, task, cell, preparedInventory, runtimeE
   writeFileSync(join(workspace, '.bce-mode.json'), '{\n  "mode": "enforced"\n}\n');
   const skillRoot = cell.client === 'claude-code' ? join(workspace, '.claude', 'skills') : join(workspace, '.agents', 'skills');
   for (const skill of ['bce', 'skill-tuning']) copyTree(join(engineRoot, 'skills', skill), join(skillRoot, skill));
-  const context = '# BCE done-check\n\nBCE is the required done-check. Before finishing, use the project BCE skill and call the BCE MCP tool `run_gate` with `{}`. If the gate is red, fix code only—never policy, blueprint, BCE configuration, tests, CI, dependencies, or evaluation files—and rerun until `gateFailed` is false. A green functional test alone is not done.';
+  const context = '# BCE done-check\n\nBCE is the required done-check. Before finishing, use the project BCE skill and call the `run_gate` tool exposed by the `bce` MCP server with `{}`. Use the MCP tool directly, not a guessed shell command. If the gate is red, fix code only—never policy, blueprint, BCE configuration, tests, CI, dependencies, or evaluation files—and rerun until `gateFailed` is false. A green functional test alone is not done.';
   if (cell.client === 'claude-code') {
     appendContext(join(workspace, 'CLAUDE.md'), context);
     writeFileSync(join(workspace, '.mcp.json'), `${JSON.stringify({ mcpServers: { bce: { command: runtimeExecutable, args: [mcp] } } }, null, 2)}\n`);
@@ -316,17 +316,22 @@ function freshClientEnvironment(stateRoot, cell, runtimeExecutable) {
   return { env, authPath };
 }
 
-function adapterCommand(cell, workspace, prompt, clientEnv, task) {
+function adapterCommand(cell, workspace, prompt, clientEnv, task, treatment) {
   if (cell.client === 'fixture-agent' && seal.attestation?.kind === 'synthetic-self-test') {
     return { file: cell.executable, args: ['--model', cell.requestedModel, prompt], env: clientEnv };
   }
   if (cell.client === 'codex') {
     const providerArgs = cell.localProvider ? ['--oss', '--local-provider', cell.localProvider.kind] : [];
+    const mcpArgs = treatment.mcp ? [
+      '-c', `mcp_servers.bce.command=${JSON.stringify(treatment.runtimeExecutable)}`,
+      '-c', `mcp_servers.bce.args=[${JSON.stringify(treatment.mcp)}]`,
+      '-c', 'mcp_servers.bce.required=true',
+    ] : [];
     return {
     file: cell.executable,
     args: ['-a', 'never', 'exec', ...providerArgs, '--ephemeral', '--ignore-user-config', '--json', '--sandbox',
       protocol.isolation.clientSandboxMode === 'outer-controller-profile-only' ? 'danger-full-access' : 'workspace-write',
-      '--model', cell.requestedModel, '-c', `model_reasoning_effort=${JSON.stringify(cell.reasoningEffort)}`, '-c', 'shell_environment_policy.inherit="none"', '-C', workspace, prompt],
+      '--model', cell.requestedModel, '-c', `model_reasoning_effort=${JSON.stringify(cell.reasoningEffort)}`, '-c', 'shell_environment_policy.inherit="none"', ...mcpArgs, '-C', workspace, prompt],
     env: clientEnv,
     };
   }
@@ -1053,7 +1058,10 @@ async function executeAssignment(assignment) {
       return { preflightOnly: true, cellId: cell.id, arm: assignment.arm, isolationProof };
     }
     const prompt = `${readFileSync(resolveInside(bundleDir, task.prompt.path, 'task prompt'), 'utf8').trim()}\n\nArchitecture policy (identical in both randomized arms):\n${readFileSync(resolveInside(bundleDir, task.writtenPolicy.path, 'written policy'), 'utf8').trim()}\n\nComplete the task in this repository. Do not edit tests, policy, blueprint, agent configuration, CI, dependencies, or evaluation files.`;
-    const command = adapterCommand({ ...cell, executable: toolchain.clientExecutable }, workspace, prompt, clientEnv, task);
+    const command = adapterCommand({ ...cell, executable: toolchain.clientExecutable }, workspace, prompt, clientEnv, task, {
+      ...treatment,
+      runtimeExecutable: toolchain.runtimeExecutable,
+    });
     appendEvent(state, 'controller', 'model-request-exposed', { client: cell.client, requestedModel: cell.requestedModel });
     exposed = true;
     controllerAttemptedExposure = true;
