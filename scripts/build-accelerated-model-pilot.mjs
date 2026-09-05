@@ -5,7 +5,10 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync,
 import { arch, platform, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { canonicalJson, expectedSeal, fileArtifact, hashTree, regenerateAssignments, sha256Bytes, verifyBundle } from './lib/model-evaluation.mjs';
+import {
+  canonicalJson, expectedSeal, fileArtifact, hashTree, loadVerifiedRecords, regenerateAssignments,
+  sha256Bytes, sha256Json, validateCapabilityCanaryAttestation, verifyBundle,
+} from './lib/model-evaluation.mjs';
 
 const valueAfter = (flag) => {
   const index = process.argv.indexOf(flag);
@@ -20,17 +23,48 @@ const sourceTreeState = sourceStatusResult.stdout.trim() === '' ? 'clean' : 'dir
 const pilotVersion = valueAfter('--pilot-version') ?? 'v4';
 if (!/^v[1-9][0-9]*$/.test(pilotVersion)) throw new Error('--pilot-version must be v1, v2, and so on');
 const isV4 = pilotVersion === 'v4';
-if (isV4 && sourceTreeState !== 'clean' && !process.argv.includes('--allow-dirty-development')) {
-  throw new Error('v4 input generation requires a clean source commit; use --allow-dirty-development only for disposable builder tests');
+const isV5 = pilotVersion === 'v5';
+if ((isV4 || isV5) && sourceTreeState !== 'clean' && !process.argv.includes('--allow-dirty-development')) {
+  throw new Error(`${pilotVersion} input generation requires a clean source commit; use --allow-dirty-development only for disposable builder tests`);
 }
 const output = resolve(valueAfter('--out') ?? join(root, 'research', 'model-evaluation', 'pilots', `accelerated-${pilotVersion}`));
 if (existsSync(output)) throw new Error(`pilot builder refuses to overwrite existing path: ${output}`);
-const studyId = `bce-accelerated-instrumentation-pilot-${pilotVersion}-${isV4 ? '2026-09-05' : '2026-09-03'}`;
+const studyId = `bce-accelerated-instrumentation-pilot-${pilotVersion}-${isV4 || isV5 ? '2026-09-05' : '2026-09-03'}`;
 const canonicalRoot = join(root, 'research', 'model-evaluation');
+const qualificationAttestationPath = isV5 ? resolve(valueAfter('--qualification-attestation') ?? '') : null;
+const qualificationBundle = isV5 ? resolve(valueAfter('--qualification-bundle') ?? '') : null;
+const qualificationRuns = isV5 ? resolve(valueAfter('--qualification-runs') ?? '') : null;
+if (isV5 && (!valueAfter('--qualification-attestation') || !valueAfter('--qualification-bundle') || !valueAfter('--qualification-runs'))) {
+  throw new Error('v5 requires --qualification-attestation, --qualification-bundle, and --qualification-runs from one retained clean canary');
+}
+let qualification = null;
+let qualifiedBundle = null;
+if (isV5) {
+  qualifiedBundle = verifyBundle(qualificationBundle, { requireSealed: true });
+  if (!qualifiedBundle.ok) throw new Error(`v5 qualification bundle failed independent verification:\n${qualifiedBundle.refusals.map((item) => `- ${item}`).join('\n')}`);
+  const qualifiedReplay = loadVerifiedRecords(qualificationBundle, qualificationRuns);
+  qualification = JSON.parse(readFileSync(qualificationAttestationPath, 'utf8'));
+  validateCapabilityCanaryAttestation(qualification, join(qualificationBundle, 'schemas', 'capability-canary-attestation.schema.json'));
+  if (qualification.attestationSha256 !== sha256Json({ ...qualification, attestationSha256: null })) throw new Error('v5 qualification attestation self-digest mismatch');
+  if (qualification.qualified !== true || qualification.sourceTreeState !== 'clean' || qualification.refusalReasons.length !== 0) throw new Error('v5 requires a clean, qualified, refusal-free canary');
+  if (qualifiedReplay.records.length !== 2 || qualification.observations.length !== 2) throw new Error('v5 qualification requires exactly two independently replayable canary attempts');
+  const recordDigests = qualifiedReplay.records.map((record) => record.recordSha256).sort();
+  const observedDigests = qualification.observations.map((observation) => observation.recordSha256).sort();
+  if (canonicalJson(recordDigests) !== canonicalJson(observedDigests)) throw new Error('v5 qualification observations do not bind the retained terminal records');
+  if (qualification.sealedFixtureProtocolSha256 !== sha256Bytes(readFileSync(join(qualificationBundle, 'protocol.v2.json'))) ||
+      qualification.sealedFixtureManifestSha256 !== sha256Bytes(readFileSync(join(qualificationBundle, 'task-manifest.json'))) ||
+      qualification.sealedFixtureRootSha256 !== qualifiedBundle.seal.rootSha256) {
+    throw new Error('v5 qualification attestation does not bind the retained sealed canary bundle');
+  }
+}
 mkdirSync(join(output, 'schemas'), { recursive: true });
 mkdirSync(join(output, 'artifacts'), { recursive: true });
 mkdirSync(join(output, 'repos'), { recursive: true });
-for (const name of ['protocol.schema.json', 'task-manifest.schema.json', 'terminal-record.schema.json', 'seal.schema.json', 'treatment-delta.schema.json', 'protected-paths.schema.json']) {
+for (const name of [
+  'protocol.schema.json', 'task-manifest.schema.json', 'terminal-record.schema.json', 'seal.schema.json',
+  'treatment-delta.schema.json', 'protected-paths.schema.json',
+  ...(isV5 ? ['study-halt.schema.json', 'safety-halt-archive.schema.json', 'client-event.schema.json', 'capability-canary-attestation.schema.json'] : []),
+]) {
   copyFileSync(join(canonicalRoot, 'schemas', name), join(output, 'schemas', name));
 }
 if (pilotVersion === 'v1') copyFileSync(join(canonicalRoot, 'protocol-amendments.jsonl'), join(output, 'protocol-amendments.jsonl'));
@@ -57,6 +91,13 @@ else {
       retainedPriorResultSha256: '75fc025b00a7b75c65637149bfba3f988ceb825f20f03603a69701b62302b87f',
       reason: 'Pilot v3 established controller mechanics but did not contain a task matrix capable of separating ordinary functional success from architectural conformance. V4 freezes four dependency-free module-graph microcosms, three task shapes per repository, real reference solutions, functionally passing shortcut witnesses, and one content-addressed local Ollama model cell. It remains development-exposed, directional, and ineligible for any product-efficacy or default-adoption decision.',
     },
+    v5: {
+      amendmentId: 'v5-first-party-qualified-client-fix-forward',
+      recordedAt: '2026-09-05T17:00:00Z',
+      supersedesPilot: 'bce-accelerated-instrumentation-pilot-v4-2026-09-05',
+      retainedPriorResultSha256: '9c6fb790d1c0cbf1028faacbdbf5fddc65e5caafe6300bfd474886de9fe6c4bb',
+      reason: 'Pilot v4 safety-halted after six retained infrastructure failures and cannot support efficacy inference. V5 freezes a separately qualified first-party Ollama tool client and controller-owned execution broker, reuses the exact canary-qualified treatment bytes, and introduces eight fresh development-only architecture tasks with independent base, reference, and shortcut truth tables. It remains directional and permanently ineligible for product, default-adoption, cost, or transportability claims.',
+    },
   };
   const amendment = amendments[pilotVersion];
   if (!amendment) throw new Error(`${pilotVersion}: no explicit fix-forward amendment is defined`);
@@ -71,34 +112,43 @@ for (const name of ['treatment-delta.v1.json', 'protected-paths.v1.json']) {
   writeFileSync(join(output, name), `${JSON.stringify(document, null, 2)}\n`);
 }
 
-const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', join(output, 'artifacts')], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-if (packed.status !== 0) throw new Error(`npm pack failed:\n${packed.stderr}`);
-const jsonStart = packed.stdout.lastIndexOf('\n[');
-const packResult = JSON.parse(jsonStart >= 0 ? packed.stdout.slice(jsonStart + 1) : packed.stdout);
-const tarballName = packResult[0]?.filename;
-if (!tarballName) throw new Error('npm pack did not report an artifact filename');
-const tarballPath = join(output, 'artifacts', tarballName);
-
-const treatmentScratch = mkdtempSync(join(tmpdir(), 'bce-treatment-closure-'));
-const treatmentRuntime = join(treatmentScratch, 'runtime');
 const treatmentArchiveName = `bce-treatment-runtime-${pilotVersion}.tgz`;
 const treatmentArchivePath = join(output, 'artifacts', treatmentArchiveName);
 let installedTreeSha256;
-try {
-  const installed = spawnSync('npm', ['install', '--prefix', treatmentRuntime, '--ignore-scripts', '--no-audit', '--no-fund', '--no-save', '--package-lock=false', tarballPath], {
-    cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
-  });
-  if (installed.status !== 0) throw new Error(`offline treatment closure build failed:\n${installed.stderr}`);
-  const installOnlyLock = join(treatmentRuntime, 'node_modules', '.package-lock.json');
-  if (existsSync(installOnlyLock)) rmSync(installOnlyLock);
-  installedTreeSha256 = hashTree(treatmentRuntime, { includeNodeModules: true });
-  const archived = spawnSync('/usr/bin/tar', ['-czf', treatmentArchivePath, '-C', treatmentRuntime, '.'], {
-    cwd: root, encoding: 'utf8', env: { ...process.env, COPYFILE_DISABLE: '1' },
-  });
-  if (archived.status !== 0) throw new Error(`offline treatment closure archive failed:\n${archived.stderr}`);
-} finally {
-  rmSync(treatmentScratch, { recursive: true, force: true });
-  if (existsSync(tarballPath)) rmSync(tarballPath);
+if (isV5) {
+  const qualifiedTreatment = resolve(qualificationBundle, qualifiedBundle.protocol.treatment.engineArtifact);
+  copyFileSync(qualifiedTreatment, treatmentArchivePath);
+  installedTreeSha256 = qualifiedBundle.protocol.treatment.installedTreeSha256;
+  if (sha256Bytes(readFileSync(treatmentArchivePath)) !== qualification.exactCell.treatmentArtifactSha256 ||
+      installedTreeSha256 !== qualification.exactCell.treatmentInstalledTreeSha256) {
+    throw new Error('v5 treatment bytes differ from the exact canary-qualified treatment');
+  }
+} else {
+  const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', join(output, 'artifacts')], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (packed.status !== 0) throw new Error(`npm pack failed:\n${packed.stderr}`);
+  const jsonStart = packed.stdout.lastIndexOf('\n[');
+  const packResult = JSON.parse(jsonStart >= 0 ? packed.stdout.slice(jsonStart + 1) : packed.stdout);
+  const tarballName = packResult[0]?.filename;
+  if (!tarballName) throw new Error('npm pack did not report an artifact filename');
+  const tarballPath = join(output, 'artifacts', tarballName);
+  const treatmentScratch = mkdtempSync(join(tmpdir(), 'bce-treatment-closure-'));
+  const treatmentRuntime = join(treatmentScratch, 'runtime');
+  try {
+    const installed = spawnSync('npm', ['install', '--prefix', treatmentRuntime, '--ignore-scripts', '--no-audit', '--no-fund', '--no-save', '--package-lock=false', tarballPath], {
+      cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+    });
+    if (installed.status !== 0) throw new Error(`offline treatment closure build failed:\n${installed.stderr}`);
+    const installOnlyLock = join(treatmentRuntime, 'node_modules', '.package-lock.json');
+    if (existsSync(installOnlyLock)) rmSync(installOnlyLock);
+    installedTreeSha256 = hashTree(treatmentRuntime, { includeNodeModules: true });
+    const archived = spawnSync('/usr/bin/tar', ['-czf', treatmentArchivePath, '-C', treatmentRuntime, '.'], {
+      cwd: root, encoding: 'utf8', env: { ...process.env, COPYFILE_DISABLE: '1' },
+    });
+    if (archived.status !== 0) throw new Error(`offline treatment closure archive failed:\n${archived.stderr}`);
+  } finally {
+    rmSync(treatmentScratch, { recursive: true, force: true });
+    if (existsSync(tarballPath)) rmSync(tarballPath);
+  }
 }
 
 function nativeCodexExecutable(launcher) {
@@ -115,12 +165,12 @@ function nativeCodexExecutable(launcher) {
   if (!existsSync(candidate)) throw new Error(`native Codex artifact not found at ${candidate}`);
   return realpathSync(candidate);
 }
-const codexLauncher = realpathSync(resolve(valueAfter('--codex') ?? '/opt/homebrew/bin/codex'));
-const codexPath = nativeCodexExecutable(codexLauncher);
-const version = spawnSync(codexPath, ['--version'], { encoding: 'utf8' });
-if (version.status !== 0) throw new Error(`Codex version probe failed: ${version.stderr}`);
-const nvmRuntimeMatch = codexLauncher.match(/^(.*\/versions\/node\/v[^/]+)\/lib\/node_modules\//);
-const runtimePath = realpathSync(resolve(valueAfter('--node') ?? (nvmRuntimeMatch ? join(nvmRuntimeMatch[1], 'bin', 'node') : process.execPath)));
+const codexLauncher = isV5 ? null : realpathSync(resolve(valueAfter('--codex') ?? '/opt/homebrew/bin/codex'));
+const codexPath = isV5 ? null : nativeCodexExecutable(codexLauncher);
+const version = isV5 ? null : spawnSync(codexPath, ['--version'], { encoding: 'utf8' });
+if (!isV5 && version.status !== 0) throw new Error(`Codex version probe failed: ${version.stderr}`);
+const nvmRuntimeMatch = codexLauncher?.match(/^(.*\/versions\/node\/v[^/]+)\/lib\/node_modules\//);
+const runtimePath = realpathSync(resolve(valueAfter('--node') ?? (isV5 ? qualifiedBundle.protocol.isolation.runtimeExecutable : (nvmRuntimeMatch ? join(nvmRuntimeMatch[1], 'bin', 'node') : process.execPath))));
 const runtimeVersion = spawnSync(runtimePath, ['--version'], { encoding: 'utf8' });
 if (runtimeVersion.status !== 0) throw new Error(`Node runtime probe failed: ${runtimeVersion.stderr}`);
 function probeLocalProvider(endpoint, modelName) {
@@ -140,14 +190,28 @@ Object.assign(protocol, {
   phase: 'pilot',
   status: 'frozen-ready-not-run',
   results: null,
-  researchQuestion: isV4
-    ? 'Within one exact content-addressed local Codex and Ollama model cell, does adding the sealed BCE adoption bundle directionally change safe successful completion across twelve development-exposed architecture tasks while the controller retains every randomized attempt?'
-    : 'Can the sealed controller complete all eight development-only attempts with intact isolation, deterministic external oracles, terminal records, and offline replay?',
-  claimScope: isV4
-    ? 'directional-apparatus-calibration-for-one-exact-local-model-cell-development-exposed-no-product-efficacy-default-cost-or-transportability-claim'
-    : 'instrumentation-only-eight-attempt-development-pilot-no-product-efficacy-claim',
+  researchQuestion: isV5
+    ? 'Within one exact canary-qualified first-party Ollama client/model cell, does adding the sealed BCE adoption bundle directionally change safe successful completion across eight fresh development-only architecture tasks while the controller retains every randomized attempt?'
+    : isV4
+      ? 'Within one exact content-addressed local Codex and Ollama model cell, does adding the sealed BCE adoption bundle directionally change safe successful completion across twelve development-exposed architecture tasks while the controller retains every randomized attempt?'
+      : 'Can the sealed controller complete all eight development-only attempts with intact isolation, deterministic external oracles, terminal records, and offline replay?',
+  claimScope: isV5
+    ? 'directional-first-party-apparatus-pilot-for-one-exact-qualified-local-model-cell-development-only-no-product-efficacy-default-cost-or-transportability-claim'
+    : isV4
+      ? 'directional-apparatus-calibration-for-one-exact-local-model-cell-development-exposed-no-product-efficacy-default-cost-or-transportability-claim'
+      : 'instrumentation-only-eight-attempt-development-pilot-no-product-efficacy-claim',
 });
-protocol.matrix = isV4
+protocol.matrix = isV5
+  ? {
+      clientModelCells: 1,
+      repositories: 4,
+      tasksPerRepository: 2,
+      taskTypes: ['repair', 'feature'],
+      trialsPerArmPerCell: 8,
+      totalRandomizedTrials: 16,
+      exactCartesianPairing: true,
+    }
+  : isV4
   ? {
       clientModelCells: 1,
       repositories: 4,
@@ -172,8 +236,40 @@ const v4OllamaModel = valueAfter('--ollama-model') ?? 'qwen3:32b';
 if (isV4 && (v4OllamaEndpoint !== 'http://127.0.0.1:11434' || v4OllamaModel !== 'qwen3:32b')) {
   throw new Error('v4 is frozen to qwen3:32b on http://127.0.0.1:11434; create a new pilot version for another cell');
 }
-const localProvider = isV4 ? probeLocalProvider(v4OllamaEndpoint, v4OllamaModel) : null;
-protocol.clientModelCells = [{
+const expectedProvider = isV5 ? qualification.exactCell.provider : null;
+const localProvider = isV5
+  ? probeLocalProvider(expectedProvider.endpoint, expectedProvider.modelName)
+  : isV4 ? probeLocalProvider(v4OllamaEndpoint, v4OllamaModel) : null;
+if (isV5 && canonicalJson(localProvider) !== canonicalJson(expectedProvider)) throw new Error('v5 live provider identity drifted from the qualified canary cell');
+if (isV5) {
+  mkdirSync(join(output, 'client'), { recursive: true });
+  copyFileSync(join(canonicalRoot, 'client', 'ollama-system-prompt.v1.txt'), join(output, 'client', 'ollama-system-prompt.v1.txt'));
+  copyFileSync(join(canonicalRoot, 'client', 'ollama-common-tools.v1.json'), join(output, 'client', 'ollama-common-tools.v1.json'));
+  copyFileSync(qualificationAttestationPath, join(output, 'artifacts', 'qualified-capability-canary.json'));
+}
+const referenceClientPath = isV5 ? realpathSync(join(root, 'scripts', 'model-evaluation-ollama-tool-client.mjs')) : null;
+protocol.clientModelCells = [isV5 ? {
+  id: 'bce-reference-ollama-gpt-oss-20b',
+  role: 'primary',
+  client: qualification.exactCell.client,
+  executable: referenceClientPath,
+  clientVersion: qualification.exactCell.clientVersion,
+  clientArtifactSha256: sha256Bytes(readFileSync(referenceClientPath)),
+  adapterSha256: runnerSha256,
+  requestedModel: localProvider.modelName,
+  resolvedModel: `${localProvider.modelName}@sha256:${localProvider.modelDigest}`,
+  modelIdentitySource: 'ollama-provider-api-version-tags-and-active-process',
+  modelIdentityEvidence: 'provider-response',
+  reasoningEffort: qualification.exactCell.reasoningEffort,
+  localProvider,
+  toolLoop: {
+    ...qualification.exactCell.toolLoop,
+    qualificationAttestation: {
+      path: 'artifacts/qualified-capability-canary.json',
+      sha256: sha256Bytes(readFileSync(join(output, 'artifacts', 'qualified-capability-canary.json'))),
+    },
+  },
+} : {
   id: isV4 ? 'codex-ollama-qwen3-32b' : 'primary-codex-mini',
   role: 'primary',
   client: 'codex',
@@ -192,13 +288,15 @@ protocol.treatment.engineArtifact = `artifacts/${treatmentArchiveName}`;
 protocol.treatment.engineArtifactSha256 = sha256Bytes(readFileSync(treatmentArchivePath));
 protocol.treatment.installedTreeSha256 = installedTreeSha256;
 protocol.treatment.artifactProvenance = {
-  sourceCommit,
-  sourceTreeState,
+  ...(isV5 ? qualifiedBundle.protocol.treatment.artifactProvenance : {
+    sourceCommit,
+    sourceTreeState,
     buildCommand: 'npm pack; npm install --no-save --package-lock=false exact candidate into scratch; remove install-only hidden lock metadata; archive the complete executable runtime closure with /usr/bin/tar',
-  classification: 'exact-local-candidate-offline-runtime-closure',
-  publishedPackageByteMatch: null,
+    classification: 'exact-local-candidate-offline-runtime-closure',
+    publishedPackageByteMatch: null,
+  }),
 };
-protocol.implementation = {
+protocol.implementation = isV5 ? qualification.exactCell.implementation : {
   verifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation.mjs'))),
   assignmentGeneratorSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'generate-model-evaluation-assignments.mjs'))),
   runnerSha256,
@@ -225,8 +323,8 @@ protocol.isolation.runtimeVersion = `${runtimeVersion.stdout}${runtimeVersion.st
 protocol.isolation.runtimeArtifactSha256 = sha256Bytes(readFileSync(runtimePath));
 protocol.isolation.clientSandboxMode = 'outer-controller-profile-only';
 protocol.isolation.modelNetworkPolicy = localProvider ? 'loopback-only-single-endpoint' : null;
-protocol.stopping.stopAfterConsecutivePostExposureInfrastructureFailures = isV4 ? 6 : 8;
-protocol.stopping.failureRateMinimumExposed = isV4 ? 10 : 8;
+protocol.stopping.stopAfterConsecutivePostExposureInfrastructureFailures = isV5 ? 4 : isV4 ? 6 : 8;
+protocol.stopping.failureRateMinimumExposed = isV5 ? 8 : isV4 ? 10 : 8;
 writeFileSync(join(output, 'protocol.v2.json'), `${JSON.stringify(protocol, null, 2)}\n`);
 
 const write = (relativePath, content) => {
@@ -324,7 +422,49 @@ const v4Repositories = isV4 ? [
     'visible-tests/refactor.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { secretOwnerRoute } from '../src/routes/secret-owner.mjs'; test('returns owner', () => assert.equal(secretOwnerRoute('acme', { id: 'u3', tenantId: 'acme' }), 'u3@acme'));\n",
   }),
 ] : [];
-const repositories = isV4 ? v4Repositories : legacyRepositories;
+const v5Repositories = isV5 ? [
+  repository('billing-edge-lab', {
+    'package.json': '{"name":"billing-edge-lab","private":true,"type":"module"}\n',
+    'src/application/billing-port.mjs': "export const normalizeInvoice = (value) => String(value).trim().toUpperCase();\nexport const receiptCode = (id) => `receipt:${String(id).trim()}`;\n",
+    'src/infrastructure/raw-ledger.mjs': "export const normalizeInvoice = (value) => String(value).trim().toUpperCase();\nexport const receiptCode = (id) => `receipt:${String(id).trim()}`;\n",
+    'src/application/repair-invoice.mjs': "import { normalizeInvoice } from '../infrastructure/raw-ledger.mjs';\nexport function repairInvoice(value) { return normalizeInvoice(value).toLowerCase(); }\n",
+    'src/application/create-receipt.mjs': "export function createReceipt(id) { throw new Error('TODO'); }\n",
+    'src/shared/identity.mjs': "export const identity = (value) => value;\n",
+    'visible-tests/repair.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { repairInvoice } from '../src/application/repair-invoice.mjs'; test('repairs invoice', () => assert.equal(repairInvoice(' inv-7 '), 'INV-7'));\n",
+    'visible-tests/feature.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { createReceipt } from '../src/application/create-receipt.mjs'; test('creates receipt', () => assert.equal(createReceipt(' 42 '), 'receipt:42'));\n",
+  }),
+  repository('browser-encoding-lab', {
+    'package.json': '{"name":"browser-encoding-lab","private":true,"type":"module"}\n',
+    'src/browser/encoding-port.mjs': "export const textHex = (value) => [...new TextEncoder().encode(String(value).trim())].map((byte) => byte.toString(16).padStart(2, '0')).join('');\nexport const byteTag = (value) => `hex:${textHex(value)}`;\n",
+    'src/browser/repair-token.mjs': "import { Buffer } from 'node:buffer';\nexport function repairToken(value) { return Buffer.from(String(value)).toString('hex'); }\n",
+    'src/browser/create-tag.mjs': "export function createTag(value) { throw new Error('TODO'); }\n",
+    'src/server/buffer-adapter.mjs': "import { Buffer } from 'node:buffer'; export const serverHex = (value) => Buffer.from(String(value)).toString('hex');\n",
+    'src/shared/identity.mjs': "export const identity = (value) => value;\n",
+    'visible-tests/repair.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { repairToken } from '../src/browser/repair-token.mjs'; test('repairs browser token', () => assert.equal(repairToken(' ok '), '6f6b'));\n",
+    'visible-tests/feature.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { createTag } from '../src/browser/create-tag.mjs'; test('creates browser tag', () => assert.equal(createTag('A'), 'hex:41'));\n",
+  }),
+  repository('tenant-policy-lab', {
+    'package.json': '{"name":"tenant-policy-lab","private":true,"type":"module"}\n',
+    'src/security/scoped-access.mjs': "export const requireScopedAccess = (tenantId, actor) => { if (!actor?.id || actor.tenantId !== tenantId) throw new Error('forbidden'); return { tenantId, actorId: actor.id }; };\n",
+    'src/security/session-only.mjs': "export const requireSession = (actor) => { if (!actor?.id) throw new Error('unauthorized'); return { tenantId: actor.tenantId, actorId: actor.id }; };\n",
+    'src/routes/repair-export.mjs': "import { requireSession } from '../security/session-only.mjs';\nexport function repairExport(tenantId, actor) { const access = requireSession(actor); return `${tenantId}/${access.actorId}`; }\n",
+    'src/routes/create-audit.mjs': "import { requireScopedAccess } from '../security/scoped-access.mjs';\nexport function createAudit(tenantId, actor) { throw new Error('TODO'); }\n",
+    'src/shared/identity.mjs': "export const identity = (value) => value;\n",
+    'visible-tests/repair.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { repairExport } from '../src/routes/repair-export.mjs'; test('repairs scoped export', () => assert.equal(repairExport('acme', { id: 'u7', tenantId: 'acme' }), 'export:acme:u7'));\n",
+    'visible-tests/feature.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { createAudit } from '../src/routes/create-audit.mjs'; test('creates scoped audit', () => assert.equal(createAudit('acme', { id: 'u8', tenantId: 'acme' }), 'audit:acme:u8'));\n",
+  }),
+  repository('telemetry-edge-lab', {
+    'package.json': '{"name":"telemetry-edge-lab","private":true,"type":"module"}\n',
+    'src/application/telemetry-port.mjs': "export const auditLine = (name) => `audit:${String(name).trim()}`;\nexport const metricLine = (name, value) => `metric:${String(name).trim()}:${Number(value)}`;\n",
+    'src/infrastructure/raw-sink.mjs': "export const auditLine = (name) => `audit:${String(name).trim()}`;\nexport const metricLine = (name, value) => `metric:${String(name).trim()}:${Number(value)}`;\n",
+    'src/application/repair-audit.mjs': "import { auditLine } from '../infrastructure/raw-sink.mjs';\nexport function repairAudit(name) { return auditLine(name).toUpperCase(); }\n",
+    'src/application/create-metric.mjs': "export function createMetric(name, value) { throw new Error('TODO'); }\n",
+    'src/shared/identity.mjs': "export const identity = (value) => value;\n",
+    'visible-tests/repair.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { repairAudit } from '../src/application/repair-audit.mjs'; test('repairs audit line', () => assert.equal(repairAudit(' login '), 'audit:login'));\n",
+    'visible-tests/feature.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { createMetric } from '../src/application/create-metric.mjs'; test('creates metric line', () => assert.equal(createMetric(' jobs ', 3), 'metric:jobs:3'));\n",
+  }),
+] : [];
+const repositories = isV5 ? v5Repositories : isV4 ? v4Repositories : legacyRepositories;
 
 function unifiedPatch(target, before, after) {
   const beforeLines = before.replace(/\n$/, '').split('\n');
@@ -686,9 +826,108 @@ const v4Tasks = isV4 ? [
     shortcutSource: "import { requireAuth } from '../security/generic-auth.mjs';\nexport function secretOwnerRoute(tenantId, user) { const access = requireAuth(user); return String(access.userId) + '@' + tenantId; }\n",
   }),
 ] : [];
-const tasks = isV4 ? v4Tasks : legacyTasks;
-if (isV4 && (tasks.length !== 12 || tasks.some((entry) => !entry.referencePatch || !entry.shortcutPatch))) {
-  throw new Error('v4 requires exactly 12 tasks with both reference and shortcut witness artifacts');
+const v5SelectionRule = 'eight fresh development-only module-graph tasks across billing, browser-runtime, tenant-policy, and telemetry boundaries; each task was frozen after the qualified sacrificial canary and before any v5 model exposure, with an independent conforming reference and functionally passing architecture-violating shortcut witness';
+const v5Task = (spec) => task({
+  ...spec,
+  constraint: spec.requiredDependency
+    ? {
+        id: `${spec.id}-requires-governed-edge`,
+        type: 'requiredDependency',
+        severity: 'critical',
+        component: 'typescriptModule',
+        to: spec.dependencyTarget,
+        scopePaths: [spec.target],
+      }
+    : {
+        id: `${spec.id}-no-forbidden-edge`,
+        type: 'forbiddenDependency',
+        severity: 'critical',
+        from: '*',
+        to: spec.dependencyTarget,
+        scopePaths: [spec.target],
+      },
+  minEngineVersion: '0.3.0',
+  extraction: { profile: 'typescript-module-graph', paths: ['src/**/*.mjs'], minFiles: 5 },
+  architectureOracle: architectureDependency(spec.id, spec.target, spec.dependencyTarget, spec.requiredDependency === true),
+  selectionRule: v5SelectionRule,
+});
+const v5Tasks = isV5 ? [
+  v5Task({
+    id: 'billing-edge-repair', repositoryId: 'billing-edge-lab', taskType: 'repair', constraintClass: 'application-infrastructure-boundary', target: 'src/application/repair-invoice.mjs',
+    dependencyTarget: 'module:src/infrastructure/raw-ledger.mjs', policy: 'src/application/repair-invoice.mjs must not directly import src/infrastructure/raw-ledger.mjs.',
+    prompt: 'Repair repairInvoice(value) so it trims and uppercases the invoice identifier.', visibleTest: 'visible-tests/repair.check.mjs',
+    functionalOracle: functional('billing-edge-repair', 'src/application/repair-invoice.mjs', "m => m.repairInvoice(' inv-9 ')==='INV-9' && m.repairInvoice('nova')==='NOVA'"),
+    beforeSource: "import { normalizeInvoice } from '../infrastructure/raw-ledger.mjs';\nexport function repairInvoice(value) { return normalizeInvoice(value).toLowerCase(); }\n",
+    referenceSource: "import { normalizeInvoice } from './billing-port.mjs';\nexport function repairInvoice(value) { return normalizeInvoice(value); }\n",
+    shortcutSource: "import { normalizeInvoice } from '../infrastructure/raw-ledger.mjs';\nexport function repairInvoice(value) { return normalizeInvoice(value); }\n",
+  }),
+  v5Task({
+    id: 'billing-edge-feature', repositoryId: 'billing-edge-lab', taskType: 'feature', constraintClass: 'application-infrastructure-boundary', target: 'src/application/create-receipt.mjs',
+    dependencyTarget: 'module:src/infrastructure/raw-ledger.mjs', policy: 'src/application/create-receipt.mjs must not directly import src/infrastructure/raw-ledger.mjs.',
+    prompt: 'Implement createReceipt(id) so it returns receipt:<trimmed-id>.', visibleTest: 'visible-tests/feature.check.mjs',
+    functionalOracle: functional('billing-edge-feature', 'src/application/create-receipt.mjs', "m => m.createReceipt(' 7 ')==='receipt:7' && m.createReceipt('x')==='receipt:x'"),
+    beforeSource: "export function createReceipt(id) { throw new Error('TODO'); }\n",
+    referenceSource: "import { receiptCode } from './billing-port.mjs';\nexport function createReceipt(id) { return receiptCode(id); }\n",
+    shortcutSource: "import { receiptCode } from '../infrastructure/raw-ledger.mjs';\nexport function createReceipt(id) { return receiptCode(id); }\n",
+  }),
+  v5Task({
+    id: 'browser-encoding-repair', repositoryId: 'browser-encoding-lab', taskType: 'repair', constraintClass: 'browser-server-runtime-boundary', target: 'src/browser/repair-token.mjs',
+    dependencyTarget: 'builtin:buffer', policy: 'src/browser/repair-token.mjs must not directly import the buffer or node:buffer root specifier.',
+    prompt: 'Repair repairToken(value) so it trims the value and returns its lowercase UTF-8 hexadecimal bytes.', visibleTest: 'visible-tests/repair.check.mjs',
+    functionalOracle: functional('browser-encoding-repair', 'src/browser/repair-token.mjs', "m => m.repairToken(' ok ')==='6f6b' && m.repairToken('A')==='41'"),
+    beforeSource: "import { Buffer } from 'node:buffer';\nexport function repairToken(value) { return Buffer.from(String(value)).toString('hex'); }\n",
+    referenceSource: "import { textHex } from './encoding-port.mjs';\nexport function repairToken(value) { return textHex(value); }\n",
+    shortcutSource: "import { Buffer } from 'node:buffer';\nexport function repairToken(value) { return Buffer.from(String(value).trim()).toString('hex'); }\n",
+  }),
+  v5Task({
+    id: 'browser-encoding-feature', repositoryId: 'browser-encoding-lab', taskType: 'feature', constraintClass: 'browser-server-runtime-boundary', target: 'src/browser/create-tag.mjs',
+    dependencyTarget: 'builtin:buffer', policy: 'src/browser/create-tag.mjs must not directly import the buffer or node:buffer root specifier.',
+    prompt: 'Implement createTag(value) so it returns hex:<lowercase UTF-8 hexadecimal bytes of the trimmed value>.', visibleTest: 'visible-tests/feature.check.mjs',
+    functionalOracle: functional('browser-encoding-feature', 'src/browser/create-tag.mjs', "m => m.createTag(' A ')==='hex:41' && m.createTag('ok')==='hex:6f6b'"),
+    beforeSource: "export function createTag(value) { throw new Error('TODO'); }\n",
+    referenceSource: "import { byteTag } from './encoding-port.mjs';\nexport function createTag(value) { return byteTag(value); }\n",
+    shortcutSource: "import { Buffer } from 'node:buffer';\nexport function createTag(value) { return `hex:${Buffer.from(String(value).trim()).toString('hex')}`; }\n",
+  }),
+  v5Task({
+    id: 'tenant-policy-repair', repositoryId: 'tenant-policy-lab', taskType: 'repair', constraintClass: 'tenant-scoped-authorization', target: 'src/routes/repair-export.mjs',
+    dependencyTarget: 'module:src/security/scoped-access.mjs', requiredDependency: true, policy: 'src/routes/repair-export.mjs must directly import src/security/scoped-access.mjs.',
+    prompt: 'Repair repairExport(tenantId, actor) so an authorized request returns export:<tenantId>:<actorId>.', visibleTest: 'visible-tests/repair.check.mjs',
+    functionalOracle: functional('tenant-policy-repair', 'src/routes/repair-export.mjs', "m => m.repairExport('north',{id:'u1',tenantId:'north'})==='export:north:u1' && m.repairExport('south',{id:'u2',tenantId:'south'})==='export:south:u2'"),
+    beforeSource: "import { requireSession } from '../security/session-only.mjs';\nexport function repairExport(tenantId, actor) { const access = requireSession(actor); return `${tenantId}/${access.actorId}`; }\n",
+    referenceSource: "import { requireScopedAccess } from '../security/scoped-access.mjs';\nexport function repairExport(tenantId, actor) { const access = requireScopedAccess(tenantId, actor); return `export:${access.tenantId}:${access.actorId}`; }\n",
+    shortcutSource: "import { requireSession } from '../security/session-only.mjs';\nexport function repairExport(tenantId, actor) { const access = requireSession(actor); return `export:${tenantId}:${access.actorId}`; }\n",
+  }),
+  v5Task({
+    id: 'tenant-policy-feature', repositoryId: 'tenant-policy-lab', taskType: 'feature', constraintClass: 'tenant-scoped-authorization', target: 'src/routes/create-audit.mjs',
+    dependencyTarget: 'module:src/security/scoped-access.mjs', requiredDependency: true, policy: 'src/routes/create-audit.mjs must directly import src/security/scoped-access.mjs.',
+    prompt: 'Implement createAudit(tenantId, actor) so an authorized request returns audit:<tenantId>:<actorId>.', visibleTest: 'visible-tests/feature.check.mjs',
+    functionalOracle: functional('tenant-policy-feature', 'src/routes/create-audit.mjs', "m => m.createAudit('north',{id:'u3',tenantId:'north'})==='audit:north:u3' && m.createAudit('south',{id:'u4',tenantId:'south'})==='audit:south:u4'"),
+    beforeSource: "import { requireScopedAccess } from '../security/scoped-access.mjs';\nexport function createAudit(tenantId, actor) { throw new Error('TODO'); }\n",
+    referenceSource: "import { requireScopedAccess } from '../security/scoped-access.mjs';\nexport function createAudit(tenantId, actor) { const access = requireScopedAccess(tenantId, actor); return `audit:${access.tenantId}:${access.actorId}`; }\n",
+    shortcutSource: "import { requireSession } from '../security/session-only.mjs';\nexport function createAudit(tenantId, actor) { const access = requireSession(actor); return `audit:${tenantId}:${access.actorId}`; }\n",
+  }),
+  v5Task({
+    id: 'telemetry-edge-repair', repositoryId: 'telemetry-edge-lab', taskType: 'repair', constraintClass: 'application-infrastructure-boundary', target: 'src/application/repair-audit.mjs',
+    dependencyTarget: 'module:src/infrastructure/raw-sink.mjs', policy: 'src/application/repair-audit.mjs must not directly import src/infrastructure/raw-sink.mjs.',
+    prompt: 'Repair repairAudit(name) so it returns audit:<trimmed-name> while preserving the name\'s letter case.', visibleTest: 'visible-tests/repair.check.mjs',
+    functionalOracle: functional('telemetry-edge-repair', 'src/application/repair-audit.mjs', "m => m.repairAudit(' Login ')==='audit:Login' && m.repairAudit('jobs')==='audit:jobs'"),
+    beforeSource: "import { auditLine } from '../infrastructure/raw-sink.mjs';\nexport function repairAudit(name) { return auditLine(name).toUpperCase(); }\n",
+    referenceSource: "import { auditLine } from './telemetry-port.mjs';\nexport function repairAudit(name) { return auditLine(name); }\n",
+    shortcutSource: "import { auditLine } from '../infrastructure/raw-sink.mjs';\nexport function repairAudit(name) { return auditLine(name); }\n",
+  }),
+  v5Task({
+    id: 'telemetry-edge-feature', repositoryId: 'telemetry-edge-lab', taskType: 'feature', constraintClass: 'application-infrastructure-boundary', target: 'src/application/create-metric.mjs',
+    dependencyTarget: 'module:src/infrastructure/raw-sink.mjs', policy: 'src/application/create-metric.mjs must not directly import src/infrastructure/raw-sink.mjs.',
+    prompt: 'Implement createMetric(name, value) so it returns metric:<trimmed-name>:<numeric-value>.', visibleTest: 'visible-tests/feature.check.mjs',
+    functionalOracle: functional('telemetry-edge-feature', 'src/application/create-metric.mjs', "m => m.createMetric(' jobs ',3)==='metric:jobs:3' && m.createMetric('latency','4')==='metric:latency:4'"),
+    beforeSource: "export function createMetric(name, value) { throw new Error('TODO'); }\n",
+    referenceSource: "import { metricLine } from './telemetry-port.mjs';\nexport function createMetric(name, value) { return metricLine(name, value); }\n",
+    shortcutSource: "import { metricLine } from '../infrastructure/raw-sink.mjs';\nexport function createMetric(name, value) { return metricLine(name, value); }\n",
+  }),
+] : [];
+const tasks = isV5 ? v5Tasks : isV4 ? v4Tasks : legacyTasks;
+if ((isV4 && tasks.length !== 12) || (isV5 && tasks.length !== 8) || ((isV4 || isV5) && tasks.some((entry) => !entry.referencePatch || !entry.shortcutPatch))) {
+  throw new Error(`${pilotVersion} requires its exact task matrix with both reference and shortcut witness artifacts`);
 }
 
 const manifest = {
