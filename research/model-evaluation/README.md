@@ -74,27 +74,39 @@ npm run build
 npm run test:model-eval-controller
 ```
 
-The latest fix-forward real-model pilot is v3; v1 and v2 and their complete failed-attempt
-denominators remain immutable beside it. V3 completed the apparatus path but saturated both arms,
-so it remains machinery evidence. Its reproducible lifecycle is:
+The latest fix-forward real-model design is v4; v1 through v3 and every exposed denominator remain
+immutable beside it. V3 completed the apparatus path but saturated both arms. V4 is a faster,
+still permanently claim-ineligible calibration: four dependency-free JavaScript module-graph
+microcosms, three distinct base states (`repair`, `feature`, and `refactor`) per repository, two
+paired arms, and one exact content-addressed local Codex/Ollama `qwen3:32b` cell, for 24 retained
+attempts. It can reveal directional apparatus behavior in that exact cell; it cannot establish
+product efficacy, default-adoption value, cost benefit, safety benefit, or transportability.
+
+Every v4 task freezes both a conforming reference patch and an architecture-violating shortcut
+witness. The verifier requires the reference to pass visible checks, the twice-run functional and
+independent architecture oracles, and the named BCE constraint. It requires the shortcut to pass
+the same visible and functional checks while both independent architecture grading and BCE reject
+the exact named constraint. It also proves the starting trees have different task-shape truth
+tables: repair is functional-red/architecture-red, feature is functional-red/architecture-green,
+and refactor is functional-green/architecture-red.
+
+The v4 pre-exposure lifecycle is:
 
 ```sh
-npm run build:model-eval-pilot                 # only before the generated path exists
-node scripts/run-model-evaluation.mjs --bundle research/model-evaluation/pilots/accelerated-v3 --runs "$(mktemp -d)" --preflight-only
-node scripts/verify-model-evaluation-bundle.mjs --bundle research/model-evaluation/pilots/accelerated-v3
-npm run model-eval:run -- --bundle research/model-evaluation/pilots/accelerated-v3 --execute-sealed-study
-npm run model-eval:analyze -- --bundle research/model-evaluation/pilots/accelerated-v3 --runs "$RESTRICTED_RUNS"
-npm run model-eval:export-public -- --bundle research/model-evaluation/pilots/accelerated-v3 --runs "$RESTRICTED_RUNS" --out research/model-evaluation/pilots/accelerated-v3/results
-npm run model-eval:verify-public -- --bundle research/model-evaluation/pilots/accelerated-v3 --results research/model-evaluation/pilots/accelerated-v3/results
+npm run build:model-eval-pilot -- --pilot-version v4 # clean source commit; generated path must not exist
+npm run model-eval:verify -- --bundle research/model-evaluation/pilots/accelerated-v4 --draft
+npm run model-eval:verify-references -- --bundle research/model-evaluation/pilots/accelerated-v4
+npm run model-eval:run -- --bundle research/model-evaluation/pilots/accelerated-v4 --runs "$(mktemp -d)" --preflight-only
 ```
 
-Sealing is intentionally omitted from the copy-paste block because it requires a public pre-run
-commit anchor. Selective trial execution is refused: the controller consumes the exact sealed
-global order. The preflight command executes the exact sandbox, client/runtime version probes, and
-BCE MCP handshake but never sends a model request. The pilot's Codex client records an accepted requested model but no provider-returned
-model identifier, so those rows cannot satisfy the protocol's `modelIdentityVerified` component of
-safe successful completion even if all task/oracle checks pass. Confirmatory cells must provide a
-provider-response identity.
+Sealing and execution are intentionally omitted from that block. Sealing requires the public commit
+that first contains all unsealed input bytes; execution requires a later public seal commit. Only
+then may the controller consume the exact global order once with `--execute-sealed-study`.
+Selective trial execution is refused. The preflight command executes sandbox, client/runtime,
+provider-identity, reference/shortcut read-denial, network-denial, and BCE MCP probes but never
+sends a model request. V4 binds the provider-returned Ollama version, model name, content digest,
+artifact size, and post-attempt active model. That identity strength does not widen the pilot's
+claim scope.
 
 The treatment is an exact local candidate, not a claim about the npm release. Its builder resolves
 pinned runtime dependencies once before sealing, removes install-only lock metadata that embeds
@@ -115,11 +127,13 @@ wrong-port connections fail with an OS permission denial, checks Ollama version 
 digest before exposure, and requires `/api/ps` to return that exact active digest after the client
 finishes. The pre/post provider evidence is public; no API token is mounted.
 
-A task's `referencePatchSha256` is never sufficient on its own. The corresponding patch bytes must
-be a sealed artifact. Before a task set can be used, `npm run model-eval:verify-references` applies
-each patch in a fresh prepared tree, refuses symlinks or changes outside the exact allowlist, runs
-the visible checks, runs both independent oracles twice, and requires the sealed BCE gate to pass.
-The model sandbox is separately probed to prove it cannot read that patch during an attempt.
+A task's patch digest is never sufficient on its own. The corresponding reference and, where the
+study design requires it, shortcut bytes must be sealed artifacts. Before a task set can be used,
+`npm run model-eval:verify-references` applies each patch in a fresh prepared tree, refuses symlinks
+or changes outside the exact allowlist, runs the visible checks, runs both independent oracles
+twice, and reads the BCE machine report to distinguish a named violation from a refusal or an
+unrelated red. The model sandbox is separately probed to prove it cannot read either solution
+artifact during an attempt.
 
 The controller owns the macOS confinement boundary. It therefore invokes Codex with its inner
 sandbox disabled (`danger-full-access` in Codex CLI terminology) *inside* the frozen outer

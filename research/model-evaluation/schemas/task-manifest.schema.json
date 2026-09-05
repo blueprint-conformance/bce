@@ -107,7 +107,9 @@
           }
         },
         "referencePatch": { "$ref": "#/definitions/artifact" },
-        "referencePatchSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/digest" }] }
+        "referencePatchSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/digest" }] },
+        "shortcutPatch": { "$ref": "#/definitions/artifact" },
+        "shortcutPatchSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/digest" }] }
       }
     },
     "assignment": {

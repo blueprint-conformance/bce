@@ -447,6 +447,10 @@ function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchai
   const referenceReadResult = referencePatchPath
     ? run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', readProbe, referencePatchPath], workspace, { env: clientEnv })
     : null;
+  const shortcutPatchPath = task.shortcutPatch ? resolveInside(bundleDir, task.shortcutPatch.path, `${task.id} shortcut patch`) : null;
+  const shortcutReadResult = shortcutPatchPath
+    ? run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', readProbe, shortcutPatchPath], workspace, { env: clientEnv })
+    : null;
   const hostWriteResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeProbe, hostWriteProbe], workspace, { env: clientEnv });
   const writeResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeProbe, protectedProbe], workspace, { env: clientEnv });
   const workspaceResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', workspaceProbeScript, workspaceProbe], workspace, { env: clientEnv });
@@ -467,6 +471,7 @@ function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchai
     readDefaultDeny: true,
     oracleReadDenied: readResult.status === 0, hostCanaryReadDenied: readResult.status === 0,
     referencePatchReadDenied: referenceReadResult === null ? null : referenceReadResult.status === 0,
+    shortcutPatchReadDenied: shortcutReadResult === null ? null : shortcutReadResult.status === 0,
     hostCanaryWriteDenied: hostWriteResult.status === 0, protectedWriteDenied: writeResult.status === 0,
     workspaceReadWriteAllowed: workspaceResult.status === 0 && workspaceResult.stdout === 'ok',
     stagedRuntimeVersionVerified: runtimeVersion.status === 0 && runtimeVersion.stdout.trim() === protocol.isolation.runtimeVersion,
@@ -482,7 +487,7 @@ function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchai
     readProbeSignal: readResult.signal, hostWriteProbeSignal: hostWriteResult.signal, writeProbeSignal: writeResult.signal, workspaceProbeSignal: workspaceResult.signal,
     runtimeProbeSignal: runtimeVersion.signal, clientProbeSignal: clientVersion.signal,
     runtimeProbeStderr: redact(runtimeVersion.stderr), clientProbeStderr: redact(clientVersion.stderr),
-    readProbeStderr: redact(readResult.stderr), referenceReadProbeStderr: redact(referenceReadResult?.stderr), hostWriteProbeStderr: redact(hostWriteResult.stderr), writeProbeStderr: redact(writeResult.stderr), mcpExitCode: mcp.exitCode, mcpStderr: mcp.stderr,
+    readProbeStderr: redact(readResult.stderr), referenceReadProbeStderr: redact(referenceReadResult?.stderr), shortcutReadProbeStderr: redact(shortcutReadResult?.stderr), hostWriteProbeStderr: redact(hostWriteResult.stderr), writeProbeStderr: redact(writeResult.stderr), mcpExitCode: mcp.exitCode, mcpStderr: mcp.stderr,
     externalNetworkProbeExitCode: external?.exitCode ?? null, externalNetworkProbeStderr: external?.stderr ?? '',
     nonProviderLoopbackProbeExitCode: nonProviderLoopback?.exitCode ?? null, nonProviderLoopbackProbeStderr: nonProviderLoopback?.stderr ?? '',
   };
@@ -997,6 +1002,7 @@ async function executeAssignment(assignment) {
     if (!isolationProof.oracleReadDenied || !isolationProof.hostCanaryReadDenied || !isolationProof.hostCanaryWriteDenied || !isolationProof.protectedWriteDenied ||
         !isolationProof.workspaceReadWriteAllowed || !isolationProof.stagedRuntimeVersionVerified || !isolationProof.stagedClientVersionVerified ||
         (task.referencePatch && isolationProof.referencePatchReadDenied !== true) ||
+        (task.shortcutPatch && isolationProof.shortcutPatchReadDenied !== true) ||
         (authPath && isolationProof.authenticationReadableToClientProcess !== true) ||
         (treatment.mcp && (isolationProof.mcpHandshakePassed !== true || isolationProof.mcpDoneCheckAvailable !== true)) ||
         (cell.localProvider && (isolationProof.authenticationAbsent !== true || isolationProof.providerReachable !== true || isolationProof.externalNetworkDenied !== true || isolationProof.nonProviderLoopbackDenied !== true))) {

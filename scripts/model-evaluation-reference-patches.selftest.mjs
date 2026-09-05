@@ -70,7 +70,7 @@ task.referencePatch = fileArtifact(unsafePatchPath, bundle, 'text/x-diff');
 task.referencePatchSha256 = task.referencePatch.sha256;
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 const unsafe = runVerifier();
-if (unsafe.status === 0 || !unsafe.stderr.includes('reference patch changed forbidden paths')) throw new Error('reference verifier accepted an out-of-scope package mutation');
+if (unsafe.status === 0 || !unsafe.stderr.includes('reference solution patch changed forbidden paths')) throw new Error('reference verifier accepted an out-of-scope package mutation');
 
 const linkPatch = "diff --git a/src/service.mjs b/src/service.mjs\nold mode 100644\nnew mode 120000\nindex 33c6c8b..a6a6a9f\n--- a/src/service.mjs\n+++ b/src/service.mjs\n@@ -1 +1 @@\n-export async function summarize(name) { throw new Error('TODO'); }\n+gateway.mjs\n";
 writeFileSync(unsafePatchPath, linkPatch);
@@ -78,7 +78,7 @@ task.referencePatch = fileArtifact(unsafePatchPath, bundle, 'text/x-diff');
 task.referencePatchSha256 = task.referencePatch.sha256;
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 const linked = runVerifier();
-if (linked.status === 0 || !/symbolic link refused|git apply reference patch failed/.test(linked.stderr)) throw new Error('reference verifier accepted a symbolic-link solution');
+if (linked.status === 0 || !/symbolic link refused|git apply reference solution patch failed/.test(linked.stderr)) throw new Error('reference verifier accepted a symbolic-link solution');
 
 process.stdout.write('model-evaluation reference-patch self-test: PASS (4/4 real patches; visible tests; twice-run functional/architecture oracles; real BCE gates; out-of-scope and symlink patches refused)\n');
 rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
