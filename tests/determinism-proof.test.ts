@@ -1,7 +1,7 @@
 /**
  * The determinism + re-derivability PROOF.
  *
- * The whole Blueprint Compliance Engine is a CONFORMANCE ENGINE (not a compiler): its value is
+ * The whole Blueprint Conformance Engine is a CONFORMANCE ENGINE (not a compiler): its value is
  * that a verdict is re-derivable — a green (or red) gate must mean "the same inputs always produce
  * the same, byte-identical evidence", never "a run happened to pass this time". Determinism is
  * load-bearing (the honest-reporting invariant / widen-only ratchet): if two runs over the SAME (blueprint, repo revision)

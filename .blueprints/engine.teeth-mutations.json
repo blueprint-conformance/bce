@@ -337,7 +337,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/recall-gate.ts",
-        "preconditionSha256": "d7b35d656a953182d7d2e74a667359257a00f57078e34ff2c2ebea01a47812d8",
+        "preconditionSha256": "8f143c936c69d3b9be6e22123bc86654fa5d7ea5e8153b023516f41af5450eb5",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/recall-gate.ts",
@@ -505,7 +505,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "2f9cbe0fcc13c150ed9e39ab342ff7f3cdad31fe62a0224fdda9627dd9a602b3",
+        "preconditionSha256": "f76c7ca65105c817505d47101da8e974a60789797ba2fee8d25cbbb8f45a7b86",
         "content": "\nimport { Project as __BceMutationProject } from 'ts-morph';\n"
       },
       "expectedEvidencePath": "src/cli.ts",
@@ -529,7 +529,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "2f9cbe0fcc13c150ed9e39ab342ff7f3cdad31fe62a0224fdda9627dd9a602b3",
+        "preconditionSha256": "f76c7ca65105c817505d47101da8e974a60789797ba2fee8d25cbbb8f45a7b86",
         "content": "\nimport __bceMutationRuntimeDependency from 'ajv';\n"
       },
       "expectedEvidencePath": "src/cli.ts",

@@ -1,5 +1,5 @@
 /**
- * The NA-6-style MEASURED-RECALL gate for the Blueprint Compliance Engine —
+ * The NA-6-style MEASURED-RECALL gate for the Blueprint Conformance Engine —
  * the measured-recall verify layer applied to the BCE itself.
  *
  * The BCE is a conformance ENGINE: it only earns the right to gate a merge if it is itself

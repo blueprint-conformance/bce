@@ -106,6 +106,39 @@ describe('docs-site build (always-on, unfiltered by CI paths)', () => {
     expect(identical).toBe(true);
   });
 
+  it('ships the BCE identity and share metadata on root and nested pages', () => {
+    const root = readFileSync(path.join(out, 'index.html'), 'utf8');
+    const nested = readFileSync(path.join(out, 'guides', 'quickstart', 'index.html'), 'utf8');
+
+    expect(root).toContain('<link rel="canonical" href="https://blueprint-conformance.github.io/bce/">');
+    expect(root).toContain('<link rel="icon" href="./assets/bce-avatar.svg" type="image/svg+xml">');
+    expect(nested).toContain('<link rel="icon" href="../../assets/bce-avatar.svg" type="image/svg+xml">');
+    expect(nested).toContain(
+      '<meta property="og:url" content="https://blueprint-conformance.github.io/bce/guides/quickstart/">',
+    );
+    for (const html of [root, nested]) {
+      expect(html).toContain('<meta name="theme-color" content="#080919">');
+      expect(html).toContain('<meta name="twitter:card" content="summary_large_image">');
+      expect(html).toContain(
+        '<meta property="og:image" content="https://blueprint-conformance.github.io/bce/assets/bce-social-card.png">',
+      );
+    }
+  });
+
+  it('publishes the favicon and social card byte-for-byte', () => {
+    for (const asset of ['bce-avatar.svg', 'bce-social-card.png']) {
+      const identical = readFileSync(path.join(repoRoot, 'assets', asset))
+        .equals(readFileSync(path.join(out, 'assets', asset)));
+      expect(identical, `_site/assets/${asset} must match assets/${asset}`).toBe(true);
+    }
+
+    const socialCard = readFileSync(path.join(out, 'assets', 'bce-social-card.png'));
+    expect(socialCard.subarray(1, 4).toString('ascii')).toBe('PNG');
+    expect(socialCard.readUInt32BE(16)).toBe(1280);
+    expect(socialCard.readUInt32BE(20)).toBe(640);
+    expect(socialCard.byteLength).toBeLessThan(1_000_000);
+  });
+
   it('can go red — every builder check refuses its own planted probe', () => {
     const r = spawnSync(process.execPath, [selftest], { cwd: repoRoot, encoding: 'utf8' });
     expect(r.status, `selftest stderr:\n${r.stderr}\nstdout:\n${r.stdout}`).toBe(0);

@@ -1,5 +1,5 @@
 /**
- * `bce` — the Blueprint Compliance Engine CLI (walking skeleton).
+ * `bce` — the Blueprint Conformance Engine CLI (walking skeleton).
  *
  *   bce validate --blueprint <path>
  *       Zod-validate an authored EngineeringBlueprint. Exit 0 = VALID.
@@ -2064,7 +2064,7 @@ async function main(): Promise<void> {
   }
 
   process.stdout.write(
-      `bce — Blueprint Compliance Engine\n\n` +
+      `bce — Blueprint Conformance Engine\n\n` +
       `  bce demo  Package-only offline RED/GREEN proof (no repository or configuration required)\n` +
       `  bce doctor [--repo <dir>] [--blueprint-dir <dir>] [--out <json>]  Read-only lifecycle readiness audit\n` +
       `  bce adopt --repo <dir> --blueprint <draft.json> --engine bce-engine@<exact>  Minimal advisory proposal; never ratifies\n` +
