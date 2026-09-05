@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { expectedSeal, fileArtifact, sha256Bytes, verifyBundle } from './lib/model-evaluation.mjs';
+import { expectedSeal, fileArtifact, hashTree, sha256Bytes, verifyBundle } from './lib/model-evaluation.mjs';
 
 const root = process.cwd();
 const scratch = mkdtempSync(join(tmpdir(), 'bce-reference-selftest-'));
@@ -29,6 +29,12 @@ protocol.isolation.modelNetworkPolicy = null;
 protocol.isolation.runtimeExecutable = process.execPath;
 protocol.isolation.runtimeVersion = process.version;
 protocol.isolation.runtimeArtifactSha256 = sha256Bytes(readFileSync(process.execPath));
+const extractedTreatment = join(scratch, 'extracted-treatment');
+mkdirSync(extractedTreatment, { recursive: true });
+const extracted = spawnSync('/usr/bin/tar', ['-xzf', join(bundle, protocol.treatment.engineArtifact), '-C', extractedTreatment], { encoding: 'utf8' });
+if (extracted.status !== 0) throw new Error(`reference self-test treatment extraction failed: ${extracted.stderr}`);
+protocol.treatment.installedTreeSha256 = hashTree(extractedTreatment, { includeNodeModules: true });
+rmSync(extractedTreatment, { recursive: true, force: true });
 protocol.implementation = {
   verifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation.mjs'))),
   assignmentGeneratorSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'generate-model-evaluation-assignments.mjs'))),
