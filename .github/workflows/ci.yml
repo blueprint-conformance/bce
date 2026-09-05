@@ -89,6 +89,9 @@ jobs:
       - name: Synthetic sealed terminal-v3 model-evaluation replay + causal-integrity controls (not efficacy evidence)
         run: npm run test:model-eval-protocol
 
+      - name: Sealed first-party Ollama tool-client protocol and spoofing controls
+        run: npm run test:model-eval-client
+
       - name: Reference solutions apply safely and pass independent proof surfaces
         run: npm run test:model-eval-references
 

@@ -16,6 +16,7 @@ import {
   localProviderProofMatches,
   localProviderProofWellFormed,
 } from './model-evaluation-provider.mjs';
+import { verifyOllamaClientEvents } from './model-evaluation-client-events.mjs';
 
 export const ARMS = ['baseline-no-bce', 'bce-enabled'];
 export const ASSIGNMENT_ALGORITHM = 'bce-sha256-rank-paired-v1';
@@ -34,6 +35,11 @@ export const FROZEN_IMPLEMENTATIONS = {
   studyHaltSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/study-halt.schema.json', import.meta.url)),
   safetyHaltArchiveSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/safety-halt-archive.schema.json', import.meta.url)),
   canaryRunnerSha256: fileURLToPath(new URL('../run-model-evaluation-canary.mjs', import.meta.url)),
+  ollamaToolClientSha256: fileURLToPath(new URL('../model-evaluation-ollama-tool-client.mjs', import.meta.url)),
+  ollamaToolClientEventVerifierSha256: fileURLToPath(new URL('./model-evaluation-client-events.mjs', import.meta.url)),
+  ollamaSystemPromptSha256: fileURLToPath(new URL('../../research/model-evaluation/client/ollama-system-prompt.v1.txt', import.meta.url)),
+  ollamaCommonToolsSha256: fileURLToPath(new URL('../../research/model-evaluation/client/ollama-common-tools.v1.json', import.meta.url)),
+  ollamaClientEventSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/client-event.schema.json', import.meta.url)),
 };
 
 export function canonical(value) {
@@ -255,10 +261,13 @@ function collectExpectedSealEntries(bundleDir, protocol, manifest) {
     'schemas/treatment-delta.schema.json',
     'schemas/protected-paths.schema.json',
   ]);
-  for (const optionalSchema of ['schemas/study-halt.schema.json', 'schemas/safety-halt-archive.schema.json']) {
+  for (const optionalSchema of ['schemas/study-halt.schema.json', 'schemas/safety-halt-archive.schema.json', 'schemas/client-event.schema.json']) {
     if (existsSync(resolve(bundleDir, optionalSchema))) paths.add(optionalSchema);
   }
   if (protocol.treatment.engineArtifact) paths.add(protocol.treatment.engineArtifact);
+  for (const cell of protocol.clientModelCells ?? []) {
+    for (const artifact of [cell.toolLoop?.systemPrompt, cell.toolLoop?.commonToolContract, cell.toolLoop?.clientEventSchema].filter(Boolean)) paths.add(artifact.path);
+  }
   for (const task of manifest.tasks) for (const artifact of artifactRefs(task)) paths.add(artifact.path);
   const entries = [...paths].sort().map((path) => {
     const absolute = resolveSealedFile(bundleDir, path, 'seal entry');
@@ -438,6 +447,31 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
     if (protocol.phase === 'confirmatory' && cell.modelIdentityEvidence !== 'provider-response') {
       refusals.push(`${cell.id}: confirmatory model identity must come from a provider response`);
     }
+    if (cell.client === 'bce-ollama-tool-client') {
+      const configuration = cell.toolLoop;
+      if (!configuration) refusals.push(`${cell.id}: first-party Ollama client lacks frozen toolLoop configuration`);
+      else {
+        if (cell.clientArtifactSha256 !== protocol.implementation.ollamaToolClientSha256 ||
+            configuration.clientImplementationSha256 !== cell.clientArtifactSha256 ||
+            configuration.eventProtocol !== 'bce-ollama-tool-client-events/v1') {
+          refusals.push(`${cell.id}: first-party Ollama client implementation is not bound consistently`);
+        }
+        for (const [label, artifact, implementationField] of [
+          ['system prompt', configuration.systemPrompt, 'ollamaSystemPromptSha256'],
+          ['common tools', configuration.commonToolContract, 'ollamaCommonToolsSha256'],
+          ['client event schema', configuration.clientEventSchema, 'ollamaClientEventSchemaSha256'],
+        ]) {
+          try {
+            const bytes = readFileSync(resolveSealedFile(root, artifact.path, `${cell.id} ${label}`));
+            if (sha256Bytes(bytes) !== artifact.sha256 || artifact.sha256 !== protocol.implementation[implementationField]) refusals.push(`${cell.id}: ${label} digest is not bound consistently`);
+          } catch (error) { refusals.push(`${cell.id}: ${label}: ${error.message}`); }
+        }
+        if (manifest.tasks.some((task) => task.budget.maxTurns > configuration.limits.maximumTurns)) refusals.push(`${cell.id}: a task exceeds the frozen tool-loop turn cap`);
+        if (seal.attestation?.kind !== 'synthetic-self-test' && !/^[0-9a-f]{64}$/.test(configuration.qualificationAttestationSha256 ?? '')) {
+          refusals.push(`${cell.id}: first-party Ollama client has no frozen qualified canary attestation`);
+        }
+      }
+    } else if (cell.toolLoop != null) refusals.push(`${cell.id}: non-reference client unexpectedly declares toolLoop configuration`);
     if (cell.localProvider) {
       let endpoint = null;
       try { endpoint = new URL(cell.localProvider.endpoint); }
@@ -446,7 +480,7 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
         refusals.push(`${cell.id}: local provider endpoint must be credential-free HTTP on one explicit loopback port with no path, query, or fragment`);
       }
       if (protocol.phase !== 'pilot') refusals.push(`${cell.id}: local provider cells are currently permitted only in claim-ineligible pilots`);
-      if (cell.client !== 'codex' && seal.attestation?.kind !== 'synthetic-self-test') refusals.push(`${cell.id}: the sealed local-provider adapter currently supports only Codex`);
+      if (!['codex', 'bce-ollama-tool-client'].includes(cell.client) && seal.attestation?.kind !== 'synthetic-self-test') refusals.push(`${cell.id}: no sealed local-provider adapter exists for ${cell.client}`);
       if (cell.localProvider.kind !== 'ollama' || cell.localProvider.authentication !== 'none') refusals.push(`${cell.id}: local provider must be unauthenticated Ollama`);
       if (protocol.isolation.modelNetworkPolicy !== 'loopback-only-single-endpoint') refusals.push(`${cell.id}: local provider requires loopback-only-single-endpoint isolation`);
       if (cell.requestedModel !== cell.localProvider.modelName || cell.resolvedModel !== `${cell.localProvider.modelName}@sha256:${cell.localProvider.modelDigest}` || cell.modelIdentityEvidence !== 'provider-response') {
@@ -584,12 +618,27 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
   const functional = readJsonArtifact(runsRoot, record.evidence.functionalOracle, `${terminalPath}/functional oracle`);
   const architecture = readJsonArtifact(runsRoot, record.evidence.architectureOracle, `${terminalPath}/architecture oracle`);
   const policy = readJsonArtifact(runsRoot, record.evidence.policyDiff, `${terminalPath}/policy diff`);
+  const transcript = readJsonArtifact(runsRoot, record.evidence.transcript, `${terminalPath}/transcript`);
   const task = bundle.manifest.tasks.find((entry) => entry.id === assignment.taskId);
   const hardenedEvidenceRequired = typeof bundle.protocol.implementation.referenceVerifierSha256 === 'string';
   if (preparation.successful !== true || preparation.preparedTreeSha256 !== repo.preparedTreeSha256) throw new Error(`${terminalPath}: preparation evidence does not match frozen prepared tree`);
   if (record.bindings.treatmentConfigSha256 !== preparation.treatmentConfigSha256) throw new Error(`${terminalPath}: treatment binding differs from preparation evidence`);
   if (assignment.arm === 'baseline-no-bce' && record.bindings.treatmentConfigSha256 !== sha256Json({ arm: 'baseline-no-bce', changes: [] })) {
     throw new Error(`${terminalPath}: baseline treatment binding is not the frozen no-BCE configuration`);
+  }
+  if (cell.client === 'bce-ollama-tool-client') {
+    if (record.mechanism.eventEvidenceAvailable === true) {
+      const clientEvidence = verifyOllamaClientEvents(transcript.stdout, { cell, arm: assignment.arm, task });
+      if (canonicalJson(record.mechanism) !== canonicalJson(clientEvidence.mechanism) ||
+          transcript.sealedClientEventVerification?.passed !== true ||
+          transcript.sealedClientEventVerification?.error !== null ||
+          transcript.sealedClientEventVerification?.eventChainHeadSha256 !== clientEvidence.eventChainHeadSha256) {
+        throw new Error(`${terminalPath}: sealed Ollama mechanism evidence does not rederive from the client event chain`);
+      }
+    } else if (record.status !== 'infrastructure-error' || transcript.sealedClientEventVerification?.passed !== false ||
+        typeof transcript.sealedClientEventVerification?.error !== 'string') {
+      throw new Error(`${terminalPath}: unavailable sealed Ollama event evidence is not an explicit infrastructure failure`);
+    }
   }
   if (isolation.driver !== bundle.protocol.isolation.executionDriver || isolation.driverSha256 !== bundle.protocol.isolation.executionDriverSha256 || isolation.oracleReadDenied !== true || isolation.protectedWriteDenied !== true || isolation.clientExecutableStagedSha256 !== cell.clientArtifactSha256 ||
       (bundle.protocol.isolation.clientSandboxMode !== undefined && isolation.clientSandboxMode !== bundle.protocol.isolation.clientSandboxMode) ||

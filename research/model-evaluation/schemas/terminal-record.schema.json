@@ -105,7 +105,17 @@
         "mcpToolCalls": { "type": ["integer", "null"], "minimum": 0 },
         "bceGateCalls": { "type": ["integer", "null"], "minimum": 0 },
         "bceVerdictSequence": { "type": ["array", "null"], "items": { "enum": ["pass", "fail"] } },
-        "redToGreenCorrectionObserved": { "type": ["boolean", "null"] }
+        "redToGreenCorrectionObserved": { "type": ["boolean", "null"] },
+        "commonToolCalls": { "type": ["integer", "null"], "minimum": 0 },
+        "malformedToolCalls": { "type": ["integer", "null"], "minimum": 0 },
+        "toolFailures": { "type": ["integer", "null"], "minimum": 0 },
+        "providerRequests": { "type": ["integer", "null"], "minimum": 0 },
+        "eventChainHeadSha256": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/digest" }
+          ]
+        }
       }
     },
     "telemetry": {

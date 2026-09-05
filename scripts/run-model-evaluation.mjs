@@ -24,6 +24,7 @@ import {
   stoppingHaltTrigger,
   verifyStudyHaltV2,
 } from './lib/model-evaluation-halt.mjs';
+import { verifyOllamaClientEvents } from './lib/model-evaluation-client-events.mjs';
 
 const valueAfter = (flag) => {
   const index = process.argv.indexOf(flag);
@@ -147,11 +148,13 @@ function executableDigest(path) {
 
 function verifyClientIdentity(cell) {
   if (executableDigest(cell.executable) !== cell.clientArtifactSha256) throw new Error(`${cell.id}: client executable digest differs from protocol`);
-  const version = run(cell.executable, ['--version'], bundleDir);
+  const version = cell.client === 'bce-ollama-tool-client'
+    ? run(protocol.isolation.runtimeExecutable, [cell.executable, '--version'], bundleDir)
+    : run(cell.executable, ['--version'], bundleDir);
   const text = `${version.stdout ?? ''}${version.stderr ?? ''}`.trim().split('\n')[0];
   if (version.status !== 0 || text !== cell.clientVersion) throw new Error(`${cell.id}: client version probe '${text}' differs from '${cell.clientVersion}'`);
   if (cell.adapterSha256 !== runnerSha256) throw new Error(`${cell.id}: built-in adapter digest differs from controller`);
-  const allowed = ['codex', 'claude-code', 'droid', 'named-reference-agent'];
+  const allowed = ['codex', 'claude-code', 'droid', 'named-reference-agent', 'bce-ollama-tool-client'];
   if (seal.attestation?.kind === 'synthetic-self-test') allowed.push('fixture-agent');
   if (!allowed.includes(cell.client)) throw new Error(`${cell.id}: no sealed adapter for client '${cell.client}'`);
 }
@@ -167,7 +170,7 @@ function verifyRuntimeIdentity() {
 function stageToolchain(cell, stateRoot) {
   const executableRoot = join(stateRoot, 'executable');
   mkdirSync(executableRoot, { recursive: true, mode: 0o700 });
-  const clientExecutable = join(executableRoot, cell.client === 'codex' ? 'codex' : cell.client === 'fixture-agent' ? 'fixture-agent' : 'client');
+  const clientExecutable = join(executableRoot, cell.client === 'codex' ? 'codex' : cell.client === 'fixture-agent' ? 'fixture-agent' : cell.client === 'bce-ollama-tool-client' ? 'ollama-tool-client.mjs' : 'client');
   copyFileSync(cell.executable, clientExecutable);
   chmodSync(clientExecutable, 0o700);
   if (sha256Bytes(readFileSync(clientExecutable)) !== cell.clientArtifactSha256) throw new Error(`${cell.id}: staged client digest differs from protocol`);
@@ -175,7 +178,20 @@ function stageToolchain(cell, stateRoot) {
   copyFileSync(protocol.isolation.runtimeExecutable, runtimeExecutable);
   chmodSync(runtimeExecutable, 0o700);
   if (sha256Bytes(readFileSync(runtimeExecutable)) !== protocol.isolation.runtimeArtifactSha256) throw new Error('staged runtime digest differs from protocol');
-  return { clientExecutable, runtimeExecutable };
+  let systemPrompt = null;
+  let commonTools = null;
+  if (cell.client === 'bce-ollama-tool-client') {
+    const stageArtifact = (artifact, filename, label) => {
+      const source = resolveInside(bundleDir, artifact.path, label);
+      const target = join(executableRoot, filename);
+      copyFileSync(source, target);
+      if (sha256Bytes(readFileSync(target)) !== artifact.sha256) throw new Error(`${cell.id}: staged ${label} digest differs from protocol`);
+      return target;
+    };
+    systemPrompt = stageArtifact(cell.toolLoop.systemPrompt, 'ollama-system-prompt.v1.txt', 'Ollama system prompt');
+    commonTools = stageArtifact(cell.toolLoop.commonToolContract, 'ollama-common-tools.v1.json', 'Ollama common tool contract');
+  }
+  return { clientExecutable, runtimeExecutable, systemPrompt, commonTools };
 }
 
 function copyTree(source, target, { includeNodeModules = false } = {}) {
@@ -336,6 +352,31 @@ function adapterCommand(cell, workspace, prompt, clientEnv, task, treatment) {
     env: clientEnv,
     };
   }
+  if (cell.client === 'bce-ollama-tool-client') {
+    const configuration = cell.toolLoop;
+    const mcpArgs = treatment.mcp ? [
+      '--mcp-runtime', treatment.runtimeExecutable,
+      '--mcp-server', treatment.mcp,
+      '--mcp-tool-sha256', configuration.mcpRunGateToolSha256,
+    ] : [];
+    return {
+      file: treatment.runtimeExecutable,
+      args: [cell.executable,
+        '--endpoint', cell.localProvider.endpoint,
+        '--model', cell.requestedModel,
+        '--prompt', prompt,
+        '--system-prompt', cell.systemPrompt,
+        '--common-tools', cell.commonTools,
+        '--reasoning-effort', cell.reasoningEffort,
+        '--max-turns', String(task.budget.maxTurns),
+        '--temperature', String(configuration.modelOptions.temperature),
+        '--seed', String(configuration.modelOptions.seed),
+        '--num-ctx', String(configuration.modelOptions.numCtx),
+        '--keep-alive', configuration.modelOptions.keepAlive,
+        ...mcpArgs],
+      env: clientEnv,
+    };
+  }
   if (cell.client === 'claude-code') {
     const args = ['-p', '--output-format', 'json', '--no-session-persistence', '--permission-mode', 'acceptEdits', '--setting-sources', 'project', '--model', cell.requestedModel, '--effort', cell.reasoningEffort];
     if (task.budget.maxCostUsd !== null) args.push('--max-budget-usd', String(task.budget.maxCostUsd));
@@ -489,7 +530,9 @@ function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchai
   const writeResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeProbe, protectedProbe], workspace, { env: clientEnv });
   const workspaceResult = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', workspaceProbeScript, workspaceProbe], workspace, { env: clientEnv });
   const runtimeVersion = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '--version'], workspace, { env: clientEnv });
-  const clientVersion = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.clientExecutable, '--version'], workspace, { env: clientEnv });
+  const clientVersion = cell.client === 'bce-ollama-tool-client'
+    ? run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, toolchain.clientExecutable, '--version'], workspace, { env: clientEnv })
+    : run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.clientExecutable, '--version'], workspace, { env: clientEnv });
   const authResult = authPath ? run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', "require('fs').accessSync(process.argv[1]);process.stdout.write('ok')", authPath], workspace, { env: clientEnv }) : null;
   const mcp = probeMcpHandshake(profile, workspace, generatedMcpCommand(workspace, cell, toolchain.runtimeExecutable, treatment.mcp), clientEnv);
   const provider = probeLocalProviderIdentity(profile, workspace, cell, toolchain.runtimeExecutable, clientEnv);
@@ -555,7 +598,7 @@ async function runClient(command, workspace, profile, timeoutMs, credentialPath 
           modelToolExecutionObservedBeforeCredentialRetirement = true;
           credentialRetiredBeforeModelToolExecution = false;
         }
-        if (['thread.started', 'turn.started'].includes(event.type)) {
+        if (['thread.started', 'turn.started', 'session.started'].includes(event.type)) {
           clientSessionObserved = true;
           if (credentialPath && existsSync(credentialPath)) {
             unlinkSync(credentialPath);
@@ -614,8 +657,11 @@ function jsonDocuments(text) {
   return documents;
 }
 
-function extractUsage(stdout, cell) {
+function extractUsage(stdout, cell, sealedClientEvidence = null) {
   const documents = jsonDocuments(stdout);
+  if (cell.client === 'bce-ollama-tool-client') {
+    return { ...(sealedClientEvidence?.usage ?? { agentTurns: null, inputTokens: null, outputTokens: null, cachedTokens: null, costUsd: null, resolvedModel: null }), raw: documents };
+  }
   if (cell.client === 'fixture-agent' && seal.attestation?.kind === 'synthetic-self-test') {
     const result = documents.at(-1) ?? {};
     return {
@@ -665,7 +711,8 @@ function extractUsage(stdout, cell) {
   };
 }
 
-function observedWritePaths(stdout) {
+function observedWritePaths(stdout, sealedClientEvidence = null) {
+  if (sealedClientEvidence) return [...new Set(sealedClientEvidence.observedWritePaths)].sort();
   const paths = new Set();
   const visit = (value, fileContext = false) => {
     if (!value || typeof value !== 'object') return;
@@ -680,7 +727,21 @@ function observedWritePaths(stdout) {
   return [...paths].sort();
 }
 
-function extractMechanism(stdout, assignment) {
+function extractMechanism(stdout, assignment, sealedClientEvidence = null, cell = null) {
+  if (sealedClientEvidence) return sealedClientEvidence.mechanism;
+  if (cell?.client === 'bce-ollama-tool-client') return {
+    eventEvidenceAvailable: false,
+    skillReadObserved: null,
+    mcpToolCalls: null,
+    bceGateCalls: null,
+    bceVerdictSequence: null,
+    redToGreenCorrectionObserved: null,
+    commonToolCalls: null,
+    malformedToolCalls: null,
+    toolFailures: null,
+    providerRequests: null,
+    eventChainHeadSha256: null,
+  };
   const documents = jsonDocuments(stdout);
   if (documents.length === 0) return {
     eventEvidenceAvailable: false, skillReadObserved: null, mcpToolCalls: null, bceGateCalls: null,
@@ -906,10 +967,15 @@ function commitTerminal(context) {
 function failureDocuments(context, error) {
   const message = redact(error instanceof Error ? error.stack ?? error.message : String(error));
   const captured = context.captured ?? {};
+  const sealedClientFailure = context.cell?.client === 'bce-ollama-tool-client';
   return {
     transcript: captured.transcript
       ? { ...captured.transcript, controllerFailure: message }
-      : { schemaVersion: '1', trialId: context.assignment.trialId, controllerFailure: message, stdout: redact(context.clientResult?.stdout), stderr: redact(context.clientResult?.stderr) },
+      : {
+          schemaVersion: '1', trialId: context.assignment.trialId, controllerFailure: message,
+          stdout: redact(context.clientResult?.stdout), stderr: redact(context.clientResult?.stderr),
+          sealedClientEventVerification: sealedClientFailure ? { passed: false, error: message, eventChainHeadSha256: null } : null,
+        },
     patch: captured.patch ?? { schemaVersion: '1', available: false, reason: message, changes: [] },
     finalTree: captured.finalTree ?? { available: false, reason: message },
     preparation: context.preparation,
@@ -918,7 +984,11 @@ function failureDocuments(context, error) {
     functional: { passed: false, collateralRegression: false, deterministic: true, executed: false, failure: message },
     architecture: { passed: false, locations: [], deterministic: true, executed: false, failure: message },
     policy: captured.policy ?? { assessmentComplete: false, mutationObserved: false, failClosedForOutcome: true, mutation: false, finalPolicyPaths: [], observedWritePaths: [], outOfScope: [], conservativeFailureClassification: true },
-    mechanism: captured.mechanism ?? { eventEvidenceAvailable: false, skillReadObserved: null, mcpToolCalls: null, bceGateCalls: null, bceVerdictSequence: null, redToGreenCorrectionObserved: null },
+    mechanism: captured.mechanism ?? {
+      eventEvidenceAvailable: false, skillReadObserved: null, mcpToolCalls: null, bceGateCalls: null,
+      bceVerdictSequence: null, redToGreenCorrectionObserved: null,
+      ...(sealedClientFailure ? { commonToolCalls: null, malformedToolCalls: null, toolFailures: null, providerRequests: null, eventChainHeadSha256: null } : {}),
+    },
   };
 }
 
@@ -982,7 +1052,7 @@ function recoverExposedAttempt(assignment, task, repository, cell, trialDir, eve
   return commitTerminal({
     assignment, task, trialDir, state, status: 'infrastructure-error', startedAt: exposure.timestamp,
     exitCode: null, bindings,
-    documents: failureDocuments({ assignment, preparation, isolationProof, clientResult: null }, recoveryError),
+      documents: failureDocuments({ assignment, preparation, isolationProof, clientResult: null, cell }, recoveryError),
     telemetry: missingTelemetry(assignment),
   });
 }
@@ -1062,7 +1132,12 @@ async function executeAssignment(assignment) {
       return { preflightOnly: true, cellId: cell.id, arm: assignment.arm, isolationProof };
     }
     const prompt = `${readFileSync(resolveInside(bundleDir, task.prompt.path, 'task prompt'), 'utf8').trim()}\n\nArchitecture policy (identical in both randomized arms):\n${readFileSync(resolveInside(bundleDir, task.writtenPolicy.path, 'written policy'), 'utf8').trim()}\n\nComplete the task in this repository. Do not edit tests, policy, blueprint, agent configuration, CI, dependencies, or evaluation files.`;
-    const command = adapterCommand({ ...cell, executable: toolchain.clientExecutable }, workspace, prompt, clientEnv, task, {
+    const command = adapterCommand({
+      ...cell,
+      executable: toolchain.clientExecutable,
+      systemPrompt: toolchain.systemPrompt,
+      commonTools: toolchain.commonTools,
+    }, workspace, prompt, clientEnv, task, {
       ...treatment,
       runtimeExecutable: toolchain.runtimeExecutable,
     });
@@ -1075,15 +1150,25 @@ async function executeAssignment(assignment) {
     const clientDocuments = jsonDocuments(clientResult.stdout);
     let status = clientResult.timedOut ? 'timeout' : clientResult.status === 0 ? 'completed' :
       clientDocuments.length === 0 || /auth|credential|rate.?limit|overloaded|network|operation not permitted|\bEPERM\b|sandbox-exec|execvp/i.test(`${clientResult.stderr}\n${clientResult.stdout}`) ? 'infrastructure-error' : 'failed';
+    if (!clientResult.timedOut && cell.client === 'bce-ollama-tool-client' && clientResult.status === 2) status = 'infrastructure-error';
+    let sealedClientEvidence = null;
+    let sealedClientEvidenceError = null;
+    if (cell.client === 'bce-ollama-tool-client') {
+      try { sealedClientEvidence = verifyOllamaClientEvents(clientResult.stdout, { cell, arm: assignment.arm, task }); }
+      catch (error) {
+        sealedClientEvidenceError = error instanceof Error ? error.message : String(error);
+        status = 'infrastructure-error';
+      }
+    }
     appendEvent(state, 'client', 'client-terminated', { status, exitCode: clientResult.status, signal: clientResult.signal, latencyMs: clientResult.latencyMs, processGroupTerminated: clientResult.processGroupTerminated, overflow: clientResult.overflow });
     if (seal.attestation?.kind === 'synthetic-self-test' && process.env.BCE_MODEL_EVAL_FAULT_AT === 'hard-crash-after-client') {
       process.kill(process.pid, 'SIGKILL');
     }
     const stdout = redact(clientResult.stdout);
     const stderr = redact(clientResult.stderr);
-    capturedUsage = extractUsage(stdout, cell);
+    capturedUsage = extractUsage(stdout, cell, sealedClientEvidence);
     if (capturedUsage.resolvedModel !== cell.resolvedModel) status = 'infrastructure-error';
-    const observedWrites = observedWritePaths(stdout);
+    const observedWrites = observedWritePaths(stdout, sealedClientEvidence);
     const finalInventory = treeInventory(workspace);
     const changes = inventoryChanges(initialInventory, finalInventory);
     const changedPaths = changes.map((entry) => entry.path);
@@ -1093,11 +1178,18 @@ async function executeAssignment(assignment) {
     const mutationObserved = finalPolicyPaths.length > 0 || observedPolicyPaths.length > 0 || outOfScope.length > 0;
     const policy = { assessmentComplete: true, mutationObserved, failClosedForOutcome: mutationObserved, mutation: mutationObserved, finalPolicyPaths, observedWritePaths: observedPolicyPaths, outOfScope, authority: 'controller-before-after-inventory-plus-os-protected-write-denial' };
     captured = {
-      transcript: { schemaVersion: '1', trialId: assignment.trialId, client: cell.client, stdout, stderr, rawUsage: capturedUsage.raw },
+      transcript: {
+        schemaVersion: '1', trialId: assignment.trialId, client: cell.client, stdout, stderr, rawUsage: capturedUsage.raw,
+        sealedClientEventVerification: cell.client === 'bce-ollama-tool-client' ? {
+          passed: sealedClientEvidence !== null,
+          error: sealedClientEvidenceError,
+          eventChainHeadSha256: sealedClientEvidence?.eventChainHeadSha256 ?? null,
+        } : null,
+      },
       patch: { schemaVersion: '1', authority: 'controller-before-after-inventory', changes },
       finalTree: { available: true, agentWorkspaceInventorySha256: sha256Json(finalInventory), changedPaths },
       policy,
-      mechanism: extractMechanism(stdout, assignment),
+      mechanism: extractMechanism(stdout, assignment, sealedClientEvidence, cell),
     };
     const providerIdentityAfter = probeLocalProviderIdentity(profile, workspace, cell, toolchain.runtimeExecutable, clientEnv, { requireActiveModel: true });
     isolationProof = {
@@ -1181,7 +1273,7 @@ async function executeAssignment(assignment) {
       baseTreeSha256: repository.treeSha256, preparedTreeSha256: repository.preparedTreeSha256,
       treatmentConfigSha256: treatment.treatmentConfigSha256,
     };
-    const documents = failureDocuments({ assignment, preparation, isolationProof, clientResult, captured }, error);
+    const documents = failureDocuments({ assignment, preparation, isolationProof, clientResult, captured, cell }, error);
     return commitTerminal({
       assignment, task, trialDir, state, status: 'infrastructure-error', startedAt,
       exitCode: clientResult?.status ?? null, bindings, documents, telemetry: missingTelemetry(assignment, clientResult?.latencyMs ?? null, capturedUsage),

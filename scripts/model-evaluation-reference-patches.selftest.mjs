@@ -42,6 +42,18 @@ protocol.implementation = {
   analyzerSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'analyze-model-evaluation.mjs'))),
   analysisCoreSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-analysis.mjs'))),
   referenceVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'verify-model-evaluation-reference-patches.mjs'))),
+  providerVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-provider.mjs'))),
+  haltVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-halt.mjs'))),
+  publicExporterSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'export-model-evaluation-public.mjs'))),
+  publicVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'verify-model-evaluation-public.mjs'))),
+  studyHaltSchemaSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'study-halt.schema.json'))),
+  safetyHaltArchiveSchemaSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'safety-halt-archive.schema.json'))),
+  canaryRunnerSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'run-model-evaluation-canary.mjs'))),
+  ollamaToolClientSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'model-evaluation-ollama-tool-client.mjs'))),
+  ollamaToolClientEventVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-client-events.mjs'))),
+  ollamaSystemPromptSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'client', 'ollama-system-prompt.v1.txt'))),
+  ollamaCommonToolsSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'client', 'ollama-common-tools.v1.json'))),
+  ollamaClientEventSchemaSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'client-event.schema.json'))),
 };
 protocol.treatment.artifactProvenance.sourceTreeState = 'clean';
 for (const task of manifest.tasks) {

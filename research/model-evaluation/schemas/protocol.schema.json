@@ -182,7 +182,7 @@
     "implementation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["verifierSha256", "assignmentGeneratorSha256", "runnerSha256", "analyzerSha256", "analysisCoreSha256", "referenceVerifierSha256", "providerVerifierSha256", "haltVerifierSha256", "publicExporterSha256", "publicVerifierSha256", "studyHaltSchemaSha256", "safetyHaltArchiveSchemaSha256", "canaryRunnerSha256"],
+      "required": ["verifierSha256", "assignmentGeneratorSha256", "runnerSha256", "analyzerSha256", "analysisCoreSha256", "referenceVerifierSha256", "providerVerifierSha256", "haltVerifierSha256", "publicExporterSha256", "publicVerifierSha256", "studyHaltSchemaSha256", "safetyHaltArchiveSchemaSha256", "canaryRunnerSha256", "ollamaToolClientSha256", "ollamaToolClientEventVerifierSha256", "ollamaSystemPromptSha256", "ollamaCommonToolsSha256", "ollamaClientEventSchemaSha256"],
       "properties": {
         "verifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "assignmentGeneratorSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
@@ -196,7 +196,12 @@
         "publicVerifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "studyHaltSchemaSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "safetyHaltArchiveSchemaSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
-        "canaryRunnerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
+        "canaryRunnerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "ollamaToolClientSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "ollamaToolClientEventVerifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "ollamaSystemPromptSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "ollamaCommonToolsSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "ollamaClientEventSchemaSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
       }
     },
     "stopping": {
@@ -275,12 +280,69 @@
         "modelIdentitySource": { "type": ["string", "null"] },
         "modelIdentityEvidence": { "type": ["string", "null"], "enum": ["provider-response", "client-request-configuration", "synthetic-response", null] },
         "reasoningEffort": { "type": ["string", "null"] },
+        "toolLoop": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/toolLoop" }
+          ]
+        },
         "localProvider": {
           "anyOf": [
             { "type": "null" },
             { "$ref": "#/definitions/localProvider" }
           ]
         }
+      }
+    },
+    "toolLoop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventProtocol", "clientImplementationSha256", "systemPrompt", "commonToolContract", "clientEventSchema", "modelOptions", "limits", "mcpRunGateToolSha256", "qualificationAttestationSha256"],
+      "properties": {
+        "eventProtocol": { "const": "bce-ollama-tool-client-events/v1" },
+        "clientImplementationSha256": { "$ref": "#/definitions/sha256" },
+        "systemPrompt": { "$ref": "#/definitions/sealedArtifact" },
+        "commonToolContract": { "$ref": "#/definitions/sealedArtifact" },
+        "clientEventSchema": { "$ref": "#/definitions/sealedArtifact" },
+        "modelOptions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["temperature", "seed", "numCtx", "keepAlive"],
+          "properties": {
+            "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+            "seed": { "type": "integer" },
+            "numCtx": { "type": "integer", "minimum": 1024 },
+            "keepAlive": { "type": "string", "minLength": 1 }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maximumTurns", "maxFileBytes", "maxToolOutputBytes", "commandTimeoutMs", "providerTimeoutMs"],
+          "properties": {
+            "maximumTurns": { "type": "integer", "minimum": 1, "maximum": 64 },
+            "maxFileBytes": { "const": 262144 },
+            "maxToolOutputBytes": { "const": 32768 },
+            "commandTimeoutMs": { "const": 120000 },
+            "providerTimeoutMs": { "const": 180000 }
+          }
+        },
+        "mcpRunGateToolSha256": { "$ref": "#/definitions/sha256" },
+        "qualificationAttestationSha256": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/sha256" }
+          ]
+        }
+      }
+    },
+    "sealedArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+" },
+        "sha256": { "$ref": "#/definitions/sha256" }
       }
     },
     "localProvider": {

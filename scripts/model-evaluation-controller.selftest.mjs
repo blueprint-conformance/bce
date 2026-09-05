@@ -67,6 +67,11 @@ function prepareBundle(name) {
   protocol.implementation.studyHaltSchemaSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'study-halt.schema.json')));
   protocol.implementation.safetyHaltArchiveSchemaSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'safety-halt-archive.schema.json')));
   protocol.implementation.canaryRunnerSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'run-model-evaluation-canary.mjs')));
+  protocol.implementation.ollamaToolClientSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'model-evaluation-ollama-tool-client.mjs')));
+  protocol.implementation.ollamaToolClientEventVerifierSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-client-events.mjs')));
+  protocol.implementation.ollamaSystemPromptSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'client', 'ollama-system-prompt.v1.txt')));
+  protocol.implementation.ollamaCommonToolsSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'client', 'ollama-common-tools.v1.json')));
+  protocol.implementation.ollamaClientEventSchemaSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'client-event.schema.json')));
   protocol.treatment.artifactProvenance.sourceTreeState = 'clean';
   const nvmRuntime = process.env.NVM_BIN ? join(process.env.NVM_BIN, 'node') : null;
   const runtimeExecutable = nvmRuntime && existsSync(nvmRuntime) ? nvmRuntime : process.execPath;

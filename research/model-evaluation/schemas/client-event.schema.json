@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCE sealed Ollama tool-client event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "protocol", "sequence", "previousEventSha256", "type", "payload", "eventSha256"],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "protocol": { "const": "bce-ollama-tool-client-events/v1" },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "previousEventSha256": {
+      "anyOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      ]
+    },
+    "type": {
+      "enum": ["session.started", "provider.request", "provider.response", "tool.dispatch", "tool.result", "tool.rejected", "mcp.request", "mcp.response", "session.completed", "client.error"]
+    },
+    "payload": { "type": "object" },
+    "eventSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
