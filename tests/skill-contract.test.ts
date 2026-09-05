@@ -322,19 +322,11 @@ describe('Agent Skill — the tree-wide gates hold over it', () => {
     return dir;
   }
 
-  it('passes the leakage scan — run from leakage-gate.yml\'s own bytes, not a copy of them', () => {
-    const lines = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'leakage-gate.yml'), 'utf8').split('\n');
-    const begin = lines.findIndex((l) => l.includes('# --- scan body begin ---'));
-    const end = lines.findIndex((l) => l.includes('# --- scan body end ---'));
-    expect(begin, 'leakage-gate.yml lost its scan-body markers').toBeGreaterThan(-1);
-    expect(end).toBeGreaterThan(begin);
-    // The body is indented inside the workflow's `run: |` block; strip that indent to run it.
-    const indent = (/^\s*/.exec(lines[begin] as string) as RegExpExecArray)[0].length;
-    const script = lines.slice(begin, end + 1).map((l) => l.slice(indent)).join('\n');
-
+  it('passes the same single-source leakage scanner used by PR and release gates', () => {
     const dir = stageSkillFiles();
     try {
-      const r = spawnSync('bash', ['-c', script], { cwd: dir, encoding: 'utf8' });
+      const scanner = path.join(repoRoot, 'scripts', 'leakage-scan.sh');
+      const r = spawnSync('bash', [scanner, dir], { cwd: repoRoot, encoding: 'utf8' });
       expect(r.status, `leakage scan output:\n${r.stdout}${r.stderr}`).toBe(0);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
