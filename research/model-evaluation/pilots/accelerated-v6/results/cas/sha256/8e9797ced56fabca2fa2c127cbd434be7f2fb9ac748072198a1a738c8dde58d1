@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1",
+  "authority": "controller-before-after-inventory",
+  "changes": [
+    {
+      "path": "src/usecases/charge-summary.mjs",
+      "before": {
+        "path": "src/usecases/charge-summary.mjs",
+        "type": "file",
+        "mode": 420,
+        "bytes": 129,
+        "sha256": "bf894ca04b80f42400af91e89ac7c5daa580784b05d712e730e5c1c5236d1a00"
+      },
+      "after": {
+        "path": "src/usecases/charge-summary.mjs",
+        "type": "file",
+        "mode": 384,
+        "bytes": 103,
+        "sha256": "3af4b7c5b6cd1c0fb3c282ce03d1fe0e8231303188eeffe65f9e954b999891a8"
+      }
+    }
+  ]
+}

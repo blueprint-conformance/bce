@@ -1,0 +1,55 @@
+{
+  "successful": true,
+  "preparedTreeSha256": "71d8dfdca69de4f7acefe0ad8f240f4a8530d195b68e5ceede935fd028d6f06d",
+  "commands": [],
+  "treatmentDelta": {
+    "arm": "bce-enabled",
+    "changes": [
+      {
+        "path": ".bce-mode.json",
+        "before": null,
+        "after": {
+          "path": ".bce-mode.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 25,
+          "sha256": "bb8b675ac0f7c0d441e2dcc1927b35e3b95dd25599e816d40f5cbc401099f232"
+        }
+      },
+      {
+        "path": ".blueprints/payment-seam-repair.blueprint.json",
+        "before": null,
+        "after": {
+          "path": ".blueprints/payment-seam-repair.blueprint.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 911,
+          "sha256": "61524d6897404d9efe394ee68262c8c1ba97858bc9591d5111d7cff9f8ff1913"
+        }
+      },
+      {
+        "path": ".mcp.json",
+        "before": null,
+        "after": {
+          "path": ".mcp.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 438,
+          "sha256": "33eb11407c9740e4115ce8dbc7da876f7a079067886565279c34c6de31e6e379"
+        }
+      },
+      {
+        "path": "AGENTS.md",
+        "before": null,
+        "after": {
+          "path": "AGENTS.md",
+          "type": "file",
+          "mode": 420,
+          "bytes": 458,
+          "sha256": "919d71a97dbc1fca41533b57a6ac50d70a9fc181de3ed42f6b35be3c0d2d05c9"
+        }
+      }
+    ]
+  },
+  "treatmentConfigSha256": "e8c1aec7557148f44e0867818715562a5eda89e41f45d02ac45e588e3fa5d2b8"
+}

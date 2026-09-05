@@ -1,0 +1,68 @@
+{
+  "passed": true,
+  "collateralRegression": false,
+  "locations": [],
+  "deterministic": true,
+  "executed": true,
+  "inputTreeSha256": "aadf08c558cd7c22b24e01432697604af64ffec90cd33b01b3d9c59928bf5f87",
+  "runs": [
+    {
+      "passed": true,
+      "collateralRegression": false,
+      "locations": [],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"web-url-refactor\",\"inputTreeSha256\":\"aadf08c558cd7c22b24e01432697604af64ffec90cd33b01b3d9c59928bf5f87\",\"passed\":true,\"collateralRegression\":false,\"locations\":[]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "web-url-refactor",
+        "inputTreeSha256": "aadf08c558cd7c22b24e01432697604af64ffec90cd33b01b3d9c59928bf5f87",
+        "passed": true,
+        "collateralRegression": false,
+        "locations": []
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "4809a1aa32a350321b4f99d2ca67443a5be7991d3f01352e331f504feeae2383",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    },
+    {
+      "passed": true,
+      "collateralRegression": false,
+      "locations": [],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"web-url-refactor\",\"inputTreeSha256\":\"aadf08c558cd7c22b24e01432697604af64ffec90cd33b01b3d9c59928bf5f87\",\"passed\":true,\"collateralRegression\":false,\"locations\":[]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "web-url-refactor",
+        "inputTreeSha256": "aadf08c558cd7c22b24e01432697604af64ffec90cd33b01b3d9c59928bf5f87",
+        "passed": true,
+        "collateralRegression": false,
+        "locations": []
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "4809a1aa32a350321b4f99d2ca67443a5be7991d3f01352e331f504feeae2383",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    }
+  ]
+}

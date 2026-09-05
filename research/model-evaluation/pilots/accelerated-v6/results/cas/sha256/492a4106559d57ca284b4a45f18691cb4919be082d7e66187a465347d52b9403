@@ -1,0 +1,78 @@
+{
+  "passed": false,
+  "collateralRegression": false,
+  "locations": [
+    "Invalid regular expression: missing /"
+  ],
+  "deterministic": true,
+  "executed": true,
+  "inputTreeSha256": "fb6271813a400c8af9d7357bcf44412ca7e0393ad0ba7c396c4475f9f0ef2a0a",
+  "runs": [
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "Invalid regular expression: missing /"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"web-url-repair\",\"inputTreeSha256\":\"fb6271813a400c8af9d7357bcf44412ca7e0393ad0ba7c396c4475f9f0ef2a0a\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"Invalid regular expression: missing /\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "web-url-repair",
+        "inputTreeSha256": "fb6271813a400c8af9d7357bcf44412ca7e0393ad0ba7c396c4475f9f0ef2a0a",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "Invalid regular expression: missing /"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "e99e2a2743130d50e8828e7c8e532896c95623328293e78804023b18d48299c0",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    },
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "Invalid regular expression: missing /"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"web-url-repair\",\"inputTreeSha256\":\"fb6271813a400c8af9d7357bcf44412ca7e0393ad0ba7c396c4475f9f0ef2a0a\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"Invalid regular expression: missing /\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "web-url-repair",
+        "inputTreeSha256": "fb6271813a400c8af9d7357bcf44412ca7e0393ad0ba7c396c4475f9f0ef2a0a",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "Invalid regular expression: missing /"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "e99e2a2743130d50e8828e7c8e532896c95623328293e78804023b18d48299c0",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    }
+  ]
+}

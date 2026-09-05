@@ -1,0 +1,9 @@
+{
+  "available": true,
+  "agentWorkspaceInventorySha256": "4422f39bad3afeced4331b91ef085327c3719ed2ad07c7f5bf9879062276ec46",
+  "changedPaths": [
+    "src/usecases/repair-charge.mjs"
+  ],
+  "neutralTreeSha256": "2c32d4cb7955505e385d25df573746843587791b0a0eb35aa5156d49bf2cf021",
+  "agentWorkspaceTreeSha256": "6f7b8ba86f8c1c24bc9b1143d1e038cc353ffb8b9dd94af92335ba2fe712e35a"
+}

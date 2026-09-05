@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1",
+  "authority": "controller-before-after-inventory",
+  "changes": [
+    {
+      "path": "src/features/vector-summary.mjs",
+      "before": {
+        "path": "src/features/vector-summary.mjs",
+        "type": "file",
+        "mode": 420,
+        "bytes": 125,
+        "sha256": "ed58ff20535e03141550539fefe88f90eea21db4d3c2b5dc13236bebc4e27c54"
+      },
+      "after": {
+        "path": "src/features/vector-summary.mjs",
+        "type": "file",
+        "mode": 384,
+        "bytes": 87,
+        "sha256": "d7b27897a4786e2b19fe45c20b15bc189d3fef7c30876d75e7ac4a64e7c96f76"
+      }
+    }
+  ]
+}

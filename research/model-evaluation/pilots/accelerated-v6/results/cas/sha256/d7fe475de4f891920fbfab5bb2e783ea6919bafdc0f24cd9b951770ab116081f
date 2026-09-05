@@ -1,0 +1,18 @@
+{
+  "accepted": true,
+  "nonBceAccepted": true,
+  "bceGateAccepted": null,
+  "nonBceRuns": [
+    {
+      "command": [
+        "node",
+        "visible-tests/repair.check.mjs"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "TAP version 13\n# Subtest: repairs intent\nok 1 - repairs intent\n  ---\n  duration_ms: 0.428209\n  ...\n1..1\n# tests 1\n# suites 0\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 3.366708\n",
+      "stderr": ""
+    }
+  ],
+  "bceRun": null
+}

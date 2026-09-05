@@ -1,0 +1,9 @@
+{
+  "available": true,
+  "agentWorkspaceInventorySha256": "3d0feb5580f33bdad6c320989f6bbe0310db6e31dc3e63684be60f83f8ebdba6",
+  "changedPaths": [
+    "src/features/vector-summary.mjs"
+  ],
+  "neutralTreeSha256": "a62debe0d963aeda764a02f6947426fc2472aea181bd783199f2a95c6af0cd30",
+  "agentWorkspaceTreeSha256": "710cf2b6ec6cc18839a1f5cc728d93901237228b2f0ec3b16caa5cd71199fb6e"
+}

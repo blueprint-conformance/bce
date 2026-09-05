@@ -1,0 +1,66 @@
+{
+  "passed": true,
+  "collateralRegression": false,
+  "locations": [],
+  "deterministic": true,
+  "executed": true,
+  "inputTreeSha256": "1522b6529b57f096101a489cf2844238918a8f565604a11c6571d40917b56108",
+  "runs": [
+    {
+      "passed": true,
+      "collateralRegression": false,
+      "locations": [],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"web-url-refactor\",\"inputTreeSha256\":\"1522b6529b57f096101a489cf2844238918a8f565604a11c6571d40917b56108\",\"passed\":true,\"locations\":[]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "web-url-refactor",
+        "inputTreeSha256": "1522b6529b57f096101a489cf2844238918a8f565604a11c6571d40917b56108",
+        "passed": true,
+        "locations": []
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "28b23318fd55ca5af8fa11801bf4cef8ea0578d50e347b9be2cdfb8d69731431",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    },
+    {
+      "passed": true,
+      "collateralRegression": false,
+      "locations": [],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"web-url-refactor\",\"inputTreeSha256\":\"1522b6529b57f096101a489cf2844238918a8f565604a11c6571d40917b56108\",\"passed\":true,\"locations\":[]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "web-url-refactor",
+        "inputTreeSha256": "1522b6529b57f096101a489cf2844238918a8f565604a11c6571d40917b56108",
+        "passed": true,
+        "locations": []
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "28b23318fd55ca5af8fa11801bf4cef8ea0578d50e347b9be2cdfb8d69731431",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    }
+  ]
+}

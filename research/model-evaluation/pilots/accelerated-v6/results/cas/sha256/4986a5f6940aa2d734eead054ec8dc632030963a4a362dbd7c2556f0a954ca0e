@@ -1,0 +1,55 @@
+{
+  "successful": true,
+  "preparedTreeSha256": "34f38473c25422cc28aa5dfc66e2b8c66c512d12b0913651a8269ba608aa0cef",
+  "commands": [],
+  "treatmentDelta": {
+    "arm": "bce-enabled",
+    "changes": [
+      {
+        "path": ".bce-mode.json",
+        "before": null,
+        "after": {
+          "path": ".bce-mode.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 25,
+          "sha256": "bb8b675ac0f7c0d441e2dcc1927b35e3b95dd25599e816d40f5cbc401099f232"
+        }
+      },
+      {
+        "path": ".blueprints/inference-seam-refactor.blueprint.json",
+        "before": null,
+        "after": {
+          "path": ".blueprints/inference-seam-refactor.blueprint.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 918,
+          "sha256": "e581c71721e67178a7718cf4e43ed920ae874431c5e25f16328ad3eb15cef78c"
+        }
+      },
+      {
+        "path": ".mcp.json",
+        "before": null,
+        "after": {
+          "path": ".mcp.json",
+          "type": "file",
+          "mode": 420,
+          "bytes": 446,
+          "sha256": "344b0045a150cd6a66f1703e5d36ce19d550bc9486eba9add551707d8b23e58c"
+        }
+      },
+      {
+        "path": "AGENTS.md",
+        "before": null,
+        "after": {
+          "path": "AGENTS.md",
+          "type": "file",
+          "mode": 420,
+          "bytes": 458,
+          "sha256": "919d71a97dbc1fca41533b57a6ac50d70a9fc181de3ed42f6b35be3c0d2d05c9"
+        }
+      }
+    ]
+  },
+  "treatmentConfigSha256": "540fa48c00b979b491a0e6d69943ad1eca6ebe1e1dbbcfacd1312f3eb3109148"
+}

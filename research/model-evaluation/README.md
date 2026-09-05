@@ -74,16 +74,25 @@ npm run build
 npm run test:model-eval-controller
 ```
 
-The latest attempted real-model design is v4; v1 through v3 and every exposed denominator remain
-immutable beside it. V3 completed the apparatus path but saturated both arms. V4 was a faster,
+The latest completed public real-model design is v6; v1 through v4 and every exposed denominator
+remain immutable beside it. V3 completed the apparatus path but saturated both arms. V4 was a faster,
 permanently claim-ineligible calibration: four dependency-free JavaScript module-graph
 microcosms, three distinct base states (`repair`, `feature`, and `refactor`) per repository, two
 paired arms, and one exact content-addressed local Codex/Ollama `qwen3:32b` cell, for 24 retained
 attempts. It safety-halted after the exact first six assignments because of a post-run provider
 identity comparator defect; 18 assignments were never executed, and no analysis was produced.
 [The v4 result](pilots/accelerated-v4/RESULTS.md) is an integrity-verified apparatus-failure archive,
-not efficacy evidence. A fix-forward v5 is not yet frozen. Before any v5 task is generated or
-exposed, the exact client/model cell must pass the dedicated sacrificial capability canary below.
+not efficacy evidence. A local v5 candidate later completed but the pre-push leakage gate refused
+publication of its sealed private path. V5 remains immutable and unpublished. V6 fixed forward
+without rewriting it: a separately qualified exact local `qwen3:8b` cell, four new repository
+microcosms, eight new repair/refactor tasks, paired arms, and 16 retained attempts.
+
+[The v6 result](pilots/accelerated-v6/RESULTS.md) reports a small directional safe-success increase,
+two baseline ITT escapes versus zero with BCE, two observed red-to-green corrections, and a 1.317x
+paired median visible-time ratio. One baseline escape was normally completed; the other was
+conservatively counted after an infrastructure timeout. Because the model was selected after the
+earlier ceiling and the new tasks were development-authored, v6 is permanently claim-ineligible.
+It supports the apparatus and the next research design, not product efficacy or default adoption.
 
 Every v4 task freezes both a conforming reference patch and an architecture-violating shortcut
 witness. The verifier requires the reference to pass visible checks, the twice-run functional and
@@ -148,7 +157,7 @@ two sacrificial attempts, one per arm, and qualifies an exact cell only when bot
 successful command completion, the exact single allowed-file edit, usable turn/token telemetry,
 stable provider name and digest, zero tool-router errors, and an exact successful BCE MCP `run_gate`
 call in the BCE arm. Mentions, shell guesses, resource-list failures, and other MCP calls do not
-count. A non-qualified canary is useful apparatus evidence but cannot authorize v5.
+count. A non-qualified canary is useful apparatus evidence but cannot authorize a new pilot.
 
 ```sh
 npm run model-eval:canary -- \

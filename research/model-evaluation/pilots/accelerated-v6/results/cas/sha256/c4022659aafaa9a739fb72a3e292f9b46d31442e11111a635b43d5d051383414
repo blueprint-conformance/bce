@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1",
+  "authority": "controller-before-after-inventory",
+  "changes": [
+    {
+      "path": "src/browser/repair-host.mjs",
+      "before": {
+        "path": "src/browser/repair-host.mjs",
+        "type": "file",
+        "mode": 420,
+        "bytes": 120,
+        "sha256": "3665e15b12cd9804f23b54b2c2e8cd753e0f6f30c1b1af2418f910a7f751e89e"
+      },
+      "after": {
+        "path": "src/browser/repair-host.mjs",
+        "type": "file",
+        "mode": 384,
+        "bytes": 157,
+        "sha256": "8f1839cbf398e9269d8a4215673101fd210c30db5cb08feb0047668f696b602e"
+      }
+    }
+  ]
+}

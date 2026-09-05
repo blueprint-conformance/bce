@@ -1,0 +1,76 @@
+{
+  "passed": false,
+  "collateralRegression": false,
+  "locations": [
+    "src/usecases/charge-summary.mjs#L1"
+  ],
+  "deterministic": true,
+  "executed": true,
+  "inputTreeSha256": "f92e794c1a5e8537f9a15606ef382f9c11c740868f13b02019e9f41e68608ce7",
+  "runs": [
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "src/usecases/charge-summary.mjs#L1"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"payment-seam-refactor\",\"inputTreeSha256\":\"f92e794c1a5e8537f9a15606ef382f9c11c740868f13b02019e9f41e68608ce7\",\"passed\":false,\"locations\":[\"src/usecases/charge-summary.mjs#L1\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "payment-seam-refactor",
+        "inputTreeSha256": "f92e794c1a5e8537f9a15606ef382f9c11c740868f13b02019e9f41e68608ce7",
+        "passed": false,
+        "locations": [
+          "src/usecases/charge-summary.mjs#L1"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "f36b8951491d9bae4786d5bd8be5d1b39f14f50c60a3fbddd1aa33f94d72edde",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    },
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "src/usecases/charge-summary.mjs#L1"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"payment-seam-refactor\",\"inputTreeSha256\":\"f92e794c1a5e8537f9a15606ef382f9c11c740868f13b02019e9f41e68608ce7\",\"passed\":false,\"locations\":[\"src/usecases/charge-summary.mjs#L1\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "payment-seam-refactor",
+        "inputTreeSha256": "f92e794c1a5e8537f9a15606ef382f9c11c740868f13b02019e9f41e68608ce7",
+        "passed": false,
+        "locations": [
+          "src/usecases/charge-summary.mjs#L1"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "f36b8951491d9bae4786d5bd8be5d1b39f14f50c60a3fbddd1aa33f94d72edde",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    }
+  ]
+}
