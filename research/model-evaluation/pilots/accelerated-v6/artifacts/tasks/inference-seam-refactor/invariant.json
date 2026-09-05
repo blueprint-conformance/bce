@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "writtenPolicyText": "src/features/vector-summary.mjs must not directly import src/vendor/raw-inference.mjs.",
+  "constraint": {
+    "id": "inference-seam-refactor-no-forbidden-edge",
+    "type": "forbiddenDependency",
+    "severity": "critical",
+    "from": "*",
+    "to": "module:src/vendor/raw-inference.mjs",
+    "scopePaths": [
+      "src/features/vector-summary.mjs"
+    ]
+  }
+}

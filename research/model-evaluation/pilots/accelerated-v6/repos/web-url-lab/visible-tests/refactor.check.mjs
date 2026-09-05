@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { originSummary } from '../src/browser/origin-summary.mjs'; test('summarizes origin', () => assert.equal(originSummary(' https://example.com/a '), 'origin:https://example.com'));

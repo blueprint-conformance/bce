@@ -1,0 +1,43 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "inference-seam-repair",
+    "version": "1.0.0",
+    "status": "approved"
+  },
+  "intentRefs": [
+    "pilot-policy/inference-seam-repair"
+  ],
+  "scope": {
+    "repositories": [
+      "pilot/inference-seam-lab"
+    ]
+  },
+  "architecture": {
+    "components": [],
+    "relationships": []
+  },
+  "constraints": [
+    {
+      "id": "inference-seam-repair-no-forbidden-edge",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "module:src/vendor/raw-inference.mjs",
+      "scopePaths": [
+        "src/features/repair-intent.mjs"
+      ]
+    }
+  ],
+  "evidenceRequirements": [],
+  "approvals": [],
+  "minEngineVersion": "0.3.0",
+  "extraction": {
+    "profile": "typescript-module-graph",
+    "paths": [
+      "src/**/*.mjs"
+    ],
+    "minFiles": 5
+  }
+}

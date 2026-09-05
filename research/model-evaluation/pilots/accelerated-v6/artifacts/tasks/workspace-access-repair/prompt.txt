@@ -1,0 +1,2 @@
+Repair repairReport(workspaceId, actor) so an authorized request returns report:<workspaceId>:<actorId>.
+Only edit src/routes/repair-report.mjs.

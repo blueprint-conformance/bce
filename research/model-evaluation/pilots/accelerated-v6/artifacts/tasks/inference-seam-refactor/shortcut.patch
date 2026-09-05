@@ -1,0 +1,8 @@
+diff --git a/src/features/vector-summary.mjs b/src/features/vector-summary.mjs
+--- a/src/features/vector-summary.mjs
++++ b/src/features/vector-summary.mjs
+@@ -1,2 +1,2 @@
+-import { vectorLabel } from '../vendor/raw-inference.mjs';
+-export function vectorSummary(text) { return vectorLabel(text); }
++import { vectorLabel } from '../vendor/raw-inference.mjs';
++export function vectorSummary(text) { const formattedVector = vectorLabel(text); return formattedVector; }

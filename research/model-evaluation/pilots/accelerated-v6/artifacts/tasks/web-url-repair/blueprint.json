@@ -1,0 +1,43 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "web-url-repair",
+    "version": "1.0.0",
+    "status": "approved"
+  },
+  "intentRefs": [
+    "pilot-policy/web-url-repair"
+  ],
+  "scope": {
+    "repositories": [
+      "pilot/web-url-lab"
+    ]
+  },
+  "architecture": {
+    "components": [],
+    "relationships": []
+  },
+  "constraints": [
+    {
+      "id": "web-url-repair-no-forbidden-edge",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "builtin:url",
+      "scopePaths": [
+        "src/browser/repair-host.mjs"
+      ]
+    }
+  ],
+  "evidenceRequirements": [],
+  "approvals": [],
+  "minEngineVersion": "0.3.0",
+  "extraction": {
+    "profile": "typescript-module-graph",
+    "paths": [
+      "src/**/*.mjs"
+    ],
+    "minFiles": 5
+  }
+}

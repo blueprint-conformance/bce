@@ -1,0 +1,2 @@
+Refactor originSummary(value) to assign its formatted origin to a clearly named local constant before returning it, while preserving output.
+Only edit src/browser/origin-summary.mjs.

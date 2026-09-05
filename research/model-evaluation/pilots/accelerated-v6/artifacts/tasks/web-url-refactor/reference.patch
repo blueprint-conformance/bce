@@ -1,0 +1,8 @@
+diff --git a/src/browser/origin-summary.mjs b/src/browser/origin-summary.mjs
+--- a/src/browser/origin-summary.mjs
++++ b/src/browser/origin-summary.mjs
+@@ -1,2 +1,2 @@
+-import { URL } from 'node:url';
+-export function originSummary(value) { return `origin:${new URL(String(value).trim()).origin}`; }
++import { originLabel } from './url-port.mjs';
++export function originSummary(value) { const formattedOrigin = originLabel(value); return formattedOrigin; }

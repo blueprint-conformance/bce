@@ -1,0 +1,2 @@
+Refactor chargeSummary(id) to assign the formatted charge to a clearly named local constant before returning it, while preserving output.
+Only edit src/usecases/charge-summary.mjs.

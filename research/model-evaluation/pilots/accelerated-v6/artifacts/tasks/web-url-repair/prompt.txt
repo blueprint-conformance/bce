@@ -1,0 +1,2 @@
+Repair repairHost(value) so it returns the lowercase hostname of the trimmed URL, without a port.
+Only edit src/browser/repair-host.mjs.

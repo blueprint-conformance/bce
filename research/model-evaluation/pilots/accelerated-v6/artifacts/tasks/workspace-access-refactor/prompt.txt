@@ -1,0 +1,2 @@
+Refactor reportOwner(workspaceId, actor) to assign the owner string to a clearly named local constant before returning it, while preserving output.
+Only edit src/routes/report-owner.mjs.

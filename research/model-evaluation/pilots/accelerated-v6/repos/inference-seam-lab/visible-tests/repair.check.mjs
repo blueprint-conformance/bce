@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { repairIntent } from '../src/features/repair-intent.mjs'; test('repairs intent', () => assert.equal(repairIntent(' planet '), 'complex'));

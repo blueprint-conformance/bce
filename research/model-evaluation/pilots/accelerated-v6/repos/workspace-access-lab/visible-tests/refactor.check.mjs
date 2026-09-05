@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { reportOwner } from '../src/routes/report-owner.mjs'; test('reports scoped owner', () => assert.equal(reportOwner('nova', { id: 'u8', workspaceId: 'nova' }), 'u8@nova'));

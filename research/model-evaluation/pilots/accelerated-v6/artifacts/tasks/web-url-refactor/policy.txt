@@ -1,0 +1,1 @@
+src/browser/origin-summary.mjs must not directly import the url or node:url root specifier.

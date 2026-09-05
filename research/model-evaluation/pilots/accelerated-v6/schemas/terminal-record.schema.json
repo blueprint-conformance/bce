@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCE model-evaluation terminal record v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "studyId", "trialId", "pairId", "attemptId", "primaryAttempt", "assignment", "bindings", "status", "exposure", "evidence", "derived", "mechanism", "telemetry", "recordSha256"],
+  "properties": {
+    "schemaVersion": { "const": "3" },
+    "studyId": { "type": "string", "minLength": 3 },
+    "trialId": { "type": "string", "minLength": 3 },
+    "pairId": { "type": "string", "minLength": 3 },
+    "attemptId": { "type": "string", "minLength": 3 },
+    "primaryAttempt": { "type": "boolean" },
+    "retryOf": { "type": ["string", "null"] },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cellId", "repositoryId", "taskId", "arm", "orderIndex"],
+      "properties": {
+        "cellId": { "type": "string" },
+        "repositoryId": { "type": "string" },
+        "taskId": { "type": "string" },
+        "arm": { "enum": ["baseline-no-bce", "bce-enabled"] },
+        "orderIndex": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sealRootSha256", "protocolSha256", "manifestSha256", "runnerSha256", "clientArtifactSha256", "adapterSha256", "requestedModel", "resolvedModel", "modelIdentitySource", "baseTreeSha256", "preparedTreeSha256", "treatmentConfigSha256"],
+      "properties": {
+        "sealRootSha256": { "$ref": "#/definitions/digest" },
+        "protocolSha256": { "$ref": "#/definitions/digest" },
+        "manifestSha256": { "$ref": "#/definitions/digest" },
+        "runnerSha256": { "$ref": "#/definitions/digest" },
+        "clientArtifactSha256": { "$ref": "#/definitions/digest" },
+        "adapterSha256": { "$ref": "#/definitions/digest" },
+        "requestedModel": { "type": "string", "minLength": 1 },
+        "resolvedModel": { "type": ["string", "null"], "minLength": 1 },
+        "modelIdentitySource": { "type": "string", "minLength": 1 },
+        "baseTreeSha256": { "$ref": "#/definitions/digest" },
+        "preparedTreeSha256": { "$ref": "#/definitions/digest" },
+        "treatmentConfigSha256": { "$ref": "#/definitions/digest" }
+      }
+    },
+    "status": { "enum": ["completed", "failed", "timeout", "refused", "infrastructure-error", "safety-halt"] },
+    "exposure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modelRequestExposed", "startedAt", "endedAt", "exitCode"],
+      "properties": {
+        "modelRequestExposed": { "type": "boolean" },
+        "startedAt": { "type": ["string", "null"], "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "exitCode": { "type": ["integer", "null"] }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["events", "transcript", "patch", "finalTree", "preparation", "isolationProof", "visiblePipeline", "functionalOracle", "architectureOracle", "policyDiff"],
+      "properties": {
+        "events": { "$ref": "#/definitions/artifact" },
+        "transcript": { "$ref": "#/definitions/artifact" },
+        "patch": { "$ref": "#/definitions/artifact" },
+        "finalTree": { "$ref": "#/definitions/artifact" },
+        "preparation": { "$ref": "#/definitions/artifact" },
+        "isolationProof": { "$ref": "#/definitions/artifact" },
+        "visiblePipeline": { "$ref": "#/definitions/artifact" },
+        "functionalOracle": { "$ref": "#/definitions/artifact" },
+        "architectureOracle": { "$ref": "#/definitions/artifact" },
+        "policyDiff": { "$ref": "#/definitions/artifact" }
+      }
+    },
+    "derived": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modelIdentityVerified", "nonBcePipelineAccepted", "bceGateAccepted", "visiblePipelineAccepted", "hiddenFunctionalPassed", "independentArchitecturePassed", "policyAssessmentComplete", "policyMutationObserved", "policyFailClosedForOutcome", "policyMutation", "withinBudget", "safeSuccessfulCompletion", "escapedDefect", "productiveBlock", "falseBlock", "collateralRegression"],
+      "properties": {
+        "modelIdentityVerified": { "type": "boolean" },
+        "nonBcePipelineAccepted": { "type": "boolean" },
+        "bceGateAccepted": { "type": ["boolean", "null"] },
+        "visiblePipelineAccepted": { "type": "boolean" },
+        "hiddenFunctionalPassed": { "type": "boolean" },
+        "independentArchitecturePassed": { "type": "boolean" },
+        "policyAssessmentComplete": { "type": "boolean" },
+        "policyMutationObserved": { "type": "boolean" },
+        "policyFailClosedForOutcome": { "type": "boolean" },
+        "policyMutation": { "type": "boolean" },
+        "withinBudget": { "type": "boolean" },
+        "safeSuccessfulCompletion": { "type": "boolean" },
+        "escapedDefect": { "type": "boolean" },
+        "productiveBlock": { "type": "boolean" },
+        "falseBlock": { "type": "boolean" },
+        "collateralRegression": { "type": "boolean" }
+      }
+    },
+    "mechanism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventEvidenceAvailable", "skillReadObserved", "mcpToolCalls", "bceGateCalls", "bceVerdictSequence", "redToGreenCorrectionObserved"],
+      "properties": {
+        "eventEvidenceAvailable": { "type": "boolean" },
+        "skillReadObserved": { "type": ["boolean", "null"] },
+        "mcpToolCalls": { "type": ["integer", "null"], "minimum": 0 },
+        "bceGateCalls": { "type": ["integer", "null"], "minimum": 0 },
+        "bceVerdictSequence": { "type": ["array", "null"], "items": { "enum": ["pass", "fail"] } },
+        "redToGreenCorrectionObserved": { "type": ["boolean", "null"] },
+        "commonToolCalls": { "type": ["integer", "null"], "minimum": 0 },
+        "malformedToolCalls": { "type": ["integer", "null"], "minimum": 0 },
+        "toolFailures": { "type": ["integer", "null"], "minimum": 0 },
+        "providerRequests": { "type": ["integer", "null"], "minimum": 0 },
+        "eventChainHeadSha256": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/digest" }
+          ]
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latencyMs", "nonBcePipelineMs", "bceGateMs", "endToEndVisibleMs", "oracleMs", "agentTurns", "inputTokens", "outputTokens", "cachedTokens", "costUsd", "missingReasons"],
+      "properties": {
+        "latencyMs": { "type": ["integer", "null"], "minimum": 0 },
+        "nonBcePipelineMs": { "type": ["integer", "null"], "minimum": 0 },
+        "bceGateMs": { "type": ["integer", "null"], "minimum": 0 },
+        "endToEndVisibleMs": { "type": ["integer", "null"], "minimum": 0 },
+        "oracleMs": { "type": ["integer", "null"], "minimum": 0 },
+        "agentTurns": { "type": ["integer", "null"], "minimum": 0 },
+        "inputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "outputTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cachedTokens": { "type": ["integer", "null"], "minimum": 0 },
+        "costUsd": { "type": ["number", "null"], "minimum": 0 },
+        "missingReasons": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "recordSha256": { "$ref": "#/definitions/digest" }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes", "mediaType", "redaction", "sensitivity"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+" },
+        "sha256": { "$ref": "#/definitions/digest" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "mediaType": { "type": "string", "minLength": 3 },
+        "redaction": { "enum": ["none", "credentials-only", "content-redacted"] },
+        "sensitivity": { "enum": ["public", "restricted"] }
+      }
+    }
+  }
+}

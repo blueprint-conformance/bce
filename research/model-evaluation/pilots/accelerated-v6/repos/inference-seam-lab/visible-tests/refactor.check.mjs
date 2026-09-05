@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { vectorSummary } from '../src/features/vector-summary.mjs'; test('summarizes vector', () => assert.equal(vectorSummary(' nova '), 'vector:4'));

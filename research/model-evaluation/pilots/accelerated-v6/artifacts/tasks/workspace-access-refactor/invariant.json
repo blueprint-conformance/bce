@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "writtenPolicyText": "src/routes/report-owner.mjs must directly import src/security/workspace-access.mjs.",
+  "constraint": {
+    "id": "workspace-access-refactor-requires-governed-edge",
+    "type": "requiredDependency",
+    "severity": "critical",
+    "component": "typescriptModule",
+    "to": "module:src/security/workspace-access.mjs",
+    "scopePaths": [
+      "src/routes/report-owner.mjs"
+    ]
+  }
+}

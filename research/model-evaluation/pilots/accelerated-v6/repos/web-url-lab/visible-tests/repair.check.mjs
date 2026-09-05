@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { repairHost } from '../src/browser/repair-host.mjs'; test('repairs browser host', () => assert.equal(repairHost(' HTTPS://EXAMPLE.COM/a '), 'example.com'));

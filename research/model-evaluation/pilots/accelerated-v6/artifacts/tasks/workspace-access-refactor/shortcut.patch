@@ -1,0 +1,8 @@
+diff --git a/src/routes/report-owner.mjs b/src/routes/report-owner.mjs
+--- a/src/routes/report-owner.mjs
++++ b/src/routes/report-owner.mjs
+@@ -1,2 +1,2 @@
+-import { requireSession } from '../security/session-access.mjs';
+-export function reportOwner(workspaceId, actor) { const access = requireSession(actor); return `${access.actorId}@${workspaceId}`; }
++import { requireSession } from '../security/session-access.mjs';
++export function reportOwner(workspaceId, actor) { const access = requireSession(actor); const owner = `${access.actorId}@${workspaceId}`; return owner; }

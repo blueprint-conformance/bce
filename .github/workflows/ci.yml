@@ -95,15 +95,27 @@ jobs:
       - name: Reference solutions apply safely and pass independent proof surfaces
         run: npm run test:model-eval-references
 
-      - name: Accelerated v4 portable inputs remain internally reproducible when present
+      - name: Accelerated sealed-pilot inputs remain internally reproducible when present
         shell: bash
         run: |
-          if [[ -d research/model-evaluation/pilots/accelerated-v4 ]]; then
-            if jq -e '.status == "sealed-before-first-trial"' research/model-evaluation/pilots/accelerated-v4/seal.json >/dev/null; then
-              npm run model-eval:verify -- --bundle research/model-evaluation/pilots/accelerated-v4 --portable-inputs
-            else
-              npm run model-eval:verify -- --bundle research/model-evaluation/pilots/accelerated-v4 --draft --portable-inputs
+          for pilot in accelerated-v4 accelerated-v6; do
+            bundle="research/model-evaluation/pilots/$pilot"
+            if [[ ! -d "$bundle" ]]; then
+              continue
             fi
+            if jq -e '.status == "sealed-before-first-trial"' "$bundle/seal.json" >/dev/null; then
+              npm run model-eval:verify -- --bundle "$bundle" --portable-inputs
+            else
+              npm run model-eval:verify -- --bundle "$bundle" --draft --portable-inputs
+            fi
+          done
+
+      - name: Completed accelerated v6 public evidence replays when present
+        shell: bash
+        run: |
+          bundle="research/model-evaluation/pilots/accelerated-v6"
+          if [[ -f "$bundle/results/summary.json" ]]; then
+            npm run model-eval:verify-public -- --bundle "$bundle" --results "$bundle/results"
           fi
 
       - name: Safety-halted model-evaluation evidence replays without efficacy claims

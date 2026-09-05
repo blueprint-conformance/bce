@@ -1,0 +1,244 @@
+{
+  "schemaVersion": "2",
+  "studyId": "bce-accelerated-instrumentation-pilot-v6-2026-09-05",
+  "canonical": true,
+  "phase": "pilot",
+  "status": "frozen-ready-not-run",
+  "operatorModel": "author-operated-machine-adjudicated",
+  "results": null,
+  "researchQuestion": "Within one exact canary-qualified first-party qwen3:8b cell selected before v6 exposure, does adding the sealed BCE adoption bundle directionally change safe successful completion across eight new development-only architecture tasks while the controller retains every randomized attempt?",
+  "claimScope": "directional-post-ceiling-first-party-pilot-for-one-exact-qualified-local-model-cell-development-only-no-product-efficacy-default-cost-or-transportability-claim",
+  "unit": "one fresh model-exposed attempt for one frozen client/model, repository task, and randomized arm",
+  "arms": [
+    "baseline-no-bce",
+    "bce-enabled"
+  ],
+  "primaryOutcome": {
+    "id": "safe-successful-completion",
+    "formula": "status=completed AND modelIdentityVerified=true AND visiblePipeline=pass AND hiddenFunctionalOracle=pass AND independentArchitectureOracle=pass AND policyMutation=false AND withinBudget=true",
+    "failureHandling": "Every randomized unit remains in the intention-to-treat denominator; timeout, refusal, post-exposure infrastructure failure, oracle failure, policy mutation, and budget breach are false."
+  },
+  "secondaryOutcomes": [
+    "escaped-defect",
+    "task-success",
+    "architecture-conformance",
+    "productive-bce-block",
+    "false-bce-block",
+    "collateral-regression",
+    "policy-mutation",
+    "client-latency-ms",
+    "end-to-end-visible-latency-ms",
+    "tokens-by-class",
+    "cost-usd-known-only",
+    "agent-iterations",
+    "bce-gate-calls",
+    "bce-red-to-green-corrections"
+  ],
+  "outcomeAuthority": {
+    "agentFinalMessage": "diagnostic-only",
+    "bceVerdict": "mediator-and-visible-pipeline-only",
+    "hiddenFunctionalOracle": "frozen-controller-run",
+    "architectureOracle": "frozen-bce-independent-controller-run",
+    "policyMutation": "controller-derived-from-final-tree-and-observed-write-events"
+  },
+  "matrix": {
+    "clientModelCells": 1,
+    "repositories": 4,
+    "tasksPerRepository": 2,
+    "taskTypes": [
+      "repair",
+      "refactor"
+    ],
+    "trialsPerArmPerCell": 8,
+    "totalRandomizedTrials": 16,
+    "exactCartesianPairing": true
+  },
+  "clientModelCells": [
+    {
+      "id": "bce-reference-ollama-qwen3-8b",
+      "role": "primary",
+      "client": "bce-ollama-tool-client",
+      "executable": "/private/tmp/bce-public-toolchain-v6/ollama-tool-client.mjs",
+      "clientVersion": "bce-ollama-tool-client 1.0.0",
+      "clientArtifactSha256": "68055731b63febee760f9c8bec5977346fda2801827bc8eda1d8245164a3c037",
+      "adapterSha256": "63d1b8a3b257a25650b9ea18502a6637ef79cc4a1bb2e3d12448287776700dda",
+      "requestedModel": "qwen3:8b",
+      "resolvedModel": "qwen3:8b@sha256:500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+      "modelIdentitySource": "ollama-provider-api-version-tags-and-active-process",
+      "modelIdentityEvidence": "provider-response",
+      "reasoningEffort": "low",
+      "localProvider": {
+        "kind": "ollama",
+        "endpoint": "http://127.0.0.1:11434",
+        "serverVersion": "0.20.6",
+        "modelName": "qwen3:8b",
+        "modelDigest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+        "modelSizeBytes": 5225388164,
+        "authentication": "none"
+      },
+      "toolLoop": {
+        "eventProtocol": "bce-ollama-tool-client-events/v1",
+        "clientImplementationSha256": "68055731b63febee760f9c8bec5977346fda2801827bc8eda1d8245164a3c037",
+        "systemPrompt": {
+          "path": "client/ollama-system-prompt.v1.txt",
+          "sha256": "05b0360c31bc16bdea4841e38bc8bf030ad9f9a57c4b6a03398a16519e8d8b00"
+        },
+        "commonToolContract": {
+          "path": "client/ollama-common-tools.v1.json",
+          "sha256": "f13e1598c92c60567d41033f61766ff849c2f2fdc275831f9792ebf15957a612"
+        },
+        "clientEventSchema": {
+          "path": "schemas/client-event.schema.json",
+          "sha256": "e988e0216d1e538adc3ae4301e1314f1378eaa2741866ecf24a8888b2adc1293"
+        },
+        "modelOptions": {
+          "temperature": 0,
+          "seed": 424242,
+          "numCtx": 32768,
+          "keepAlive": "10m"
+        },
+        "execSandbox": {
+          "driver": "/usr/bin/sandbox-exec",
+          "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+          "networkPolicy": "deny-all",
+          "processPolicy": "deny-fork",
+          "filesystemPolicy": "controller-read-default-deny-workspace-write-protected-roots-denied"
+        },
+        "limits": {
+          "maximumTurns": 64,
+          "maxFileBytes": 262144,
+          "maxToolOutputBytes": 32768,
+          "commandTimeoutMs": 120000,
+          "providerTimeoutMs": 180000
+        },
+        "mcpRunGateToolSha256": "f73be346b918d51f3badb19ab67fe541916aeb25113baee80fe955537ede283f",
+        "qualificationAttestation": {
+          "path": "artifacts/qualified-capability-canary.json",
+          "sha256": "112569e7072707f0b611637c4e24d1d97c8dfe1735f6eac61dddbd9c43de6de4"
+        }
+      }
+    }
+  ],
+  "treatment": {
+    "kind": "bce-adoption-bundle",
+    "allowedDeltaManifest": "treatment-delta.v1.json",
+    "engineArtifact": "artifacts/bce-treatment-runtime-v6.tgz",
+    "engineArtifactSha256": "eb1ad71194b54f89bde46a354b9aa5fac836e72a41f7843debabcd6c272e9568",
+    "installedTreeSha256": "b010b3daec1b52baf08c7fcee222060bc2af17a00431cb4a8dbef388ac74ca47",
+    "artifactProvenance": {
+      "sourceCommit": "ae4c7a4c2a2f53c2d5b0c893eade3ecb6a400aeb",
+      "sourceTreeState": "clean",
+      "buildCommand": "npm pack; npm install exact candidate into isolated scratch; archive complete executable runtime closure for sacrificial canary",
+      "classification": "exact-local-candidate-offline-runtime-closure",
+      "publishedPackageByteMatch": null
+    },
+    "baselineReceivesWrittenPolicy": true,
+    "bceArmReceivesSameWrittenPolicy": true,
+    "agentMayEditPolicy": false
+  },
+  "randomization": {
+    "algorithm": "bce-sha256-rank-paired-v1",
+    "seed": "sha256:9adf3d222970a4c8a346a1bbb1a56070b14f16e8a7c9f62ef0829a0b21c3cf3f",
+    "membership": "every task appears once in each arm in every client/model cell",
+    "withinPairArmOrderRandomized": true,
+    "globalPairOrderInterleaved": true,
+    "orderFrozenBeforeFirstModelExposure": true
+  },
+  "isolation": {
+    "executionDriver": "macos-sandbox-exec",
+    "executionDriverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+    "freshWorkspacePerAttempt": true,
+    "freshClientStatePerAttempt": true,
+    "clientExecutableStagingRequired": true,
+    "runtimeExecutableStagingRequired": true,
+    "runtimeExecutable": "/private/tmp/bce-public-toolchain-v6/node",
+    "runtimeVersion": "v22.22.2",
+    "runtimeArtifactSha256": "5c899797c4eb8f1db5563eea56538342ddb3e9276ee1b04a5a1f0f1023d2b011",
+    "clientSandboxMode": "outer-controller-profile-only",
+    "readDefaultDeny": true,
+    "positiveCapabilityProofRequired": true,
+    "userPreferencesImported": false,
+    "authenticationMountedSeparately": true,
+    "sharedModelSession": false,
+    "sharedRepositoryCache": false,
+    "oracleOutsideAgentWorkspace": true,
+    "oracleReadIsolationProofRequired": true,
+    "networkPolicyRecorded": true,
+    "modelNetworkPolicy": "loopback-only-single-endpoint",
+    "sameNonBceToolsAndPermissions": true
+  },
+  "attemptPolicy": {
+    "states": [
+      "planned",
+      "leased",
+      "prepared",
+      "exposed",
+      "terminal"
+    ],
+    "transparentRetryBeforeExposureOnly": true,
+    "postExposureRetry": "new-linked-diagnostic-attempt-only",
+    "primaryAttemptMayNotBeReplaced": true,
+    "terminalRecordsImmutable": true
+  },
+  "implementation": {
+    "verifierSha256": "be0d795986dfa7eee3c37d47a28405aba74be01dc91f6e007667bcd318601a2b",
+    "assignmentGeneratorSha256": "feab649dbb27f016ed59385e24256f39396824aa272f7a7cbf672e5d872cc0ef",
+    "runnerSha256": "63d1b8a3b257a25650b9ea18502a6637ef79cc4a1bb2e3d12448287776700dda",
+    "analyzerSha256": "63bdf331a3a47be38ba828b6d7e5abb52c044d7622c9dd901f1fab9cb6390767",
+    "analysisCoreSha256": "93e2f108c4773362108ffa33d69f78d2e324ae8e52fd43be5889c9fd15ee43c3",
+    "referenceVerifierSha256": "a4116b245b424085b8bfb8eec663e8ffbbdc48def4191a692ce0b9e3f4680938",
+    "providerVerifierSha256": "c8b82f6aced9742a2e5906b39472399c117b546b1161f685e5f5ebcd574268e3",
+    "haltVerifierSha256": "2c889a5905ec4b198941af28a45a60286cab060eb33c83b544b259c6f7ec7751",
+    "publicExporterSha256": "cd6ce33dd6c0d0d2c49e88217807b7338f001628198456f9a74f96b2e0029859",
+    "publicVerifierSha256": "944e19cca2e803abf6acc93b657c2eb56ab5232a238b0d9e8aca25a84e850628",
+    "studyHaltSchemaSha256": "096c97d2b04dbc0732b4683debd1d17c19adccfa739b062407d2cbc0ac1b80f4",
+    "safetyHaltArchiveSchemaSha256": "67f549847c26b09bac9bbe5c9010499a1b1ce9f66e9b1cb3463770dd26801549",
+    "canaryRunnerSha256": "610a439ce7db2748fafd6cf3db6426d4834dc84c550a9f8009c7e5e368e1b97b",
+    "ollamaToolClientSha256": "68055731b63febee760f9c8bec5977346fda2801827bc8eda1d8245164a3c037",
+    "ollamaToolClientEventVerifierSha256": "d62f28c5de96bf0b46fe79f46b96556ad4e818ae5a7d27bc4efaae11811d0332",
+    "ollamaSystemPromptSha256": "05b0360c31bc16bdea4841e38bc8bf030ad9f9a57c4b6a03398a16519e8d8b00",
+    "ollamaCommonToolsSha256": "f13e1598c92c60567d41033f61766ff849c2f2fdc275831f9792ebf15957a612",
+    "ollamaClientEventSchemaSha256": "e988e0216d1e538adc3ae4301e1314f1378eaa2741866ecf24a8888b2adc1293",
+    "capabilityCanaryAttestationSchemaSha256": "cd1e965f1719450219a8f97d3c709daa980bdad695ce77f31546d202c30b918f"
+  },
+  "stopping": {
+    "outcomeDependentStopping": false,
+    "stopAfterConsecutivePostExposureInfrastructureFailures": 4,
+    "failureRateMinimumExposed": 8,
+    "abortCellWhenInfrastructureFailureRateExceeds": 0.2,
+    "safetyHaltRetainsAllExposedAttempts": true
+  },
+  "analysis": {
+    "population": "intention-to-treat",
+    "primaryByCell": true,
+    "pooledConfirmatoryEstimate": false,
+    "pairWeighting": "equal-task-with-repository-cluster-uncertainty",
+    "interval": "deterministic-repository-cluster-bootstrap-95",
+    "bootstrapDraws": 10000,
+    "missingTelemetry": "never-impute-zero; report observed and missing denominators with reasons",
+    "humanAdjudication": "optional-later-layer-with-raw-blinded-labels; not required for deterministic primary oracles",
+    "multiplicity": "one primary cell; three transportability cells reported separately"
+  },
+  "decisionRules": {
+    "recommendDefaultOnlyIfAll": {
+      "safeSuccessRiskDifferenceMinimum": 0.1,
+      "escapedDefectAbsoluteReductionMinimum": 0.1,
+      "escapedDefectRelativeReductionMinimum": 0.5,
+      "falseBlockRateMaximum": 0.05,
+      "worstCellSafeSuccessRiskDifferenceMinimum": -0.1,
+      "medianPairedCostRatioMaximum": 1.25,
+      "medianPairedWallTimeRatioMaximum": 1.3,
+      "policyMutationRiskDifferenceMaximum": 0.02
+    },
+    "frictionExceptionRequiresSafeSuccessGain": 0.15,
+    "p0Conditions": [
+      "bce-side-contract-weakening",
+      "oracle-or-protocol-access-from-agent-workspace",
+      "terminal-ledger-rewrite"
+    ],
+    "inconclusiveRule": "If any benefit threshold is missed or its interval includes material harm, publish the bounded estimate and do not claim uplift."
+  },
+  "taskManifest": "task-manifest.json",
+  "protectedPaths": "protected-paths.v1.json",
+  "seal": "seal.json"
+}

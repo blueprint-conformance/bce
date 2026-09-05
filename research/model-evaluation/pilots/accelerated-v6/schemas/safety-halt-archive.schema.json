@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://blueprint-conformance.github.io/bce/schemas/safety-halt-archive.schema.json",
+  "title": "BCE model-evaluation safety-halt archive",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "studyId",
+    "resultKind",
+    "evidenceClass",
+    "archiveMethod",
+    "claimEligibility",
+    "efficacyEstimatesProduced",
+    "verifiedTrials",
+    "plannedTrials",
+    "unexposedTrials",
+    "runDisposition",
+    "observedPrefixStatuses",
+    "claimDecision",
+    "archiveSha256"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "studyId": { "type": "string", "minLength": 1 },
+    "resultKind": { "const": "safety-halt-archive" },
+    "evidenceClass": { "const": "author-operated-safety-halted-instrumentation-prefix" },
+    "archiveMethod": { "enum": ["post-hoc-v1-not-preregistered", "sealed-controller-v2"] },
+    "claimEligibility": { "const": "none" },
+    "efficacyEstimatesProduced": { "const": false },
+    "verifiedTrials": { "type": "integer", "minimum": 1 },
+    "plannedTrials": { "type": "integer", "minimum": 2 },
+    "unexposedTrials": { "type": "integer", "minimum": 1 },
+    "runDisposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "committedTrials", "ledgerHeadSha256"],
+      "properties": {
+        "status": { "const": "safety-halt" },
+        "reason": { "type": "string", "minLength": 1 },
+        "committedTrials": { "type": "integer", "minimum": 1 },
+        "ledgerHeadSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "observedPrefixStatuses": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "integer", "minimum": 1 }
+    },
+    "claimDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "reasons"],
+      "properties": {
+        "decision": { "const": "not-evaluated-safety-halted-partial-run" },
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "archiveSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

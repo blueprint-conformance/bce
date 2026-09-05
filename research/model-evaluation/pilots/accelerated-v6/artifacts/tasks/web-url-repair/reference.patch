@@ -1,0 +1,8 @@
+diff --git a/src/browser/repair-host.mjs b/src/browser/repair-host.mjs
+--- a/src/browser/repair-host.mjs
++++ b/src/browser/repair-host.mjs
+@@ -1,2 +1,2 @@
+-import { URL } from 'node:url';
+-export function repairHost(value) { return new URL(String(value)).host.toUpperCase(); }
++import { normalizedHost } from './url-port.mjs';
++export function repairHost(value) { return normalizedHost(value); }

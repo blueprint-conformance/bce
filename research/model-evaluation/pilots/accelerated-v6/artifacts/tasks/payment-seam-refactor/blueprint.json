@@ -1,0 +1,43 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "payment-seam-refactor",
+    "version": "1.0.0",
+    "status": "approved"
+  },
+  "intentRefs": [
+    "pilot-policy/payment-seam-refactor"
+  ],
+  "scope": {
+    "repositories": [
+      "pilot/payment-seam-lab"
+    ]
+  },
+  "architecture": {
+    "components": [],
+    "relationships": []
+  },
+  "constraints": [
+    {
+      "id": "payment-seam-refactor-no-forbidden-edge",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "module:src/infrastructure/raw-processor.mjs",
+      "scopePaths": [
+        "src/usecases/charge-summary.mjs"
+      ]
+    }
+  ],
+  "evidenceRequirements": [],
+  "approvals": [],
+  "minEngineVersion": "0.3.0",
+  "extraction": {
+    "profile": "typescript-module-graph",
+    "paths": [
+      "src/**/*.mjs"
+    ],
+    "minFiles": 5
+  }
+}
