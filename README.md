@@ -19,7 +19,7 @@ Node 22+ is required; the contract remains pre-1.0.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 857">
+  <img src="assets/badges/tests.svg" alt="tests: 862">
 </p>
 
 ## Run a real gate
@@ -32,8 +32,9 @@ npm install --save-dev --save-exact bce-engine@0.2.0
 npx --no-install bce demo
 ```
 
-The packaged demo runs one conforming tree and one drifted tree. To reach the same first win on
-your code in under 30 seconds, [choose your repository shape](docs/first-win.md).
+The packaged demo runs one conforming tree and one drifted tree. Then choose the architecture
+boundary you need to protect—extension registration, tenant access, egress, Python imports, or
+configuration widening—in the [executable recipe catalog](docs/first-win.md).
 
 ## The architecture package
 
@@ -137,9 +138,10 @@ successful, cheaper, faster, or safer than a baseline. [Check the public truth l
 
 ## Start with your repository
 
-Choose the closest shape—empty repo, plain JavaScript, TypeScript, or monorepo—and follow one
-measured path from install to a real RED, correction, and GREEN: **[choose your repository
-shape](docs/first-win.md)**.
+Run one of five packaged architecture recipes, then adapt it with a measured authoring walkthrough
+for an empty repository, plain JavaScript, TypeScript, or a monorepo: **[choose the boundary that
+must hold](docs/first-win.md)**. The measured test keeps every layout's author → RED → fix → GREEN
+first win in under 30 seconds.
 
 Specification: [blueprint-conformance/v1alpha1](spec/SPEC.md) · Agent loop:
 [MCP and agent workflow](docs/agent-loop.md) · Documentation:

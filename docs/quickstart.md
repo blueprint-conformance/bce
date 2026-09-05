@@ -60,9 +60,9 @@ can — and that a green verdict therefore means something.
 
 ## Then
 
-- **See the loop on a repo shaped like yours** — [`first-win.md`](first-win.md) indexes four
-  worked walkthroughs (empty repo, plain JavaScript, TypeScript, monorepo) where you author the
-  contract yourself with `bce author`. Each is executed and wall-clock timed in CI.
+- **Choose the boundary that must hold** — [`first-win.md`](first-win.md) runs five packaged
+  architecture recipes across extension, route, egress, Python, and configuration surfaces, then
+  links four measured layout walkthroughs where you author the contract yourself.
 - **Gate your own repository** — [`adopt-existing-repo.md`](adopt-existing-repo.md) is the honest
   brownfield path: advisory → baseline → graduate → enforced.
 - **Run bce inside an agent loop** — [`agent-loop.md`](agent-loop.md) wires the gate into Claude Code,

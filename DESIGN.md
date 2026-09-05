@@ -9,7 +9,13 @@ colors:
   verdict-pass: "#48c99a"
   verdict-block: "#f05c67"
   muted-steel: "#7890a3"
+  subtle-steel: "#8fa4b5"
   node-line: "#566274"
+  diagram-rule: "#36445b"
+  engine-node-surface: "#0d1025"
+  engine-cyan-surface: "#0d1428"
+  engine-pass-surface: "#0c1b1c"
+  engine-block-surface: "#24121e"
   docs-light-bg: "#ffffff"
   docs-light-fg: "#1b1f24"
   docs-accent: "#0b5fff"
@@ -34,6 +40,18 @@ typography:
     fontWeight: 650
     lineHeight: 1.3
     letterSpacing: "1px"
+  diagram-functional-label:
+    fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: "13px"
+    fontWeight: 700
+    lineHeight: 1.3
+    letterSpacing: "1px"
+  diagram-body:
+    fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: "17px"
+    fontWeight: 400
+    lineHeight: 1.4
+    letterSpacing: "normal"
   diagram-mono:
     fontFamily: 'ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace'
     fontSize: "18px"
@@ -52,9 +70,27 @@ typography:
     fontWeight: 450
     lineHeight: 1.35
     letterSpacing: "normal"
+  diagram-mobile-copy:
+    fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: "23px"
+    fontWeight: 400
+    lineHeight: 1.35
+    letterSpacing: "normal"
+  diagram-mobile-code:
+    fontFamily: 'ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace'
+    fontSize: "22px"
+    fontWeight: 450
+    lineHeight: 1.35
+    letterSpacing: "normal"
   diagram-mobile-small:
     fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: "20px"
+    fontWeight: 450
+    lineHeight: 1.4
+    letterSpacing: "normal"
+  diagram-mobile-caption:
+    fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: "19px"
     fontWeight: 450
     lineHeight: 1.4
     letterSpacing: "normal"
@@ -253,9 +289,9 @@ Show one `EngineeringBlueprint`, one observed repository graph, and one verdict 
 
 ### Documentation Diagram Curriculum
 
-The documentation owns ten responsive teaching concepts: individual causal traces for C1–C4, the source-to-verdict engine path, the three-way exit contract, deterministic report construction, evidence-chain ancestry, AI proposal authority, and the brownfield adoption ratchet. The four individual constraint diagrams zoom into failure semantics; they complement rather than replace the combined Architecture Package overview. Keep each diagram adjacent to the prose that owns its facts, and keep desktop/mobile variants semantically equivalent.
+The documentation owns eleven responsive teaching concepts: individual causal traces for C1–C4, the source-to-verdict engine path, the three-way exit contract, deterministic report construction, evidence-chain ancestry, AI proposal authority, the brownfield adoption ratchet, and the First Win recipe map. The four individual constraint diagrams zoom into failure semantics; they complement rather than replace the combined Architecture Package overview. Keep each diagram adjacent to the prose that owns its facts, and keep desktop/mobile variants semantically equivalent.
 
-Generate the twenty SVG assets with `npm run generate:doc-diagrams` and verify committed bytes with `npm run test:doc-diagrams`. The generator is the editable source of truth; do not hand-edit its outputs.
+Generate the twenty-two SVG assets with `npm run generate:doc-diagrams` and verify committed bytes with `npm run test:doc-diagrams`. The generator is the editable source of truth; do not hand-edit its outputs.
 
 ### Adoption Ratchet
 

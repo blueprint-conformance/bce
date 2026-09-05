@@ -505,7 +505,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "f76c7ca65105c817505d47101da8e974a60789797ba2fee8d25cbbb8f45a7b86",
+        "preconditionSha256": "525acbda438125d82a0458a33e3b2ea4f79371096846a4019d1197ee47ba972d",
         "content": "\nimport { Project as __BceMutationProject } from 'ts-morph';\n"
       },
       "expectedEvidencePath": "src/cli.ts",
@@ -529,7 +529,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "f76c7ca65105c817505d47101da8e974a60789797ba2fee8d25cbbb8f45a7b86",
+        "preconditionSha256": "525acbda438125d82a0458a33e3b2ea4f79371096846a4019d1197ee47ba972d",
         "content": "\nimport __bceMutationRuntimeDependency from 'ajv';\n"
       },
       "expectedEvidencePath": "src/cli.ts",

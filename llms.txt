@@ -20,8 +20,8 @@ no skip flags — a refusal is a red, not a pass.
 
 - [Quickstart (offline RED→fix→GREEN)](examples/quickstart/README.md): the guaranteed path, no API keys, five minutes.
 - [Quickstart summary](docs/quickstart.md): the one-screen version.
-- [First-win matrix](examples/first-win/README.md): the same loop on four starting shapes (empty repo, plain JavaScript, TypeScript, monorepo), each authoring its own contract with `bce author` and each wall-clock timed under 120s in CI.
-- [Pick your shape](docs/first-win.md): which first-win walkthrough matches your repository, and the checkout-vs-published-package distinction.
+- [Executable recipe catalog](docs/first-win.md): run `bce demo --list`, then a real GREEN/named-RED proof for extension contracts, tenant route guards, governed egress, Python provider imports, or configuration allowlists.
+- [Authoring matrix](examples/first-win/README.md): adapt a recipe to one of four starting layouts (empty repo, plain JavaScript, TypeScript, monorepo); each `bce author` loop is timed under 120s in CI.
 - [README](README.md): what bce is, in a paragraph.
 - [AI-first proposal and review](docs/ai-first-review.md): bounded disclosure, draft-only generation,
   deterministic packets, GitHub-bound decisions, and attended landing.

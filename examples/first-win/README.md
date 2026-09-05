@@ -1,10 +1,10 @@
-# The first-win matrix — four starting shapes, four measured RED→GREEN loops
+# The authoring matrix — four layouts, four measured RED→GREEN loops
 
-[`examples/quickstart`](../quickstart/README.md) is the guaranteed path: one fixed example, one
-pre-authored contract, five minutes. This directory answers the question that comes next —
-**"but what does it look like on a repo shaped like mine?"**
+The [First Win recipe catalog](../../docs/first-win.md) proves five architecture boundaries across
+the shipped extractor profiles. This directory answers the next question: **how do I author one of
+those contracts against files laid out like mine?**
 
-Four starting shapes. Each one authors its own contract with `bce author`, gates it to a real
+Four starting layouts. Each one authors its own contract with `bce author`, gates it to a real
 RED, fixes it, and gates it to GREEN. Every step is executed in CI by
 [`tests/first-win-matrix.test.ts`](../../tests/first-win-matrix.test.ts), which also **measures
 the wall-clock of each full sequence and fails if any shape exceeds 120 seconds**. The timings
@@ -59,6 +59,6 @@ red, a green check is just a green check.
 
 ---
 
-Next: [`docs/first-win.md`](../../docs/first-win.md) explains how to pick the shape closest to your
-repository · [`docs/adopt-existing-repo.md`](../../docs/adopt-existing-repo.md) is the brownfield
-path for a codebase that already drifts.
+Next: [`docs/first-win.md`](../../docs/first-win.md) helps you pick the architecture boundary first ·
+[`docs/adopt-existing-repo.md`](../../docs/adopt-existing-repo.md) is the brownfield path for a
+codebase that already drifts.

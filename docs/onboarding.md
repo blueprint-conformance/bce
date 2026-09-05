@@ -68,8 +68,9 @@ npx --no-install bce author \
   --out bce-draft.json
 ```
 
-The command refuses a scope that matches zero files. For other repository shapes, use
-[the four first-win examples](first-win.md). The draft stays outside `.blueprints/` until the
+The command refuses a scope that matches zero files. To start from an executable architecture
+boundary or adapt a different repository layout, use [the First Win recipe catalog](first-win.md).
+The draft stays outside `.blueprints/` until the
 onboarding command installs it as a governed proposal.
 
 ## 3. Wire the repository

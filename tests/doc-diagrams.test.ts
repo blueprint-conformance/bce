@@ -24,11 +24,12 @@ const concepts = [
   ['evidence-hash-chain', 'docs/evidence-format.md'],
   ['ai-review-authority', 'docs/ai-first-review.md'],
   ['brownfield-adoption', 'docs/adopt-existing-repo.md'],
+  ['first-win-recipes', 'docs/first-win.md'],
 ] as const;
 
 describe('documentation diagram curriculum', () => {
-  it('contains at least ten responsive concepts generated from one source', () => {
-    expect(concepts.length).toBeGreaterThanOrEqual(10);
+  it('contains at least eleven responsive concepts generated from one source', () => {
+    expect(concepts.length).toBeGreaterThanOrEqual(11);
     expect(readdirSync(ASSETS).filter((name) => name.endsWith('.svg'))).toHaveLength(concepts.length * 2);
 
     const result = spawnSync(process.execPath, ['scripts/generate-doc-diagrams.mjs', '--check'], {
