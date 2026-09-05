@@ -11,9 +11,9 @@
 `EngineeringBlueprint` into the repository; each change must conform or return an exact reason it
 cannot merge.
 
-**Released support (`v0.2.0`):** mature TypeScript/JavaScript framework-surface AST extraction and
-Python import-surface MVP. **Source candidate (`v0.3.0`):** adds direct TypeScript/JavaScript and
-structured Python module boundaries. Node 22+ is required; the contract remains pre-1.0.
+**Released support (`v0.3.0`):** mature TypeScript/JavaScript framework-surface AST extraction,
+direct TypeScript/JavaScript module boundaries, a Python import-surface MVP, and structured Python
+module boundaries. Node 22+ is required; the contract remains pre-1.0.
 
 <!-- award-slot: reserved. Activate only in a PR that links an award actually won. -->
 
@@ -28,22 +28,21 @@ structured Python module boundaries. Node 22+ is required; the contract remains 
 Three commands. No account, hosted service, API key, or repository setup:
 
 ```bash
-npm view bce-engine@0.2.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.2.0
+npm view bce-engine@0.3.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.0
 npx --no-install bce demo
 ```
 
-The released demo runs one conforming tree and one drifted tree. The `v0.3.0` source candidate adds
-six targeted recipes for extension registration, tenant access, egress, TypeScript and Python
-module layering, and configuration widening. It is not published yet; the registry preflight below
-must succeed before anyone installs or describes it as released:
+The released demo runs one conforming tree and one drifted tree. List six targeted recipes for
+extension registration, tenant access, egress, TypeScript and Python module layering, and
+configuration widening, then run the boundary closest to your repository:
 
 ```bash
-npm view bce-engine@0.3.0 version dist.integrity
+npx --no-install bce demo --list
+npx --no-install bce demo typescript-module-layering
 ```
 
-[Run the candidate recipes from source](docs/first-win.md), or stay on the immutable `v0.2.0`
-release for the zero-argument proof above.
+[Run the released First Win recipes](docs/first-win.md), or keep the zero-argument proof above.
 
 ## The architecture package
 
@@ -64,7 +63,7 @@ components out of `src/legacy/**`. The taxonomy has four more enforcing types an
 reserved types—[open the C1–C4 visual guide](docs/constraint-guide.md) or
 [read the exact semantics](spec/SPEC.md#3-constraint-taxonomy--11-types).
 
-In `v0.2.0`, the AI-first review surface's `bce propose` writes an immutable draft
+In `v0.3.0`, the AI-first review surface's `bce propose` writes an immutable draft
 packet to quarantine; the model cannot approve or land policy. [Read the review
 ceremony](docs/ai-first-review.md).
 
@@ -102,7 +101,7 @@ replay against the engine.
 Use the **CLI** for local feedback, the pinned **GitHub Action** at the merge boundary, or ten
 read-only **MCP tools** inside an agent loop. They share the same extraction, evaluation, report,
 and exit-code path; policy changes remain outside MCP. The released Action source is pinned to
-`blueprint-conformance/bce@14716bf655d8dd6020b9dcf8905678ef2abe2760`.
+`blueprint-conformance/bce@9fe4a02d39c05dbdf280b359e9b364de84e1eda8`.
 
 <p align="center">
   <picture>
@@ -149,21 +148,21 @@ than a baseline. [Check the public truth ledger](STATUS.md) or
 
 ## Start with your repository
 
-The `v0.3.0` source candidate contains six packaged architecture recipes. Run one from a checkout,
-then adapt it with a measured authoring walkthrough for an empty repository, plain JavaScript,
-TypeScript, a monorepo, or direct module layering: **[choose the boundary that must
-hold](docs/first-win.md)**. The measured test keeps every layout's author → RED → fix → GREEN first
-win in under 60 seconds, including loaded-runner contention.
+The `v0.3.0` release contains six packaged architecture recipes. Run one, then adapt it with a
+measured authoring walkthrough for an empty repository, plain JavaScript, TypeScript, a monorepo,
+or direct module layering: **[choose the boundary that must hold](docs/first-win.md)**. The measured
+test keeps every layout's author → RED → fix → GREEN first win in under 60 seconds, including
+loaded-runner contention.
 
 Specification: [blueprint-conformance/v1alpha1](spec/SPEC.md) · Agent loop:
 [MCP and agent workflow](docs/agent-loop.md) · Documentation:
 [blueprint-conformance.github.io/bce](https://blueprint-conformance.github.io/bce/)
 
-**Current registry release: v0.2.0.** Its exact npm integrity is
-`sha512-hFKOHO+EYgQbp+jaOW7/WTBGEqjHDEEKfB+O1ALo8KLnmIAr708mQWeXxRUMi3YAmWxz1RhfiAY1Rdpk81NNrA==`,
-and its source/Action commit is `14716bf655d8dd6020b9dcf8905678ef2abe2760`. The canonical GitHub
-Release is immutable. It froze before its generated assets uploaded, so the package and tag were
-left untouched and the exact signed record was preserved in a separate immutable evidence release.
-[Read the verification and recovery record](docs/release-v0.2.0.md). Compatibility remains pre-1.0.
+**Current registry release: v0.3.0.** Its exact npm integrity is
+`sha512-KwWyEYOZu70xrQG5JYEyHNhz3eqTalno9d9+KUugytYBiWtHGO7Wpa+X/7xgi9xDc49V7OUchTJtN8Pu8T37iw==`,
+and its source/Action commit is `9fe4a02d39c05dbdf280b359e9b364de84e1eda8`. The canonical GitHub
+Release is immutable with the exact tarball, signed payload manifest, signed EvidenceRecord, and
+compliance report attached. [Read the verification and incident record](docs/release-v0.3.0.md).
+Compatibility remains pre-1.0.
 
 Apache-2.0 — [license](LICENSE), [notice](NOTICE), and [trademarks](TRADEMARKS.md).

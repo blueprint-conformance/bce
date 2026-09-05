@@ -5,8 +5,7 @@
 **The rule:** internal modules must not import the public API adapter. The starting tree contains
 one reverse import in `src/service/domain/orders.py`.
 
-**Availability:** this walkthrough uses `python-module-graph` from the unpublished `v0.3.0`
-source candidate. Run it with a built source checkout; `bce-engine@0.2.0` cannot parse this profile.
+**Availability:** this walkthrough uses `python-module-graph` from the `v0.3.0` release.
 
 ## 0. Work in a copy
 
@@ -16,7 +15,7 @@ cd /tmp/bce-first-win-python-layering
 mkdir -p .blueprints
 ```
 
-`bce` below means `node /path/to/bce/dist/cli.js` from a built candidate checkout.
+`bce` below means `npx --no-install bce` after installing exact `bce-engine@0.3.0`.
 
 ## 1. Author one direct boundary
 

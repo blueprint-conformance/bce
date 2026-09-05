@@ -28,11 +28,11 @@ If a label here overstates reality, that is a bug — please open an issue.
   What is and is not detected is stated in `coverage.unsupported` and pinned by honesty tests.
 
 - **[RUNS]** Structured Python direct-module extraction (`python-module-graph` profile) in the
-  `v0.3.0` source candidate — a pinned parser, explicit repository import roots, resolved
+  `v0.3.0` release — a pinned parser, explicit repository import roots, resolved
   `module:`/`package:` targets, and fail-closed dynamic-import uncertainty. Its fixture pair,
   author → RED → fix → GREEN walkthrough, packed MCP proof, and self-governance teeth run in CI.
-  It is not in the current registry release and does not claim call, egress, transitive, or cycle
-  analysis ([`docs/python-module-graph.md`](docs/python-module-graph.md)).
+  It does not claim call, egress, transitive, or cycle analysis
+  ([`docs/python-module-graph.md`](docs/python-module-graph.md)).
 
 - **[RUNS]** Deterministic conformance grading over an authored `EngineeringBlueprint` —
   schema → extraction → evaluate → score → verdict, with fail-closed exit semantics
@@ -90,16 +90,16 @@ If a label here overstates reality, that is a bug — please open an issue.
 - **[RUNS]** Tag-gated release workflow that re-executes every proof at the tag — full suite,
   deterministic Agent Skills/MCP adoption, clean-install reproducibility, corpus recall, self-gate,
   and RED/GREEN pair — and refuses to publish unless all of them are green in that run
-  ([`.github/workflows/release.yml`](.github/workflows/release.yml)). `bce-engine@0.2.0` is public
-  with npm provenance. Its canonical GitHub Release is immutable; the exact signed evidence assets
-  are preserved in the linked supplemental immutable release after the first asset-ordering incident
-  ([verification record](docs/release-v0.2.0.md)).
+  ([`.github/workflows/release.yml`](.github/workflows/release.yml)). `bce-engine@0.3.0` is public
+  with npm provenance. Its canonical GitHub Release is immutable with the exact tarball, signed
+  payload manifest, signed EvidenceRecord, and compliance report attached
+  ([verification and incident record](docs/release-v0.3.0.md)).
 
 ## Designed, not built — [DESIGN]
 
 - **[DESIGN]** Richer Python semantic analysis beyond the structured direct-import graph:
   decorators, symbol-level calls, literal egress, transitive reachability, and cycle analysis.
-  These are not implied by the candidate module graph.
+  These are not implied by the released module graph.
 - **[DESIGN]** Research paper and archived artifacts. No paper, arXiv identifier, or artifact DOI
   exists today. [CITATION.cff](CITATION.cff) intentionally contains software metadata only, and
   [`scripts/check-release-citation.mjs`](scripts/check-release-citation.mjs) prevents provisional

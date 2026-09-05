@@ -24,8 +24,8 @@ Node 22 or newer is required. Install the exact published version as a developme
 both `bce` and `bce-mcp` become local project binaries:
 
 ```bash
-npm view bce-engine@0.2.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.2.0
+npm view bce-engine@0.3.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.0
 npx --no-install bce demo
 ```
 
@@ -85,7 +85,7 @@ project-local format.
 npx --no-install bce onboard \
   --repo . \
   --blueprint bce-draft.json \
-  --engine blueprint-conformance/bce@14716bf655d8dd6020b9dcf8905678ef2abe2760 \
+  --engine blueprint-conformance/bce@9fe4a02d39c05dbdf280b359e9b364de84e1eda8 \
   --harness agents
 ```
 
@@ -102,9 +102,9 @@ Override paths with `--agent-file` or `--mcp-config`. Paths are confined to the 
 existing context and unrelated MCP servers/settings are preserved. The command refuses to overwrite
 existing policy files, either installed skill, or an existing MCP server named `bce`.
 
-The generated Action uses the full commit SHA for the `v0.2.0` Action source and can build that
-source locally. The canonical `v0.2.0` Release is immutable, but executable workflows still pin the
-source commit rather than relying on tag semantics. Pass `--engine bce-engine@0.2.0` when you want
+The generated Action uses the full commit SHA for the `v0.3.0` Action source and can build that
+source locally. The canonical `v0.3.0` Release is immutable, but executable workflows still pin the
+source commit rather than relying on tag semantics. Pass `--engine bce-engine@0.3.0` when you want
 the generated workflow to install the exact registry package independently.
 
 ## 4. Diagnose, prove RED, and go GREEN

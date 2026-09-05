@@ -31,8 +31,8 @@ examples/quickstart/
 ```bash
 mkdir bce-quickstart && cd bce-quickstart
 npm init -y
-npm view bce-engine@0.2.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.2.0
+npm view bce-engine@0.3.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.0
 cp -R node_modules/bce-engine/examples/quickstart .
 cd quickstart
 alias bce='../node_modules/.bin/bce'
@@ -61,9 +61,8 @@ can — and that a green verdict therefore means something.
 ## Then
 
 - **Choose the boundary that must hold** — [`first-win.md`](first-win.md) runs the six packaged
-  recipes in the `v0.3.0` source candidate across extension, route, egress, module, Python, and
-  configuration surfaces, then links five measured layout walkthroughs where you author the
-  contract yourself. The page keeps these separate from the current `v0.2.0` registry release.
+  recipes in the `v0.3.0` release across extension, route, egress, module, Python, and configuration
+  surfaces, then links six measured layout walkthroughs where you author the contract yourself.
 - **Gate your own repository** — [`adopt-existing-repo.md`](adopt-existing-repo.md) is the honest
   brownfield path: advisory → baseline → graduate → enforced.
 - **Run bce inside an agent loop** — [`agent-loop.md`](agent-loop.md) wires the gate into Claude Code,

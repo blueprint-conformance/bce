@@ -84,8 +84,20 @@ reject('source identity drift', () => {
 }, 'Lane-A source commit differs from release state');
 
 reject('recovery disclosure removed', () => {
-  writeFileSync(join(fixture, releaseRecord), originals.get(releaseRecord).replace('intentionally has no assets', 'has its assets elsewhere'));
+  const state = JSON.parse(originals.get('release-state.json'));
+  const pin = JSON.parse(originals.get('.engine-pin.json'));
+  state.evidenceReleaseUrl = 'https://github.com/blueprint-conformance/bce/releases/tag/evidence-v9.9.9';
+  pin.evidenceReleaseUrl = state.evidenceReleaseUrl;
+  writeFileSync(join(fixture, 'release-state.json'), `${JSON.stringify(state, null, 2)}\n`);
+  writeFileSync(join(fixture, '.engine-pin.json'), `${JSON.stringify(pin, null, 2)}\n`);
+  writeFileSync(join(fixture, releaseRecord), `${originals.get(releaseRecord)}\n${state.evidenceReleaseUrl}\n`);
 }, 'supplemental evidence recovery disclosure');
+
+reject('payload asset identity drift', () => {
+  const state = JSON.parse(originals.get('release-state.json'));
+  state.payloadManifestSha256 = '0000000000000000000000000000000000000000000000000000000000000000';
+  writeFileSync(join(fixture, 'release-state.json'), `${JSON.stringify(state, null, 2)}\n`);
+}, 'release verification identity');
 
 reject('release evidence firewall removed', () => {
   writeFileSync(join(fixture, releaseRecord), originals.get(releaseRecord).replace('It is not independent adoption', 'It provides independent adoption'));
@@ -124,4 +136,4 @@ reject('README hard-codes a volatile test count', () => {
 restore();
 const accepted = execFileSync(process.execPath, [checker, '--root', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`clean claim set did not pass:\n${accepted}`);
-process.stdout.write('release-claim-policy self-test: PASS (candidate drift/non-monotonicity, premature Lane-A pin, unreleased install target, integrity/source/context drift, false immutability/independence, erased recovery/firewall claims, and dormant marker rejected)\n');
+process.stdout.write('release-claim-policy self-test: PASS (candidate drift/non-monotonicity, premature Lane-A pin, unreleased install target, registry/payload/source/context drift, false immutability/independence, erased recovery/firewall claims, and dormant marker rejected)\n');

@@ -11,7 +11,7 @@ Lane A exists to close a trusting-trust hole: a change that simultaneously break
 engine's ability to notice the break must not be able to self-grade green. That property only holds if
 the grader is **fixed** — a published artifact the PR under review cannot influence.
 
-- `bce-engine@0.2.0` — never `^0.2.0`, `~0.2.0`, or `@latest`. A range would let a *later* publish
+- `bce-engine@0.3.0` — never `^0.3.0`, `~0.3.0`, or `@latest`. A range would let a *later* publish
   silently change the gate every contributor is measured against, reintroducing the exact hole Lane A
   removes.
 - The **caret-0.x incident** is the recorded reason ranges are forbidden even when they look harmless:
@@ -30,7 +30,7 @@ the engine it is replacing**:
    verified release. The release-claim checker rejects a candidate that is silently treated as the
    published Lane-A trust anchor.
 
-1. Publish the new engine version (e.g. `0.2.0`) via the tag-gated
+1. Publish the new exact engine version via the tag-gated
    [`release.yml`](../.github/workflows/release.yml). Publishing is itself fail-closed: the release
    refuses unless the full suite + corpus/recall + self-gate + leakage-gate + the RED/GREEN dist pair
    are all green **at the tag** (re-run in the workflow, never trusted from a prior run).
@@ -76,10 +76,10 @@ published to pin, so:
   [`docs/self-hosting.md`](./self-hosting.md).
 
 The `v0.1.0` release completed this bootstrap. The current pin is the published, registry-resolvable
-`bce-engine@0.2.0`, so Lane A runs on every self-gate. For v0.2.0, the pin/claims PR is graded by
-v0.1.5 from its exact PR base SHA; the post-merge push then activates v0.2.0. Later releases follow
-the same predecessor-gated ceremony. The conditional remains solely as a fail-closed generic
-bootstrap state, not as a description of the current repository.
+`bce-engine@0.3.0`, so Lane A runs on every self-gate. The v0.3.0 pin/claims PR is graded by v0.2.0
+from its exact PR base SHA; the post-merge push then activates v0.3.0. Later releases follow the same
+predecessor-gated ceremony. The conditional remains solely as a fail-closed generic bootstrap state,
+not as a description of the current repository.
 
 ## What this ceremony is NOT
 

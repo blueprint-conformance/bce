@@ -4,35 +4,32 @@ Do not begin by learning the whole specification. Run the architecture failure c
 you need to prevent. Each recipe stays offline and runs one conforming tree plus one planted drift
 tree through the same engine used by the merge gate.
 
-**Release boundary:** the immutable `bce-engine@0.2.0` registry release contains the original
-zero-argument demo, not this named recipe catalog. The six recipes below are executable in the
-`v0.3.0` source candidate and will become installable only after that exact version resolves on npm.
-Until then, do not substitute `latest` or claim the candidate is released.
+**Release boundary:** the immutable `bce-engine@0.3.0` registry release contains both the original
+zero-argument demo and the six named recipes below. Use the exact version; do not substitute a range
+or `latest` for a merge gate.
 
 Run the released proof:
 
 ```bash
-npm view bce-engine@0.2.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.2.0
+npm view bce-engine@0.3.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.0
 npx --no-install bce demo
 ```
 
-Run the candidate catalog from a source checkout:
+Run the released catalog:
 
 ```bash
-npm ci
-npm run build
-node dist/cli.js demo --list
-node dist/cli.js demo --recipe tenant-route-guard
+npx --no-install bce demo --list
+npx --no-install bce demo --recipe tenant-route-guard
 ```
 
 The last command exits `0` only after proving both sides: the conforming tree scores 100, and the
-drifted tree produces the named `d6-tenant-guard` violation. Run every candidate recipe with
-`node dist/cli.js demo --recipe all`.
+drifted tree produces the named `d6-tenant-guard` violation. Run every recipe with
+`npx --no-install bce demo --recipe all`.
 
-The source package includes `examples/` plus the recipe fixtures. Its clean-room package proof packs
-the candidate, installs that tarball outside this checkout, and runs the zero-argument contract and
-all six recipes. That is pre-release machinery evidence, not registry availability.
+The package includes `examples/` plus the recipe fixtures. Its clean-room package proof packs and
+installs the tarball outside the source checkout, then runs the zero-argument contract and all six
+recipes. The release record independently binds that tarball to the npm artifact.
 
 <p align="center">
   <picture>
@@ -52,7 +49,7 @@ all six recipes. That is pre-release machinery evidence, not registry availabili
 | Python service layers must keep their direction | `python-module-layering` | Python structured direct module graph; explicit roots, resolved repository targets, and fail-closed uncertainty |
 | A governed manifest must not silently widen | `configuration-allowlist` | JSON/Markdown real-source RED/GREEN pair; content-pattern teeth are evaluator-refutable |
 
-Run one from the candidate checkout with `node dist/cli.js demo --recipe <id>`. The catalog is
+Run one with `npx --no-install bce demo --recipe <id>`. The catalog is
 executable: CI runs every listed recipe and refuses missing fixtures, a false GREEN, a false RED,
 or the wrong violation id.
 
@@ -67,8 +64,8 @@ against files in a repository shaped like yours:
 | CommonJS with no build step | [plain JavaScript](../examples/first-win/plain-js/README.md) | scans a real `require()` without a `tsconfig` |
 | TypeScript service | [TypeScript](../examples/first-win/typescript/README.md) | authors a content constraint for parameterized SQL |
 | several workspace packages | [monorepo](../examples/first-win/monorepo/README.md) | narrows enforcement with `--scope-paths` |
-| application and domain layers | [direct module layering](../examples/first-win/module-layering/README.md) | candidate-only C3 boundary over resolved module edges |
-| Python service package and API adapter | [Python module layering](../examples/first-win/python-layering/README.md) | candidate-only structured C3 boundary with explicit import roots |
+| application and domain layers | [direct module layering](../examples/first-win/module-layering/README.md) | released C3 boundary over resolved module edges |
+| Python service package and API adapter | [Python module layering](../examples/first-win/python-layering/README.md) | released structured C3 boundary with explicit import roots |
 
 Each walkthrough executes its own documented `bce author → RED → code fix → GREEN` sequence in CI.
 The hard CI ceiling is 120 seconds per layout; the front-page claim is separately bound to every
@@ -79,10 +76,10 @@ authoring a draft never approves policy.
 
 - The released, mature TypeScript/JavaScript AST path covers Next.js route handlers, plugin
   surfaces, literal egress, paths, files, and line content.
-- The `v0.3.0` candidate adds direct TypeScript/JavaScript and structured Python module boundaries
+- The `v0.3.0` release adds direct TypeScript/JavaScript and structured Python module boundaries
   with controlled GREEN/RED fixtures and measured authoring loops. They are direct-only and do not
-  claim transitive reachability, cycle analysis, independent adoption, or released availability.
-- The released Python import-surface MVP remains available. The candidate Python module graph adds
+  claim transitive reachability, cycle analysis, or independent adoption.
+- The released Python import-surface MVP remains available. The Python module graph adds
   repository-module resolution and fail-closed dynamic-import uncertainty; it does not claim call
   or egress semantics.
 - Content patterns can protect configuration and policy files, but BCE labels their teeth
