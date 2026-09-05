@@ -24,6 +24,7 @@ import {
   type ResolvedExtraction,
 } from './extractors.js';
 import { PythonImportExtractor } from './python-extractor.js';
+import { PythonModuleGraphExtractor } from './python-module-graph.js';
 
 export interface ExtractorProvider {
   /** which extraction profiles this provider serves */
@@ -60,6 +61,17 @@ export const EXTRACTOR_PROVIDERS: readonly ExtractorProvider[] = Object.freeze([
       'python has a single line-scan provider; the ast/line-scan flag is inert for this profile ' +
       '(coverage.extractor reports line-scan — see python-extractor.ts for what is and is not detected)',
     make: (_kind, cfg) => new PythonImportExtractor(cfg),
+  },
+  {
+    profiles: ['python-module-graph'],
+    fileKinds: ['.py'],
+    kindNote: 'python-module-graph is structured-parser-only; requesting line-scan is a fail-closed refusal',
+    make: (kind, cfg) => {
+      if (kind === 'line-scan') {
+        throw new Error(`python-module-graph requires --extractor ast; line-scan cannot resolve module targets`);
+      }
+      return new PythonModuleGraphExtractor(cfg);
+    },
   },
 ]);
 

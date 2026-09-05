@@ -19,7 +19,7 @@ export interface ToolchainIdentity {
   extractor: {
     kind: 'ast' | 'line-scan';
     profile: ExtractionProfile;
-    provider: 'typescript-ts-morph' | 'typescript-line-scan' | 'python-line-scan';
+    provider: 'typescript-ts-morph' | 'typescript-line-scan' | 'python-line-scan' | 'python-lezer';
     version: string;
   };
 }
@@ -41,7 +41,9 @@ export function resolveToolchainIdentity(args: {
 }): ToolchainIdentity {
   const provider = args.extractionProfile === 'python-import-surface'
     ? 'python-line-scan'
-    : args.extractorKind === 'ast' ? 'typescript-ts-morph' : 'typescript-line-scan';
+    : args.extractionProfile === 'python-module-graph'
+      ? 'python-lezer'
+      : args.extractorKind === 'ast' ? 'typescript-ts-morph' : 'typescript-line-scan';
   return {
     engine: { name: 'bce-engine', version: args.engineVersion },
     dependencyLock: { file: 'npm-shrinkwrap.json', sha256: dependencyLockSha256() },

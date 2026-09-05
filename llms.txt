@@ -5,8 +5,9 @@
 > decides whether the exact packet may enter the policy ceremony. The resulting blueprint is a durable
 > architectural contract for a repository; bce measures the code against it and produces a
 > deterministic conformance score, a fail-closed required-check gate for merges, and hash-chained
-> evidence anyone can re-derive offline. TypeScript/JavaScript AST extraction is the mature path;
-> Python import extraction is an explicit MVP behind the same language-neutral provider seam. The
+> evidence anyone can re-derive offline. TypeScript/JavaScript framework AST extraction is the
+> mature released path. The v0.3.0 source candidate adds direct TypeScript/JavaScript and structured
+> Python module graphs while preserving the released Python import-surface profile. The
 > registry release is v0.2.0 at exact npm integrity
 > `sha512-hFKOHO+EYgQbp+jaOW7/WTBGEqjHDEEKfB+O1ALo8KLnmIAr708mQWeXxRUMi3YAmWxz1RhfiAY1Rdpk81NNrA==`;
 > the current source is the unpublished v0.3.0 candidate. Verify registry metadata before
@@ -21,8 +22,8 @@ no skip flags — a refusal is a red, not a pass.
 
 - [Quickstart (offline RED→fix→GREEN)](examples/quickstart/README.md): the guaranteed path, no API keys, five minutes.
 - [Quickstart summary](docs/quickstart.md): the one-screen version.
-- [Executable recipe catalog](docs/first-win.md): build the v0.3.0 source candidate, run `node dist/cli.js demo --list`, then a real GREEN/named-RED proof for extension contracts, tenant route guards, governed egress, direct module layering, Python provider imports, or configuration allowlists. The current v0.2.0 registry release predates the named catalog.
-- [Authoring matrix](examples/first-win/README.md): adapt a recipe to one of four starting layouts (empty repo, plain JavaScript, TypeScript, monorepo); each `bce author` loop is timed under 120s in CI.
+- [Executable recipe catalog](docs/first-win.md): build the v0.3.0 source candidate, run `node dist/cli.js demo --list`, then a real GREEN/named-RED proof for extension contracts, tenant route guards, governed egress, TypeScript or Python module layering, or configuration allowlists. The current v0.2.0 registry release predates the named catalog.
+- [Authoring matrix](examples/first-win/README.md): adapt a recipe to one of six starting layouts (empty repo, plain JavaScript, TypeScript, monorepo, TypeScript layering, Python layering); each `bce author` loop is timed under 120s in CI.
 - [README](README.md): what bce is, in a paragraph.
 - [AI-first proposal and review](docs/ai-first-review.md): bounded disclosure, draft-only generation,
   deterministic packets, GitHub-bound decisions, and attended landing.
@@ -40,6 +41,7 @@ no skip flags — a refusal is a red, not a pass.
 - [Specification](spec/SPEC.md): normative — artifact model, 11-type constraint taxonomy, scoring, modes, versioning.
 - [Visual guide to C1–C4](docs/constraint-guide.md): diagram-led explanation of required components, required edges, forbidden imports, and forbidden component paths.
 - [TypeScript module graph](docs/typescript-module-graph.md): direct-boundary selectors, deterministic resolution, unresolved-import behavior, and explicit non-goals.
+- [Python module graph](docs/python-module-graph.md): structured direct imports, explicit roots, fail-closed uncertainty, and explicit non-goals.
 - [Exit codes](docs/exit-codes.md): 0 = green, 1 = red/user-error, 2 = fail-closed refusal.
 - [Report contract](docs/report-contract.md): the deterministic compliance report; determinism and canonical serialization.
 - [Evidence format](docs/evidence-format.md): the hash-chained evidence record + the zero-dependency verifier.

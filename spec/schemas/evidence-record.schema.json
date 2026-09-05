@@ -85,7 +85,8 @@
                 "next-route-handler",
                 "plugin-surface",
                 "typescript-module-graph",
-                "python-import-surface"
+                "python-import-surface",
+                "python-module-graph"
               ],
               "type": "string"
             },

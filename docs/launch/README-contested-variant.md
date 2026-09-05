@@ -34,8 +34,9 @@ to use them instead. What this one offers is not primacy but
 - the evidence is *re-derivable offline* by a zero-dependency verifier — no
   trust in this project required to check a verdict.
 
-Judge it on those three, side by side with anything comparable. Extraction
-is TypeScript/JavaScript (full AST) plus a Python import-graph MVP; the graph
-model is language-neutral and the extractor seam is documented.
+Judge it on those three, side by side with anything comparable. Released extraction is
+TypeScript/JavaScript framework AST plus a Python import-surface MVP. The unpublished candidate adds
+direct TypeScript/JavaScript and structured Python module graphs; it does not claim Python call,
+egress, transitive, or cycle analysis.
 
 <!-- END contested top-section -->

@@ -19,6 +19,7 @@ import {
 } from '../src/extractors.js';
 import { makeExtractor, EXTRACTOR_PROVIDERS } from '../src/extractor-registry.js';
 import { PythonImportExtractor } from '../src/python-extractor.js';
+import { PythonModuleGraphExtractor } from '../src/python-module-graph.js';
 import { ExtractionProfileSchema } from '../src/schema.js';
 import { evaluate } from '../src/report.js';
 
@@ -72,6 +73,15 @@ describe('registry dispatch contract', () => {
     expect(makeExtractor('line-scan', cfg)).toBeInstanceOf(PythonImportExtractor);
     const row = EXTRACTOR_PROVIDERS.find((p) => p.profiles.includes('python-import-surface'));
     expect(row?.kindNote).toContain('inert');
+  });
+
+  it('python-module-graph routes only to its structured Lezer provider', () => {
+    const py = readBp('python-module-layering.blueprint.json');
+    const cfg = resolveExtraction(py.extraction, py.constraints);
+    expect(makeExtractor('ast', cfg)).toBeInstanceOf(PythonModuleGraphExtractor);
+    expect(() => makeExtractor('line-scan', cfg)).toThrow(/requires --extractor ast/);
+    const row = EXTRACTOR_PROVIDERS.find((p) => p.profiles.includes('python-module-graph'));
+    expect(row?.kindNote).toMatch(/structured-parser-only/i);
   });
 
   it('an unregistered profile fails LOUD (enum and registry must move together)', () => {

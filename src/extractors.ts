@@ -115,6 +115,8 @@ export interface ResolvedExtraction {
   patterns: readonly string[];
   /** optional repo-relative tsconfig for the typescript-module-graph resolver */
   tsconfig?: string;
+  /** explicit repo-relative import roots for the python-module-graph resolver */
+  pythonRoots: readonly string[];
 }
 
 /**
@@ -188,6 +190,7 @@ export function resolveExtraction(
       governedHosts,
       egressCallees: egressEnabled ? egressCallees : ['fetch'],
       patterns,
+      pythonRoots: [],
     };
   }
   const profile = extraction.profile;
@@ -232,6 +235,7 @@ export function resolveExtraction(
     governedHosts,
     egressCallees: egressEnabled ? egressCallees : ['fetch'],
     patterns,
+    pythonRoots: extraction.pythonRoots ?? [],
     ...(extraction.tsconfig ? { tsconfig: extraction.tsconfig } : {}),
   };
 }

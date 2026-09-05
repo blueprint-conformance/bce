@@ -608,7 +608,7 @@ const diagrams = [
   {
     slug: 'first-win-recipes',
     title: 'Choose the architecture boundary that must hold',
-    desc: 'Six packaged BCE source-candidate recipes branch from the boundary a maintainer needs to protect: extension registration, tenant route access, governed network egress, direct module layering, Python provider imports, or configuration widening. Each recipe executes one conforming tree and one planted drift tree through the candidate engine.',
+    desc: 'Six packaged BCE source-candidate recipes branch from the boundary a maintainer needs to protect: extension registration, tenant route access, governed network egress, TypeScript module layering, Python module layering, or configuration widening. Each recipe executes one conforming tree and one planted drift tree through the candidate engine.',
     desktopHeight: 540,
     mobileHeight: 1180,
     desktop: `${wideHeader('Choose the boundary that must hold', 'V0.3 CANDIDATE · 6 RECIPES')}
@@ -642,11 +642,11 @@ const diagrams = [
       <path d="M878 307H914" class="route"/>
       <rect x="914" y="282" width="322" height="50" rx="4" class="node cyan-node"/>
       <text x="934" y="313" class="mono label cyan">TS/JS · DIRECT GRAPH</text>
-      <rect x="410" y="346" width="468" height="50" rx="4" class="node"/>
-      <text x="430" y="377" class="mono code">python-provider-import</text>
-      <path d="M878 371H914" class="steel-route"/>
-      <rect x="914" y="346" width="322" height="50" rx="4" class="node"/>
-      <text x="934" y="377" class="mono label steel">PYTHON · MVP</text>
+      <rect x="410" y="346" width="468" height="50" rx="4" class="node cyan-node"/>
+      <text x="430" y="377" class="mono code cyan">python-module-layering</text>
+      <path d="M878 371H914" class="route"/>
+      <rect x="914" y="346" width="322" height="50" rx="4" class="node cyan-node"/>
+      <text x="934" y="377" class="mono label cyan">PYTHON · DIRECT GRAPH</text>
       <rect x="410" y="410" width="468" height="50" rx="4" class="node"/>
       <text x="430" y="441" class="mono code">configuration-allowlist</text>
       <path d="M878 435H914" class="steel-route"/>
@@ -675,10 +675,10 @@ const diagrams = [
       <rect x="110" y="652" width="614" height="92" rx="4" class="node cyan-node"/>
       <text x="136" y="690" class="mono m-label cyan">TS/JS · DIRECT GRAPH</text>
       <text x="136" y="726" class="mono m-code cyan">module-layering</text>
-      <path d="M70 818H110" class="steel-route"/>
-      <rect x="110" y="772" width="614" height="92" rx="4" class="node"/>
-      <text x="136" y="810" class="mono m-label steel">PYTHON · MVP</text>
-      <text x="136" y="846" class="mono m-code">python-provider-import</text>
+      <path d="M70 818H110" class="route"/>
+      <rect x="110" y="772" width="614" height="92" rx="4" class="node cyan-node"/>
+      <text x="136" y="810" class="mono m-label cyan">PYTHON · DIRECT GRAPH</text>
+      <text x="136" y="846" class="mono m-code cyan">python-module-layering</text>
       <path d="M70 938H110" class="steel-route"/>
       <rect x="110" y="892" width="614" height="92" rx="4" class="node"/>
       <text x="136" y="930" class="mono m-label steel">CONFIG · REAL-SOURCE PAIR</text>

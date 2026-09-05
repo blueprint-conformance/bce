@@ -3,13 +3,13 @@
   "suite": "suite-v2",
   "claim": "Protocol reproduction: running the measured-recall protocol over this corpus reproduces recall 1.0 with zero false positives on any machine. This suite is a genericized reproduction of the frozen paper corpus, not a byte-identical copy \u2014 see CORPUS-MAP.md.",
   "counts": {
-    "defects": 34,
+    "defects": 35,
     "originalBaseline": 9,
     "paperFrozenCorpus": 25,
-    "expansion": 25,
-    "distinctSeededFixtures": 32,
-    "cleanFixtures": 10,
-    "reportsInRecallRun": 42
+    "expansion": 26,
+    "distinctSeededFixtures": 33,
+    "cleanFixtures": 11,
+    "reportsInRecallRun": 44
   },
   "blueprints": [
     {
@@ -36,6 +36,11 @@
       "ref": "python-service@0.1.0",
       "file": "fixtures/python-service.blueprint.json",
       "profile": "python-import-surface"
+    },
+    {
+      "ref": "python-module-layering@0.1.0",
+      "file": "fixtures/python-module-layering.blueprint.json",
+      "profile": "python-module-graph"
     }
   ],
   "defects": [
@@ -412,6 +417,17 @@
       "expectedSeverity": "critical",
       "expectedFixtureVerdict": "fail",
       "description": "the provider import hides in a parenthesized multi-line from-import"
+    },
+    {
+      "id": "pygraph-reverse-api-import",
+      "set": "expansion",
+      "blueprintRef": "python-module-layering@0.1.0",
+      "fixture": "fixtures/python-module-graph-surface/drift-reverse-layer",
+      "constraintId": "domain-cannot-import-api",
+      "constraintType": "forbiddenDependency",
+      "expectedSeverity": "critical",
+      "expectedFixtureVerdict": "fail",
+      "description": "Python domain code imports outward from the API adapter, reversing the declared direct layer direction"
     }
   ],
   "cleanFixtures": [
@@ -463,6 +479,11 @@
     {
       "fixture": "fixtures/python-surface/conformant",
       "blueprintRef": "python-service@0.1.0",
+      "expectedVerdict": "pass"
+    },
+    {
+      "fixture": "fixtures/python-module-graph-surface/conformant",
+      "blueprintRef": "python-module-layering@0.1.0",
       "expectedVerdict": "pass"
     }
   ]

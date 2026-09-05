@@ -1,9 +1,10 @@
 # Extending the engine to a new language
 
-The Python provider (`python-import-surface`) is the reference for adding a language. This
-guide is the checklist it followed — grounded in the code, not aspiration. Every step names
-the file that enforces it, and the last two steps are the ones that make a provider *real*:
-a discriminating fixture pair and corpus defects with honesty tests.
+The two additive Python providers are the reference for adding a language. The released
+`python-import-surface` shows how to add a deliberately bounded provider without changing prior
+behavior. The candidate `python-module-graph` shows how to add a structured parser, explicit
+resolution inputs, and fail-closed uncertainty. This checklist is grounded in their code, not
+aspiration.
 
 ## The seam
 
@@ -32,9 +33,10 @@ byte-identical graph (the determinism tests are the oracle).
    Regenerate the published schemas (`npm run generate-schemas` /
    [scripts/generate-schemas.ts](../scripts/generate-schemas.ts)) — the schema-parity test
    fails otherwise.
-2. **Provider** — a new `src/<lang>-extractor.ts`. Decide honestly what you can extract:
-   the Python provider ships line-oriented import facts because Python imports ARE
-   line-oriented; it does not pretend to an AST it doesn't have. Every fidelity limit goes
+2. **Provider** — a new `src/<lang>-extractor.ts`. Decide honestly what you can extract. The
+   legacy Python import-surface is line-oriented and preserves its released contract; the
+   structured module graph uses a pinned grammar and records dynamic loading as uncertainty
+   rather than pretending it has a target. Every fidelity limit goes
    in `coverage.unsupported`, and every documented miss gets a test asserting it is NOT
    detected (a capability note that cannot fail is a bug).
 3. **Registry row** — append to `EXTRACTOR_PROVIDERS`

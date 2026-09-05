@@ -2,7 +2,11 @@
 
 Product regression evidence and empirical generalization are different claims.
 
-`npm run test:scale` builds a deterministic synthetic TypeScript monorepo with 20 packages and 2,000 files. It runs three full AST gates, requires all 2,000 files to be reported as scanned, enforces a 30-second p95 budget, then plants a forbidden dependency in the final package and requires a RED verdict naming the exact file and line. This is a release-gated performance regression track, not evidence about arbitrary real-world monorepos.
+`npm run test:scale` builds two deterministic synthetic repositories: 2,000 TypeScript files and
+2,000 Python files. Each provider runs three full structured gates, must report every declared file
+as scanned, and has its own 30-second p95 budget. The proof then plants one forbidden dependency in
+each language and requires a RED verdict naming the exact importer and line. This is a release-gated
+performance regression track, not evidence about arbitrary real-world repositories.
 
 The packaged seeded corpus remains development data. A held-out detection estimate is blocked by `npm run research:readiness` until the preregistration is frozen before access, the corpus manifest is sealed and checksummed, and cases exist. The planned analysis requires independent annotation, false positives and unsupported cases in the denominator, Wilson intervals, and per-defect-class reporting. Current status remains “not run.”
 

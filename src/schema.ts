@@ -346,16 +346,23 @@ export type BlueprintArchitecture = z.infer<typeof BlueprintArchitectureSchema>;
  *    requiredComponent; `forbiddenEgress` and `guardSymbols` are NOT supported — the gate/CLI
  *    refuse loudly. Single line-scan provider; see python-extractor.ts for the detected/missed
  *    import forms.
+ *  - `profile: 'python-module-graph'` (widen-only, additive) — every scanned `.py` file is a
+ *    `pythonModule` and every structured, statically declared import is a policy-independent
+ *    direct edge. Explicit `pythonRoots` define import-name resolution; dynamic/reflected imports
+ *    are located uncertainty and C2/C3 fail closed.
  */
 export const ExtractionProfileSchema = z.enum([
   'next-route-handler',
   'plugin-surface',
   'typescript-module-graph',
   'python-import-surface',
+  'python-module-graph',
 ]);
 export type ExtractionProfile = z.infer<typeof ExtractionProfileSchema>;
 /** First engine release whose parser/evaluator understands typescript-module-graph. */
 export const TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION = '0.3.0';
+/** First engine release whose parser/evaluator understands python-module-graph. */
+export const PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION = '0.3.0';
 
 export const BlueprintExtractionSchema = z
   .object({
@@ -413,6 +420,15 @@ export const BlueprintExtractionSchema = z
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'tsconfig must be one repository-relative file, not a glob' });
       }
     }).optional(),
+    /**
+     * (python-module-graph only) explicit repo-relative Python import roots (`src`, `lib`, `.`).
+     * Every scanned file must belong to exactly one root; globs and traversal are rejected.
+     */
+    pythonRoots: z.array(RepoRelativePathPatternSchema.superRefine((value, ctx) => {
+      if (/[*?]/.test(value)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'pythonRoots entries are directories, not globs' });
+      }
+    })).optional(),
   })
   .strict();
 export type BlueprintExtraction = z.infer<typeof BlueprintExtractionSchema>;
@@ -448,22 +464,41 @@ export function refineModuleGraphBlueprint(
   const issue = (path: Array<string | number>, message: string): void => {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
   };
-  if (extraction?.profile !== 'typescript-module-graph') {
-    if (extraction?.tsconfig !== undefined) {
-      issue(['extraction', 'tsconfig'], 'tsconfig is only valid with typescript-module-graph');
-    }
+  if (!extraction) return;
+  const profile = extraction.profile;
+  const isTypeScript = profile === 'typescript-module-graph';
+  const isPython = profile === 'python-module-graph';
+  if (!isTypeScript && extraction.tsconfig !== undefined) {
+    issue(['extraction', 'tsconfig'], 'tsconfig is only valid with typescript-module-graph');
+  }
+  if (!isPython && (extraction.pythonRoots ?? []).length > 0) {
+    issue(['extraction', 'pythonRoots'], 'pythonRoots is only valid with python-module-graph');
+  }
+  if (!isTypeScript && !isPython) {
     return;
   }
 
   if (!extraction.paths || extraction.paths.length === 0) {
-    issue(['extraction', 'paths'], 'typescript-module-graph requires at least one path glob');
+    issue(['extraction', 'paths'], `${profile} requires at least one path glob`);
   }
   if (typeof extraction.minFiles !== 'number') {
-    issue(['extraction', 'minFiles'], 'typescript-module-graph requires an explicit floor');
+    issue(['extraction', 'minFiles'], `${profile} requires an explicit floor`);
+  }
+  if (isPython && (!extraction.pythonRoots || extraction.pythonRoots.length === 0)) {
+    issue(['extraction', 'pythonRoots'], 'python-module-graph requires at least one explicit pythonRoot');
+  }
+  if (isTypeScript && (extraction.pythonRoots ?? []).length > 0) {
+    issue(['extraction', 'pythonRoots'], 'pythonRoots is only valid with python-module-graph');
+  }
+  if (isPython && extraction.tsconfig !== undefined) {
+    issue(['extraction', 'tsconfig'], 'tsconfig is only valid with typescript-module-graph');
   }
   if (requireMinimumEngineVersion) {
     const actual = value.minEngineVersion?.split('.').map(Number);
-    const floor = TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION.split('.').map(Number);
+    const floorVersion = isPython
+      ? PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION
+      : TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION;
+    const floor = floorVersion.split('.').map(Number);
     const belowFloor = !actual || floor.some((part, index) => {
       const priorEqual = floor.slice(0, index).every((prior, priorIndex) => prior === actual[priorIndex]);
       return priorEqual && (actual[index] ?? 0) < part;
@@ -471,13 +506,13 @@ export function refineModuleGraphBlueprint(
     if (belowFloor) {
       issue(
         ['minEngineVersion'],
-        `typescript-module-graph requires minEngineVersion >=${TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION}`,
+        `${profile} requires minEngineVersion >=${floorVersion}`,
       );
     }
   }
   for (const field of ['guardSymbols', 'forbiddenImports', 'forbiddenEgressHosts', 'governedModules'] as const) {
     if ((extraction[field] ?? []).length > 0) {
-      issue(['extraction', field], 'component-profile policy must be absent or empty for typescript-module-graph');
+      issue(['extraction', field], `component-profile policy must be absent or empty for ${profile}`);
     }
   }
 
@@ -485,17 +520,18 @@ export function refineModuleGraphBlueprint(
     if (constraint.type === 'forbiddenEgress') {
       issue(
         ['constraints', index, 'type'],
-        'forbiddenEgress is not supported by typescript-module-graph; use a framework AST profile',
+        `forbiddenEgress is not supported by ${profile}; use a framework AST profile`,
       );
       return;
     }
-    if (constraint.type === 'requiredComponent' && constraint.component !== 'typescriptModule') {
-      issue(['constraints', index, 'component'], 'requiredComponent must declare typescriptModule');
+    const componentType = isPython ? 'pythonModule' : 'typescriptModule';
+    if (constraint.type === 'requiredComponent' && constraint.component !== componentType) {
+      issue(['constraints', index, 'component'], `requiredComponent must declare ${componentType}`);
       return;
     }
     if (constraint.type !== 'requiredDependency' && constraint.type !== 'forbiddenDependency') return;
-    if (constraint.type === 'requiredDependency' && constraint.component !== 'typescriptModule') {
-      issue(['constraints', index, 'component'], 'requiredDependency must declare typescriptModule');
+    if (constraint.type === 'requiredDependency' && constraint.component !== componentType) {
+      issue(['constraints', index, 'component'], `requiredDependency must declare ${componentType}`);
     }
     if (constraint.type === 'forbiddenDependency' && constraint.from && constraint.from !== '*') {
       issue(
@@ -503,10 +539,19 @@ export function refineModuleGraphBlueprint(
         "forbiddenDependency source selection uses scopePaths; from must be absent or '*'",
       );
     }
-    if (!validModuleTargetSelector(constraint.to)) {
+    const targetValid = isPython
+      ? Boolean(constraint.to) && (
+          constraint.to!.startsWith('module:')
+            ? validModuleTargetSelector(constraint.to)
+            : /^package:[\p{ID_Start}_][\p{ID_Continue}_]*$/u.test(constraint.to!)
+        )
+      : validModuleTargetSelector(constraint.to);
+    if (!targetValid) {
       issue(
         ['constraints', index, 'to'],
-        'target must be module:<path-or-glob>, package:<npm-root>, or builtin:<node-name>',
+        isPython
+          ? 'target must be module:<path-or-glob> or package:<python-import-root>'
+          : 'target must be module:<path-or-glob>, package:<npm-root>, or builtin:<node-name>',
       );
     }
     if (!constraint.scopePaths || constraint.scopePaths.length === 0) {
@@ -723,10 +768,14 @@ export const ValidatedPortfolioBlueprintSchema = PortfolioBlueprintSchema.superR
       ctx,
       false,
     );
-    if (value.extraction.profile !== 'typescript-module-graph') return;
+    const profile = value.extraction.profile;
+    if (profile !== 'typescript-module-graph' && profile !== 'python-module-graph') return;
+    const floorVersion = profile === 'python-module-graph'
+      ? PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION
+      : TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION;
     value.members.forEach((member, index) => {
       const actual = member.enginePin.split('.').map(Number);
-      const floor = TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION.split('.').map(Number);
+      const floor = floorVersion.split('.').map(Number);
       const belowFloor = floor.some((part, partIndex) => {
         const priorEqual = floor.slice(0, partIndex).every((prior, priorIndex) => prior === actual[priorIndex]);
         return priorEqual && (actual[partIndex] ?? 0) < part;
@@ -735,7 +784,7 @@ export const ValidatedPortfolioBlueprintSchema = PortfolioBlueprintSchema.superR
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['members', index, 'enginePin'],
-          message: `typescript-module-graph requires member enginePin >=${TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION}`,
+          message: `${profile} requires member enginePin >=${floorVersion}`,
         });
       }
     });

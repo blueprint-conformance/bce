@@ -89,6 +89,16 @@ this profile and MUST be rejected at authoring time rather than evaluated agains
 module-profile `requiredComponent` MUST declare `component: "typescriptModule"`. Portfolio members
 using this profile MUST each pin an engine version of at least `0.3.0`.
 
+For `extraction.profile: "python-module-graph"`, `minEngineVersion` MUST be at least `0.3.0`,
+`extraction.paths` plus an explicit positive `extraction.minFiles` are REQUIRED, and
+`extraction.pythonRoots` MUST contain at least one repository-relative, non-glob import-root
+directory. Every scanned file MUST belong to exactly one root. `extraction.tsconfig` and the
+component-profile policy fields named above MUST be absent or empty. C2/C3 MUST carry importer
+`scopePaths` and a `to` selector of `module:<repo-path-or-glob>` or
+`package:<python-import-root>`; `builtin:` is not supported. C1/C2 component types MUST be
+`pythonModule`, C3 `from` MUST be absent or `"*"`, and `forbiddenEgress` MUST be rejected.
+Portfolio members using this profile MUST each pin an engine version of at least `0.3.0`.
+
 ### 2.2 PortfolioBlueprint
 
 A `PortfolioBlueprint` additionally:
@@ -134,9 +144,9 @@ resolution is profile-aware (the constraint names WHICH component class it gover
 engine serves multiple surface shapes). **Fail-closed on zero targets**: a requiredDependency
 that finds NO component of its target type is a violation, never a vacuous pass — a
 "must register through the governed path" constraint with nothing to check is a drift signal.
-Under `typescript-module-graph`, importer `scopePaths` select `typescriptModule` components and
-`to` selects a direct `imports` target. Every selected source MUST carry a matching direct edge.
-An unresolved import cannot satisfy the requirement.
+Under a module-graph profile, importer `scopePaths` select `typescriptModule` or `pythonModule`
+components and `to` selects a direct `imports` target. Every selected source MUST carry a matching
+direct edge. An unresolved import cannot satisfy the requirement.
 
 **forbiddenDependency** — one violation for EACH observed import edge to the forbidden module
 (`to`). `from` MAY be a component id, or `*`/absent meaning *any* component. An edge whose
@@ -144,8 +154,8 @@ source is an unattributable file pseudo-identity MUST match any named `from` (a 
 import is drift regardless of whether the file minted a recognized component). An OPTIONAL
 `scopePaths` glob list NARROWS which importer files may fire the constraint (absent/empty →
 every importer counts).
-Under `typescript-module-graph`, only `imports` edges are graded; `scopePaths` select importer
-modules and `to` uses the canonical selector grammar above. A selected source with an unresolved
+Under a module-graph profile, only `imports` edges are graded; `scopePaths` select importer modules
+and `to` uses that profile's canonical selector grammar above. A selected source with an unresolved
 or computed import produces a fail-closed violation because absence of the forbidden target cannot
 be proven.
 
@@ -235,6 +245,18 @@ Bare roots not declared by an enclosing repository-owned `package.json` are unre
 guessed to be packages. Line-scan, invalid source syntax, invalid/escaping tsconfig resolution,
 external/package-based tsconfig inheritance, and imports that escape the repository are refusals.
 This profile does not claim transitive reachability or cycle analysis.
+
+The `python-module-graph` profile MUST emit one `pythonModule` component per scanned `.py` file and
+an `imports` edge for every statically declared import located by the structured parser. Explicit
+`pythonRoots` define repository import identities: ordinary modules map to their root-relative
+dotted name and `__init__.py` maps to its containing package. Resolved repository targets use
+`module:<repo-path>`; canonical external names use `package:<top-level-import-namespace>`.
+Dynamic `__import__`, `importlib.import_module`, `exec`, `eval`, and runtime import-state mutation
+MUST be located in `coverage.unresolvedImports`, so relevant C2/C3 constraints fail closed.
+Invalid syntax, non-UTF-8 source contracts, symlinked or root-escaping source, ambiguous roots or
+import identities, over-dotted relative imports, and line-scan requests are refusals. The profile
+does not claim PyPI distribution mapping, installed metadata, custom import hooks, `.pyi` semantics,
+call or egress graphs, transitive reachability, or cycle analysis.
 
 Determinism is a construction requirement: no wall-clock anywhere in the body; all arrays
 sorted before serialization; same tree in → byte-identical graph out.
@@ -637,8 +659,8 @@ an accept/reject matrix, and validation of real engine output against the publis
 
 **Known, pinned divergence class**: engine-side *refinements* exceed the mechanical conversion.
 This includes §2.1's compile-and-safety check on `forbiddenPattern.pattern` and the
-`typescript-module-graph` cross-field rules (minimum engine, supported constraints, canonical
-targets/scopes, extractor configuration, and portfolio member pins). The published JSON Schema is
+module-graph cross-field rules (minimum engine, supported constraints, canonical targets/scopes,
+extractor configuration, Python roots, and portfolio member pins). The published JSON Schema is
 the STRUCTURAL floor, and **the engine parser is normative where the two diverge**. Each refinement
 family is pinned by an explicit test assertion so it can never silently widen.
 

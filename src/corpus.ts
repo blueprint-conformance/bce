@@ -366,6 +366,16 @@ export const SEEDED_CORPUS: readonly SeededDefect[] = Object.freeze([
     description: 'the provider import hides in a parenthesized multi-line from-import',
     expectedSeverity: 'critical',
   },
+  // python structured module graph — a resolved repository edge violates the declared layer
+  // direction. This is separate from the released import-surface package rule.
+  {
+    id: 'pygraph-reverse-api-import',
+    blueprintRef: 'python-module-layering@0.1.0',
+    fixture: 'python-module-graph-surface/drift-reverse-layer',
+    constraintId: 'domain-cannot-import-api',
+    description: 'Python domain code imports outward from the API adapter, reversing the declared direct layer direction',
+    expectedSeverity: 'critical',
+  },
 ]);
 
 /** Ordered low→high severity comparison via the engine's own SEVERITY_WEIGHT (single source). */

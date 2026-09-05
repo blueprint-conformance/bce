@@ -29,7 +29,7 @@ The distinguishing mechanism is a fail-closed, local-first architecture gate tha
 ## Capabilities and Constraints
 
 - Node 22 or newer; the released package is `bce-engine@0.2.0`.
-- TypeScript/JavaScript AST extraction is the mature path; Python import-graph extraction is an MVP behind the provider seam.
+- TypeScript/JavaScript framework AST extraction is the mature released path. The v0.3.0 source candidate adds direct TypeScript/JavaScript and structured Python module graphs while preserving the released Python import-surface profile.
 - Validation, extraction, gating, MCP discovery, and evidence verification work without a hosted service after installation.
 - Critical unsupported analysis, missing rules, unsafe paths, and unknown constraints fail closed.
 - GitHub README rendering constrains the public surface to portable Markdown, HTML supported by GitHub, and repository-owned assets.

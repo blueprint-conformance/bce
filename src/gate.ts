@@ -383,12 +383,15 @@ export function runGate(
       continue;
     }
     const cfg = resolveExtraction(bp.extraction, bp.constraints);
-    if (extractorKind === 'line-scan' && cfg.profile === 'typescript-module-graph') {
+    if (
+      extractorKind === 'line-scan' &&
+      (cfg.profile === 'typescript-module-graph' || cfg.profile === 'python-module-graph')
+    ) {
       reports.push({
         schemaVersion: '1', blueprintRef: `${bp.metadata.id}@${bp.metadata.version}`, ctRepoRevision: revision,
         score: 0, verdict: 'fail', violations: [], evidenceRef: 'n/a',
-        summary: `typescript-module-graph requires --extractor ast; line-scan cannot resolve module targets`,
-        coverage: { extractor: 'line-scan', filesScanned: 0, unsupported: ['typescript-module-graph requires the ast extractor'] },
+        summary: `${cfg.profile} requires --extractor ast; line-scan cannot resolve module targets`,
+        coverage: { extractor: 'line-scan', filesScanned: 0, unsupported: [`${cfg.profile} requires the ast extractor`] },
         ...repoTag,
       });
       continue;
@@ -422,12 +425,15 @@ export function runGate(
     // python-import-surface has NO egress support at all (its single provider resolves no hosts,
     // under either kind flag) — same LOUD refusal discipline: never silently score a
     // forbiddenEgress blueprint as a pass on a surface that cannot observe egress.
-    if (cfg.profile === 'python-import-surface' && cfg.egressEnabled) {
+    if (
+      (cfg.profile === 'python-import-surface' || cfg.profile === 'python-module-graph') &&
+      cfg.egressEnabled
+    ) {
       reports.push({
         schemaVersion: '1', blueprintRef: `${bp.metadata.id}@${bp.metadata.version}`, ctRepoRevision: revision,
         score: 0, verdict: 'fail', violations: [], evidenceRef: 'n/a',
-        summary: `forbiddenEgress is not supported by the python-import-surface profile`,
-        coverage: { extractor: 'line-scan', filesScanned: 0, unsupported: ['forbiddenEgress is not supported by the python-import-surface profile'] },
+        summary: `forbiddenEgress is not supported by the ${cfg.profile} profile`,
+        coverage: { extractor: extractorKind, filesScanned: 0, unsupported: [`forbiddenEgress is not supported by the ${cfg.profile} profile`] },
         ...repoTag,
       });
       continue;

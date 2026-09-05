@@ -24,8 +24,8 @@ function resolveFixturePath(fixture: string): string {
 }
 
 /**
- * The constraint ids the five corpus blueprints (luna-chat-extension, egress-reader,
- * route-guard, served-behavior, python-service) emit that the corpus maps onto.
+ * The constraint ids the six corpus blueprints (luna-chat-extension, egress-reader,
+ * route-guard, served-behavior, python-service, python-module-layering) emit that the corpus maps onto.
  */
 const ENGINE_CONSTRAINT_IDS = new Set([
   'no-direct-provider-sdk',
@@ -42,6 +42,8 @@ const ENGINE_CONSTRAINT_IDS = new Set([
   // python-service@0.1.0 (B1 python-import-surface — the first non-TypeScript corpus arm)
   'no-committed-secrets-module',
   'no-hardcoded-provider-key',
+  // python-module-layering@0.1.0 (structured direct repository-module edge)
+  'domain-cannot-import-api',
 ]);
 
 const mkViolation = (constraintId: string, severity: Violation['severity']): Violation => ({

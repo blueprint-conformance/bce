@@ -25,8 +25,14 @@ If a label here overstates reality, that is a bug — please open an issue.
   the extractor provider registry ([`src/extractor-registry.ts`](src/extractor-registry.ts),
   [`src/python-extractor.ts`](src/python-extractor.ts)); a Python RED/GREEN discriminating pair
   runs in CI and five seeded-Python corpus defects are covered by the measured-recall leg.
-  What is and is not detected is stated in `coverage.unsupported` and pinned by honesty tests;
-  the structured-parse deepening stays [DESIGN] below.
+  What is and is not detected is stated in `coverage.unsupported` and pinned by honesty tests.
+
+- **[RUNS]** Structured Python direct-module extraction (`python-module-graph` profile) in the
+  `v0.3.0` source candidate — a pinned parser, explicit repository import roots, resolved
+  `module:`/`package:` targets, and fail-closed dynamic-import uncertainty. Its fixture pair,
+  author → RED → fix → GREEN walkthrough, packed MCP proof, and self-governance teeth run in CI.
+  It is not in the current registry release and does not claim call, egress, transitive, or cycle
+  analysis ([`docs/python-module-graph.md`](docs/python-module-graph.md)).
 
 - **[RUNS]** Deterministic conformance grading over an authored `EngineeringBlueprint` —
   schema → extraction → evaluate → score → verdict, with fail-closed exit semantics
@@ -52,7 +58,7 @@ If a label here overstates reality, that is a bug — please open an issue.
 
 ### Measurement
 
-- **[RUNS]** Seeded-defect corpus: 34 planted architecture defects with a measured-recall gate in
+- **[RUNS]** Seeded-defect corpus: 35 planted architecture defects with a measured-recall gate in
   CI ([`src/corpus.ts`](src/corpus.ts), [`corpus/CORPUS-MAP.md`](corpus/CORPUS-MAP.md));
   [`corpus/MANIFEST.json`](corpus/MANIFEST.json) is drift-gated by test, so the index is
   consumable as ground truth.
@@ -91,10 +97,9 @@ If a label here overstates reality, that is a bug — please open an issue.
 
 ## Designed, not built — [DESIGN]
 
-- **[DESIGN]** Python structured (AST) extraction. The shipped Python provider (below, [RUNS])
-  is deliberately line-scan: full-fidelity structured parsing — decorators, dynamic imports,
-  egress observation — is designed-for through the same provider seam but not built. See
-  [docs/extending-extractors.md](docs/extending-extractors.md).
+- **[DESIGN]** Richer Python semantic analysis beyond the structured direct-import graph:
+  decorators, symbol-level calls, literal egress, transitive reachability, and cycle analysis.
+  These are not implied by the candidate module graph.
 - **[DESIGN]** Research paper and archived artifacts. No paper, arXiv identifier, or artifact DOI
   exists today. [CITATION.cff](CITATION.cff) intentionally contains software metadata only, and
   [`scripts/check-release-citation.mjs`](scripts/check-release-citation.mjs) prevents provisional

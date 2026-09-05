@@ -34,7 +34,7 @@ import { measureRecall, gateVerdict, DEFAULT_THRESHOLDS, type SeededRun } from '
 const FIXROOT = path.join(__dirname, '..', 'fixtures');
 
 /**
- * The corpus spans FIVE blueprints (the egress surface added `egress-reader@0.1.0`; the corpus
+ * The corpus spans six blueprints (the egress surface added `egress-reader@0.1.0`; the corpus
  * expansion added `route-guard@0.1.0` (the missing-tenant-guard route surface) and
  * `served-behavior@0.1.0` (the behavioralInvariant grading arm)). Map each corpus blueprintRef to
  * its authored blueprint file + resolved extraction config, so the real-engine proof runs each
@@ -47,6 +47,7 @@ const BLUEPRINT_BY_REF = new Map<string, { bp: EngineeringBlueprint; cfg: Return
     ['route-guard@0.1.0', 'route-guard.blueprint.json'],
     ['served-behavior@0.1.0', 'served-behavior.blueprint.json'],
     ['python-service@0.1.0', 'python-service.blueprint.json'],
+    ['python-module-layering@0.1.0', 'python-module-layering.blueprint.json'],
   ].map(([ref, file]) => {
     const bp = parseBlueprint(JSON.parse(fs.readFileSync(path.join(FIXROOT, file), 'utf8')));
     return [ref, { bp, cfg: resolveExtraction(bp.extraction, bp.constraints) }];
@@ -128,6 +129,8 @@ const CLEAN_FIXTURES: ReadonlyArray<{ fixture: string; blueprintRef: string }> =
   { fixture: 'behavior-surface/conformant-varying', blueprintRef: 'served-behavior@0.1.0' },
   // python surface (B1) — the conformant gateway-client tree as the clean control
   { fixture: 'python-surface/conformant', blueprintRef: 'python-service@0.1.0' },
+  // structured Python module graph — direct repository-edge resolution without a false positive
+  { fixture: 'python-module-graph-surface/conformant', blueprintRef: 'python-module-layering@0.1.0' },
 ];
 
 describe('every seeded fixture resolves on disk (finding #2 — no dangling fixture id)', () => {

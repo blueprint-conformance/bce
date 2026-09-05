@@ -101,6 +101,16 @@ describe('self-blueprint: the engine gates its own architecture', () => {
     expect([...(c?.scopePaths ?? [])].sort()).toEqual(expected);
   });
 
+  it('SYNC: the Lezer seam constraint scopes EVERY src file except python-module-graph.ts', () => {
+    const bp = loadBlueprint();
+    const c = bp.constraints.find((x) => x.id === 'only-python-module-graph-may-import-lezer');
+    expect(c).toBeDefined();
+    const expected = srcFiles()
+      .filter((f) => f !== 'python-module-graph.ts')
+      .map((f) => `src/${f}`);
+    expect([...(c?.scopePaths ?? [])].sort()).toEqual(expected);
+  });
+
   it('SYNC: extraction.minFiles equals the actual src file count (fail-closed scan floor)', () => {
     const bp = loadBlueprint();
     expect(bp.extraction?.minFiles).toBe(srcFiles().length);
