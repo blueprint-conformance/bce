@@ -71,6 +71,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 
 const SITE_NAME = 'bce';
 const SITE_TAGLINE = 'the blueprint conformance engine';
+const SITE_ORIGIN = 'https://blueprint-conformance.github.io/bce';
+const SITE_DESCRIPTION =
+  'Architecture rules your agents cannot quietly break. A local, deterministic conformance gate for agent-written code.';
+const SOCIAL_IMAGE_URL = `${SITE_ORIGIN}/assets/bce-social-card.png`;
+const SOCIAL_IMAGE_ALT =
+  'BCE catches a forbidden dependency introduced by an agent change and blocks the merge at the exact source line.';
+const BRAND_ASSETS = ['assets/bce-avatar.svg', 'assets/bce-social-card.png'];
 const REPO_BLOB = 'https://github.com/blueprint-conformance/bce/blob/main/';
 const REPO_TREE = 'https://github.com/blueprint-conformance/bce/tree/main/';
 
@@ -868,8 +875,10 @@ function withToc(bodyHtml, headings, wanted) {
 function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
   const depth = route === '' ? 0 : route.split('/').length;
   const cssHref = `${'../'.repeat(depth) || './'}assets/site.css`;
+  const faviconHref = `${'../'.repeat(depth) || './'}assets/bce-avatar.svg`;
   const homeHref = relativeUrl(route, '', true);
   const docTitle = route === '' ? `${SITE_NAME} — ${SITE_TAGLINE}` : `${title} — ${SITE_NAME}`;
+  const canonicalHref = route === '' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}/${route}/`;
   // The landing hero is the product explanation, not article decoration. Lift only that first,
   // already-sanitized hero block above the documentation shell so it keeps the approved engine
   // composition at common desktop widths; every other page and image stays in the reading column.
@@ -890,7 +899,26 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="${escapeHtml(SITE_DESCRIPTION)}">
+<meta name="theme-color" content="#080919">
+<meta name="color-scheme" content="light dark">
 <title>${escapeHtml(docTitle)}</title>
+<link rel="canonical" href="${canonicalHref}">
+<link rel="icon" href="${faviconHref}" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="bce">
+<meta property="og:title" content="${escapeHtml(docTitle)}">
+<meta property="og:description" content="${escapeHtml(SITE_DESCRIPTION)}">
+<meta property="og:url" content="${canonicalHref}">
+<meta property="og:image" content="${SOCIAL_IMAGE_URL}">
+<meta property="og:image:alt" content="${escapeHtml(SOCIAL_IMAGE_ALT)}">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escapeHtml(docTitle)}">
+<meta name="twitter:description" content="${escapeHtml(SITE_DESCRIPTION)}">
+<meta name="twitter:image" content="${SOCIAL_IMAGE_URL}">
+<meta name="twitter:image:alt" content="${escapeHtml(SOCIAL_IMAGE_ALT)}">
 <link rel="stylesheet" href="${cssHref}">
 </head>
 <body${route === '' ? ' class="landing"' : ''}>
@@ -1083,7 +1111,7 @@ function main() {
   // Filled during rendering: every assets/*.svg a published page actually
   // references. Copying the whole directory instead would publish assets no
   // page uses and hide a typo'd src behind a file that happens to be there.
-  const ctx = { routeBySource, verbatimBySource, siteAssets: new Set() };
+  const ctx = { routeBySource, verbatimBySource, siteAssets: new Set(BRAND_ASSETS) };
 
   for (const p of PAGES) {
     if (p.section && !SECTION_ORDER.includes(p.section)) {

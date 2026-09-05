@@ -132,12 +132,15 @@ bce presents itself as a real developer tool, not a campaign, a dashboard, or a 
 
 The system pairs a dimensional deep-navy tool header with a compact, native documentation shell. It is precise, calm, and product-led: cyan identifies the blueprint and gate, green signals health, red blocks, and muted steel carries secondary context. Familiar developer-tool conventions are used without copying another product's identity.
 
+Across the organization profile, repository, README, generated Pages site, and link previews, recognition comes from the same six-node gate mark and the same causal grammar: human-owned policy and agent-produced change converge on a deterministic gate, which returns a labeled verdict and source-derived diagnosis. Brand continuity must strengthen the explanation rather than replace it with abstract identity decoration.
+
 **Key Characteristics:**
 
 - One direct promise paired with one concrete product moment.
 - One architecture package that makes the first four enforcing constraint types legible in context.
 - Real labels, commands, verdicts, and diagnostics instead of metaphor or invented proof.
 - Restrained depth, thin strokes, compact radii, native fonts, and no ornamental effects.
+- One six-node gate mark and one semantic color language across every public surface.
 - Mechanism evidence first; efficacy limits and evidence provenance remain explicit.
 - Purpose-built desktop and mobile diagrams with equivalent meaning.
 
@@ -166,6 +169,8 @@ The engine palette is a restrained semantic system on one dark canvas; the docum
 The terminal replay retains a slightly softer, terminal-specific palette: command cyan, output gray, pass green, error red, and one amber window control. Treat those as local syntax colors, not new brand accents.
 
 **The Semantic Accent Rule.** Cyan describes the route, green permits, red refuses, and steel governs; never exchange these roles for variety.
+
+**The Scarce Refusal Rule.** Engine navy provides the field, cyan carries structure, green confirms conformance, and red appears only to represent an edge, path, or merge that bce refuses. Its rarity gives the verdict authority.
 
 **The One Canvas Rule.** Each explanatory SVG owns one uninterrupted tool canvas. The header may use its restrained navy depth gradient and blueprint grid; do not introduce glass, glow, shadow, or unrelated texture.
 
@@ -226,9 +231,17 @@ Graph routes are orthogonal and functional. Default borders are approximately `1
 
 The signature component pairs one outcome-led promise with a compact, believable pull-request check. Preserve the distinction between the human-owned blueprint and agent-produced change, their convergence at the BCE gate, and the exact blocking diagnosis. Keep CLI, GitHub Action, and MCP visible as supported surfaces without turning them into competing calls to action.
 
-### Organization Avatar
+### Six-Node Gate Mark
 
-The square organization avatar enlarges the header's six-node BCE mark without adding a wordmark that would collapse at repository-header size. Connected nodes make the architecture graph literal; cyan carries the active structure, green carries conformance, and one scarce red node represents drift caught by the gate. Keep the mark centered inside a generous square safe area on the engine canvas so GitHub's rounded crop remains intact at 32–48px. `assets/bce-avatar.svg` is the editable master; `assets/bce-avatar.png` is its upload-ready 1024px raster export.
+The six-node gate mark is bce's primary visual identity across the organization avatar, Pages favicon, README and Pages headers, and share graphics. Connected nodes make the architecture graph literal; cyan carries active structure, green carries conformance, and one scarce red node represents drift caught by the gate. Keep the mark centered inside a generous square safe area on the engine canvas so GitHub's rounded crop remains intact at 32–48px. Reuse the geometry and semantic node roles rather than redrawing it as a generic network or abstract AI symbol. `assets/bce-avatar.svg` is the editable master; `assets/bce-avatar.png` is its upload-ready 1024px raster export. Shipping rasters retain embedded provenance that names their SVG origin and export method.
+
+### Social and Link Preview
+
+A public share card must explain one real product event rather than act as logo wallpaper. Pair the mark and a short sans-serif promise with the ownership grammar used throughout the product: a human-owned blueprint and an agent change enter `bce gate`; the gate returns a labeled verdict, the full source-derived edge, and its source location. Set executable evidence in monospace and never shorten a real diagnosis into generic marketing copy. In the current canonical example, the edge is `extension:greeting.plugin → axios` and the location is `src/greeting.plugin.ts#L16`; if the source example changes, regenerate both the vector and raster rather than hand-normalizing the evidence.
+
+Author share graphics as an accessible SVG master and export a shipping PNG at `1280 × 640`, with embedded origin provenance. `assets/bce-social-card.svg` is the editable master and `assets/bce-social-card.png` is the public raster. The mark, name, promise, causal path, and verdict must remain recognizable at a `320 × 160` thumbnail; supporting diagnostic detail may become secondary but must remain truthful. The generated Pages site uses the six-node SVG as its favicon, one canonical URL per route, and the same description, share image, and meaningful alternative text across Open Graph and Twitter metadata.
+
+**The Explanatory Identity Rule.** Every branded surface must show what bce protects, judges, or refuses; never substitute fake metrics, generic SaaS cards, or abstract AI decoration for a real gate event.
 
 ### Responsive Diagram
 
@@ -267,6 +280,9 @@ All explanatory SVGs require `role="img"`, an `aria-labelledby` pair, and meanin
 - **Do** make the real engine path, command, verdict, or diagnostic the visual subject.
 - **Do** annotate C1–C4 on one observed architecture graph rather than separating them into cards.
 - **Do** keep cyan, green, red, and steel tied to their semantic roles.
+- **Do** use the six-node gate mark as the primary identity and preserve its graph geometry and node semantics across crops and sizes.
+- **Do** keep favicon, canonical route, Open Graph, and Twitter metadata aligned with the same public identity and truthful description.
+- **Do** derive share-card edges, diagnostics, and source locations from the demonstrated event, and preserve raster provenance back to the SVG master.
 - **Do** update desktop and mobile SVG variants as one component and verify both compositions.
 - **Do** preserve governance and correction as visibly distinct branches.
 - **Do** pair animated or diagrammatic proof with equivalent accessible text and honor reduced motion.
@@ -275,7 +291,8 @@ All explanatory SVGs require `role="img"`, an `aria-labelledby` pair, and meanin
 ### Don't:
 
 - **Don't** replace the engine with generic feature cards, dashboard widgets, fake charts, decorative terminals, or abstract illustration.
-- **Don't** use gradients, glassmorphism, glow, shadows, oversized pills, ornamental arrows, or borrowed product styling.
+- **Don't** use logo wallpaper, fake metrics, generic SaaS cards, or abstract AI-network decoration as a substitute for an explained gate event.
+- **Don't** use decorative multicolor gradients, glassmorphism, glow, shadows, oversized pills, ornamental arrows, or borrowed product styling; the restrained navy depth gradient is the only established gradient treatment.
 - **Don't** shrink the desktop graph until labels become unreadable; recompose it for the narrow viewport.
 - **Don't** turn commands, diagnostics, or transcripts into image-only content.
 - **Don't** imply that agents may amend policy through the same loop that repairs code.
