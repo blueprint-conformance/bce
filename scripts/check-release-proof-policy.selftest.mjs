@@ -12,6 +12,14 @@ const original = join(root, '.github', 'workflows', 'release.yml');
 const fixture = join(mkdtempSync(join(tmpdir(), 'bce-release-policy-selftest-')), 'release.yml');
 const source = readFileSync(original, 'utf8');
 
+writeFileSync(fixture, source.replace('          fetch-depth: 0\n', '          fetch-depth: 1\n'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a shallow checkout that cannot replay historical archive bytes');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('full history for content-addressed archive replay')) throw error;
+}
+
 writeFileSync(fixture, source.replace(/^\s*run:\s*npm run test:ai-adoption\s*$/m, '        run: npm run test:onboarding'));
 try {
   execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -50,6 +58,14 @@ try {
   throw new Error('release policy accepted a gate without extractor-real self teeth');
 } catch (error) {
   if (error.status !== 1 || !String(error.stderr).includes('extractor-real self-blueprint source mutations')) throw error;
+}
+
+writeFileSync(fixture, source.replace(/^\s*run:\s*npm run test:model-eval-halt\s*$/m, '        run: echo historical safety-halt replay removed'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a gate without historical safety-halt archive replay');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('historical safety-halt archive replay')) throw error;
 }
 
 writeFileSync(fixture, source.replace('        run: bash scripts/leakage-scan.sh .\n', '        run: echo duplicated leakage scan removed\n'));
@@ -190,4 +206,4 @@ writeFileSync(fixture, source);
 const accepted = execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`intact release policy did not pass:\n${accepted}`);
 
-process.stdout.write('release-proof-policy self-test: PASS (missing adoption/source-mutation/controller/toolchain/leakage/payload proof, tarball rebuild/substitution, divergent leakage policy, in-place npm upgrade, wrong issuer, unsafe immutable-Release construction, uncoupled or non-retry-safe finalization, and publish-before-staging ordering rejected; intact gate accepted)\n');
+process.stdout.write('release-proof-policy self-test: PASS (shallow history, missing adoption/archive-replay/source-mutation/controller/toolchain/leakage/payload proof, tarball rebuild/substitution, divergent leakage policy, in-place npm upgrade, wrong issuer, unsafe immutable-Release construction, uncoupled or non-retry-safe finalization, and publish-before-staging ordering rejected; intact gate accepted)\n');

@@ -17,6 +17,7 @@ if (gateStart < 0 || publishStart < 0 || publishStart <= gateStart) {
 const gate = text.slice(gateStart, publishStart);
 const publish = text.slice(publishStart);
 const requirements = [
+  ['full history for content-addressed archive replay', /uses:\s*actions\/checkout@[0-9a-f]{40}[^\n]*\n\s*with:\n(?:\s*#[^\n]*\n)*\s*fetch-depth:\s*0/],
   ['exact Corepack npm bootstrap', /corepack install --global npm@11\.19\.1/],
   ['temporary Corepack npm shim', /corepack enable npm --install-directory "\$npm_bin"/],
   ['Corepack latest-resolution disabled', /COREPACK_DEFAULT_TO_LATEST:\s*"0"/],
@@ -24,6 +25,7 @@ const requirements = [
   ['fresh-consumer onboarding proof', /^\s*run:\s*npm run test:onboarding\s*$/m],
   ['deterministic Agent Skills + MCP adoption proof', /^\s*run:\s*npm run test:ai-adoption\s*$/m],
   ['independent adoption denominator policy', /^\s*run:\s*npm run test:adoption-program\s*$/m],
+  ['historical safety-halt archive replay', /^\s*run:\s*npm run test:model-eval-halt\s*$/m],
   ['extractor-real self-blueprint source mutations', /npm run test:self-teeth-mutations/],
   ['canonical leakage scanner negative controls', /^\s*run:\s*bash scripts\/leakage-gate-selftest\.sh\s*$/m],
   ['single-source leakage scan', /^\s*run:\s*bash scripts\/leakage-scan\.sh \.\s*$/m],
@@ -97,4 +99,4 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-process.stdout.write('release-proof-policy: PASS (proofs rerun; canonical leakage and exact payload proven; evidence and payload staged on a draft; verified tarball published; prepared Release frozen afterward in a retry-isolated finalizer)\n');
+process.stdout.write('release-proof-policy: PASS (proofs rerun with history-bound archive replay; canonical leakage and exact payload proven; evidence and payload staged on a draft; verified tarball published; prepared Release frozen afterward in a retry-isolated finalizer)\n');
