@@ -8,7 +8,7 @@
 #
 # SUPPORT STATUS: UNSUPPORTED REFERENCE TEMPLATE. It has not been exercised by a real GitLab
 # runner/client matrix, so GitLab is not a supported BCE integration today. The snippet uses the
-# exact public 0.1.5 engine and remains fail-closed for evaluators, but adopters must validate it in
+# exact public 0.2.0 engine and remains fail-closed for evaluators, but adopters must validate it in
 # their own GitLab environment. Adjust `stage:` to match the target pipeline. Ranges are refused.
 #
 # What runs, exactly:
@@ -32,7 +32,7 @@ bce-gate:
       set -eu
       # --package is required: the package ships two bins (bce, bce-mcp), so npx must be told
       # which one to run. Pin EXACTLY (see header).
-      BCE_VERSION="0.1.5"
+      BCE_VERSION="0.2.0"
       BCE="npx --yes --package bce-engine@$BCE_VERSION bce"
       if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
         CHANGED="$(git diff --name-only "$CI_MERGE_REQUEST_DIFF_BASE_SHA" HEAD | tr '\n' ',')"

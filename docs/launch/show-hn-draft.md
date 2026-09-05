@@ -1,6 +1,6 @@
 # Show HN — DRAFT
 
-> **DRAFT — not posted.** The repository and `bce-engine@0.1.5` are public, but this text remains
+> **DRAFT — not posted.** The repository and `bce-engine@0.2.0` are public, but this text remains
 > operator-owned launch material. Re-check every claim and link against main on the posting morning;
 > nothing in this draft may outrun the tree.
 
@@ -63,13 +63,15 @@ on seeded defects is a fair proxy at all.
 
 ## Pre-post checklist (morning of)
 
-- [ ] All CI legs green on main HEAD — JOB names, not file names:
-      `build-test-prove`, `lane-b-self-gate`, `leakage-gate`,
-      `banned-phrases`, and the live `lane-a-pinned-gate`. This list previously read "ci, self-gate, leakage,
-      banned-phrase" — filename-shaped, and not one of the four matches a job
+- [ ] All required CI contexts green on main HEAD — JOB names, not file names:
+      `build-test-prove`, `lane-b-self-gate`, `lane-a-pinned-gate`, `leakage-gate`,
+      `banned-phrases`, `launch promises (inert while private, blocking once public)`, and
+      `model-evaluation-controller-macos`. This list previously read "ci, self-gate, leakage,
+      banned-phrase" — filename-shaped, and not one of the four matched a job
       in this repository. See public-flip-checklist.md item 10 for why that
       distinction bites.
-- [x] v0.1.5 published on npm with provenance; install-from-npm smoke-tested
+- [x] v0.2.0 published on npm with provenance; install-from-npm smoke-tested; immutable evidence
+      recovery disclosed in `docs/release-v0.2.0.md`
 - [x] All draft links replaced and checked
 - [ ] External-witness attestation linked (HARD blocker per launch plan — no post without it)
 - [ ] Comparison page landscape re-verify done this month — last pass

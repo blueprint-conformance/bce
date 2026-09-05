@@ -116,6 +116,7 @@ const PAGES = [
   { route: 'guides/exit-codes', source: 'docs/exit-codes.md', section: 'Guides' },
   { route: 'guides/report-contract', source: 'docs/report-contract.md', section: 'Guides' },
   { route: 'guides/evidence-format', source: 'docs/evidence-format.md', section: 'Guides' },
+  { route: 'guides/release-v0.2.0', source: 'docs/release-v0.2.0.md', section: 'Guides' },
   { route: 'guides/mcp-compatibility', source: 'docs/mcp-compatibility.md', section: 'Guides' },
   { route: 'guides/portability', source: 'docs/portability.md', section: 'Guides' },
   { route: 'guides/scale-and-detection', source: 'docs/scale-and-detection.md', section: 'Guides' },

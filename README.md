@@ -54,7 +54,7 @@ components out of `src/legacy/**`. The taxonomy has four more enforcing types an
 reserved types—[open the C1–C4 visual guide](docs/constraint-guide.md) or
 [read the exact semantics](spec/SPEC.md#3-constraint-taxonomy--11-types).
 
-On a release that includes the AI-first review surface, `bce propose` writes an immutable draft
+In `v0.2.0`, the AI-first review surface's `bce propose` writes an immutable draft
 packet to quarantine; the model cannot approve or land policy. [Read the review
 ceremony](docs/ai-first-review.md).
 
@@ -92,7 +92,7 @@ replay against the engine.
 Use the **CLI** for local feedback, the pinned **GitHub Action** at the merge boundary, or ten
 read-only **MCP tools** inside an agent loop. They share the same extraction, evaluation, report,
 and exit-code path; policy changes remain outside MCP. The released Action source is pinned to
-`blueprint-conformance/bce@3611709acf0dace4698dd1876f835a73ec44837b`.
+`blueprint-conformance/bce@14716bf655d8dd6020b9dcf8905678ef2abe2760`.
 
 <p align="center">
   <picture>
@@ -121,7 +121,7 @@ The mode is committed policy—not a skip flag—and moving backward requires a 
 ## Evidence and limits
 
 **Mechanism evidence is strong; causal product benefit is not established.** This repository has
-851 tests, replayed RED/GREEN fixtures, 45/45 killed self-blueprint mutants, deterministic reports,
+857 tests, replayed RED/GREEN fixtures, 45/45 killed self-blueprint mutants, deterministic reports,
 and cross-platform CI. Those are first-party proofs on author-controlled infrastructure;
 [independent witnesses remain 0](ATTESTATIONS.md).
 
@@ -144,9 +144,11 @@ Specification: [blueprint-conformance/v1alpha1](spec/SPEC.md) · Agent loop:
 [MCP and agent workflow](docs/agent-loop.md) · Documentation:
 [blueprint-conformance.github.io/bce](https://blueprint-conformance.github.io/bce/)
 
-**Source package: v0.2.0 candidate; registry release: v0.1.5.** Registry resolution is authoritative:
-do not install or pin v0.2.0 until the `npm view` preflight above returns its integrity. The v0.1.5
-historical tag is mutable; repository-level release immutability now protects future releases.
-Compatibility remains pre-1.0.
+**Current registry release: v0.2.0.** Its exact npm integrity is
+`sha512-hFKOHO+EYgQbp+jaOW7/WTBGEqjHDEEKfB+O1ALo8KLnmIAr708mQWeXxRUMi3YAmWxz1RhfiAY1Rdpk81NNrA==`,
+and its source/Action commit is `14716bf655d8dd6020b9dcf8905678ef2abe2760`. The canonical GitHub
+Release is immutable. It froze before its generated assets uploaded, so the package and tag were
+left untouched and the exact signed record was preserved in a separate immutable evidence release.
+[Read the verification and recovery record](docs/release-v0.2.0.md). Compatibility remains pre-1.0.
 
 Apache-2.0 — [license](LICENSE), [notice](NOTICE), and [trademarks](TRADEMARKS.md).
