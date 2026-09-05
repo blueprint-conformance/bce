@@ -68,18 +68,58 @@ try {
   if (error.status !== 1 || !String(error.stderr).includes('macOS real-controller rehearsal')) throw error;
 }
 
-const publishBlock = source.match(/      - name: npm publish --provenance --access public \(only after evidence verifies\)[\s\S]*?(?=\n      - name: Attach the evidence record)/)?.[0];
+const publishBlock = source.match(/      - name: npm publish --provenance --access public \(only after evidence verifies\)[\s\S]*?(?=\n  finalize-github-release:)/)?.[0];
 if (!publishBlock) throw new Error('could not isolate npm publish block for ordering negative control');
 writeFileSync(fixture, source.replace(publishBlock, '').replace('      - name: Generate the evidence record of THIS release gate-run before publish', `${publishBlock}\n\n      - name: Generate the evidence record of THIS release gate-run before publish`));
 try {
   execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-  throw new Error('release policy accepted npm publish before evidence verification');
+  throw new Error('release policy accepted npm publish before evidence staging');
 } catch (error) {
-  if (error.status !== 1 || !String(error.stderr).includes('verified release evidence before npm publish')) throw error;
+  if (error.status !== 1 || !String(error.stderr).includes('verified evidence staged on a draft before npm publish')) throw error;
+}
+
+writeFileSync(fixture, source.replace('gh release create "$tag" --verify-tag --draft', 'gh release create "$tag" --verify-tag'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted publishing assets through a non-draft Release');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('draft Release created before asset staging')) throw error;
+}
+
+writeFileSync(fixture, source.replace('    needs: publish\n', '    needs: gate\n'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a finalizer not coupled to successful npm publication');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('GitHub Release finalizer depends only on successful npm publication')) throw error;
+}
+
+writeFileSync(fixture, source.replace('.digest == $digest', '(.digest | startswith("sha256:"))'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted asset-presence checks without exact cross-job digest binding');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('finalizer requires exact staged asset digests')) throw error;
+}
+
+writeFileSync(fixture, source.replace('          if [ "$is_draft" = "true" ]; then\n            gh release edit "$tag" --draft=false --latest\n          fi\n', '          gh release edit "$tag" --draft=false --latest\n'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a finalizer that cannot safely retry an ambiguous publish response');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('finalizer safely retries an ambiguous publish response')) throw error;
+}
+
+writeFileSync(fixture, source.replace('          immutable="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" --jq .immutable)"\n', '          immutable="false"\n'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a finalizer without a live immutability assertion');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('published Release immutability assertion')) throw error;
 }
 
 writeFileSync(fixture, source);
 const accepted = execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`intact release policy did not pass:\n${accepted}`);
 
-process.stdout.write('release-proof-policy self-test: PASS (missing adoption/source-mutation/controller/toolchain/leakage proof, in-place npm upgrade, wrong issuer, and publish-before-evidence ordering rejected; intact gate accepted)\n');
+process.stdout.write('release-proof-policy self-test: PASS (missing adoption/source-mutation/controller/toolchain/leakage proof, in-place npm upgrade, wrong issuer, unsafe immutable-Release construction, uncoupled or non-retry-safe finalization, and publish-before-staging ordering rejected; intact gate accepted)\n');

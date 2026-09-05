@@ -34,7 +34,8 @@ name: publish-rehearsal
 # WHAT THIS DOES NOT REHEARSE (named honestly, not silently skipped):
 #   * the real upload to the registry (that is the point of --dry-run);
 #   * registry-side auth -- covered by release.yml's publish-auth gate instead;
-#   * `gh release create` / `gh release upload`, which need a real tag to attach to.
+#   * the draft → asset upload → immutable publish GitHub Release sequence, which
+#     needs a real tag and is structurally enforced by the release-proof policy.
 # ==============================================================================
 
 on:

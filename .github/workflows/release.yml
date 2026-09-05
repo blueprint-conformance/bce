@@ -353,15 +353,21 @@ jobs:
   # ----------------------------------------------------------------------------
   # PUBLISH — runs ONLY on a real tag push with the gate green and dry_run false.
   # Re-installs + re-builds from a clean tree (never trusts the gate job's
-  # artifacts), generates/verifies/signs the release evidence, then executes npm
-  # publish --provenance --access public and attaches the pre-publish proof.
+  # artifacts), generates/verifies/signs the release evidence, stages it on a
+  # draft GitHub Release, then executes npm publish --provenance --access public.
+  # A separate finalizer publishes the prepared draft so a transient GitHub API
+  # failure can be retried without attempting the immutable npm publish again.
   # ----------------------------------------------------------------------------
   publish:
-    name: publish (provenance) + attach evidence record
+    name: publish (provenance) + stage evidence record
     needs: [gate, model-evaluation-controller-macos]
     if: ${{ github.event_name == 'push' && needs.gate.outputs.dry_run == 'false' }}
     runs-on: ubuntu-latest
     environment: release
+    outputs:
+      evidence_sha256: ${{ steps.stage_release.outputs.evidence_sha256 }}
+      sigstore_sha256: ${{ steps.stage_release.outputs.sigstore_sha256 }}
+      compliance_sha256: ${{ steps.stage_release.outputs.compliance_sha256 }}
     permissions:
       contents: write   # create/update the GitHub Release + upload the evidence asset
       id-token: write    # npm provenance + Trusted Publishing (OIDC) — auth path (B)
@@ -448,6 +454,39 @@ jobs:
             --certificate-identity-uri "$identity"
           echo "release evidence signature verifies for ${identity}."
 
+      - name: Stage the evidence assets on a draft GitHub Release
+        id: stage_release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ github.ref_name }}"
+          notes="Automated release of $(node -p "require('./package.json').name")@${tag#v}. The attached release-evidence-record.json is the EvidenceRecord of this release's gate-run — re-derivable with \`node tools/verify-chain.mjs\` and keyless-signed in release-evidence-record.sigstore. Published with npm provenance."
+
+          # Immutable releases must receive every asset while still drafts. A
+          # failed npm publish leaves this draft retryable; it exposes nothing as
+          # a completed release and does not weaken repository immutability.
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --verify-tag --draft --title "$tag" --notes "$notes"
+          fi
+          is_draft="$(gh release view "$tag" --json isDraft --jq .isDraft)"
+          if [ "$is_draft" != "true" ]; then
+            echo "::error::Release ${tag} already exists and is not a draft; immutable assets cannot be staged."
+            exit 1
+          fi
+          gh release upload "$tag" \
+            release-evidence-record.json \
+            release-evidence-record.sigstore \
+            release-compliance-report.json \
+            --clobber
+          {
+            echo "evidence_sha256=$(sha256sum release-evidence-record.json | awk '{print $1}')"
+            echo "sigstore_sha256=$(sha256sum release-evidence-record.sigstore | awk '{print $1}')"
+            echo "compliance_sha256=$(sha256sum release-compliance-report.json | awk '{print $1}')"
+          } >> "$GITHUB_OUTPUT"
+          echo "staged evidence record + Sigstore bundle + compliance report on draft Release $tag"
+
       - name: npm publish --provenance --access public (only after evidence verifies)
         shell: bash
         env:
@@ -461,22 +500,55 @@ jobs:
           npm publish --provenance --access public
           echo "published $(node -p "require('./package.json').name")@$(node -p "require('./package.json').version") with provenance."
 
-      - name: Attach the evidence record to the GitHub Release
+  finalize-github-release:
+    name: publish prepared immutable GitHub Release
+    needs: publish
+    if: ${{ github.event_name == 'push' && needs.publish.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - name: Verify staged assets and publish the draft
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          EXPECTED_EVIDENCE_SHA256: ${{ needs.publish.outputs.evidence_sha256 }}
+          EXPECTED_SIGSTORE_SHA256: ${{ needs.publish.outputs.sigstore_sha256 }}
+          EXPECTED_COMPLIANCE_SHA256: ${{ needs.publish.outputs.compliance_sha256 }}
         run: |
           set -euo pipefail
           tag="${{ github.ref_name }}"
-          # Create the Release if the tag has none yet (idempotent), then upload the asset.
-          if ! gh release view "$tag" >/dev/null 2>&1; then
-            gh release create "$tag" \
-              --title "$tag" \
-              --notes "Automated release of $(node -p "require('./package.json').name")@${tag#v}. The attached release-evidence-record.json is the EvidenceRecord of this release's gate-run — re-derivable with \`node tools/verify-chain.mjs\` and keyless-signed in release-evidence-record.sigstore. Published with npm provenance."
+          release_json="$(gh release view "$tag" --json isDraft,assets)"
+          is_draft="$(jq -r .isDraft <<<"$release_json")"
+          for asset in release-evidence-record.json release-evidence-record.sigstore release-compliance-report.json; do
+            case "$asset" in
+              release-evidence-record.json) expected="$EXPECTED_EVIDENCE_SHA256" ;;
+              release-evidence-record.sigstore) expected="$EXPECTED_SIGSTORE_SHA256" ;;
+              release-compliance-report.json) expected="$EXPECTED_COMPLIANCE_SHA256" ;;
+            esac
+            if ! [[ "$expected" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::publish job did not provide a valid digest for ${asset}."
+              exit 1
+            fi
+            valid="$(jq --arg asset "$asset" --arg digest "sha256:${expected}" '[.assets[] | select(.name == $asset and .state == "uploaded" and .size > 0 and .digest == $digest)] | length' <<<"$release_json")"
+            if [ "$valid" != "1" ]; then
+              echo "::error::draft Release ${tag} lacks one valid ${asset} asset."
+              exit 1
+            fi
+          done
+
+          # This is the irreversible GitHub boundary: publishing freezes the tag
+          # and the already-uploaded assets together. It is deliberately isolated
+          # from npm publish so this job alone can be retried safely. If the edit
+          # succeeded but the runner lost the response, a retry observes the
+          # already-frozen Release and verifies it instead of trying to republish.
+          if [ "$is_draft" = "true" ]; then
+            gh release edit "$tag" --draft=false --latest
           fi
-          gh release upload "$tag" \
-            release-evidence-record.json \
-            release-evidence-record.sigstore \
-            release-compliance-report.json \
-            --clobber
-          echo "attached evidence record + Sigstore bundle + compliance report to Release $tag"
+          immutable="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" --jq .immutable)"
+          if [ "$immutable" != "true" ]; then
+            echo "::error::Release ${tag} is neither a prepared draft nor an immutable published release."
+            exit 1
+          fi
+          echo "published immutable Release $tag with all staged evidence assets"
