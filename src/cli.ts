@@ -43,6 +43,7 @@ import {
   ConstraintTypeSchema,
   SeveritySchema,
   ExtractionProfileSchema,
+  TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION,
   type BlueprintExtraction,
   type Component,
   type Constraint,
@@ -54,7 +55,7 @@ import { resolveExtraction, type ResolvedExtraction } from './extractors.js';
 import { makeExtractor } from './extractor-registry.js';
 import { safeCompilePattern, UnsafePatternError } from './safe-regex.js';
 import { evaluate, stableStringify, type ComplianceReport } from './report.js';
-import { assessTeeth } from './teeth.js';
+import { assessTeeth, type TeethReport } from './teeth.js';
 import { assessExtractorTeethCorpus } from './extractor-teeth.js';
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 import { resolveRevision, materializeAtRevision } from './pin.js';
@@ -256,6 +257,16 @@ const DEMO_RECIPES = [
     expectedConstraintId: 'no-direct-provider-sdk',
   },
   {
+    id: 'module-layering',
+    title: 'Keep domain code below application code',
+    support: 'TypeScript/JavaScript · direct module graph',
+    protects: 'directional layers cannot grow a reverse direct import',
+    blueprint: 'fixtures/typescript-module-layering.blueprint.json',
+    greenTree: 'fixtures/typescript-module-surface/conformant',
+    redTree: 'fixtures/typescript-module-surface/drift-reverse-layer',
+    expectedConstraintId: 'domain-cannot-import-app',
+  },
+  {
     id: 'configuration-allowlist',
     title: 'Stop a governed manifest from silently widening',
     support: 'JSON/Markdown · real-source pattern pair',
@@ -284,9 +295,11 @@ function runDemoRecipe(root: string, recipe: DemoRecipe): { clean: ComplianceRep
 }
 
 function printDemoRecipe(recipe: DemoRecipe, clean: ComplianceReport, drift: ComplianceReport): void {
+  const witness = drift.violations.find((violation) => violation.constraintId === recipe.expectedConstraintId);
   process.stdout.write(`recipe ${recipe.id} [${recipe.support}] — ${recipe.title}\n`);
   process.stdout.write(`GREEN conformant: score ${clean.score}, exit 0\n`);
   process.stdout.write(`RED drift: score ${drift.score}, would exit 1, violation ${recipe.expectedConstraintId}\n`);
+  if (witness) process.stdout.write(`  observed ${witness.observed}\n  evidence ${witness.evidenceRef}\n`);
   process.stdout.write(`bce demo: ${recipe.id} discriminates GREEN from RED\n`);
 }
 
@@ -312,6 +325,15 @@ function codexMcpConfig(existing: string): string {
 }
 
 /** Prove the exact candidate policy can be falsified against the live tree before approval. */
+function everyConstraintHasExtractorRealTeeth(teeth: TeethReport): boolean {
+  return teeth.witnesses.length > 0 && teeth.toothed === teeth.witnesses.length;
+}
+
+/** A blueprint-wide waiver may cover evaluator-only witnesses, never trivial or unknown ones. */
+function eligibleForReviewedEvaluatorWaiver(teeth: TeethReport): boolean {
+  return teeth.evaluatorRefutable > 0 && teeth.triviallyGreen === 0 && teeth.indeterminate === 0;
+}
+
 function policyProof(
   repoDir: string,
   blueprint: EngineeringBlueprint,
@@ -323,8 +345,8 @@ function policyProof(
     die(`policy proof refused: scanned ${graph.coverage.filesScanned} file(s), expected >= ${cfg.minFiles}`, 2);
   }
   const teeth = assessTeeth(blueprint, graph, cfg.profile);
-  if (teeth.verdict === 'toothed') return 'extractor-real';
-  if (teeth.verdict === 'evaluator-refutable' && reviewedWaiver) {
+  if (everyConstraintHasExtractorRealTeeth(teeth)) return 'extractor-real';
+  if (eligibleForReviewedEvaluatorWaiver(teeth) && reviewedWaiver) {
     try {
       readTeethWaiver(repoDir, teeth.blueprintRef);
       return 'reviewed-evaluator-waiver';
@@ -333,8 +355,9 @@ function policyProof(
     }
   }
   die(
-    `policy proof refused: ${teeth.verdict}; approval requires extractor-real teeth` +
-      (teeth.verdict === 'evaluator-refutable' ? ` or --reviewed-waiver backed by ${TEETH_WAIVER_RELPATH}` : ''),
+    `policy proof refused: ${teeth.toothed}/${teeth.witnesses.length} constraints have extractor-real teeth; ` +
+      `approval requires every constraint to have extractor-real teeth` +
+      (eligibleForReviewedEvaluatorWaiver(teeth) ? ` or --reviewed-waiver backed by ${TEETH_WAIVER_RELPATH}` : ''),
     2,
   );
 }
@@ -385,6 +408,7 @@ function slugFragment(s: string): string {
  *   forbiddenDependency:<module>            → { from:'*', to: module }
  *   requiredDependency:<componentType>      → { component } (a component of that type must
  *                                             carry a provides/guards edge — see report.ts)
+ *   requiredDependency:<componentType>-><target> → { component, to } for typescript-module-graph
  *   requiredComponent:<componentType>       → { component }
  *   forbiddenPath:<glob>                    → { path } (matches EXTRACTED-COMPONENT paths)
  *   forbiddenFile:<glob>                    → { path } (matches RAW scanned-file paths — export-shape-agnostic)
@@ -432,7 +456,18 @@ function parseConstraintSpec(spec: string, index: number): Constraint {
   const id = (frag: string): string => `${kebab(type)}-${slugFragment(frag) || String(index + 1)}`;
 
   if (type === 'forbiddenDependency') return { id: id(arg), type, severity, from: '*', to: arg };
-  if (type === 'requiredDependency') return { id: id(arg), type, severity, component: arg };
+  if (type === 'requiredDependency') {
+    const arrow = arg.indexOf('->');
+    if (arrow >= 0) {
+      const component = arg.slice(0, arrow).trim();
+      const to = arg.slice(arrow + 2).trim();
+      if (!component || !to) {
+        die(`--constraint '${spec}': requiredDependency arrow form requires '<componentType>-><target>'.`);
+      }
+      return { id: id(`${component}-${to}`), type, severity, component, to };
+    }
+    return { id: id(arg), type, severity, component: arg };
+  }
   if (type === 'requiredComponent') return { id: id(arg), type, severity, component: arg };
   if (type === 'forbiddenPath') return { id: id(arg), type, severity, path: arg };
   if (type === 'forbiddenFile') return { id: id(arg), type, severity, path: arg };
@@ -529,6 +564,9 @@ function buildGraph(
   cfg: ResolvedExtraction,
 ): ArchitectureGraph {
   if (!ctRepo || !fs.existsSync(ctRepo)) die(`--ct-repo not found: ${ctRepo}`);
+  if (extractorKind === 'line-scan' && cfg.profile === 'typescript-module-graph') {
+    die(`typescript-module-graph requires --extractor ast; line-scan cannot resolve module targets`, 2);
+  }
   let tree: string;
   let revision: string;
   let cleanup: (() => void) | null = null;
@@ -861,8 +899,8 @@ async function main(): Promise<void> {
       : args._[1] === 'decide'
         ? ['packet', 'decision', 'github-repo', 'github-pull', 'github-review', 'repo']
         : ['packet', 'decision', 'repo'],
-    author: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'min-files', 'repo', 'out'],
-    init: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'min-files', 'repo', 'out'],
+    author: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'min-files', 'repo', 'out'],
+    init: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'min-files', 'repo', 'out'],
     scan: ['ct-repo', 'blueprint', 'ref', 'extractor', 'no-pin', 'out'],
     run: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'out', 'observations', 'emit-bundle', 'emit', 'prev-hash', 'emit-evidence-out', 'emit-wo-out'],
     teeth: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'require-extractor-real', 'reviewed-waiver', 'mutation-manifest', 'require-all-extractor-real', 'out'],
@@ -1456,8 +1494,8 @@ async function main(): Promise<void> {
       if (!profileParsed.success) {
         die(`--extraction-profile must be one of: ${ExtractionProfileSchema.options.join(' | ')} (got '${args['extraction-profile'] as string}').`, 1);
       }
-      if (profileParsed.data === 'plugin-surface' && (!scopePaths || scopePaths.length === 0)) {
-        die(`--extraction-profile plugin-surface requires --scope-paths <glob,glob> (the plugin-surface profile has no default globs).`, 1);
+      if (profileParsed.data !== 'next-route-handler' && (!scopePaths || scopePaths.length === 0)) {
+        die(`--extraction-profile ${profileParsed.data} requires --scope-paths <glob,glob> (this profile has no default globs).`, 1);
       }
       const guardSymbols = collectRepeatable(rawArgv, 'guard-symbol');
       let minFiles = 1;
@@ -1470,7 +1508,25 @@ async function main(): Promise<void> {
         ...(scopePaths && scopePaths.length > 0 ? { paths: scopePaths } : {}),
         ...(guardSymbols.length > 0 ? { guardSymbols } : {}),
         minFiles,
+        ...(typeof args.tsconfig === 'string' ? { tsconfig: args.tsconfig } : {}),
       };
+      if (args.tsconfig === true) die(`--tsconfig requires one repository-relative file path.`, 1);
+      if (args.tsconfig && profileParsed.data !== 'typescript-module-graph') {
+        die(`--tsconfig is only valid with --extraction-profile typescript-module-graph.`, 1);
+      }
+      if (profileParsed.data === 'typescript-module-graph') {
+        for (const constraint of constraints) {
+          if (constraint.type !== 'requiredDependency' && constraint.type !== 'forbiddenDependency') continue;
+          constraint.scopePaths = [...(scopePaths ?? [])];
+          if (constraint.type === 'requiredDependency' && !constraint.to) {
+            die(
+              `typescript-module-graph requiredDependency uses '<componentType>-><target>' ` +
+                `(example: requiredDependency:typescriptModule->package:zod).`,
+              1,
+            );
+          }
+        }
+      }
     }
 
     const name = typeof args.name === 'string' ? (args.name as string) : undefined;
@@ -1498,6 +1554,9 @@ async function main(): Promise<void> {
       evidenceRequirements: [{ type: 'staticAst', required: true, onMissing: 'block' }],
       approvals: [{ role: 'blueprint-steward', stage: 'ratify' }],
       ...(extraction ? { extraction } : {}),
+      ...(extraction?.profile === 'typescript-module-graph'
+        ? { minEngineVersion: TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION }
+        : {}),
     };
 
     // SELF-VALIDATE (fail-closed): the scaffold must pass the STRICT schema BEFORE it is written.
@@ -1715,9 +1774,9 @@ async function main(): Promise<void> {
     const reviewedWaiver = args['reviewed-waiver'] === true || args['reviewed-waiver'] === 'true';
     let readinessRefused = false;
     if (requireExtractorReal) {
-      if (teeth.verdict === 'toothed') {
+      if (everyConstraintHasExtractorRealTeeth(teeth)) {
         teeth.readiness = { status: 'ready', proof: 'extractor-real' };
-      } else if (teeth.verdict === 'evaluator-refutable' && reviewedWaiver) {
+      } else if (eligibleForReviewedEvaluatorWaiver(teeth) && reviewedWaiver) {
         try {
           const waiver = readTeethWaiver(args['ct-repo'] as string, teeth.blueprintRef);
           teeth.readiness = {
@@ -1755,8 +1814,11 @@ async function main(): Promise<void> {
         );
       }
     }
-    if (requireExtractorReal && teeth.verdict !== 'toothed' && teeth.readiness?.status !== 'waived') {
-      process.stderr.write(`::error::enforcement readiness requires extractor-real teeth; evaluator-only mutations are insufficient\n`);
+    if (requireExtractorReal && teeth.readiness?.status === 'refusal') {
+      process.stderr.write(
+        `::error::enforcement readiness requires extractor-real teeth for every constraint; ` +
+          `${teeth.toothed}/${teeth.witnesses.length} proven. Evaluator-only, trivial, or indeterminate witnesses are insufficient\n`,
+      );
     }
     process.exit(teeth.verdict === 'toothless' || readinessRefused ? 2 : 0);
   }
@@ -2201,12 +2263,13 @@ async function main(): Promise<void> {
       `  bce verify-bundle --bundle <json>  Re-hash and re-evaluate; reports integrity, never origin authenticity\n` +
       `  bce author --id <id> --intent-ref <ref> --constraint "<type>:<arg>[:<severity>]"\n` +
       `       [--repository <org/repo>] [--repo <dir>] [--scope-paths <glob,glob>]\n` +
-      `       [--extraction-profile next-route-handler|plugin-surface|python-import-surface] [--guard-symbol <sym>]\n` +
-      `       [--min-files <n>] [--name <name>] [--owner-role <r>] [--steward-role <r>] [--out <path>]\n` +
+      `       [--extraction-profile next-route-handler|plugin-surface|typescript-module-graph|python-import-surface] [--guard-symbol <sym>]\n` +
+      `       [--tsconfig <repo-relative-file>] [--min-files <n>] [--name <name>] [--owner-role <r>] [--steward-role <r>] [--out <path>]\n` +
       `       (alias: bce init) Scaffold a schema-VALID draft blueprint (status draft, 0.1.0) —\n` +
       `       interactive-free, self-validating; with --repo, refuses (exit 2) a scope matching 0 files.\n` +
       `       --intent-ref / --constraint / --repository / --guard-symbol are repeatable. Constraint grammar:\n` +
-      `         forbiddenDependency:<module> | requiredDependency:<componentType> | requiredComponent:<componentType>\n` +
+      `         forbiddenDependency:<module-or-target> | requiredDependency:<componentType> | requiredComponent:<componentType>\n` +
+      `         module graph requiredDependency:<componentType>-><module:glob|package:root|builtin:name>\n` +
       `         forbiddenPath:<glob> | forbiddenEgress:<host,...> (blocklist) | forbiddenEgress:governed=<host,...> (allowlist)\n` +
       `         forbiddenFile:<glob> (raw scanned-file glob — export-shape-agnostic) | forbiddenPattern:<regex> (per-line content grep)\n` +
       `         behavioralInvariant:<behaviorRef> (runtime not-a-mock substance constraint)\n` +
@@ -2216,7 +2279,8 @@ async function main(): Promise<void> {
       `  bce scan  --ct-repo <dir> [--blueprint <path>] [--ref <sha|ref>] [--extractor ast|line-scan] --out <path>\n` +
       `  bce run   --blueprint <path> --ct-repo <dir> [--ref <sha|ref>] [--extractor ast|line-scan] --out <path> [--emit-bundle <json>]\n` +
       `  bce teeth --blueprint <path> --ct-repo <dir> [--require-extractor-real] [--reviewed-waiver] [--out <path>]\n` +
-      `       --reviewed-waiver accepts evaluator-only proof only via committed ${TEETH_WAIVER_RELPATH}.\n` +
+      `       --require-extractor-real marks ready only when EVERY constraint has extractor-real teeth.\n` +
+      `       --reviewed-waiver accepts evaluator-only remainder only via committed ${TEETH_WAIVER_RELPATH}.\n` +
       `       --mutation-manifest <json> [--require-all-extractor-real] materializes each declared source mutant\n` +
       `       in a fresh copy and requires the real extractor to redden every mapped constraint.\n` +
       `  bce gate  [--repo <dir>] [--blueprint-dir <dir>] [--changed a,b,c] [--extractor ast|line-scan] [--repo-name <org/repo>] [--all] [--report-json <path>]\n` +

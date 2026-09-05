@@ -15,6 +15,9 @@ npx --no-install bce demo
 
 The demo must produce GREEN and RED. A gate no one has seen fail is not evidence.
 
+That immutable release predates `typescript-module-graph`. Do not author or onboard a module-graph
+blueprint with the `v0.2.0` binary.
+
 ## Propose first
 
 When the installed exact release exposes `bce propose`, start from a committed repository state and
@@ -68,8 +71,13 @@ or `critical`.
 
 `requiredEvidence`, `minimumMetric`, and `customPolicy` are reserved/run-only in v0.1; do not use
 one as the enforcing constraint in a first blueprint. Extraction profiles are
-`next-route-handler`, `plugin-surface`, and `python-import-surface`. `plugin-surface` requires
-explicit scope paths.
+`next-route-handler`, `plugin-surface`, and `python-import-surface` in the released `v0.2.0` binary.
+The `v0.3.0` source candidate adds `typescript-module-graph`; it requires explicit scope paths,
+uses `module:`, `package:`, or `builtin:` dependency targets, and automatically writes
+`minEngineVersion: "0.3.0"`. Use it only through the built candidate and follow
+`docs/typescript-module-graph.md`; do not hand the result to the released pin. The normal primary
+skill loop remains unchanged: after setup, `doctor_repository {}` diagnoses readiness and
+zero-argument MCP `run_gate {}` grades the live module graph through the same engine as the CLI.
 
 Validate the draft:
 
@@ -86,6 +94,9 @@ bce onboard \
   --engine bce-engine@0.2.0 \
   --harness codex
 ```
+
+This exact onboarding command is for profiles supported by `v0.2.0`. A module-graph blueprint must
+wait for the candidate publish and subsequent predecessor-gated pin ceremony.
 
 Harnesses are `agents`, `claude`, `cursor`, and `codex`. Onboarding installs project skills, agent
 context, project-local MCP configuration, immutable CI, advisory mode, and an adoption manifest. It

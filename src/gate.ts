@@ -383,6 +383,16 @@ export function runGate(
       continue;
     }
     const cfg = resolveExtraction(bp.extraction, bp.constraints);
+    if (extractorKind === 'line-scan' && cfg.profile === 'typescript-module-graph') {
+      reports.push({
+        schemaVersion: '1', blueprintRef: `${bp.metadata.id}@${bp.metadata.version}`, ctRepoRevision: revision,
+        score: 0, verdict: 'fail', violations: [], evidenceRef: 'n/a',
+        summary: `typescript-module-graph requires --extractor ast; line-scan cannot resolve module targets`,
+        coverage: { extractor: 'line-scan', filesScanned: 0, unsupported: ['typescript-module-graph requires the ast extractor'] },
+        ...repoTag,
+      });
+      continue;
+    }
     // refuse line-scan for any governed-modules blueprint (see cli.ts) — fail the gate
     // LOUD with guidance rather than false-reject a conformant PR on the fallback extractor.
     if (extractorKind === 'line-scan' && cfg.governedModules.length > 0) {

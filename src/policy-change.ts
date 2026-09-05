@@ -459,14 +459,14 @@ function compareExtraction(result: Evidence, before: JsonObject, after: JsonObje
       add(result, lowered ? 'relaxation' : 'tightening', `extraction minFiles ${lowered ? 'lowered' : 'raised'}: ${String(oldMin)} -> ${String(newMin)}`);
     } else add(result, 'unknown', 'extraction minFiles changed across an unspecified default');
   }
-  const configurationKeys = ['profile', 'paths', 'guardSymbols', 'forbiddenImports', 'forbiddenEgressHosts', 'governedModules'] as const;
+  const configurationKeys = ['profile', 'paths', 'guardSymbols', 'forbiddenImports', 'forbiddenEgressHosts', 'governedModules', 'tsconfig'] as const;
   const changed = configurationKeys.filter((key) => !equal(oldExtraction[key], newExtraction[key]));
   if (changed.length > 0) add(result, 'unknown', `extractor profile/configuration changed: ${changed.join(', ')}`);
   changedUnknownFields(
     result,
     oldExtraction,
     newExtraction,
-    new Set(['profile', 'paths', 'guardSymbols', 'forbiddenImports', 'forbiddenEgressHosts', 'governedModules', 'minFiles']),
+    new Set(['profile', 'paths', 'guardSymbols', 'forbiddenImports', 'forbiddenEgressHosts', 'governedModules', 'minFiles', 'tsconfig']),
     'extractor configuration',
   );
 }

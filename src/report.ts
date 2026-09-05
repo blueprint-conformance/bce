@@ -38,6 +38,8 @@ export interface ComplianceReport {
     extractor: 'ast' | 'line-scan';
     filesScanned: number;
     unsupported: string[];
+    /** located unresolved TS/JS imports; absent outside the module-graph profile or when empty */
+    unresolvedImports?: NonNullable<ArchitectureGraph['coverage']['unresolvedImports']>;
   };
   /**
    * ADDITIVE (OPTIONAL): the repo identity this report was produced for — the
@@ -108,7 +110,8 @@ function compareViolations(a: Violation, b: Violation): number {
 }
 
 /** Anchored RegExp for a `forbiddenPath` glob (repo-relative, simple `**`/`*`). */
-function pathGlobToRe(glob: string): RegExp {
+export function pathGlobToRe(glob: string): RegExp {
+  glob = glob.replace(/\\/g, '/');
   let re = '';
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i];
@@ -134,6 +137,16 @@ function pathGlobToRe(glob: string): RegExp {
     }
   }
   return new RegExp(`^${re}$`);
+}
+
+/** Match a canonical module-graph edge target against an authored target selector. */
+export function moduleTargetMatches(target: string, selector: string | undefined): boolean {
+  if (!selector) return false;
+  if (selector.startsWith('module:')) {
+    if (!target.startsWith('module:')) return false;
+    return pathGlobToRe(selector.slice('module:'.length)).test(target.slice('module:'.length));
+  }
+  return target === selector;
 }
 
 /**
@@ -191,6 +204,42 @@ export function evaluate(
   for (const c of blueprint.constraints) {
     if (c.type === 'requiredDependency') {
       implemented += 1;
+      if (profile === 'typescript-module-graph') {
+        const scopeMatchers = (c.scopePaths ?? []).map(pathGlobToRe);
+        const targets = componentsByType('typescriptModule').filter((component) =>
+          scopeMatchers.some((matcher) => matcher.test(component.path)),
+        );
+        if (targets.length === 0) {
+          violations.push({
+            constraintId: c.id,
+            severity: c.severity,
+            component: 'typescriptModule',
+            evidenceType: 'staticAst',
+            evidenceRef: (c.scopePaths ?? []).join(','),
+            observed: 'no typescriptModule component matched the required dependency source scope',
+            expected: `at least one source module matching ${(c.scopePaths ?? []).join('|')}`,
+          });
+        }
+        for (const component of targets) {
+          const satisfied = graph.guardEdges.some(
+            (edge) => edge.type === 'imports' && edge.from === component.id && moduleTargetMatches(edge.to, c.to),
+          );
+          if (satisfied) continue;
+          const unresolved = (graph.coverage.unresolvedImports ?? []).find((item) => item.from === component.id);
+          violations.push({
+            constraintId: c.id,
+            severity: c.severity,
+            component: component.id,
+            evidenceType: 'staticAst',
+            evidenceRef: unresolved?.ref ?? `${component.path}#L${component.line}`,
+            observed: unresolved
+              ? `required target ${c.to ?? '<missing>'} is unproven; ${unresolved.kind} ${unresolved.specifier} is unresolved (${unresolved.reason})`
+              : `no direct imports edge from ${component.id} to ${c.to ?? '<missing>'}`,
+            expected: `a direct imports edge to ${c.to ?? '<missing>'}`,
+          });
+        }
+        continue;
+      }
       // The historical-D6 (CT/route) semantics apply ONLY on the next-route-handler profile
       // (finding #3): on plugin-surface, `component` always names the real target type — a stray
       // evidenceType:'tenantGuard' can never silently retarget it to apiRouteHandler/guards.
@@ -244,6 +293,52 @@ export function evaluate(
       }
     } else if (c.type === 'forbiddenDependency' && c.to) {
       implemented += 1;
+      if (profile === 'typescript-module-graph') {
+        const scopeMatchers = (c.scopePaths ?? []).map(pathGlobToRe);
+        const sources = componentsByType('typescriptModule').filter((component) =>
+          scopeMatchers.some((matcher) => matcher.test(component.path)),
+        );
+        if (sources.length === 0) {
+          violations.push({
+            constraintId: c.id,
+            severity: c.severity,
+            component: 'typescriptModule',
+            evidenceType: 'staticAst',
+            evidenceRef: (c.scopePaths ?? []).join(','),
+            observed: 'no typescriptModule component matched the forbidden dependency source scope',
+            expected: `at least one source module matching ${(c.scopePaths ?? []).join('|')} so the boundary can be graded`,
+          });
+        }
+        const sourceIds = new Set(sources.map((component) => component.id));
+        for (const edge of graph.guardEdges.filter(
+          (candidate) =>
+            candidate.type === 'imports' &&
+            sourceIds.has(candidate.from) &&
+            moduleTargetMatches(candidate.to, c.to),
+        )) {
+          violations.push({
+            constraintId: c.id,
+            severity: c.severity,
+            component: edge.from,
+            evidenceType: 'staticAst',
+            evidenceRef: edge.evidenceRef,
+            observed: `forbidden direct import ${edge.from} -> ${edge.to} is present`,
+            expected: `no direct imports edge from ${(c.scopePaths ?? []).join('|')} to ${c.to}`,
+          });
+        }
+        for (const unresolved of (graph.coverage.unresolvedImports ?? []).filter((item) => sourceIds.has(item.from))) {
+          violations.push({
+            constraintId: c.id,
+            severity: c.severity,
+            component: unresolved.from,
+            evidenceType: 'staticAst',
+            evidenceRef: unresolved.ref,
+            observed: `${unresolved.kind} ${unresolved.specifier} is unresolved (${unresolved.reason}); absence of a forbidden target cannot be proven`,
+            expected: `every direct import from the governed source scope resolves and none targets ${c.to}`,
+          });
+        }
+        continue;
+      }
       // `from` may be an explicit component id, or '*'/undefined = any component.
       const anyFrom = !c.from || c.from === '*';
       // A forbidden import in an UNATTRIBUTABLE file (a `file:` pseudo-id — no recognized factory)
@@ -562,6 +657,9 @@ export function evaluate(
       extractor: graph.coverage.extractor,
       filesScanned: graph.coverage.filesScanned,
       unsupported: graph.coverage.unsupported,
+      ...(graph.coverage.unresolvedImports && graph.coverage.unresolvedImports.length > 0
+        ? { unresolvedImports: graph.coverage.unresolvedImports }
+        : {}),
     },
     // omit-not-empty: an absent repoName leaves the key OFF the report entirely, so the
     // canonical bytes (and every downstream hash) of a pre-B2 report are unchanged.

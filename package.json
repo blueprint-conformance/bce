@@ -1,7 +1,7 @@
 {
   "name": "bce-engine",
-  "version": "0.2.0",
-  "description": "bce — the blueprint conformance engine. Author an EngineeringBlueprint and gate code against it with deterministic scores, fail-closed verdicts, and re-derivable evidence. TypeScript/JavaScript AST extraction is mature; Python import extraction is an explicit MVP behind the same RepositoryFacts interface.",
+  "version": "0.3.0",
+  "description": "bce — the blueprint conformance engine. Author an EngineeringBlueprint and gate code against it with deterministic scores, fail-closed verdicts, and re-derivable evidence. TypeScript/JavaScript AST extraction covers framework surfaces and direct module boundaries; Python import extraction is an explicit MVP.",
   "license": "Apache-2.0",
   "author": "bce maintainers",
   "repository": {

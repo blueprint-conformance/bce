@@ -94,6 +94,57 @@
           },
           "type": "array"
         },
+        "unresolvedEgress": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "callee": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "callee",
+              "ref"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "unresolvedImports": {
+          "description": "OPTIONAL located unresolved imports from the TypeScript module graph; relevant boundaries fail closed on these facts",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              },
+              "specifier": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "specifier",
+              "kind",
+              "ref",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
         "unsupported": {
           "items": {
             "type": "string"

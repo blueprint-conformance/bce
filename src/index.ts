@@ -11,6 +11,7 @@
  */
 export {
   EngineeringBlueprintSchema,
+  ValidatedEngineeringBlueprintSchema,
   parseBlueprint,
   ConstraintTypeSchema,
   SeveritySchema,
@@ -24,6 +25,7 @@ export {
   BlueprintExtractionSchema,
   // The fleet-level PortfolioBlueprint kind (additive; widen-only).
   PortfolioBlueprintSchema,
+  ValidatedPortfolioBlueprintSchema,
   PortfolioGovernanceSchema,
   PortfolioMemberSchema,
   parsePortfolioBlueprint,

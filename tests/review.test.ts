@@ -98,6 +98,42 @@ describe('ProposalContext@1 and BlueprintDraftPlan@1', () => {
     mismatchedId.proposalId = 'different-id';
     expect(() => compileDraftPlan({ context: ctx, plan: mismatchedId, promptDigest: hex('p'), generationDigest: hex('g') })).toThrow(/must equal/);
   });
+
+  it('adds the module-graph engine floor deterministically instead of relying on model memory', () => {
+    const ctx = context();
+    const modulePlan = structuredClone(plan(ctx));
+    modulePlan.clauses[0]!.constraint = {
+      id: 'domain-does-not-import-app',
+      type: 'forbiddenDependency',
+      severity: 'critical',
+      from: '*',
+      to: 'module:src/z.ts',
+      scopePaths: ['src/a.ts'],
+    };
+    modulePlan.extraction = {
+      profile: 'typescript-module-graph',
+      paths: ['src/**/*.ts'],
+      minFiles: 1,
+    };
+    delete modulePlan.minEngineVersion;
+
+    const compile = (candidatePlan: typeof modulePlan) => compileDraftPlan({
+      context: ctx,
+      plan: candidatePlan,
+      promptDigest: hex('module-prompt'),
+      generationDigest: hex('module-generation'),
+    });
+
+    expect(compile(modulePlan).candidate.minEngineVersion).toBe('0.3.0');
+
+    const understated = structuredClone(modulePlan);
+    understated.minEngineVersion = '0.2.0';
+    expect(compile(understated).candidate.minEngineVersion).toBe('0.3.0');
+
+    const stricter = structuredClone(modulePlan);
+    stricter.minEngineVersion = '0.4.0';
+    expect(compile(stricter).candidate.minEngineVersion).toBe('0.4.0');
+  });
 });
 
 describe('inspection and semantic comparison', () => {

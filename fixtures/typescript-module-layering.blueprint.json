@@ -1,0 +1,78 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "typescript-module-layering",
+    "name": "TypeScript module layering",
+    "version": "0.1.0",
+    "status": "approved",
+    "ownerRole": "architecture-owner",
+    "stewardRole": "blueprint-steward"
+  },
+  "intentRefs": [
+    "docs/typescript-module-graph.md#directional-layering"
+  ],
+  "scope": {
+    "repositories": [
+      "example-org/storefront"
+    ],
+    "paths": [
+      "packages/**/*.ts"
+    ]
+  },
+  "architecture": {
+    "components": [
+      {
+        "id": "typescriptModule",
+        "type": "typescriptModule"
+      }
+    ],
+    "relationships": [
+      {
+        "from": "packages/domain/**",
+        "to": "module:packages/app/**",
+        "type": "imports",
+        "allowed": false
+      }
+    ]
+  },
+  "constraints": [
+    {
+      "id": "module-surface-exists",
+      "type": "requiredComponent",
+      "severity": "critical",
+      "component": "typescriptModule"
+    },
+    {
+      "id": "domain-cannot-import-app",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "module:packages/app/**",
+      "scopePaths": [
+        "packages/domain/**"
+      ]
+    }
+  ],
+  "evidenceRequirements": [
+    {
+      "type": "staticAst",
+      "required": true,
+      "onMissing": "block"
+    }
+  ],
+  "approvals": [
+    {
+      "role": "blueprint-steward",
+      "stage": "ratify"
+    }
+  ],
+  "minEngineVersion": "0.3.0",
+  "extraction": {
+    "profile": "typescript-module-graph",
+    "paths": [
+      "packages/**/*.ts"
+    ],
+    "minFiles": 2
+  }
+}

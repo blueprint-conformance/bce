@@ -1,12 +1,12 @@
 /**
- * first-win-matrix — the four starting shapes in `examples/first-win/` each complete a real
+ * first-win-matrix — the five starting shapes in `examples/first-win/` each complete a real
  * `bce author` → RED → fix → GREEN loop, and each is TIMED against a hard 120-second budget.
  *
  * WHY THIS EXISTS. `examples/quickstart` proves ONE fixed shape: a pre-authored, ratified
  * blueprint gating a two-tree example. It cannot answer the question a visitor actually has —
  * "what does this look like on a repo shaped like mine, where I have to write the contract
- * myself?" The first-win matrix answers that for four shapes (empty-repo / plain-js /
- * typescript / monorepo), and this suite is what stops the answer from being a story:
+ * myself?" The first-win matrix answers that for five shapes (empty-repo / plain-js /
+ * typescript / monorepo / module-layering), and this suite is what stops the answer from being a story:
  *
  *   1. EVERY `bce` command is EXTRACTED FROM THE WALKTHROUGH'S OWN ```bash BLOCKS and executed
  *      verbatim — never re-typed here. A walkthrough whose commands stop working fails HERE,
@@ -162,11 +162,11 @@ function replaceOnce(dir: string, rel: string, from: string, to: string): void {
   writeFile(dir, rel, before.replace(from, to));
 }
 
-const SHAPES = ['empty-repo', 'plain-js', 'typescript', 'monorepo'] as const;
+const SHAPES = ['empty-repo', 'plain-js', 'typescript', 'monorepo', 'module-layering'] as const;
 /** Filled in as each shape runs; asserted as a set at the end so the summary is one place. */
 const measured = new Map<string, number>();
 
-describe('first-win matrix — four shapes, each a real author → RED → fix → GREEN loop', () => {
+describe('first-win matrix — five shapes, each a real author → RED → fix → GREEN loop', () => {
   it(
     'empty-repo: author REFUSES an empty scope (exit 2), then first-file → RED → fix → GREEN',
     () => {
@@ -439,6 +439,72 @@ describe('first-win matrix — four shapes, each a real author → RED → fix �
     TEST_TIMEOUT_MS,
   );
 
+  it(
+    'module-layering: a reverse direct import is named — author → RED → fix → GREEN',
+    () => {
+      const readme = path.join(MATRIX_ROOT, 'module-layering', 'README.md');
+      const cmds = bceCommandsFrom(readme);
+      expect(cmds).toHaveLength(3);
+      const [author, gateRed, gateGreen] = cmds as [string[], string[], string[]];
+      expect(author[0]).toBe('author');
+      expect(author).toContain('typescript-module-graph');
+      expect(author).toContain('packages/domain/**/*.ts');
+
+      const dir = arrangeShape('module-layering');
+      const started = Date.now();
+      try {
+        const authored = runCli(author, dir);
+        expect(authored.status).toBe(0);
+        expect(authored.out).toContain('author sanity: scope matches 1 file(s) in . (1 component(s) observed)');
+        const bpPath = path.join(dir, '.blueprints', 'domain-does-not-import-app.blueprint.json');
+        const bp = JSON.parse(fs.readFileSync(bpPath, 'utf8')) as {
+          minEngineVersion?: string;
+          extraction?: { profile?: string };
+        };
+        expect(bp.minEngineVersion).toBe('0.3.0');
+        expect(bp.extraction?.profile).toBe('typescript-module-graph');
+
+        const red = runCli(gateRed, dir);
+        expect(red.status).toBe(1);
+        expect(red.out).toContain('packages/domain/order.ts#L1');
+        assertReadmeCarries(
+          readme,
+          'observed: forbidden direct import module:packages/domain/order.ts -> module:packages/app/view.ts is present',
+        );
+
+        writeFile(
+          dir,
+          'packages/domain/order.ts',
+          [
+            'export interface Order {',
+            '  total: number;',
+            '}',
+            '',
+            'export function priceOrder(order: Order): number {',
+            '  return order.total;',
+            '}',
+            '',
+          ].join('\n'),
+        );
+
+        const green = runCli(gateGreen, dir);
+        expect(green.status).toBe(0);
+        expect(green.out).toContain('score 100 (pass)');
+        expect(readFile(dir, 'packages/app/view.ts')).toContain('checkoutLabel');
+      } finally {
+        measured.set('module-layering', Date.now() - started);
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+      const elapsed = measured.get('module-layering') as number;
+      // eslint-disable-next-line no-console
+      console.log(`  first-win[module-layering] ${elapsed}ms  (budget ${BUDGET_MS}ms)`);
+      expect(elapsed, `module-layering took ${elapsed}ms, over the ${BUDGET_MS}ms first-win budget`).toBeLessThan(
+        BUDGET_MS,
+      );
+    },
+    TEST_TIMEOUT_MS,
+  );
+
   it('every shape was measured, and every measurement is under the 120s budget', () => {
     for (const shape of SHAPES) {
       const elapsed = measured.get(shape);
@@ -478,9 +544,9 @@ describe('first-win matrix — four shapes, each a real author → RED → fix �
    * check on an unrelated PR, which is how a gate stops being believed. The number on the page
    * is therefore chosen to clear the measured CI worst case with room for a loaded runner, and
    * the SPECIFIC measured range is published next to it, where it does the honest bragging.
-   * A 2026-09-05 Node 22 local full-suite run measured 15.024s for the TypeScript shape while
-   * the synchronous extractor-teeth proof shared the machine. The front-page budget is therefore
-   * 30s: still four times tighter than the 120s hard ceiling, with measured loaded-runner margin.
+   * A 2026-09-05 Node 22 focused matrix measured 35.495s for the plain-JS shape while four other
+   * suites and their synchronous subprocesses shared the machine. The front-page budget is
+   * therefore 60s: still twice as tight as the 120s hard ceiling, with measured loaded-runner margin.
    * Tightening the claim later is fine; tightening it to within noise of the measurement is
    * how this check becomes the flaky one everybody learns to ignore.
    */

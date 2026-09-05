@@ -68,8 +68,13 @@
               "enum": [
                 "next-route-handler",
                 "plugin-surface",
+                "typescript-module-graph",
                 "python-import-surface"
               ],
+              "type": "string"
+            },
+            "tsconfig": {
+              "minLength": 1,
               "type": "string"
             }
           },
@@ -323,6 +328,6 @@
       "type": "object"
     }
   },
-  "description": "The authored fleet-level blueprint artifact (apiVersion blueprint-conformance/v1alpha1), lowered by `bce portfolio compile` into per-member EngineeringBlueprint overlays. Mechanically derived from the normative Zod schema in src/schema.ts.",
+  "description": "The authored fleet-level blueprint artifact (apiVersion blueprint-conformance/v1alpha1), lowered by `bce portfolio compile` into per-member EngineeringBlueprint overlays. Mechanically derived from the structural Zod schema in src/schema.ts. Profile-specific cross-field refinements are enforced by the engine parser and pinned as documented structural-floor divergences in spec/SPEC.md.",
   "title": "PortfolioBlueprint"
 }

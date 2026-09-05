@@ -5,6 +5,7 @@ import type { ArchitectureGraph } from './graph.js';
 import { classifyPolicyChanges, type FileChange } from './policy-change.js';
 import { evaluate, stableStringify } from './report.js';
 import {
+  TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION,
   type Approval,
   type Constraint,
   type EngineeringBlueprint,
@@ -49,6 +50,15 @@ const sortedUnique = (values: readonly string[]): string[] => [...new Set(values
 const same = (a: unknown, b: unknown): boolean => stableStringify(a) === stableStringify(b);
 const shown = (value: unknown): string => stableStringify(value).trimEnd();
 const compareText = (a: string, b: string): number => a < b ? -1 : a > b ? 1 : 0;
+
+function semverBelow(a: string, b: string): boolean {
+  const left = a.split('.').map(Number);
+  const right = b.split('.').map(Number);
+  for (let index = 0; index < 3; index += 1) {
+    if (left[index] !== right[index]) return (left[index] ?? 0) < (right[index] ?? 0);
+  }
+  return false;
+}
 
 export interface BuildProposalContextInput {
   repository: ProposalContext['repository'];
@@ -169,6 +179,15 @@ export function compileDraftPlan(args: {
   const anchorFailures = verifyPlanAnchors(context, plan);
   if (anchorFailures.length > 0) throw new Error(`invalid draft plan anchors: ${anchorFailures.join('; ')}`);
 
+  // The model proposes policy; it does not own engine-compatibility safety metadata. Keep the
+  // AI-first path as frictionless and safe as `bce author`: selecting the module graph
+  // deterministically adds its minimum engine floor, while preserving any stricter future pin.
+  const minEngineVersion = plan.extraction?.profile === 'typescript-module-graph' &&
+    (plan.minEngineVersion === undefined ||
+      semverBelow(plan.minEngineVersion, TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION))
+    ? TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION
+    : plan.minEngineVersion;
+
   const candidate = parseBlueprint({
     apiVersion: 'blueprint-conformance/v1alpha1',
     kind: 'EngineeringBlueprint',
@@ -184,7 +203,7 @@ export function compileDraftPlan(args: {
     evidenceRequirements: detached(plan.evidenceRequirements),
     approvals: detached(plan.approvals),
     ...(plan.extraction !== undefined ? { extraction: detached(plan.extraction) } : {}),
-    ...(plan.minEngineVersion !== undefined ? { minEngineVersion: plan.minEngineVersion } : {}),
+    ...(minEngineVersion !== undefined ? { minEngineVersion } : {}),
   });
   const planDigest = reviewDigest(plan);
   const artifactDigest = reviewDigest(candidate);

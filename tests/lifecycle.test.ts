@@ -40,15 +40,19 @@ describe('CLI discovery is read-only', () => {
 });
 
 describe('doctor — read-only lifecycle readiness', () => {
-  it('audits this candidate without structural refusal and exposes typed checks', () => {
-    const report = doctorRepository(ROOT);
-    expect(report.checks.length).toBeGreaterThan(10);
-    expect(report.checks.some((c) => c.id === 'agents/mcp' && c.status === 'pass')).toBe(true);
-    expect(report.checks.some((c) => c.id === 'gate/full-sweep' && c.status === 'pass')).toBe(true);
-    // The development shell may itself be below the package's Node >=22 contract; doctor must
-    // report that honestly while the repository's lifecycle surfaces remain structurally sound.
-    expect(report.checks.filter((c) => c.status === 'refusal' && c.id !== 'runtime/node')).toEqual([]);
-  });
+  it(
+    'audits this candidate without structural refusal and exposes typed checks',
+    () => {
+      const report = doctorRepository(ROOT);
+      expect(report.checks.length).toBeGreaterThan(10);
+      expect(report.checks.some((c) => c.id === 'agents/mcp' && c.status === 'pass')).toBe(true);
+      expect(report.checks.some((c) => c.id === 'gate/full-sweep' && c.status === 'pass')).toBe(true);
+      // The development shell may itself be below the package's Node >=22 contract; doctor must
+      // report that honestly while the repository's lifecycle surfaces remain structurally sound.
+      expect(report.checks.filter((c) => c.status === 'refusal' && c.id !== 'runtime/node')).toEqual([]);
+    },
+    120_000, // full live-repository sweep; loaded parallel workers measured 68s on 2026-09-05
+  );
 
   it('a repo with zero blueprints is a typed refusal', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-doctor-empty-'));

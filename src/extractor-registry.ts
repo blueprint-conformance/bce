@@ -17,7 +17,12 @@
  */
 import type { RepositoryFactsExtractor } from './graph.js';
 import type { ExtractionProfile } from './schema.js';
-import { AstExtractor, LineScanExtractor, type ResolvedExtraction } from './extractors.js';
+import {
+  AstExtractor,
+  LineScanExtractor,
+  TypeScriptModuleGraphExtractor,
+  type ResolvedExtraction,
+} from './extractors.js';
 import { PythonImportExtractor } from './python-extractor.js';
 
 export interface ExtractorProvider {
@@ -36,6 +41,17 @@ export const EXTRACTOR_PROVIDERS: readonly ExtractorProvider[] = Object.freeze([
     profiles: ['next-route-handler', 'plugin-surface'],
     fileKinds: ['.ts', '.tsx', '.js'],
     make: (kind, cfg) => (kind === 'line-scan' ? new LineScanExtractor(cfg) : new AstExtractor(cfg)),
+  },
+  {
+    profiles: ['typescript-module-graph'],
+    fileKinds: ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'],
+    kindNote: 'typescript-module-graph is AST-only; requesting line-scan is a fail-closed refusal',
+    make: (kind, cfg) => {
+      if (kind === 'line-scan') {
+        throw new Error(`typescript-module-graph requires --extractor ast; line-scan cannot resolve module targets`);
+      }
+      return new TypeScriptModuleGraphExtractor(cfg);
+    },
   },
   {
     profiles: ['python-import-surface'],

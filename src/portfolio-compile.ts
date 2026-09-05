@@ -23,7 +23,8 @@
  * overlay validates AND its paths match real files when evaluated at the repoDir.
  */
 import {
-  EngineeringBlueprintSchema,
+  TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION,
+  parseBlueprint,
   type EngineeringBlueprint,
   type PortfolioBlueprint,
   type PortfolioMember,
@@ -79,7 +80,7 @@ export function serializeBlueprintCanonical(bp: EngineeringBlueprint): string {
  */
 export function compilePortfolio(portfolio: PortfolioBlueprint): CompiledOverlay[] {
   return portfolio.members.map((member) => {
-    const overlay: EngineeringBlueprint = EngineeringBlueprintSchema.parse({
+    const overlay: EngineeringBlueprint = parseBlueprint({
       apiVersion: portfolio.apiVersion,
       kind: 'EngineeringBlueprint',
       metadata: {
@@ -103,6 +104,9 @@ export function compilePortfolio(portfolio: PortfolioBlueprint): CompiledOverlay
       evidenceRequirements: [{ type: 'staticAst', required: true, onMissing: 'block' }],
       approvals: [{ role: 'blueprint-steward', stage: 'ratify' }],
       extraction: { ...portfolio.extraction },
+      ...(portfolio.extraction.profile === 'typescript-module-graph'
+        ? { minEngineVersion: TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION }
+        : {}),
     });
     return { member, blueprint: overlay };
   });

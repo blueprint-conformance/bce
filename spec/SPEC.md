@@ -75,6 +75,20 @@ validation error at authoring time** — never an evaluate-time skip, and never 
 denial-of-service sink. *(This refinement is enforced by the engine but is beyond the
 mechanical expressiveness of the published JSON Schema — see §14.2.)*
 
+For `extraction.profile: "typescript-module-graph"`, `minEngineVersion` MUST be at least `0.3.0`,
+and `extraction.paths` plus an explicit positive `extraction.minFiles` are REQUIRED.
+`extraction.tsconfig` MAY name one repository-relative,
+non-glob config file. `guardSymbols`, `forbiddenImports`, `forbiddenEgressHosts`, and
+`governedModules` MUST be absent or empty because extraction is policy-independent. Each
+`requiredDependency` / `forbiddenDependency` MUST declare non-empty importer `scopePaths` and a
+canonical `to` selector: `module:<repo-path-or-glob>`, `package:<npm-root>`, or
+`builtin:<node-name>`. A module-profile `requiredDependency` MUST declare
+`component: "typescriptModule"`. A module-profile `forbiddenDependency.from` MUST be absent or
+`"*"` because `scopePaths` is the sole importer selector. `forbiddenEgress` is not supported by
+this profile and MUST be rejected at authoring time rather than evaluated against missing facts. A
+module-profile `requiredComponent` MUST declare `component: "typescriptModule"`. Portfolio members
+using this profile MUST each pin an engine version of at least `0.3.0`.
+
 ### 2.2 PortfolioBlueprint
 
 A `PortfolioBlueprint` additionally:
@@ -120,6 +134,9 @@ resolution is profile-aware (the constraint names WHICH component class it gover
 engine serves multiple surface shapes). **Fail-closed on zero targets**: a requiredDependency
 that finds NO component of its target type is a violation, never a vacuous pass — a
 "must register through the governed path" constraint with nothing to check is a drift signal.
+Under `typescript-module-graph`, importer `scopePaths` select `typescriptModule` components and
+`to` selects a direct `imports` target. Every selected source MUST carry a matching direct edge.
+An unresolved import cannot satisfy the requirement.
 
 **forbiddenDependency** — one violation for EACH observed import edge to the forbidden module
 (`to`). `from` MAY be a component id, or `*`/absent meaning *any* component. An edge whose
@@ -127,6 +144,10 @@ source is an unattributable file pseudo-identity MUST match any named `from` (a 
 import is drift regardless of whether the file minted a recognized component). An OPTIONAL
 `scopePaths` glob list NARROWS which importer files may fire the constraint (absent/empty →
 every importer counts).
+Under `typescript-module-graph`, only `imports` edges are graded; `scopePaths` select importer
+modules and `to` uses the canonical selector grammar above. A selected source with an unresolved
+or computed import produces a fail-closed violation because absence of the forbidden target cannot
+be proven.
 
 **forbiddenPath** — one violation for each *extracted component* whose path matches the
 constraint's `path` glob.
@@ -202,11 +223,25 @@ The persisted observed graph (`architecture-graph.schema.json`) MUST carry:
   scanned, and an `unsupported` list naming what the extractor could NOT see. An extractor
   MUST declare its fidelity limits; claiming blanket coverage is non-conforming.
 
+The `typescript-module-graph` profile MUST emit one `typescriptModule` component per scanned TS/JS
+file and an `imports` edge for each statically named import, type-only import, re-export,
+JavaScript JSDoc `@import`, TypeScript import-equals, unshadowed literal `require` / `require.resolve`, and literal dynamic
+import, plus literal TypeScript import types (`import("...")`). Internal targets use `module:`,
+declared npm subpaths normalize to their `package:` root, and syntactically valid `node:` imports
+plus public Node 22 unprefixed built-ins normalize to `builtin:` without the `node:` prefix from a
+source-pinned vocabulary. `coverage.unresolvedImports` MUST
+locate observed computed or unresolved import forms used by the fail-closed C2/C3 semantics.
+Bare roots not declared by an enclosing repository-owned `package.json` are unresolved rather than
+guessed to be packages. Line-scan, invalid source syntax, invalid/escaping tsconfig resolution,
+external/package-based tsconfig inheritance, and imports that escape the repository are refusals.
+This profile does not claim transitive reachability or cycle analysis.
+
 Determinism is a construction requirement: no wall-clock anywhere in the body; all arrays
 sorted before serialization; same tree in → byte-identical graph out.
 
-Statically unanalyzable facts (a computed URL, a dynamic import) MUST be surfaced in
-`coverage.unsupported` — honestly un-analyzable, never silently passed.
+Statically unanalyzable classes MUST be disclosed in `coverage.unsupported`. Extractors that grade
+unknown destinations fail closed and SHOULD also itemize located facts (for example
+`unresolvedImports` or `unresolvedEgress`) rather than presenting absence as proof.
 
 ---
 
@@ -600,10 +635,12 @@ A CI-red parity test (`tests/schema-parity.test.ts`) enforces: byte-identical re
 (drift = red), validator agreement between the engine validator and the published schema on
 an accept/reject matrix, and validation of real engine output against the published schemas.
 
-**Known, pinned divergence**: engine-side *refinements* (e.g. §2.1's compile-and-safety check
-on `forbiddenPattern.pattern`) exceed the mechanical conversion — the published JSON Schema is
-the STRUCTURAL floor, and **the engine validator is normative where the two diverge**. The
-divergence is pinned by an explicit test assertion so it can never silently widen.
+**Known, pinned divergence class**: engine-side *refinements* exceed the mechanical conversion.
+This includes §2.1's compile-and-safety check on `forbiddenPattern.pattern` and the
+`typescript-module-graph` cross-field rules (minimum engine, supported constraints, canonical
+targets/scopes, extractor configuration, and portfolio member pins). The published JSON Schema is
+the STRUCTURAL floor, and **the engine parser is normative where the two diverge**. Each refinement
+family is pinned by an explicit test assertion so it can never silently widen.
 
 ---
 

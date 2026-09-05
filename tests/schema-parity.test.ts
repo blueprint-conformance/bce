@@ -12,10 +12,9 @@
  *
  *  2. VALIDATOR AGREEMENT (authored kinds) — Zod and the generated JSON Schema must agree on
  *     the accept/reject verdict for every committed authored artifact AND for a matrix of
- *     structural mutations. The ONE known, deliberate divergence (Zod refinements are not
- *     mechanically expressible — a `forbiddenPattern` constraint with a missing/unsafe
- *     `pattern` is Zod-rejected but structurally schema-valid) is pinned as an explicit
- *     assertion so it can never silently widen.
+ *     structural mutations. Known, deliberate refinement divergences are not mechanically
+ *     expressible: regex safety and profile-specific cross-field contracts are engine-rejected
+ *     but structurally schema-valid. Each family is pinned explicitly so it cannot silently widen.
  *
  *  3. OUTPUT CONFORMANCE (emitted kinds) — REAL engine output (an actual `evaluate()` report,
  *     an actual `emitRun()` evidence record + work orders, a graph in the persisted shape)
@@ -27,7 +26,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Ajv, type ValidateFunction } from 'ajv';
 import { generateSchemas, serializeSchema, SCHEMA_ID_BASE } from '../scripts/generate-schemas.js';
-import { EngineeringBlueprintSchema, PortfolioBlueprintSchema, parseBlueprint } from '../src/schema.js';
+import {
+  EngineeringBlueprintSchema,
+  ValidatedEngineeringBlueprintSchema,
+  PortfolioBlueprintSchema,
+  ValidatedPortfolioBlueprintSchema,
+  parseBlueprint,
+  parsePortfolioBlueprint,
+} from '../src/schema.js';
 import { evaluate } from '../src/report.js';
 import { emitRun, verifyEvidenceChain } from '../src/emit.js';
 import type { ArchitectureGraph } from '../src/graph.js';
@@ -84,6 +90,13 @@ describe('byte parity — committed spec/schemas/ vs in-memory regeneration', ()
 });
 
 describe('validator agreement — Zod and the generated schema on authored artifacts', () => {
+  it('preserves composable structural schemas and exports the normative refined validators', () => {
+    expect(typeof EngineeringBlueprintSchema.extend).toBe('function');
+    expect(typeof PortfolioBlueprintSchema.extend).toBe('function');
+    expect(typeof ValidatedEngineeringBlueprintSchema.safeParse).toBe('function');
+    expect(typeof ValidatedPortfolioBlueprintSchema.safeParse).toBe('function');
+  });
+
   it('every committed EngineeringBlueprint artifact is accepted by BOTH validators', () => {
     const artifacts = engineeringArtifacts();
     expect(artifacts.length).toBeGreaterThan(0);
@@ -148,6 +161,32 @@ describe('validator agreement — Zod and the generated schema on authored artif
     };
     expect(EngineeringBlueprintSchema.safeParse(mutant).success).toBe(false); // superRefine: pattern REQUIRED
     expect(ebValidate(mutant)).toBe(true); // structural floor only — documented, deliberate
+  });
+
+  it('PINNED DIVERGENCE: module-profile cross-field rules are engine-REJECTED but structurally schema-valid', () => {
+    const mutant = readJson(path.join(ROOT, 'fixtures', 'typescript-module-layering.blueprint.json')) as Record<string, unknown>;
+    delete mutant.minEngineVersion;
+    expect(() => parseBlueprint(mutant)).toThrow(/minEngineVersion >=0\.3\.0/);
+    expect(ebValidate(mutant)).toBe(true);
+
+    const portfolio = readJson(path.join(ROOT, 'fixtures', 'portfolio', 'demo-fleet.portfolio-blueprint.json')) as Record<string, unknown>;
+    const modulePortfolio = {
+      ...portfolio,
+      members: ((portfolio.members as Array<Record<string, unknown>>) ?? []).map((member) => ({
+        ...member,
+        enginePin: '0.2.0',
+      })),
+      extraction: { profile: 'typescript-module-graph', paths: ['src/**/*.ts'], minFiles: 1 },
+      fleetConstraints: [{
+        id: 'no-app-from-domain',
+        type: 'forbiddenDependency',
+        severity: 'critical',
+        to: 'module:src/app/**',
+        scopePaths: ['src/domain/**'],
+      }],
+    };
+    expect(() => parsePortfolioBlueprint(modulePortfolio)).toThrow(/member enginePin >=0\.3\.0/);
+    expect(pbValidate(modulePortfolio)).toBe(true);
   });
 });
 
