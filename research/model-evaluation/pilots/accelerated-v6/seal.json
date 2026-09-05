@@ -1,10 +1,433 @@
 {
   "schemaVersion": "1",
   "studyId": "bce-accelerated-instrumentation-pilot-v6-2026-09-05",
-  "status": "unsealed",
-  "sealedAt": null,
-  "entries": [],
-  "rootSha256": null,
-  "publicTimestamp": null,
-  "attestation": null
+  "status": "sealed-before-first-trial",
+  "sealedAt": "2026-09-05T17:20:16.761Z",
+  "entries": [
+    {
+      "path": "artifacts/bce-treatment-runtime-v6.tgz",
+      "sha256": "eb1ad71194b54f89bde46a354b9aa5fac836e72a41f7843debabcd6c272e9568",
+      "bytes": 5827608
+    },
+    {
+      "path": "artifacts/qualified-capability-canary.json",
+      "sha256": "112569e7072707f0b611637c4e24d1d97c8dfe1735f6eac61dddbd9c43de6de4",
+      "bytes": 7394
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-refactor/architecture-oracle.mjs",
+      "sha256": "3f7521096e71acffd5cdf8d3283a9438790c95619ab61c6b80e691ba0a636be8",
+      "bytes": 4952
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-refactor/blueprint.json",
+      "sha256": "e581c71721e67178a7718cf4e43ed920ae874431c5e25f16328ad3eb15cef78c",
+      "bytes": 918
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-refactor/functional-oracle.mjs",
+      "sha256": "606cb59ab640d752da81260be10eeacba12790492eb29272510f992c931b1fe9",
+      "bytes": 738
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-refactor/invariant.json",
+      "sha256": "ea9c577453188ac7de855316762c1c6e8e87195fb0ad3db1c0a49703a60005c2",
+      "bytes": 413
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-refactor/policy.txt",
+      "sha256": "b405517333ac071ac6c1fa0e8a872797b706bda8b4c94353a7e52a8c3d9dd56d",
+      "bytes": 87
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-refactor/prompt.txt",
+      "sha256": "ca735c2540c16a18dbe936e1195378c459b36de32d78713b4edb533494703b87",
+      "bytes": 179
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-refactor/reference.patch",
+      "sha256": "36defc573b780794553003c9feb13187e327287d16a7c26424d7646dac82aa71",
+      "bytes": 472
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-refactor/shortcut.patch",
+      "sha256": "b4f682957e36c978fd6a3d5dd433580768fd2b2741629d898603b9d119bf05ea",
+      "bytes": 466
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-repair/architecture-oracle.mjs",
+      "sha256": "e243fb78389d7720c8758af490dc8ba8d2df0db74f9dc5ee77e6f460514e8ae7",
+      "bytes": 4948
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-repair/blueprint.json",
+      "sha256": "42f813468ad1bea78739dd64f2f590a804cdfef3473c5bd3148ea23f1e566b54",
+      "bytes": 911
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-repair/functional-oracle.mjs",
+      "sha256": "e68e3d62753275698190dec06c1023ad8d77b78b01b1b3b3b0245620ffd45b25",
+      "bytes": 735
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-repair/invariant.json",
+      "sha256": "e15c09f4783842a035e57b557d9edea6d733467d3ff1d64f05d86752fb952b3d",
+      "bytes": 409
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-repair/policy.txt",
+      "sha256": "e04730824ad694d87cdaf545ff5b0bd56994800548397a9531690c5040358d36",
+      "bytes": 86
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-repair/prompt.txt",
+      "sha256": "1e2d358d776e167bca893ad1fa22edde553c276aae2933afa99a5f8bb32e198b",
+      "bytes": 159
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-repair/reference.patch",
+      "sha256": "16c6d2228272d7dcb70b47c4daf22227e2738418d4e3ccae59abc93d14f5edf9",
+      "bytes": 451
+    },
+    {
+      "path": "artifacts/tasks/inference-seam-repair/shortcut.patch",
+      "sha256": "cf47546e887e47b57591793484a46bdd97db5c27a2acefa05233e4e005fe9408",
+      "bytes": 445
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-refactor/architecture-oracle.mjs",
+      "sha256": "6f16d8735e317d0806e40713703bc6263b2f921c8c59c526768759b1deea2af8",
+      "bytes": 4958
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-refactor/blueprint.json",
+      "sha256": "3c2f2ee90b702356eba6b235ed1e0a60d0efdc7040e319a13ba53d12aa14d97a",
+      "bytes": 918
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-refactor/functional-oracle.mjs",
+      "sha256": "704f4affbbef161a9cf82d1547595509f158fbf797cb49236a54b30deec6899f",
+      "bytes": 733
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-refactor/invariant.json",
+      "sha256": "5c8d301f9d05b36af97d168195fb0d9e020373e2475d16ba8c91e62600fe213b",
+      "bytes": 427
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-refactor/policy.txt",
+      "sha256": "5b6d4a0bd2dc3f1afb21710b03e7a0321dfbf0d81a3b55a6371170965363889d",
+      "bytes": 95
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-refactor/prompt.txt",
+      "sha256": "b55ae63421bd7a09d8c6b0e52757310310be7214ea591c086333da528db528c5",
+      "bytes": 181
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-refactor/reference.patch",
+      "sha256": "2a9de94273484692341eca34a3c0cf738b4f5f603d9dd1b64f6d3893d839d54d",
+      "bytes": 457
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-refactor/shortcut.patch",
+      "sha256": "dc68e3b89be87cbe728a42bcbb35a2ce96152873fc866136f70835b906a5afca",
+      "bytes": 474
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-repair/architecture-oracle.mjs",
+      "sha256": "eacee9ec6e1a0f6e2b18838a7cf66e20c89003346b23674cd7491377b3359dd8",
+      "bytes": 4954
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-repair/blueprint.json",
+      "sha256": "61524d6897404d9efe394ee68262c8c1ba97858bc9591d5111d7cff9f8ff1913",
+      "bytes": 911
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-repair/functional-oracle.mjs",
+      "sha256": "468041f09c257877f2c69cde14c52061d011e03d1c1423827f1c08a77dae14b8",
+      "bytes": 726
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-repair/invariant.json",
+      "sha256": "aca8bd6363da279142f80cb388edd0ec8a58d404e0e1c38f2a9b5ff7dee306a8",
+      "bytes": 423
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-repair/policy.txt",
+      "sha256": "c874aa67f63c7a18bee530fdae2373118406ce2da608cdfbfdccd51ab34b4f83",
+      "bytes": 94
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-repair/prompt.txt",
+      "sha256": "2bd028894a1266dc7e45b5fb9d16e29d509f8cbf9a49a1c578e80e59dd93869d",
+      "bytes": 119
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-repair/reference.patch",
+      "sha256": "04ca487b5967b35d94a0f9f8c4e7064ef75bed3660b71b67b19c75f71cc18c15",
+      "bytes": 452
+    },
+    {
+      "path": "artifacts/tasks/payment-seam-repair/shortcut.patch",
+      "sha256": "292d0b47fdc43f2003d28eb84afad80a141e6babe7acf69d88ac85f23486de9d",
+      "bytes": 469
+    },
+    {
+      "path": "artifacts/tasks/web-url-refactor/architecture-oracle.mjs",
+      "sha256": "9f90769b197e7c62f09ce01c7da4d4f1ca21dc261073e89e435ade8e3a4f7670",
+      "bytes": 4919
+    },
+    {
+      "path": "artifacts/tasks/web-url-refactor/blueprint.json",
+      "sha256": "8ede8f75b53240ec3bcf953ec3128886983562f305fc9979f806c4ffe0034023",
+      "bytes": 865
+    },
+    {
+      "path": "artifacts/tasks/web-url-refactor/functional-oracle.mjs",
+      "sha256": "380570ea2480b58ef80e9e67e25f9fbee0a28a0508e020ca0bd152facc00a50f",
+      "bytes": 797
+    },
+    {
+      "path": "artifacts/tasks/web-url-refactor/invariant.json",
+      "sha256": "09236f555e3a6d8e4d54ad8a2db8773d7532e455cd83616458a477294b471273",
+      "bytes": 386
+    },
+    {
+      "path": "artifacts/tasks/web-url-refactor/policy.txt",
+      "sha256": "879a7f8ea656fefe1c767d3c936be0ef16d88fffa301636feaede44fdfa9ef3a",
+      "bytes": 92
+    },
+    {
+      "path": "artifacts/tasks/web-url-refactor/prompt.txt",
+      "sha256": "3025d66bb237a4b357090ab1c060d3eaed256c5e18dfe5f4287b7338d94e568b",
+      "bytes": 183
+    },
+    {
+      "path": "artifacts/tasks/web-url-refactor/reference.patch",
+      "sha256": "32c8328488f20108a2e013d0f75039ab88b6ff994fae2cf191f087172f6b3920",
+      "bytes": 456
+    },
+    {
+      "path": "artifacts/tasks/web-url-refactor/shortcut.patch",
+      "sha256": "ec33a766d5e007cc8d0a9272809ccb615f24b51478d653ba95126cb78b5627e6",
+      "bytes": 472
+    },
+    {
+      "path": "artifacts/tasks/web-url-repair/architecture-oracle.mjs",
+      "sha256": "d093e646d92d7f305ab7cfb739fe7502e72acbac5fccbc9a6936169d4b5a0b37",
+      "bytes": 4911
+    },
+    {
+      "path": "artifacts/tasks/web-url-repair/blueprint.json",
+      "sha256": "4a6be25105f01609483183ba3e8ba4f12bc2a7eeacea5ec3aea0a106f81b5cc2",
+      "bytes": 856
+    },
+    {
+      "path": "artifacts/tasks/web-url-repair/functional-oracle.mjs",
+      "sha256": "0439764e384c4e59dd3d7a7f0705306f3c31061fa5966316f3415e08a6c3d2dd",
+      "bytes": 768
+    },
+    {
+      "path": "artifacts/tasks/web-url-repair/invariant.json",
+      "sha256": "d4b6a69457d695141606b6cfb4524e1701eee7f55e5d239531183ae8be17bf0c",
+      "bytes": 378
+    },
+    {
+      "path": "artifacts/tasks/web-url-repair/policy.txt",
+      "sha256": "7cdcfda636ddef2cf37e4ea804f02e5445eb56ba7b6aece49b6f8d0baa9badfe",
+      "bytes": 89
+    },
+    {
+      "path": "artifacts/tasks/web-url-repair/prompt.txt",
+      "sha256": "f9e6162c9db19ff9912b8fe32d1d123c861c246c28da771e2eeb7de155cb3c58",
+      "bytes": 137
+    },
+    {
+      "path": "artifacts/tasks/web-url-repair/reference.patch",
+      "sha256": "1c113140d35ae11042bfa4b7203fbcb16a87dd4a123f504b41a92cdaa38d3581",
+      "bytes": 396
+    },
+    {
+      "path": "artifacts/tasks/web-url-repair/shortcut.patch",
+      "sha256": "d12bf6909511c039914df7bdc241c0b6e34b4a8959f06a979b0d794d99a55498",
+      "bytes": 410
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-refactor/architecture-oracle.mjs",
+      "sha256": "d1960f7118b0f190c22de6649681ca9ae6ebdf522c4addfdf46052662b024899",
+      "bytes": 4950
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-refactor/blueprint.json",
+      "sha256": "41a84d0dadfb7dbcd06d7dfc08c39713b5238c3e8bc5e14529ace3cbc31ee93b",
+      "bytes": 951
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-refactor/functional-oracle.mjs",
+      "sha256": "744f4c524d1aecef71dba59730a1e1d60f7dcfc98609892280cbfb38b4d6655f",
+      "bytes": 795
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-refactor/invariant.json",
+      "sha256": "70eb18b3a7e9115b6e62c5060de706dbd621e797b6140ee52faad8af9f0a3080",
+      "bytes": 437
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-refactor/policy.txt",
+      "sha256": "85fe9fcf4312e49c46a052e62205cb81f74d03b56c167e92a8c6e16f3ed2537b",
+      "bytes": 84
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-refactor/prompt.txt",
+      "sha256": "2d9267909d651c4f5bcd86131c3cda17679bee65ef971d908d329161541dce73",
+      "bytes": 187
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-refactor/reference.patch",
+      "sha256": "12cb79d57b604003abb5e3b9841e2d646c781e65de8d110d2a2329e944aca3d9",
+      "bytes": 614
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-refactor/shortcut.patch",
+      "sha256": "c314ce301f601444d9640c70ca17deb11ba7509a723e7176c7f461b1e9143243",
+      "bytes": 576
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-repair/architecture-oracle.mjs",
+      "sha256": "644ecd44e831d58567c8fb205d5d72c07a211a67e89b88f29ec3ac18b784282b",
+      "bytes": 4950
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-repair/blueprint.json",
+      "sha256": "ca1f13fc371355bc2f8a20d64785ddbe317f1d1e400e4c00c007e80cfa58648b",
+      "bytes": 946
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-repair/functional-oracle.mjs",
+      "sha256": "4c1df86f6b2e0fe4374a2831f69daf8450af1d9ac58b0a913d9a7f6878774a53",
+      "bytes": 810
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-repair/invariant.json",
+      "sha256": "6c14fb5d4f5237cee36bb2b35986790b9ce8be25ff5ff902a704c64eba0eed8c",
+      "bytes": 437
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-repair/policy.txt",
+      "sha256": "cf722bebc9f6eed3c068c88d1a7b3397138c232b80246a1d8a9253a2fe2066c3",
+      "bytes": 85
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-repair/prompt.txt",
+      "sha256": "bed502d96bc509b0f91458812b5d8bb2ec321a652f64cf05c737aa1e9136f5ad",
+      "bytes": 145
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-repair/reference.patch",
+      "sha256": "22d17ea3ec841d3592c8f81a9a036d6663885bb1949eb16b1d88e480b7d076b7",
+      "bytes": 606
+    },
+    {
+      "path": "artifacts/tasks/workspace-access-repair/shortcut.patch",
+      "sha256": "5c2f31ee16aaad7ed6ec3b725d7642912457b0015aabcc4746f83fbdf4bcfe7b",
+      "bytes": 568
+    },
+    {
+      "path": "client/ollama-common-tools.v1.json",
+      "sha256": "f13e1598c92c60567d41033f61766ff849c2f2fdc275831f9792ebf15957a612",
+      "bytes": 1389
+    },
+    {
+      "path": "client/ollama-system-prompt.v1.txt",
+      "sha256": "05b0360c31bc16bdea4841e38bc8bf030ad9f9a57c4b6a03398a16519e8d8b00",
+      "bytes": 301
+    },
+    {
+      "path": "protected-paths.v1.json",
+      "sha256": "9c0988fad09053859663136c58f420729739dd2c00528b29bdd267c9fbbd1846",
+      "bytes": 1040
+    },
+    {
+      "path": "protocol-amendments.jsonl",
+      "sha256": "c3771d3fe3fa737ca69bb7a62c48503b134d4ad1d168d743d3573ea15bf85af2",
+      "bytes": 914
+    },
+    {
+      "path": "protocol.v2.json",
+      "sha256": "6223b60251a7d3f4b551039f525baf39814ec7084278b9f238aa7c0e96c9f349",
+      "bytes": 11590
+    },
+    {
+      "path": "schemas/capability-canary-attestation.schema.json",
+      "sha256": "cd1e965f1719450219a8f97d3c709daa980bdad695ce77f31546d202c30b918f",
+      "bytes": 5893
+    },
+    {
+      "path": "schemas/client-event.schema.json",
+      "sha256": "e988e0216d1e538adc3ae4301e1314f1378eaa2741866ecf24a8888b2adc1293",
+      "bytes": 962
+    },
+    {
+      "path": "schemas/protected-paths.schema.json",
+      "sha256": "54fc2c4398ebfc78981dd4834088b8db306a5d818c6971a7c6cfac1410cc9600",
+      "bytes": 918
+    },
+    {
+      "path": "schemas/protocol.schema.json",
+      "sha256": "f4a344eb4aab73367fbe58aaed203a317645bf913913b78f3966970b0d230646",
+      "bytes": 19852
+    },
+    {
+      "path": "schemas/safety-halt-archive.schema.json",
+      "sha256": "67f549847c26b09bac9bbe5c9010499a1b1ce9f66e9b1cb3463770dd26801549",
+      "bytes": 2272
+    },
+    {
+      "path": "schemas/seal.schema.json",
+      "sha256": "f05feef6b8dc2ad974feea9eb78953d6b59d6a71bf70ee053b61d0b9a5b5e9ce",
+      "bytes": 2260
+    },
+    {
+      "path": "schemas/study-halt.schema.json",
+      "sha256": "096c97d2b04dbc0732b4683debd1d17c19adccfa739b062407d2cbc0ac1b80f4",
+      "bytes": 3027
+    },
+    {
+      "path": "schemas/task-manifest.schema.json",
+      "sha256": "de53643c82225d0f2088b2e516601534b761bb77f38de8d1d94ec1ee8bbdcb1e",
+      "bytes": 7125
+    },
+    {
+      "path": "schemas/terminal-record.schema.json",
+      "sha256": "8cd64ef4ce2dccbbf25388ec793b2ae314d6e5f96f83edc588c632319f5e8acf",
+      "bytes": 8195
+    },
+    {
+      "path": "schemas/treatment-delta.schema.json",
+      "sha256": "92362d8d56d6c5c462c17097efef6bdec437e54dccdb4435b38f7bf86f8f65a6",
+      "bytes": 977
+    },
+    {
+      "path": "task-manifest.json",
+      "sha256": "30db7a677789ef1d77ef7f477314fcf0637593de6193d86f8a75b8895ed97fe1",
+      "bytes": 40303
+    },
+    {
+      "path": "treatment-delta.v1.json",
+      "sha256": "924c616020221442fb72a686e2dc6b39c2308a9d34368d5362f4855d14a1ac6f",
+      "bytes": 1634
+    }
+  ],
+  "rootSha256": "e39339e36f221108d40b06abf6863b248e8ee776dc8b2fe32c6d40ff7e34694b",
+  "publicTimestamp": "https://github.com/blueprint-conformance/bce/commit/d19d583adafd5128cae890999950ec1f9ac92426",
+  "attestation": {
+    "kind": "local-git-commit",
+    "subjectRootSha256": "e39339e36f221108d40b06abf6863b248e8ee776dc8b2fe32c6d40ff7e34694b",
+    "uri": "https://github.com/blueprint-conformance/bce/commit/d19d583adafd5128cae890999950ec1f9ac92426",
+    "identity": "blueprint-conformance-maintainer",
+    "gitCommit": "d19d583adafd5128cae890999950ec1f9ac92426",
+    "eligibleForProductClaim": false
+  }
 }
