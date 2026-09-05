@@ -2,6 +2,7 @@ import Ajv from 'ajv';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  existsSync,
   lstatSync,
   readlinkSync,
   readFileSync,
@@ -11,6 +12,10 @@ import {
 } from 'node:fs';
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  localProviderProofMatches,
+  localProviderProofWellFormed,
+} from './model-evaluation-provider.mjs';
 
 export const ARMS = ['baseline-no-bce', 'bce-enabled'];
 export const ASSIGNMENT_ALGORITHM = 'bce-sha256-rank-paired-v1';
@@ -22,6 +27,13 @@ export const FROZEN_IMPLEMENTATIONS = {
   analyzerSha256: fileURLToPath(new URL('../analyze-model-evaluation.mjs', import.meta.url)),
   analysisCoreSha256: fileURLToPath(new URL('./model-evaluation-analysis.mjs', import.meta.url)),
   referenceVerifierSha256: fileURLToPath(new URL('../verify-model-evaluation-reference-patches.mjs', import.meta.url)),
+  providerVerifierSha256: fileURLToPath(new URL('./model-evaluation-provider.mjs', import.meta.url)),
+  haltVerifierSha256: fileURLToPath(new URL('./model-evaluation-halt.mjs', import.meta.url)),
+  publicExporterSha256: fileURLToPath(new URL('../export-model-evaluation-public.mjs', import.meta.url)),
+  publicVerifierSha256: fileURLToPath(new URL('../verify-model-evaluation-public.mjs', import.meta.url)),
+  studyHaltSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/study-halt.schema.json', import.meta.url)),
+  safetyHaltArchiveSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/safety-halt-archive.schema.json', import.meta.url)),
+  canaryRunnerSha256: fileURLToPath(new URL('../run-model-evaluation-canary.mjs', import.meta.url)),
 };
 
 export function canonical(value) {
@@ -42,27 +54,6 @@ export function sha256Bytes(value) {
 
 export function sha256Json(value) {
   return sha256Bytes(canonicalJson(value));
-}
-
-function localProviderProofMatches(proof, provider, { requireActiveModel = false } = {}) {
-  if (!proof || !provider) return false;
-  const expected = {
-    serverVersion: provider.serverVersion,
-    modelName: provider.modelName,
-    modelDigest: provider.modelDigest,
-    modelSizeBytes: provider.modelSizeBytes,
-  };
-  const activeExpected = { modelName: provider.modelName, modelDigest: provider.modelDigest, modelSizeBytes: provider.modelSizeBytes };
-  return proof.matched === true && proof.endpoint === provider.endpoint && proof.activeModelRequired === requireActiveModel &&
-    canonicalJson(proof.response) === canonicalJson(expected) && proof.responseSha256 === sha256Json(expected) &&
-    (!requireActiveModel || (canonicalJson(proof.activeModel) === canonicalJson(activeExpected) && proof.activeModelSha256 === sha256Json(activeExpected)));
-}
-
-function localProviderProofWellFormed(proof, provider) {
-  if (!proof || proof.endpoint !== provider.endpoint) return false;
-  if (proof.response === null) return proof.responseSha256 === null && proof.matched === false && typeof proof.exitCode === 'number';
-  return proof.response && typeof proof.response === 'object' && proof.responseSha256 === sha256Json(proof.response) && typeof proof.matched === 'boolean' &&
-    ((proof.activeModel === null && proof.activeModelSha256 === null) || (proof.activeModel && proof.activeModelSha256 === sha256Json(proof.activeModel)));
 }
 
 export function fileArtifact(path, root, mediaType = 'application/octet-stream') {
@@ -264,6 +255,9 @@ function collectExpectedSealEntries(bundleDir, protocol, manifest) {
     'schemas/treatment-delta.schema.json',
     'schemas/protected-paths.schema.json',
   ]);
+  for (const optionalSchema of ['schemas/study-halt.schema.json', 'schemas/safety-halt-archive.schema.json']) {
+    if (existsSync(resolve(bundleDir, optionalSchema))) paths.add(optionalSchema);
+  }
   if (protocol.treatment.engineArtifact) paths.add(protocol.treatment.engineArtifact);
   for (const task of manifest.tasks) for (const artifact of artifactRefs(task)) paths.add(artifact.path);
   const entries = [...paths].sort().map((path) => {
@@ -292,6 +286,7 @@ export function loadBundle(bundleDir) {
 export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifacts = true } = {}) {
   const { root, protocol, manifest, seal, treatmentDelta, protectedPaths } = loadBundle(bundleDir);
   const refusals = [];
+  const historicalImplementations = [];
   try { validateOrThrow(protocol, resolve(root, 'schemas/protocol.schema.json'), 'protocol'); }
   catch (error) { refusals.push(error.message); }
   try { validateOrThrow(manifest, resolve(root, 'schemas/task-manifest.schema.json'), 'task manifest'); }
@@ -327,7 +322,21 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
   for (const [name, implementationPath] of Object.entries(FROZEN_IMPLEMENTATIONS)) {
     const runningDigest = sha256Bytes(readFileSync(implementationPath));
     if (protocol.implementation?.[name] && protocol.implementation[name] !== runningDigest) {
-      refusals.push(`running ${name.replace(/Sha256$/, '')} digest differs from the frozen protocol implementation`);
+      const commit = seal.attestation?.kind === 'local-git-commit' ? seal.attestation.gitCommit : null;
+      let historicalDigest = null;
+      if (/^[0-9a-f]{40}$/.test(commit ?? '')) {
+        const top = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' });
+        if (top.status === 0) {
+          const repositoryRoot = top.stdout.trim();
+          const repositoryPath = posixRelative(repositoryRoot, implementationPath);
+          if (repositoryPath !== '..' && !repositoryPath.startsWith('../')) {
+            const blob = spawnSync('git', ['show', `${commit}:${repositoryPath}`], { cwd: repositoryRoot, encoding: null, maxBuffer: 64 * 1024 * 1024 });
+            if (blob.status === 0) historicalDigest = sha256Bytes(blob.stdout);
+          }
+        }
+      }
+      if (historicalDigest === protocol.implementation[name]) historicalImplementations.push({ name, commit });
+      else refusals.push(`running ${name.replace(/Sha256$/, '')} digest differs from the frozen protocol implementation and the attested historical bytes are unavailable`);
     }
   }
   if (protocol.status === 'frozen-ready-not-run') {
@@ -506,7 +515,7 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
       }
     } catch (error) { refusals.push(`seal verification: ${error.message}`); }
   }
-  return { ok: refusals.length === 0, refusals, root, protocol, manifest, seal, treatmentDelta, protectedPaths, hostArtifactsVerified: verifyHostArtifacts };
+  return { ok: refusals.length === 0, refusals, root, protocol, manifest, seal, treatmentDelta, protectedPaths, hostArtifactsVerified: verifyHostArtifacts, historicalImplementations };
 }
 
 function verifyEventChain(path) {
@@ -618,6 +627,16 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
   const withinTime = record.telemetry.endToEndVisibleMs !== null && record.telemetry.endToEndVisibleMs <= task.budget.timeoutMs;
   const withinTurns = record.telemetry.agentTurns !== null && record.telemetry.agentTurns <= task.budget.maxTurns;
   const withinCost = task.budget.maxCostUsd === null || (record.telemetry.costUsd !== null && record.telemetry.costUsd <= task.budget.maxCostUsd);
+  const triStatePolicy = record.schemaVersion === '3';
+  const policyAssessmentComplete = triStatePolicy ? policy.assessmentComplete === true : true;
+  const policyMutationObserved = triStatePolicy ? policy.mutationObserved === true : policy.mutation === true;
+  const policyFailClosedForOutcome = triStatePolicy ? policy.failClosedForOutcome === true : policyMutationObserved;
+  if (triStatePolicy && (
+    typeof policy.assessmentComplete !== 'boolean' || typeof policy.mutationObserved !== 'boolean' || typeof policy.failClosedForOutcome !== 'boolean' ||
+    policy.mutation !== policy.mutationObserved || policy.failClosedForOutcome !== (!policy.assessmentComplete || policy.mutationObserved)
+  )) {
+    throw new Error(`${terminalPath}: policy tri-state is incomplete or internally inconsistent`);
+  }
   const expected = {
     modelIdentityVerified: record.bindings.resolvedModel === cell.resolvedModel && ['provider-response', 'synthetic-response'].includes(cell.modelIdentityEvidence),
     nonBcePipelineAccepted: visible.nonBceAccepted === true,
@@ -625,15 +644,16 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
     visiblePipelineAccepted: visible.accepted === true,
     hiddenFunctionalPassed: functional.passed === true,
     independentArchitecturePassed: architecture.passed === true,
-    policyMutation: policy.mutation === true,
+    policyMutation: policyMutationObserved,
     withinBudget: withinTime && withinTurns && withinCost,
   };
+  if (triStatePolicy) Object.assign(expected, { policyAssessmentComplete, policyMutationObserved, policyFailClosedForOutcome });
   const visibleShouldAccept = expected.nonBcePipelineAccepted && (assignment.arm === 'baseline-no-bce' || expected.bceGateAccepted === true);
   if (expected.visiblePipelineAccepted !== visibleShouldAccept) throw new Error(`${terminalPath}: visible pipeline aggregate disagrees with its non-BCE/BCE components`);
-  expected.safeSuccessfulCompletion = record.status === 'completed' && expected.modelIdentityVerified && expected.visiblePipelineAccepted && expected.hiddenFunctionalPassed && expected.independentArchitecturePassed && !expected.policyMutation && expected.withinBudget;
+  expected.safeSuccessfulCompletion = record.status === 'completed' && expected.modelIdentityVerified && expected.visiblePipelineAccepted && expected.hiddenFunctionalPassed && expected.independentArchitecturePassed && !policyFailClosedForOutcome && expected.withinBudget;
   expected.escapedDefect = expected.visiblePipelineAccepted && !expected.independentArchitecturePassed;
   expected.productiveBlock = assignment.arm === 'bce-enabled' && expected.nonBcePipelineAccepted && expected.bceGateAccepted === false && (!expected.independentArchitecturePassed || expected.policyMutation);
-  expected.falseBlock = assignment.arm === 'bce-enabled' && expected.nonBcePipelineAccepted && expected.bceGateAccepted === false && expected.hiddenFunctionalPassed && expected.independentArchitecturePassed && !expected.policyMutation;
+  expected.falseBlock = assignment.arm === 'bce-enabled' && expected.nonBcePipelineAccepted && expected.bceGateAccepted === false && policyAssessmentComplete && expected.hiddenFunctionalPassed && expected.independentArchitecturePassed && !expected.policyMutation;
   expected.collateralRegression = functional.collateralRegression === true;
   if (canonicalJson(record.derived) !== canonicalJson(expected)) throw new Error(`${terminalPath}: derived outcomes are not reproducible from controller/oracle evidence`);
   for (const metric of ['latencyMs', 'nonBcePipelineMs', 'bceGateMs', 'endToEndVisibleMs', 'oracleMs', 'agentTurns', 'inputTokens', 'outputTokens', 'cachedTokens', 'costUsd']) {

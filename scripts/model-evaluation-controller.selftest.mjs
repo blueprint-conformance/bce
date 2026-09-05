@@ -17,12 +17,12 @@ const fixtureClient = join(scratch, 'fixture-client.mjs');
 copyFileSync(join(root, 'scripts', 'fixtures', 'model-evaluation-fake-client.mjs'), fixtureClient);
 chmodSync(fixtureClient, 0o755);
 
-function startFakeOllama(name, { flipDigestAfterFirstTags = false } = {}) {
+function startFakeOllama(name, { flipDigestAfterFirstTags = false, omitActiveModel = false } = {}) {
   const serverPath = join(scratch, `${name}-ollama-server.mjs`);
   const portPath = join(scratch, `${name}-ollama-port.txt`);
   const modelDigest = sha256Bytes(`${name}-model`);
   const changedDigest = sha256Bytes(`${name}-changed-model`);
-  writeFileSync(serverPath, `import http from 'node:http'; import fs from 'node:fs'; let tags=0; const model=${JSON.stringify('fixture-local:32b')}; const expected=${JSON.stringify(modelDigest)}; const changed=${JSON.stringify(changedDigest)}; const flip=${JSON.stringify(flipDigestAfterFirstTags)}; const server=http.createServer((req,res)=>{res.setHeader('content-type','application/json'); if(req.url==='/api/version') return res.end(JSON.stringify({version:'0.20.6-fixture'})); if(req.url==='/api/tags'){const digest=flip&&tags++>0?changed:expected;return res.end(JSON.stringify({models:[{name:model,model,digest,size:20201253829}]}));} if(req.url==='/api/ps'){const digest=flip&&tags>1?changed:expected;return res.end(JSON.stringify({models:[{name:model,model,digest,size:20201253829}]}));} res.statusCode=404;res.end(JSON.stringify({error:'not found'}));}); server.listen(0,'127.0.0.1',()=>fs.writeFileSync(${JSON.stringify(portPath)},String(server.address().port))); process.on('SIGTERM',()=>server.close(()=>process.exit(0)));\n`);
+  writeFileSync(serverPath, `import http from 'node:http'; import fs from 'node:fs'; let tags=0; const model=${JSON.stringify('fixture-local:32b')}; const expected=${JSON.stringify(modelDigest)}; const changed=${JSON.stringify(changedDigest)}; const flip=${JSON.stringify(flipDigestAfterFirstTags)}; const omit=${JSON.stringify(omitActiveModel)}; const server=http.createServer((req,res)=>{res.setHeader('content-type','application/json'); if(req.url==='/api/version') return res.end(JSON.stringify({version:'0.20.6-fixture'})); if(req.url==='/api/tags'){const digest=flip&&tags++>0?changed:expected;return res.end(JSON.stringify({models:[{name:model,model,digest,size:20201253829}]}));} if(req.url==='/api/ps'){const digest=flip&&tags>1?changed:expected;return res.end(JSON.stringify({models:omit?[]:[{name:model,model,digest,size:31232580640,size_vram:17179869184,context_length:40960}]}));} res.statusCode=404;res.end(JSON.stringify({error:'not found'}));}); server.listen(0,'127.0.0.1',()=>fs.writeFileSync(${JSON.stringify(portPath)},String(server.address().port))); process.on('SIGTERM',()=>server.close(()=>process.exit(0)));\n`);
   const child = spawn(process.execPath, [serverPath], { stdio: ['ignore', 'ignore', 'pipe'] });
   const deadline = Date.now() + 5000;
   while (!existsSync(portPath) && Date.now() < deadline) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
@@ -47,6 +47,8 @@ function prepareBundle(name) {
   cpSync(sourceBundle, bundle, { recursive: true });
   copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'protocol.schema.json'), join(bundle, 'schemas', 'protocol.schema.json'));
   copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'terminal-record.schema.json'), join(bundle, 'schemas', 'terminal-record.schema.json'));
+  copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'study-halt.schema.json'), join(bundle, 'schemas', 'study-halt.schema.json'));
+  copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'safety-halt-archive.schema.json'), join(bundle, 'schemas', 'safety-halt-archive.schema.json'));
   const protocolPath = join(bundle, 'protocol.v2.json');
   const manifestPath = join(bundle, 'task-manifest.json');
   const protocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
@@ -58,6 +60,13 @@ function prepareBundle(name) {
   protocol.implementation.analyzerSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'analyze-model-evaluation.mjs')));
   protocol.implementation.analysisCoreSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-analysis.mjs')));
   protocol.implementation.referenceVerifierSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'verify-model-evaluation-reference-patches.mjs')));
+  protocol.implementation.providerVerifierSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-provider.mjs')));
+  protocol.implementation.haltVerifierSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-halt.mjs')));
+  protocol.implementation.publicExporterSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'export-model-evaluation-public.mjs')));
+  protocol.implementation.publicVerifierSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'verify-model-evaluation-public.mjs')));
+  protocol.implementation.studyHaltSchemaSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'study-halt.schema.json')));
+  protocol.implementation.safetyHaltArchiveSchemaSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'safety-halt-archive.schema.json')));
+  protocol.implementation.canaryRunnerSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'run-model-evaluation-canary.mjs')));
   protocol.treatment.artifactProvenance.sourceTreeState = 'clean';
   const nvmRuntime = process.env.NVM_BIN ? join(process.env.NVM_BIN, 'node') : null;
   const runtimeExecutable = nvmRuntime && existsSync(nvmRuntime) ? nvmRuntime : process.execPath;
@@ -259,6 +268,9 @@ function executeLocalProviderIsolation() {
         isolation.providerReachable !== true || isolation.providerIdentityStable !== true || isolation.externalNetworkDenied !== true || isolation.nonProviderLoopbackDenied !== true) {
       throw new Error(`local provider identity/isolation proof was incomplete: ${JSON.stringify(isolation)}`);
     }
+    if (isolation.providerIdentityAfter.activeModel.runtimeSizeBytes === server.provider.modelSizeBytes || isolation.providerIdentityAfter.activeModel.contextLength !== 40960) {
+      throw new Error('local provider proof did not retain distinct runtime-size/context diagnostics');
+    }
     const protocolPath = join(bundle, 'protocol.v2.json');
     const protocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
     protocol.clientModelCells[0].localProvider.endpoint = 'https://example.com:443';
@@ -306,12 +318,85 @@ function executeProviderIdentityDriftRefusal() {
     if (!bundleVerification.ok) throw new Error(`provider drift bundle refused: ${bundleVerification.refusals.join('; ')}`);
     verifyTerminalRecord(terminal, { bundle: bundleVerification, runsRoot: runs, terminalPath });
     const isolation = JSON.parse(readFileSync(join(runs, 'cas', 'sha256', terminal.evidence.isolationProof.sha256), 'utf8'));
+    const policy = JSON.parse(readFileSync(join(runs, 'cas', 'sha256', terminal.evidence.policyDiff.sha256), 'utf8'));
+    const patch = JSON.parse(readFileSync(join(runs, 'cas', 'sha256', terminal.evidence.patch.sha256), 'utf8'));
     if (terminal.status !== 'infrastructure-error' || isolation.providerIdentityBefore?.matched !== true || isolation.providerIdentityAfter?.matched !== false || isolation.providerIdentityStable !== false) {
       throw new Error('post-exposure local-provider identity drift was not retained as an infrastructure error');
+    }
+    if (policy.assessmentComplete !== true || policy.mutationObserved !== false || policy.failClosedForOutcome !== false || patch.available === false || terminal.derived.policyMutation !== false || terminal.derived.policyAssessmentComplete !== true) {
+      throw new Error('post-exposure provider drift erased evidence or mislabeled unknown policy state as manipulation');
     }
   } finally {
     stopFakeOllama(server);
   }
+}
+
+function executeMissingActiveProviderRefusal() {
+  const server = startFakeOllama('missing-active-local', { omitActiveModel: true });
+  try {
+    const { bundle, runs } = prepareLocalProviderBundle('local-provider-missing-active', server.provider);
+    const result = spawnSync(process.execPath, [
+      'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study', '--limit', '1',
+    ], { cwd: root, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    if (result.status !== 0) throw new Error(`missing-active fixture controller failed:\n${result.stdout}\n${result.stderr}`);
+    const manifest = JSON.parse(readFileSync(join(bundle, 'task-manifest.json'), 'utf8'));
+    const terminal = JSON.parse(readFileSync(join(runs, 'trials', manifest.assignments[0].trialId, 'a0', 'terminal.json'), 'utf8'));
+    const isolation = JSON.parse(readFileSync(join(runs, 'cas', 'sha256', terminal.evidence.isolationProof.sha256), 'utf8'));
+    if (terminal.status !== 'infrastructure-error' || isolation.providerIdentityAfter?.activeModel !== null || isolation.providerIdentityStable !== false) {
+      throw new Error('missing active model was not retained as an infrastructure error');
+    }
+  } finally {
+    stopFakeOllama(server);
+  }
+}
+
+function executeFirstClassSafetyHalt() {
+  const pretrigger = prepareBundle('conflicting-pretrigger-safety-halt');
+  mkdirSync(pretrigger.runs, { recursive: true });
+  writeFileSync(join(pretrigger.runs, 'study-halt.json'), '{}\n');
+  const pretriggerRefusal = spawnSync(process.execPath, [
+    'scripts/run-model-evaluation.mjs', '--bundle', pretrigger.bundle, '--runs', pretrigger.runs, '--execute-sealed-study',
+  ], { cwd: root, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (pretriggerRefusal.status !== 1 || !/conflicts with the committed ledger/.test(pretriggerRefusal.stderr)) {
+    throw new Error('pre-trigger study halt did not fail closed as conflicting state');
+  }
+
+  const { bundle, runs } = prepareBundle('first-class-safety-halt');
+  const protocolPath = join(bundle, 'protocol.v2.json');
+  const protocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
+  const manifest = JSON.parse(readFileSync(join(bundle, 'task-manifest.json'), 'utf8'));
+  protocol.stopping.stopAfterConsecutivePostExposureInfrastructureFailures = 1;
+  writeFileSync(protocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
+  const expected = expectedSeal(bundle, protocol, manifest);
+  writeFileSync(join(bundle, 'seal.json'), `${JSON.stringify({
+    schemaVersion: '1', studyId: protocol.studyId, status: 'sealed-before-first-trial',
+    sealedAt: '2026-09-05T00:00:00.000Z', entries: expected.entries, rootSha256: expected.rootSha256,
+    publicTimestamp: 'https://example.invalid/synthetic-first-class-halt-self-test',
+    attestation: { kind: 'synthetic-self-test', subjectRootSha256: expected.rootSha256, uri: 'https://example.invalid/synthetic-first-class-halt-self-test', identity: 'controller-self-test', eligibleForProductClaim: false },
+  }, null, 2)}\n`);
+  const first = spawnSync(process.execPath, [
+    'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study',
+  ], { cwd: root, env: { ...process.env, BCE_MODEL_EVAL_FAULT_AT: 'after-client' }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (first.status !== 3) throw new Error(`safety halt did not exit 3:\n${first.stdout}\n${first.stderr}`);
+  const haltPath = join(runs, 'study-halt.json');
+  const firstBytes = readFileSync(haltPath, 'utf8');
+  const halt = JSON.parse(firstBytes);
+  if (halt.schemaVersion !== '2' || halt.trigger.rule !== 'consecutive-post-exposure-infrastructure-failures' || halt.evidence.committedTrials !== 1 || halt.evidence.plannedTrials !== manifest.assignments.length || halt.haltSha256 !== sha256Json({ ...halt, haltSha256: null })) {
+    throw new Error(`first-class halt is incomplete: ${firstBytes}`);
+  }
+  const resumed = spawnSync(process.execPath, [
+    'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study',
+  ], { cwd: root, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (resumed.status !== 3 || readFileSync(haltPath, 'utf8') !== firstBytes) {
+    throw new Error('rerun did not validate and preserve the existing immutable safety halt');
+  }
+  const tampered = { ...halt, trigger: { ...halt.trigger, observed: halt.trigger.observed + 1 }, haltSha256: null };
+  tampered.haltSha256 = sha256Json(tampered);
+  writeFileSync(haltPath, `${JSON.stringify(tampered, null, 2)}\n`);
+  const refused = spawnSync(process.execPath, [
+    'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study',
+  ], { cwd: root, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (refused.status !== 1 || !/does not recompute/.test(refused.stderr)) throw new Error('conflicting safety halt was not refused as corruption');
 }
 
 const normal = execute('normal');
@@ -354,5 +439,7 @@ executeCredentialRetirement();
 executeLocalProviderIsolation();
 executeSymlinkReplayRefusal();
 executeProviderIdentityDriftRefusal();
-process.stdout.write('model-evaluation controller self-test: PASS (outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable; external and wrong-port network denied; allowed-path symlink replay refused before oracles; provider identity drift retained; aggregate tamper refused; pilot recommendation impossible)\n');
+executeMissingActiveProviderRefusal();
+executeFirstClassSafetyHalt();
+process.stdout.write('model-evaluation controller self-test: PASS (outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable with unequal artifact/runtime sizes; external and wrong-port network denied; allowed-path symlink replay refused before oracles; provider digest drift and missing-active failures retained without erasing policy evidence; pre-trigger, replayed, and tampered safety-halt states fail closed; first-class halt exits 3; aggregate tamper refused; pilot recommendation impossible)\n');
 rmSync(scratch, { recursive: true, force: true });

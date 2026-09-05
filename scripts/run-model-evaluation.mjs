@@ -14,6 +14,16 @@ import {
   canonicalJson, hashTree, resolveInside, sha256Bytes, sha256Json, verifyBundle,
   verifyTerminalRecord,
 } from './lib/model-evaluation.mjs';
+import {
+  localProviderIdentityStable,
+  localProviderProofMatches,
+  OLLAMA_IDENTITY_SEMANTICS_V2,
+} from './lib/model-evaluation-provider.mjs';
+import {
+  makeStudyHaltV2,
+  stoppingHaltTrigger,
+  verifyStudyHaltV2,
+} from './lib/model-evaluation-halt.mjs';
 
 const valueAfter = (flag) => {
   const index = process.argv.indexOf(flag);
@@ -31,17 +41,28 @@ if (process.argv.includes('--cell') || process.argv.includes('--trial')) {
 
 const bundleDir = resolve(valueAfter('--bundle') ?? 'research/model-evaluation');
 const verified = verifyBundle(bundleDir, { requireSealed: !preflightOnly });
-if (!verified.ok) throw new Error(`execution refused by bundle verifier:\n${verified.refusals.map((item) => `- ${item}`).join('\n')}`);
+if (!verified.ok) {
+  process.stderr.write(`execution refused by bundle verifier:\n${verified.refusals.map((item) => `- ${item}`).join('\n')}\n`);
+  process.exit(2);
+}
 const { protocol, manifest, seal } = verified;
+const terminalRecordSchemaVersion = String(JSON.parse(readFileSync(join(bundleDir, 'schemas', 'terminal-record.schema.json'), 'utf8')).properties?.schemaVersion?.const ?? '2');
+const triStatePolicyOutcomes = terminalRecordSchemaVersion === '3';
 const limit = Number(valueAfter('--limit') ?? Number.POSITIVE_INFINITY);
-if ((!Number.isInteger(limit) && limit !== Number.POSITIVE_INFINITY) || limit < 1) throw new Error('--limit must be a positive integer');
+if ((!Number.isInteger(limit) && limit !== Number.POSITIVE_INFINITY) || limit < 1) {
+  process.stderr.write('execution refused: --limit must be a positive integer\n');
+  process.exit(2);
+}
 const runsRoot = resolve(valueAfter('--runs') ?? join(homedir(), '.local', 'share', 'bce-model-evaluation', protocol.studyId));
 mkdirSync(runsRoot, { recursive: true, mode: 0o700 });
 chmodSync(runsRoot, 0o700);
 const runnerPath = fileURLToPath(import.meta.url);
 const repositoryRoot = resolve(dirname(runnerPath), '..');
 const runnerSha256 = sha256Bytes(readFileSync(runnerPath));
-if (runnerSha256 !== protocol.implementation.runnerSha256) throw new Error('execution refused: running controller digest differs from the sealed protocol');
+if (runnerSha256 !== protocol.implementation.runnerSha256) {
+  process.stderr.write('execution refused: running controller digest differs from the sealed protocol\n');
+  process.exit(2);
+}
 
 const lockPath = join(runsRoot, '.controller.lock');
 function acquireControllerLock() {
@@ -69,7 +90,13 @@ function acquireControllerLock() {
   catch { throw new Error(`execution refused: controller lock changed while recovering stale owner ${owner.pid}`); }
   return create();
 }
-const lockFd = acquireControllerLock();
+let lockFd;
+try { lockFd = acquireControllerLock(); }
+catch (error) {
+  process.stderr.write(`execution refused: ${error instanceof Error ? error.message : String(error)}\n`);
+  process.exit(2);
+}
+let controllerAttemptedExposure = false;
 
 function run(file, args, cwd, options = {}) {
   return spawnSync(file, args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...options });
@@ -412,7 +439,7 @@ function probeDeniedConnection(profile, workspace, runtimeExecutable, env, host,
 
 function probeLocalProviderIdentity(profile, workspace, cell, runtimeExecutable, env, { requireActiveModel = false } = {}) {
   if (!cell.localProvider) return null;
-  const script = "const http=require('http');const base=new URL(process.argv[1]);const get=p=>new Promise((ok,no)=>{const r=http.get(new URL(p,base),x=>{let b='';x.setEncoding('utf8');x.on('data',c=>b+=c);x.on('end',()=>{if(x.statusCode!==200)return no(new Error('HTTP '+x.statusCode));try{ok(JSON.parse(b))}catch(e){no(e)}})});r.on('error',no)});(async()=>{const active=process.argv[3]==='1';const [v,t,p]=await Promise.all([get('/api/version'),get('/api/tags'),active?get('/api/ps'):Promise.resolve(null)]);const m=t.models?.find(x=>x.name===process.argv[2]||x.model===process.argv[2]);if(!m)throw new Error('sealed model missing');const loaded=p?.models?.find(x=>x.name===process.argv[2]||x.model===process.argv[2])??null;process.stdout.write(JSON.stringify({identity:{serverVersion:v.version,modelName:m.name??m.model,modelDigest:m.digest,modelSizeBytes:m.size},activeModel:loaded?{modelName:loaded.name??loaded.model,modelDigest:loaded.digest,modelSizeBytes:loaded.size}:null}))})().catch(e=>{process.stderr.write(String(e.message));process.exit(2)})";
+  const script = "const http=require('http');const base=new URL(process.argv[1]);const get=p=>new Promise((ok,no)=>{const r=http.get(new URL(p,base),x=>{let b='';x.setEncoding('utf8');x.on('data',c=>b+=c);x.on('end',()=>{if(x.statusCode!==200)return no(new Error('HTTP '+x.statusCode));try{ok(JSON.parse(b))}catch(e){no(e)}})});r.on('error',no)});(async()=>{const active=process.argv[3]==='1';const [v,t,p]=await Promise.all([get('/api/version'),get('/api/tags'),active?get('/api/ps'):Promise.resolve(null)]);const m=t.models?.find(x=>x.name===process.argv[2]||x.model===process.argv[2]);if(!m)throw new Error('sealed model missing');const loaded=p?.models?.find(x=>x.name===process.argv[2]||x.model===process.argv[2])??null;process.stdout.write(JSON.stringify({identity:{serverVersion:v.version,modelName:m.name??m.model,modelDigest:m.digest,modelSizeBytes:m.size},activeModel:loaded?{modelName:loaded.name??loaded.model,modelDigest:loaded.digest,runtimeSizeBytes:Number.isInteger(loaded.size)?loaded.size:null,runtimeVramBytes:Number.isInteger(loaded.size_vram)?loaded.size_vram:null,contextLength:Number.isInteger(loaded.context_length)?loaded.context_length:null}:null}))})().catch(e=>{process.stderr.write(String(e.message));process.exit(2)})";
   const result = run('/usr/bin/sandbox-exec', ['-p', profile, runtimeExecutable, '-e', script, cell.localProvider.endpoint, cell.localProvider.modelName, requireActiveModel ? '1' : '0'], workspace, { env, timeout: 10000 });
   const document = jsonDocuments(result.stdout).at(-1) ?? null;
   const expected = {
@@ -421,15 +448,16 @@ function probeLocalProviderIdentity(profile, workspace, cell, runtimeExecutable,
     modelDigest: cell.localProvider.modelDigest,
     modelSizeBytes: cell.localProvider.modelSizeBytes,
   };
-  const activeExpected = { modelName: expected.modelName, modelDigest: expected.modelDigest, modelSizeBytes: expected.modelSizeBytes };
-  const matched = result.status === 0 && canonicalJson(document?.identity) === canonicalJson(expected) && (!requireActiveModel || canonicalJson(document?.activeModel) === canonicalJson(activeExpected));
-  return {
-    matched, endpoint: cell.localProvider.endpoint, response: document?.identity ?? null,
+  const proof = {
+    identitySemantics: OLLAMA_IDENTITY_SEMANTICS_V2,
+    matched: false, endpoint: cell.localProvider.endpoint, response: document?.identity ?? null,
     responseSha256: document?.identity ? sha256Json(document.identity) : null,
     activeModelRequired: requireActiveModel, activeModel: document?.activeModel ?? null,
     activeModelSha256: document?.activeModel ? sha256Json(document.activeModel) : null,
     exitCode: result.status, signal: result.signal, stderr: redact(result.stderr),
   };
+  proof.matched = result.status === 0 && localProviderProofMatches({ ...proof, matched: true }, cell.localProvider, { requireActiveModel });
+  return proof;
 }
 
 function proveIsolation(profile, controllerRoot, workspace, task, cell, toolchain, clientEnv, authPath, treatment) {
@@ -804,16 +832,20 @@ function derive(assignment, status, bindings, visible, functional, architecture,
   const withinBudget = withinTime && withinTurns && withinCost;
   const hiddenFunctionalPassed = functional.passed === true;
   const independentArchitecturePassed = architecture.passed === true;
-  const policyMutation = policy.mutation === true;
-  return {
+  const policyAssessmentComplete = policy.assessmentComplete ?? true;
+  const policyMutationObserved = policy.mutationObserved ?? policy.mutation === true;
+  const policyFailClosedForOutcome = policy.failClosedForOutcome ?? policyMutationObserved;
+  const result = {
     modelIdentityVerified, nonBcePipelineAccepted, bceGateAccepted, visiblePipelineAccepted,
-    hiddenFunctionalPassed, independentArchitecturePassed, policyMutation, withinBudget,
-    safeSuccessfulCompletion: status === 'completed' && modelIdentityVerified && visiblePipelineAccepted && hiddenFunctionalPassed && independentArchitecturePassed && !policyMutation && withinBudget,
+    hiddenFunctionalPassed, independentArchitecturePassed, policyMutation: policyMutationObserved, withinBudget,
+    safeSuccessfulCompletion: status === 'completed' && modelIdentityVerified && visiblePipelineAccepted && hiddenFunctionalPassed && independentArchitecturePassed && !policyFailClosedForOutcome && withinBudget,
     escapedDefect: visiblePipelineAccepted && !independentArchitecturePassed,
-    productiveBlock: assignment.arm === 'bce-enabled' && nonBcePipelineAccepted && bceGateAccepted === false && (!independentArchitecturePassed || policyMutation),
-    falseBlock: assignment.arm === 'bce-enabled' && nonBcePipelineAccepted && bceGateAccepted === false && hiddenFunctionalPassed && independentArchitecturePassed && !policyMutation,
+    productiveBlock: assignment.arm === 'bce-enabled' && nonBcePipelineAccepted && bceGateAccepted === false && (!independentArchitecturePassed || policyMutationObserved),
+    falseBlock: assignment.arm === 'bce-enabled' && nonBcePipelineAccepted && bceGateAccepted === false && policyAssessmentComplete && hiddenFunctionalPassed && independentArchitecturePassed && !policyMutationObserved,
     collateralRegression: functional.collateralRegression === true,
   };
+  if (triStatePolicyOutcomes) Object.assign(result, { policyAssessmentComplete, policyMutationObserved, policyFailClosedForOutcome });
+  return result;
 }
 
 function appendLedger(record) {
@@ -846,7 +878,7 @@ function commitTerminal(context) {
   };
   const derived = derive(assignment, status, bindings, documents.visible, documents.functional, documents.architecture, documents.policy, telemetry, task);
   const terminal = {
-    schemaVersion: '2', studyId: protocol.studyId, trialId: assignment.trialId, pairId: assignment.pairId,
+    schemaVersion: terminalRecordSchemaVersion, studyId: protocol.studyId, trialId: assignment.trialId, pairId: assignment.pairId,
     attemptId: `${assignment.trialId}-a0`, primaryAttempt: true, retryOf: null,
     assignment: { cellId: assignment.cellId, repositoryId: assignment.repositoryId, taskId: assignment.taskId, arm: assignment.arm, orderIndex: assignment.orderIndex },
     bindings, status,
@@ -864,24 +896,28 @@ function commitTerminal(context) {
 
 function failureDocuments(context, error) {
   const message = redact(error instanceof Error ? error.stack ?? error.message : String(error));
+  const captured = context.captured ?? {};
   return {
-    transcript: { schemaVersion: '1', trialId: context.assignment.trialId, controllerFailure: message, stdout: redact(context.clientResult?.stdout), stderr: redact(context.clientResult?.stderr) },
-    patch: { schemaVersion: '1', available: false, reason: message, changes: [] },
-    finalTree: { available: false, reason: message },
+    transcript: captured.transcript
+      ? { ...captured.transcript, controllerFailure: message }
+      : { schemaVersion: '1', trialId: context.assignment.trialId, controllerFailure: message, stdout: redact(context.clientResult?.stdout), stderr: redact(context.clientResult?.stderr) },
+    patch: captured.patch ?? { schemaVersion: '1', available: false, reason: message, changes: [] },
+    finalTree: captured.finalTree ?? { available: false, reason: message },
     preparation: context.preparation,
     isolationProof: context.isolationProof,
     visible: { accepted: false, nonBceAccepted: false, bceGateAccepted: context.assignment.arm === 'bce-enabled' ? false : null, runs: [], failure: message },
     functional: { passed: false, collateralRegression: false, deterministic: true, executed: false, failure: message },
     architecture: { passed: false, locations: [], deterministic: true, executed: false, failure: message },
-    policy: { mutation: true, finalPolicyPaths: [], observedWritePaths: [], outOfScope: [], conservativeFailureClassification: true },
-    mechanism: { eventEvidenceAvailable: false, skillReadObserved: null, mcpToolCalls: null, bceGateCalls: null, bceVerdictSequence: null, redToGreenCorrectionObserved: null },
+    policy: captured.policy ?? { assessmentComplete: false, mutationObserved: false, failClosedForOutcome: true, mutation: false, finalPolicyPaths: [], observedWritePaths: [], outOfScope: [], conservativeFailureClassification: true },
+    mechanism: captured.mechanism ?? { eventEvidenceAvailable: false, skillReadObserved: null, mcpToolCalls: null, bceGateCalls: null, bceVerdictSequence: null, redToGreenCorrectionObserved: null },
   };
 }
 
-function missingTelemetry(assignment, latencyMs = null) {
+function missingTelemetry(assignment, latencyMs = null, usage = null) {
   const values = {
     latencyMs, nonBcePipelineMs: null, bceGateMs: null, endToEndVisibleMs: latencyMs,
-    oracleMs: null, agentTurns: null, inputTokens: null, outputTokens: null, cachedTokens: null, costUsd: null,
+    oracleMs: null, agentTurns: usage?.agentTurns ?? null, inputTokens: usage?.inputTokens ?? null,
+    outputTokens: usage?.outputTokens ?? null, cachedTokens: usage?.cachedTokens ?? null, costUsd: usage?.costUsd ?? null,
   };
   const missingReasons = {};
   for (const [key, value] of Object.entries(values)) if (value === null) missingReasons[key] = key === 'bceGateMs' && assignment.arm === 'baseline-no-bce' ? 'baseline arm has no BCE gate' : 'post-exposure controller failure prevented trustworthy measurement';
@@ -973,6 +1009,8 @@ async function executeAssignment(assignment) {
   let preparation = null;
   let isolationProof = null;
   let clientResult = null;
+  let captured = null;
+  let capturedUsage = null;
   try {
     copyTree(resolveInside(bundleDir, repository.treePath, `${repository.id} tree`), workspace);
     if (hashTree(workspace) !== repository.treeSha256) throw new Error('materialized base tree differs from frozen digest');
@@ -1018,14 +1056,42 @@ async function executeAssignment(assignment) {
     const command = adapterCommand({ ...cell, executable: toolchain.clientExecutable }, workspace, prompt, clientEnv, task);
     appendEvent(state, 'controller', 'model-request-exposed', { client: cell.client, requestedModel: cell.requestedModel });
     exposed = true;
+    controllerAttemptedExposure = true;
     startedAt = new Date().toISOString();
     const visibleStart = performance.now();
     clientResult = await runClient(command, workspace, profile, task.budget.timeoutMs, authPath);
+    const clientDocuments = jsonDocuments(clientResult.stdout);
+    let status = clientResult.timedOut ? 'timeout' : clientResult.status === 0 ? 'completed' :
+      clientDocuments.length === 0 || /auth|credential|rate.?limit|overloaded|network|operation not permitted|\bEPERM\b|sandbox-exec|execvp/i.test(`${clientResult.stderr}\n${clientResult.stdout}`) ? 'infrastructure-error' : 'failed';
+    appendEvent(state, 'client', 'client-terminated', { status, exitCode: clientResult.status, signal: clientResult.signal, latencyMs: clientResult.latencyMs, processGroupTerminated: clientResult.processGroupTerminated, overflow: clientResult.overflow });
+    if (seal.attestation?.kind === 'synthetic-self-test' && process.env.BCE_MODEL_EVAL_FAULT_AT === 'hard-crash-after-client') {
+      process.kill(process.pid, 'SIGKILL');
+    }
+    const stdout = redact(clientResult.stdout);
+    const stderr = redact(clientResult.stderr);
+    capturedUsage = extractUsage(stdout, cell);
+    if (capturedUsage.resolvedModel !== cell.resolvedModel) status = 'infrastructure-error';
+    const observedWrites = observedWritePaths(stdout);
+    const finalInventory = treeInventory(workspace);
+    const changes = inventoryChanges(initialInventory, finalInventory);
+    const changedPaths = changes.map((entry) => entry.path);
+    const finalPolicyPaths = changedPaths.filter((entryPath) => matchesAny(entryPath, protectedPatterns));
+    const observedPolicyPaths = observedWrites.filter((entryPath) => matchesAny(entryPath, protectedPatterns));
+    const outOfScope = changedPaths.filter((entryPath) => !matchesAny(entryPath, task.allowedPaths) && !matchesAny(entryPath, protectedPatterns));
+    const mutationObserved = finalPolicyPaths.length > 0 || observedPolicyPaths.length > 0 || outOfScope.length > 0;
+    const policy = { assessmentComplete: true, mutationObserved, failClosedForOutcome: mutationObserved, mutation: mutationObserved, finalPolicyPaths, observedWritePaths: observedPolicyPaths, outOfScope, authority: 'controller-before-after-inventory-plus-os-protected-write-denial' };
+    captured = {
+      transcript: { schemaVersion: '1', trialId: assignment.trialId, client: cell.client, stdout, stderr, rawUsage: capturedUsage.raw },
+      patch: { schemaVersion: '1', authority: 'controller-before-after-inventory', changes },
+      finalTree: { available: true, agentWorkspaceInventorySha256: sha256Json(finalInventory), changedPaths },
+      policy,
+      mechanism: extractMechanism(stdout, assignment),
+    };
     const providerIdentityAfter = probeLocalProviderIdentity(profile, workspace, cell, toolchain.runtimeExecutable, clientEnv, { requireActiveModel: true });
     isolationProof = {
       ...isolationProof,
       providerIdentityAfter,
-      providerIdentityStable: cell.localProvider ? providerIdentityAfter?.matched === true && providerIdentityAfter.responseSha256 === isolationProof.providerIdentityBefore?.responseSha256 : null,
+      providerIdentityStable: cell.localProvider ? localProviderIdentityStable(isolationProof.providerIdentityBefore, providerIdentityAfter, cell.localProvider) : null,
       clientSessionObserved: clientResult.clientSessionObserved,
       credentialRetiredBeforeModelToolExecution: clientResult.credentialRetiredBeforeModelToolExecution,
       modelToolExecutionObservedBeforeCredentialRetirement: clientResult.modelToolExecutionObservedBeforeCredentialRetirement,
@@ -1036,24 +1102,7 @@ async function executeAssignment(assignment) {
     if (seal.attestation?.kind === 'synthetic-self-test' && process.env.BCE_MODEL_EVAL_FAULT_AT === 'after-client') {
       throw new Error('synthetic fault injection after model exposure');
     }
-    const clientDocuments = jsonDocuments(clientResult.stdout);
-    let status = clientResult.timedOut ? 'timeout' : clientResult.status === 0 ? 'completed' :
-      clientDocuments.length === 0 || /auth|credential|rate.?limit|overloaded|network|operation not permitted|\bEPERM\b|sandbox-exec|execvp/i.test(`${clientResult.stderr}\n${clientResult.stdout}`) ? 'infrastructure-error' : 'failed';
-    appendEvent(state, 'client', 'client-terminated', { status, exitCode: clientResult.status, signal: clientResult.signal, latencyMs: clientResult.latencyMs, processGroupTerminated: true, overflow: clientResult.overflow });
-    if (seal.attestation?.kind === 'synthetic-self-test' && process.env.BCE_MODEL_EVAL_FAULT_AT === 'hard-crash-after-client') {
-      process.kill(process.pid, 'SIGKILL');
-    }
-    const stdout = redact(clientResult.stdout);
-    const stderr = redact(clientResult.stderr);
-    const usage = extractUsage(stdout, cell);
-    if (usage.resolvedModel !== cell.resolvedModel) status = 'infrastructure-error';
-    const observedWrites = observedWritePaths(stdout);
-    const changes = inventoryChanges(initialInventory, treeInventory(workspace));
-    const changedPaths = changes.map((entry) => entry.path);
-    const finalPolicyPaths = changedPaths.filter((entryPath) => matchesAny(entryPath, protectedPatterns));
-    const observedPolicyPaths = observedWrites.filter((entryPath) => matchesAny(entryPath, protectedPatterns));
-    const outOfScope = changedPaths.filter((entryPath) => !matchesAny(entryPath, task.allowedPaths) && !matchesAny(entryPath, protectedPatterns));
-    const policy = { mutation: finalPolicyPaths.length > 0 || observedPolicyPaths.length > 0 || outOfScope.length > 0, finalPolicyPaths, observedWritePaths: observedPolicyPaths, outOfScope, authority: 'controller-before-after-inventory-plus-os-protected-write-denial' };
+    const usage = capturedUsage;
     applyAllowedChanges(preparedRoot, workspace, neutralRoot, changes, task.allowedPaths);
     const nonBceStart = performance.now();
     const nonBceRuns = task.visibleCommands.map((commandSpec) => {
@@ -1081,7 +1130,7 @@ async function executeAssignment(assignment) {
     const functional = runOracleTwice(task.functionalOracle, task, neutralRoot, 'functional', controllerRoot);
     const architecture = runOracleTwice(task.architectureOracle, task, neutralRoot, 'architecture', controllerRoot);
     const oracleMs = Math.round(performance.now() - oracleStart);
-    appendEvent(state, 'oracle', 'outcomes-derived', { visiblePipelineAccepted: visible.accepted, hiddenFunctionalPassed: functional.passed, independentArchitecturePassed: architecture.passed, policyMutation: policy.mutation, modelIdentityVerified: usage.resolvedModel === cell.resolvedModel && ['provider-response', 'synthetic-response'].includes(cell.modelIdentityEvidence) });
+    appendEvent(state, 'oracle', 'outcomes-derived', { visiblePipelineAccepted: visible.accepted, hiddenFunctionalPassed: functional.passed, independentArchitecturePassed: architecture.passed, policyAssessmentComplete: policy.assessmentComplete, policyMutationObserved: policy.mutationObserved, policyFailClosedForOutcome: policy.failClosedForOutcome, modelIdentityVerified: usage.resolvedModel === cell.resolvedModel && ['provider-response', 'synthetic-response'].includes(cell.modelIdentityEvidence) });
     const telemetryValues = {
       latencyMs: clientResult.latencyMs, nonBcePipelineMs, bceGateMs, endToEndVisibleMs, oracleMs,
       agentTurns: usage.agentTurns, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens,
@@ -1100,12 +1149,12 @@ async function executeAssignment(assignment) {
       treatmentConfigSha256: treatment.treatmentConfigSha256,
     };
     const documents = {
-      transcript: { schemaVersion: '1', trialId: assignment.trialId, client: cell.client, stdout, stderr, rawUsage: usage.raw },
-      patch: { schemaVersion: '1', authority: 'controller-before-after-inventory', changes },
-      finalTree: { neutralTreeSha256: hashTree(neutralRoot), agentWorkspaceTreeSha256: hashTree(workspace), changedPaths },
+      transcript: captured.transcript,
+      patch: captured.patch,
+      finalTree: { ...captured.finalTree, neutralTreeSha256: hashTree(neutralRoot), agentWorkspaceTreeSha256: hashTree(workspace) },
       preparation,
       isolationProof, visible, functional, architecture, policy,
-      mechanism: extractMechanism(stdout, assignment),
+      mechanism: captured.mechanism,
     };
     return commitTerminal({ assignment, task, trialDir, state, status, startedAt, exitCode: clientResult.status, bindings, documents, telemetry });
   } catch (error) {
@@ -1116,14 +1165,14 @@ async function executeAssignment(assignment) {
       protocolSha256: sha256Bytes(readFileSync(join(bundleDir, 'protocol.v2.json'))),
       manifestSha256: sha256Bytes(readFileSync(join(bundleDir, 'task-manifest.json'))),
       runnerSha256, clientArtifactSha256: cell.clientArtifactSha256, adapterSha256: cell.adapterSha256,
-      requestedModel: cell.requestedModel, resolvedModel: null, modelIdentitySource: cell.modelIdentitySource,
+      requestedModel: cell.requestedModel, resolvedModel: capturedUsage?.resolvedModel ?? null, modelIdentitySource: cell.modelIdentitySource,
       baseTreeSha256: repository.treeSha256, preparedTreeSha256: repository.preparedTreeSha256,
       treatmentConfigSha256: treatment.treatmentConfigSha256,
     };
-    const documents = failureDocuments({ assignment, preparation, isolationProof, clientResult }, error);
+    const documents = failureDocuments({ assignment, preparation, isolationProof, clientResult, captured }, error);
     return commitTerminal({
       assignment, task, trialDir, state, status: 'infrastructure-error', startedAt,
-      exitCode: clientResult?.status ?? null, bindings, documents, telemetry: missingTelemetry(assignment, clientResult?.latencyMs ?? null),
+      exitCode: clientResult?.status ?? null, bindings, documents, telemetry: missingTelemetry(assignment, clientResult?.latencyMs ?? null, capturedUsage),
     });
   } finally {
     // APFS can report a transient ENOTEMPTY while a just-exited sandboxed git
@@ -1161,19 +1210,16 @@ function reconcileTerminalWithoutLedger() {
   return ledger;
 }
 
-function stoppingHalt(records) {
-  let consecutive = 0;
-  for (const record of [...records].reverse()) {
-    if (record.status === 'infrastructure-error') consecutive += 1;
-    else break;
+function materializeStudyHalt(records, ledger) {
+  const path = join(runsRoot, 'study-halt.json');
+  const ledgerBytes = readFileSync(join(runsRoot, 'ledger.jsonl'));
+  if (existsSync(path)) {
+    const existing = JSON.parse(readFileSync(path, 'utf8'));
+    return verifyStudyHaltV2(existing, verified, records, ledgerBytes, ledger);
   }
-  if (consecutive >= protocol.stopping.stopAfterConsecutivePostExposureInfrastructureFailures) return `stopped after ${consecutive} consecutive post-exposure infrastructure failures`;
-  const minimum = protocol.stopping.failureRateMinimumExposed ?? 10;
-  for (const cell of protocol.clientModelCells) {
-    const rows = records.filter((record) => record.assignment.cellId === cell.id);
-    if (rows.length >= minimum && rows.filter((record) => record.status === 'infrastructure-error').length / rows.length > protocol.stopping.abortCellWhenInfrastructureFailureRateExceeds) return `${cell.id} exceeded the frozen infrastructure-failure-rate threshold`;
-  }
-  return null;
+  const halt = makeStudyHaltV2(verified, records, ledgerBytes, ledger);
+  writeAtomic(path, `${JSON.stringify(halt, null, 2)}\n`);
+  return halt;
 }
 
 try {
@@ -1192,25 +1238,38 @@ try {
   } else {
     let ledger = reconcileTerminalWithoutLedger();
     const records = ledger.map((entry) => JSON.parse(readFileSync(join(runsRoot, 'trials', entry.trialId, 'a0', 'terminal.json'), 'utf8')));
-    const existingHalt = stoppingHalt(records);
-    if (existingHalt) throw new Error(`study is safety-halted: ${existingHalt}`);
+    const existingHalt = stoppingHaltTrigger(records, protocol);
+    if (existsSync(join(runsRoot, 'study-halt.json')) && !existingHalt) {
+      throw new Error('study-halt.json conflicts with the committed ledger and frozen stopping rules');
+    }
+    if (existingHalt) {
+      const halt = materializeStudyHalt(records, ledger);
+      process.stderr.write(`model-evaluation controller safety halt: ${halt.trigger.reason}\n`);
+      process.exitCode = 3;
+    }
     let executed = 0;
-    while (ledger.length < manifest.assignments.length && executed < limit) {
+    while (!existingHalt && ledger.length < manifest.assignments.length && executed < limit) {
       const assignment = manifest.assignments[ledger.length];
       const record = await executeAssignment(assignment);
       if (!record) throw new Error(`${assignment.trialId}: next frozen assignment was unexpectedly already terminal without reconciliation`);
       executed += 1;
       ledger = readLedger();
       records.push(record);
-      const halt = stoppingHalt(records);
-      if (halt) {
-        writeAtomic(join(runsRoot, 'study-halt.json'), `${JSON.stringify({ schemaVersion: '1', studyId: protocol.studyId, status: 'safety-halt', reason: halt, committedTrials: ledger.length, ledgerHeadSha256: ledger.at(-1)?.entrySha256 ?? null, recordedAt: new Date().toISOString() }, null, 2)}\n`);
-        process.stderr.write(`model-evaluation controller safety halt: ${halt}\n`);
+      const trigger = stoppingHaltTrigger(records, protocol);
+      if (trigger) {
+        const halt = materializeStudyHalt(records, ledger);
+        process.stderr.write(`model-evaluation controller safety halt: ${halt.trigger.reason}\n`);
+        process.exitCode = 3;
         break;
       }
     }
     process.stdout.write(`model-evaluation controller: ${executed} new primary attempt(s); ${ledger.length}/${manifest.assignments.length} frozen assignments committed\n`);
   }
+} catch (error) {
+  const message = error instanceof Error ? error.stack ?? error.message : String(error);
+  const expectedPreExposureRefusal = !controllerAttemptedExposure && /runtime (?:executable|version|artifact)|client (?:executable|version)|outer sandbox capability\/isolation preflight|execution isolation|host runtime|unavailable|no sealed adapter/i.test(message);
+  process.stderr.write(`${expectedPreExposureRefusal ? 'execution refused before model exposure' : 'model-evaluation controller integrity failure'}: ${redact(message)}\n`);
+  process.exitCode = expectedPreExposureRefusal ? 2 : 1;
 } finally {
   closeSync(lockFd);
   if (existsSync(lockPath)) unlinkSync(lockPath);

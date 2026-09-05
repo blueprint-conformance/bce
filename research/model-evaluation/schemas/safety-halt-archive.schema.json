@@ -25,7 +25,7 @@
     "studyId": { "type": "string", "minLength": 1 },
     "resultKind": { "const": "safety-halt-archive" },
     "evidenceClass": { "const": "author-operated-safety-halted-instrumentation-prefix" },
-    "archiveMethod": { "const": "post-hoc-v1-not-preregistered" },
+    "archiveMethod": { "enum": ["post-hoc-v1-not-preregistered", "sealed-controller-v2"] },
     "claimEligibility": { "const": "none" },
     "efficacyEstimatesProduced": { "const": false },
     "verifiedTrials": { "type": "integer", "minimum": 1 },

@@ -77,6 +77,7 @@
     "model-eval:verify-references": "node scripts/verify-model-evaluation-reference-patches.mjs",
     "model-eval:seal": "node scripts/seal-model-evaluation-bundle.mjs",
     "model-eval:run": "node scripts/run-model-evaluation.mjs",
+    "model-eval:canary": "node scripts/run-model-evaluation-canary.mjs",
     "model-eval:analyze": "node scripts/analyze-model-evaluation.mjs",
     "model-eval:export-public": "node scripts/export-model-evaluation-public.mjs",
     "model-eval:verify-public": "node scripts/verify-model-evaluation-public.mjs",

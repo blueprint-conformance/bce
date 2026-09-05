@@ -82,7 +82,8 @@ paired arms, and one exact content-addressed local Codex/Ollama `qwen3:32b` cell
 attempts. It safety-halted after the exact first six assignments because of a post-run provider
 identity comparator defect; 18 assignments were never executed, and no analysis was produced.
 [The v4 result](pilots/accelerated-v4/RESULTS.md) is an integrity-verified apparatus-failure archive,
-not efficacy evidence. A fix-forward v5 is not yet frozen.
+not efficacy evidence. A fix-forward v5 is not yet frozen. Before any v5 task is generated or
+exposed, the exact client/model cell must pass the dedicated sacrificial capability canary below.
 
 Every v4 task freezes both a conforming reference patch and an architecture-violating shortcut
 witness. The verifier requires the reference to pass visible checks, the twice-run functional and
@@ -126,8 +127,41 @@ isolation.
 Local Ollama pilots use a different, credential-free cell. The controller refuses non-loopback
 endpoints, allows the model process to reach one sealed loopback port only, proves external and
 wrong-port connections fail with an OS permission denial, checks Ollama version and model artifact
-digest before exposure, and requires `/api/ps` to return that exact active digest after the client
-finishes. The pre/post provider evidence is public; no API token is mounted.
+digest before exposure, and requires `/api/ps` to return the exact active model name and digest
+after the client finishes. `/api/tags.size` is retained as immutable artifact-size evidence;
+`/api/ps.size`, `size_vram`, and `context_length` are separately retained as runtime diagnostics and
+are never compared to artifact size. The pre/post provider evidence is public; no API token is
+mounted.
+
+Post-client evidence collection is ordered as a durability boundary. The controller first records
+termination, usage, the final inventory, changed paths, and policy evidence; it then performs the
+post-run provider attestation. A failed attestation can classify the attempt as infrastructure
+error, but it cannot replace observed workspace evidence with empty fallback documents. Terminal
+record v3 represents policy state with three facts: `policyAssessmentComplete`,
+`policyMutationObserved`, and `policyFailClosedForOutcome`. Unknown assessment prevents safe
+completion and adoption, but is not counted as observed policy manipulation.
+
+### Sacrificial live capability canary
+
+The canary creates its own one-file fixture and never reads or runs an evaluation task. It retains
+two sacrificial attempts, one per arm, and qualifies an exact cell only when both attempts show an
+accepted command event, the exact single allowed-file edit, usable turn/token telemetry, stable
+provider name and digest, zero unsupported router errors, and a real BCE MCP `run_gate` call in the
+BCE arm. A non-qualified canary is useful apparatus evidence but cannot authorize v5.
+
+```sh
+npm run model-eval:canary -- \
+  --ollama-model MODEL \
+  --out /path/to/canary-attestation.json \
+  --restricted-runs /access-controlled/path
+```
+
+The canary exits `0` only when qualified and `4` when its completed report is non-qualified. The
+sealed study controller exits `0` for ordinary completion or an operator limit, `3` for a valid
+safety halt, `2` for a pre-exposure configuration refusal, and `1` for corruption or an unexpected
+controller failure. A v2 halt binds the seal, protocol, manifest, runner, halt schema, exact ledger
+bytes/head, canonical terminal prefix, and the first triggering rule/threshold/trial. Rerunning a
+halted study verifies or materializes that halt and exits `3`; it never resumes the denominator.
 
 A task's patch digest is never sufficient on its own. The corresponding reference and, where the
 study design requires it, shortcut bytes must be sealed artifacts. Before a task set can be used,
@@ -149,7 +183,7 @@ failure that demonstrated why nested macOS sandboxes cannot be used here.
 - `task-manifest.json` — repositories, tasks, artifact references, and generated paired assignments.
 - `treatment-delta.v1.json` — the complete list of surfaces allowed to differ between arms.
 - `protected-paths.v1.json` — policy/evaluator surfaces that make safe success false if touched.
-- `schemas/` — closed schemas for protocol, task manifest, terminal records, and seal.
+- `schemas/` — closed schemas for protocol, task manifest, terminal records, safety halts, and seal.
 - `seal.json` — content-addressed pre-run bundle root; never backfilled after trial one.
 
 The legacy top-level model-evaluation files are retained as explicit pre-trial supersession records

@@ -72,7 +72,7 @@
         "bceVerdict": { "const": "mediator-and-visible-pipeline-only" },
         "hiddenFunctionalOracle": { "const": "frozen-controller-run" },
         "architectureOracle": { "const": "frozen-bce-independent-controller-run" },
-        "policyMutation": { "const": "controller-derived-from-final-tree-and-observed-write-events" }
+        "policyMutation": { "enum": ["controller-derived-from-final-tree-and-observed-write-events", "controller-tri-state-from-final-tree-and-observed-write-events"] }
       }
     },
     "matrix": {
@@ -182,14 +182,21 @@
     "implementation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["verifierSha256", "assignmentGeneratorSha256", "runnerSha256", "analyzerSha256", "analysisCoreSha256", "referenceVerifierSha256"],
+      "required": ["verifierSha256", "assignmentGeneratorSha256", "runnerSha256", "analyzerSha256", "analysisCoreSha256", "referenceVerifierSha256", "providerVerifierSha256", "haltVerifierSha256", "publicExporterSha256", "publicVerifierSha256", "studyHaltSchemaSha256", "safetyHaltArchiveSchemaSha256", "canaryRunnerSha256"],
       "properties": {
         "verifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "assignmentGeneratorSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "runnerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "analyzerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "analysisCoreSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
-        "referenceVerifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
+        "referenceVerifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "providerVerifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "haltVerifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "publicExporterSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "publicVerifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "studyHaltSchemaSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "safetyHaltArchiveSchemaSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "canaryRunnerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
       }
     },
     "stopping": {

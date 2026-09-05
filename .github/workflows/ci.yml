@@ -86,7 +86,7 @@ jobs:
       - name: External implementation intake contract + negative control
         run: npm run test:external-contract
 
-      - name: Synthetic sealed v2 model-evaluation replay + causal-integrity controls (not efficacy evidence)
+      - name: Synthetic sealed terminal-v3 model-evaluation replay + causal-integrity controls (not efficacy evidence)
         run: npm run test:model-eval-protocol
 
       - name: Reference solutions apply safely and pass independent proof surfaces
