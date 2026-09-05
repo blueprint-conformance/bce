@@ -25,12 +25,17 @@ all signed off does not merge.
 ## One logical change per pull request
 
 Keep each PR to one logical change. A PR that mixes a bug fix, a refactor, and a new feature is three
-reviews wearing one hat — split it. Small, single-purpose PRs are reviewed faster and revert cleanly.
+reviews wearing one hat — split it. Small, single-purpose PRs are reviewed faster and fix forward
+more safely.
+
+Start with the [intent-shaped issue forms and visible queue states](docs/maintainer-operations.md).
+The repository has one human maintainer: expect a substantive first response within 168 hours, not an
+invented second approval or a resolution deadline. No stale bot auto-closes contributor work.
 
 ## The gate is the done-check (including for your PR)
 
 This repository gates its own tree (see [`docs/self-hosting.md`](docs/self-hosting.md)). Every PR must
-be green on all workflows before it merges:
+be green on all required workflows before it merges:
 
 - **`leakage-gate`** — a dependency-free banned-string scan. No internal identifier, host, or
   infrastructure reference may land in the tree.
@@ -49,11 +54,11 @@ A substantial share of this project's engineering is performed by AI agents oper
 ([GOVERNANCE.md](GOVERNANCE.md) says so plainly). Agent-authored PRs are held to the same bar as any
 other, plus two conventions that make the agent's work auditable:
 
-1. **The gate must be green, and the PR body must say so with evidence.** An agent does not report a
-   change "done" on a green typecheck alone. The PR body carries the `bce gate` verdict and, where the
-   change affects a graded surface, the **evidence ref** (the content-addressed
-   `architecture-graph.json@sha256:<hex>` from the report) so a reviewer can re-derive the verdict
-   offline. A claim of green with no re-derivable evidence is not accepted.
+1. **The gate must be green, and the PR body must name what was exercised.** An agent does not report
+   a change "done" on a green typecheck alone. Record the exact local commands and RED/GREEN or
+   refusal outcomes. The required GitHub jobs are the merge authority; link a failed/fixed run when
+   it explains the change. If a run emitted a durable EvidenceRecord, reference its digest—never
+   invent or manually transcribe one just to fill a form.
 2. **Fix the code, never silently edit the blueprint or the baseline.** When the gate goes red, the
    default is to change the code so it conforms. Editing a blueprint to clear a red — or appending to
    `.blueprints/baseline.json` — changes the contract or accepts a new violation, and is a deliberate,

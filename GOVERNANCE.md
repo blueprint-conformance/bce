@@ -81,9 +81,11 @@ that point.
 
 ## What you can expect (triage commitment)
 
-- **Week-1 triage:** every new issue and pull request gets a substantive
-  first response — a label, a repro attempt, a review, or an honest "this
-  is out of scope" — within **7 days**.
+- **Seven-day first response:** every issue and pull request opened by an external contributor gets
+  a substantive public response from the maintainer within **168 hours**. A maintainer comment or
+  submitted pull-request review counts; automatic labels, bots, and CI do not. The read-only daily
+  auditor in [`docs/maintainer-operations.md`](docs/maintainer-operations.md) makes overdue and late
+  responses visible. This is a response target, not a resolution promise or support SLA.
 - Security reports get priority handling; see SECURITY.md.
 - Abandonment risk is real for any solo-maintained project. The mitigations
   are the fast triage bar above, the shared-maintainership trigger, and the
@@ -93,7 +95,7 @@ that point.
 ## Review-enforcement activation
 
 The repository deliberately does not require a human approval or release reviewer while it has one
-human maintainer. Six required CI checks, admin enforcement, and force-push/deletion prevention stay
+human maintainer. Seven required CI checks, admin enforcement, and force-push/deletion prevention stay
 live and provide solo-safe protection. When a distinct second human accepts responsibility and can
 exercise it, add CODEOWNERS, require their approval, and protect the release environment in the same
 reviewed change. A nominal account or same-author approval is not independent review. The live state

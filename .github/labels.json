@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "labels": [
+    { "name": "bug", "color": "d73a4a", "description": "Something is not working as documented" },
+    { "name": "documentation", "color": "0075ca", "description": "Improve public documentation or examples" },
+    { "name": "enhancement", "color": "a2eeef", "description": "A proposed product or developer-experience improvement" },
+    { "name": "question", "color": "d876e3", "description": "A bounded usage or design question" },
+    { "name": "dependencies", "color": "0366d6", "description": "Dependency update or dependency-policy work" },
+    { "name": "security", "color": "b60205", "description": "Public security maintenance; vulnerabilities use private reporting" },
+    { "name": "false-verdict", "color": "b60205", "description": "A reproducible false GREEN or false RED" },
+    { "name": "quickstart", "color": "0e8a16", "description": "Install or first-run path" },
+    { "name": "corpus-candidate", "color": "5319e7", "description": "A real drift class proposed for the public corpus" },
+    { "name": "extractor-python", "color": "3572a5", "description": "Python extractor support" },
+    { "name": "spec", "color": "1d76db", "description": "Normative format or conformance-vector change" },
+    { "name": "policy-change", "color": "5319e7", "description": "Changes a governed policy, release, security, or ownership boundary" },
+    { "name": "wontfix-scope", "color": "ffffff", "description": "Outside the deliberately narrow project scope, with public rationale" },
+    { "name": "independent-adoption", "color": "0e8a16", "description": "Uncoached adoption attempt, including failure or abandonment" },
+    { "name": "external-implementation", "color": "5319e7", "description": "Separately maintained implementation evidence" },
+    { "name": "witness-attestation", "color": "0e8a16", "description": "Independent RED to fix to GREEN witness record" },
+    { "name": "status:needs-triage", "color": "fbca04", "description": "Awaiting the first substantive maintainer response" },
+    { "name": "status:accepted", "color": "0e8a16", "description": "Accepted and ready for implementation or review" },
+    { "name": "status:needs-author", "color": "1d76db", "description": "Waiting for bounded information or revision from the author" },
+    { "name": "status:blocked", "color": "d93f0b", "description": "Accepted but blocked by a named dependency or decision" },
+    { "name": "status:declined", "color": "cfd3d7", "description": "Closed with a public scope or tradeoff rationale" }
+  ]
+}

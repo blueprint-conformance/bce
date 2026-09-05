@@ -1,0 +1,67 @@
+name: Bug or wrong verdict
+description: Report reproducible engine, CLI, Action, MCP, install, or documentation behavior.
+title: "bug: <observable behavior>"
+labels: ["bug", "status:needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for making the failure concrete. Do not paste secrets or private repository content.
+        A suspected vulnerability belongs in [private security reporting](https://github.com/blueprint-conformance/bce/security/advisories/new), not this form.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - Gate or verdict
+        - Extractor or evidence
+        - CLI
+        - GitHub Action or CI
+        - MCP or Agent Skill
+        - Install or package
+        - Documentation or example
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Exact BCE identity
+      description: Package version plus integrity, or a 40-character source commit SHA.
+      placeholder: "bce-engine@0.2.0 / sha512-…"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include the smallest safe tree/blueprint or public repository and the exact command.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed result
+      description: Include exit code and sanitized output. For a wrong verdict, name the expected constraint.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, Node version, and install method.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safe disclosure
+      options:
+        - label: I removed credentials, private hosts, tenant data, and unnecessary personal data.
+          required: true

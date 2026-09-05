@@ -44,6 +44,7 @@ Python import extraction is an explicit MVP behind the same language-neutral pro
 | `fixtures/` + `corpus/` | the seeded-defect corpus (recall denominator) and its machine-readable manifest |
 | `.blueprints/` | this repo's OWN blueprint — bce gates itself (see `docs/self-hosting.md`) |
 | `.github/workflows/` | `ci`, `leakage-gate`, `self-gate`, `docs-site-check`, and active `publish-schemas` (all fail-closed) |
+| `.github/labels.json` + `docs/maintainer-operations.md` | canonical one-human contributor queue; read-only response audit, no phantom approver |
 | `scripts/build-docs-site.mjs` | assembles `_site/` — the schemas at their `$id` paths + the rendered docs site; dependency-free, fail-closed on IA drift and dangling links |
 
 ## Build, test, gate (Node 22 toolchain)

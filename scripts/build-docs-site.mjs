@@ -136,6 +136,7 @@ const PAGES = [
   { route: 'guides/pin-ceremony', source: 'docs/pin-ceremony.md', section: 'Guides' },
   { route: 'guides/comparison', source: 'docs/comparison.md', section: 'Guides' },
   { route: 'guides/governance-enforcement', source: 'docs/governance-enforcement.md', section: 'Guides' },
+  { route: 'guides/maintainer-operations', source: 'docs/maintainer-operations.md', section: 'Guides' },
   { route: 'guides/credibility-hardening', source: 'docs/credibility-hardening-plan-2026-09-02.md', section: 'Guides' },
   { route: 'guides/credibility-hardening-closeout', source: 'docs/credibility-hardening-closeout-2026-09-02.md', section: 'Guides' },
 

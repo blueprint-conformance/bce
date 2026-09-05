@@ -59,6 +59,7 @@
     "test:release-policy": "node scripts/check-release-proof-policy.selftest.mjs && node scripts/check-release-proof-policy.mjs",
     "test:reproducibility": "node scripts/reproducibility-proof.mjs",
     "test:release-claims": "node scripts/check-release-claims.selftest.mjs && node scripts/check-release-claims.mjs",
+    "test:contributor-operations": "node scripts/verify-contributor-operations.mjs",
     "test:public-release": "node scripts/verify-public-release.selftest.mjs && node scripts/verify-public-release.mjs",
     "test:release-payload": "node scripts/verify-release-payload.selftest.mjs && node scripts/verify-release-payload.mjs",
     "generate:doc-diagrams": "node scripts/generate-doc-diagrams.mjs",

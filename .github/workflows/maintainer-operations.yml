@@ -1,0 +1,48 @@
+name: maintainer-operations
+
+# One human maintains BCE today. This read-only audit makes the contributor queue and its promised
+# first-response window observable without inventing a reviewer, auto-closing anyone, or granting a
+# triage bot write authority. Code-level structure remains covered by the required ci job; this
+# workflow measures live GitHub state on intake events, daily, and on explicit request.
+
+on:
+  schedule:
+    - cron: "23 7 * * *"
+  workflow_dispatch:
+  issues:
+    types: [opened, reopened, closed]
+  issue_comment:
+    types: [created, edited, deleted]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: maintainer-operations-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit-contributor-queue:
+    name: audit-contributor-queue
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: 22.22.2
+
+      - name: Canonical intake labels match live GitHub state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verify-contributor-operations.mjs --live
+
+      - name: External contributor first-response window
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/triage-slo.mjs

@@ -38,3 +38,8 @@ does not pretend a second human exists or configure a guard that prevents all re
 Independent review remains unestablished. The fix-forward activation condition is a distinct human
 who accepts code-owner and release-review responsibility. At that point, add CODEOWNERS and enable
 one non-author approval plus release-environment review together, then record an exercised review.
+
+Contributor intake follows the same honesty rule. The current one-human queue has canonical labels,
+intent-shaped issue and pull-request forms, and a read-only 168-hour first-response audit. It does not
+auto-close work or convert automation into a fictional review. See
+[`maintainer-operations.md`](maintainer-operations.md).
