@@ -13,6 +13,24 @@ const valueAfter = (flag) => {
 const bundleRoot = resolve(valueAfter('--bundle') ?? 'research/model-evaluation/pilots/accelerated-v1');
 const resultsRoot = resolve(valueAfter('--results') ?? join(bundleRoot, 'results'));
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
+const localProviderProofMatches = (proof, provider, { requireActiveModel = false } = {}) => {
+  if (!proof || !provider) return false;
+  const expectedResponse = {
+    serverVersion: provider.serverVersion,
+    modelName: provider.modelName,
+    modelDigest: provider.modelDigest,
+    modelSizeBytes: provider.modelSizeBytes,
+  };
+  const activeExpected = { modelName: provider.modelName, modelDigest: provider.modelDigest, modelSizeBytes: provider.modelSizeBytes };
+  return proof.matched === true && proof.endpoint === provider.endpoint && proof.activeModelRequired === requireActiveModel && canonicalJson(proof.response) === canonicalJson(expectedResponse) && proof.responseSha256 === sha256Json(expectedResponse) &&
+    (!requireActiveModel || (canonicalJson(proof.activeModel) === canonicalJson(activeExpected) && proof.activeModelSha256 === sha256Json(activeExpected)));
+};
+const localProviderProofWellFormed = (proof, provider) => {
+  if (!proof || proof.endpoint !== provider.endpoint) return false;
+  if (proof.response === null) return proof.responseSha256 === null && proof.matched === false && typeof proof.exitCode === 'number';
+  return proof.response && typeof proof.response === 'object' && proof.responseSha256 === sha256Json(proof.response) && typeof proof.matched === 'boolean' &&
+    ((proof.activeModel === null && proof.activeModelSha256 === null) || (proof.activeModel && proof.activeModelSha256 === sha256Json(proof.activeModel)));
+};
 const protocol = readJson(join(bundleRoot, 'protocol.v2.json'));
 const manifest = readJson(join(bundleRoot, 'task-manifest.json'));
 const seal = readJson(join(bundleRoot, 'seal.json'));
@@ -86,6 +104,7 @@ for (let index = 0; index < manifest.assignments.length; index += 1) {
   const cell = protocol.clientModelCells.find((item) => item.id === assignment.cellId);
   const task = manifest.tasks.find((item) => item.id === assignment.taskId);
   const repository = manifest.repositories.find((item) => item.id === assignment.repositoryId);
+  const hardenedEvidenceRequired = typeof protocol.implementation.referenceVerifierSha256 === 'string';
   if (record.bindings.sealRootSha256 !== seal.rootSha256 || record.bindings.preparedTreeSha256 !== repository.preparedTreeSha256 || preparation.preparedTreeSha256 !== repository.preparedTreeSha256 || record.bindings.treatmentConfigSha256 !== preparation.treatmentConfigSha256) throw new Error(`${record.trialId}: frozen binding mismatch`);
   if (isolation.driver !== protocol.isolation.executionDriver || isolation.driverSha256 !== protocol.isolation.executionDriverSha256 || !isolation.oracleReadDenied || !isolation.protectedWriteDenied ||
       (protocol.isolation.clientSandboxMode !== undefined && isolation.clientSandboxMode !== protocol.isolation.clientSandboxMode) ||
@@ -93,9 +112,20 @@ for (let index = 0; index < manifest.assignments.length; index += 1) {
       (protocol.isolation.runtimeExecutableStagingRequired === true && isolation.runtimeExecutableStagedSha256 !== protocol.isolation.runtimeArtifactSha256) ||
       (protocol.isolation.readDefaultDeny === true && (!isolation.readDefaultDeny || !isolation.hostCanaryReadDenied || !isolation.hostCanaryWriteDenied)) ||
       (protocol.isolation.positiveCapabilityProofRequired === true && (!isolation.workspaceReadWriteAllowed || !isolation.stagedRuntimeVersionVerified || !isolation.stagedClientVersionVerified)) ||
-      (assignment.arm === 'bce-enabled' && protocol.isolation.positiveCapabilityProofRequired === true && (!isolation.mcpHandshakePassed || !Array.isArray(isolation.mcpToolNames) || isolation.mcpToolNames.length === 0)) ||
+      (task.referencePatch && isolation.referencePatchReadDenied !== true) ||
+      (assignment.arm === 'bce-enabled' && protocol.isolation.positiveCapabilityProofRequired === true && (!isolation.mcpHandshakePassed || !Array.isArray(isolation.mcpToolNames) || isolation.mcpToolNames.length === 0 || (hardenedEvidenceRequired && (isolation.mcpDoneCheckAvailable !== true || !isolation.mcpToolNames.includes('run_gate'))))) ||
+      (cell.localProvider && (isolation.authenticationAbsent !== true || isolation.providerReachable !== true || isolation.externalNetworkDenied !== true || isolation.nonProviderLoopbackDenied !== true ||
+        !localProviderProofMatches(isolation.providerIdentityBefore, cell.localProvider) || !localProviderProofWellFormed(isolation.providerIdentityAfter, cell.localProvider) ||
+        (record.status === 'completed' && (isolation.providerIdentityStable !== true || !localProviderProofMatches(isolation.providerIdentityAfter, cell.localProvider, { requireActiveModel: true }) || isolation.providerIdentityBefore.responseSha256 !== isolation.providerIdentityAfter.responseSha256)) ||
+        (isolation.providerIdentityStable !== true && record.status !== 'infrastructure-error'))) ||
       (cell.client === 'codex' && isolation.clientSessionObserved === true && (isolation.credentialRetiredBeforeModelToolExecution !== true || isolation.modelToolExecutionObservedBeforeCredentialRetirement !== false)) ||
       (cell.client === 'codex' && record.status === 'completed' && isolation.clientSessionObserved !== true)) throw new Error(`${record.trialId}: client isolation proof mismatch`);
+  if (hardenedEvidenceRequired && assignment.arm === 'bce-enabled') {
+    const gateMissingAfterFailure = visible.bceRun == null && record.status !== 'completed' && typeof visible.failure === 'string';
+    if (!gateMissingAfterFailure && (canonicalJson(visible.bceRun?.command) !== canonicalJson(['bce', 'gate']) || typeof visible.bceRun?.exitCode !== 'number' || visible.bceGateAccepted !== (visible.bceRun.exitCode === 0))) {
+      throw new Error(`${record.trialId}: BCE arm lacks exact controller-run gate evidence`);
+    }
+  } else if (hardenedEvidenceRequired && ((visible.bceRun ?? null) !== null || visible.bceGateAccepted !== null)) throw new Error(`${record.trialId}: baseline arm contains BCE gate evidence`);
   const withinBudget = record.telemetry.endToEndVisibleMs !== null && record.telemetry.endToEndVisibleMs <= task.budget.timeoutMs && record.telemetry.agentTurns !== null && record.telemetry.agentTurns <= task.budget.maxTurns && (task.budget.maxCostUsd === null || (record.telemetry.costUsd !== null && record.telemetry.costUsd <= task.budget.maxCostUsd));
   const modelIdentityVerified = record.bindings.resolvedModel === cell.resolvedModel && ['provider-response', 'synthetic-response'].includes(cell.modelIdentityEvidence);
   const expectedDerived = {

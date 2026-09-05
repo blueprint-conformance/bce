@@ -106,6 +106,7 @@
             "invariantSource": { "type": "string", "minLength": 3 }
           }
         },
+        "referencePatch": { "$ref": "#/definitions/artifact" },
         "referencePatchSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/digest" }] }
       }
     },

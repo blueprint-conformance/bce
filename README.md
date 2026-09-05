@@ -137,7 +137,7 @@ and cross-platform CI. Those are first-party proofs on author-controlled infrast
 [independent witnesses remain 0](ATTESTATIONS.md).
 
 The accelerated model pilot proved the evaluation machinery runs, but its easy tasks saturated both
-arms. The held-out 240-trial study has not run. We do not yet claim that BCE makes agents more
+arms. The held-out 600-trial study has not run. We do not yet claim that BCE makes agents more
 successful, cheaper, faster, or safer than a baseline. [Check the public truth ledger](STATUS.md) or
 [inspect the study contract](research/model-evaluation/README.md).
 

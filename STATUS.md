@@ -94,6 +94,12 @@ source tree.
   oracles, artifact-backed terminal records, caught-failure terminalization, hard-crash recovery,
   public aggregate recomputation, and restricted-transcript exclusion. Synthetic rehearsal is
   machinery evidence only.
+- The candidate controller's adversarial self-test uses a local Ollama-compatible fixture to prove
+  the model process can reach only one sealed loopback port, binds provider/model identity before
+  exposure and the exact active model after execution, denies external and wrong-port connections,
+  refuses repository/output symlinks, and keeps sealed reference solutions unreadable to the model.
+  Every reference patch must apply inside its allowlist and pass visible tests, both hidden oracles
+  twice, and the real BCE gate. A real local-model run remains unexecuted at this checkpoint.
 
 ## What has not been established
 
@@ -105,8 +111,8 @@ source tree.
 - The author-designed seeded corpus is a regression suite, not a held-out benchmark.
 - No controlled study shows that BCE improves autonomous-agent outcomes, completion rate, cost,
   or escaped-defect rate relative to a baseline.
-- The canonical four-cell, baseline/BCE 240-attempt confirmatory design exists, but its exact
-  provider-identified clients/models, ten held-out repositories, thirty tasks/reference patches,
+- The canonical four-cell, baseline/BCE 600-attempt confirmatory design exists, but its exact
+  provider-identified clients/models, 25 held-out repositories, 75 tasks/reference patches,
   isolation driver, BCE artifact, assignment proof, and public Sigstore seal are unset. Readiness
   therefore refuses and no comparative result is claimed.
 - Accelerated instrumentation pilot v1 was publicly sealed before exposure and retained all eight

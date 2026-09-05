@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Pathological controls for the real v2 verifier, record derivation, and analyzer. */
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
@@ -68,8 +68,9 @@ protocol.implementation = {
   verifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation.mjs'))),
   assignmentGeneratorSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'generate-model-evaluation-assignments.mjs'))),
   runnerSha256: frozenRunnerSha256,
-  analyzerSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'analyze-model-evaluation.mjs'))),
-  analysisCoreSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-analysis.mjs'))),
+    analyzerSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'analyze-model-evaluation.mjs'))),
+    analysisCoreSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-analysis.mjs'))),
+    referenceVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'verify-model-evaluation-reference-patches.mjs'))),
 };
 protocol.clientModelCells = [
   ['primary-codex', 'primary', 'codex', 'gpt-test-a'],
@@ -94,7 +95,7 @@ write(join(bundleDir, 'protocol.v2.json'), protocol);
 
 const repositories = [];
 const tasks = [];
-for (let repoIndex = 0; repoIndex < 10; repoIndex += 1) {
+for (let repoIndex = 0; repoIndex < 25; repoIndex += 1) {
   const repoId = `repo-${repoIndex}`;
   const treePath = `repos/${repoId}`;
   write(join(bundleDir, treePath, 'src', 'index.ts'), `export const value = ${repoIndex};\n`);
@@ -135,6 +136,7 @@ for (let repoIndex = 0; repoIndex < 10; repoIndex += 1) {
       approvals: [],
       extraction: { profile: 'plugin-surface', paths: ['src/**/*.ts'], minFiles: 1 },
     });
+    const referencePatch = artifact(`${base}/reference.patch`, `diff --git a/src/index.ts b/src/index.ts\n--- a/src/index.ts\n+++ b/src/index.ts\n@@ -1 +1 @@\n-export const value = ${repoIndex};\n+export const value = ${repoIndex}; // ${taskId}\n`, 'text/x-diff');
     tasks.push({
       id: taskId,
       repositoryId: repoId,
@@ -148,6 +150,7 @@ for (let repoIndex = 0; repoIndex < 10; repoIndex += 1) {
       functionalOracle: { artifact: functionalOracle, command: ['node', functionalOracle.path], implementation: 'functional' },
       architectureOracle: { artifact: architectureOracle, command: ['node', architectureOracle.path], implementation: 'bce-independent' },
       blueprint,
+      referencePatch,
       allowedPaths: ['src/**'],
       protectedPaths: ['.blueprints/**', '.github/**', 'tests/**'],
       budget: { timeoutMs: 60000, maxTurns: 8, maxCostUsd: 1 },
@@ -157,7 +160,7 @@ for (let repoIndex = 0; repoIndex < 10; repoIndex += 1) {
         developmentExposed: true,
         invariantSource: `test-policy/${taskId}`,
       },
-      referencePatchSha256: sha256Bytes(`reference-${taskId}`),
+      referencePatchSha256: referencePatch.sha256,
     });
   }
 }
@@ -228,6 +231,7 @@ function makeTerminal(assignment) {
     clientSandboxMode: 'outer-controller-profile-only',
     readDefaultDeny: true,
     oracleReadDenied: true,
+    referencePatchReadDenied: true,
     hostCanaryReadDenied: true,
     hostCanaryWriteDenied: true,
     protectedWriteDenied: true,
@@ -240,11 +244,18 @@ function makeTerminal(assignment) {
     modelToolExecutionObservedBeforeCredentialRetirement: false,
     shellEnvironmentPolicy: 'synthetic-fixture',
     mcpHandshakePassed: bce ? true : null,
-    mcpToolNames: bce ? ['bce_run_gate'] : [],
+    mcpDoneCheckAvailable: bce ? true : false,
+    mcpToolNames: bce ? ['run_gate'] : [],
     clientExecutableStagedSha256: protocol.clientModelCells.find((cell) => cell.id === assignment.cellId).clientArtifactSha256,
     runtimeExecutableStagedSha256: protocol.isolation.runtimeArtifactSha256,
   });
-  write(join(trialDir, 'visible.json'), { accepted: visibleAccepted, nonBceAccepted, bceGateAccepted, commands: [['node', '--test']] });
+  write(join(trialDir, 'visible.json'), {
+    accepted: visibleAccepted,
+    nonBceAccepted,
+    bceGateAccepted,
+    commands: [['node', '--test']],
+    bceRun: bce ? { command: ['bce', 'gate'], exitCode: bceGateAccepted ? 0 : 1 } : null,
+  });
   write(join(trialDir, 'functional.json'), { passed: functionalPassed, collateralRegression: taskIndex === 8, deterministic: true });
   write(join(trialDir, 'architecture.json'), { passed: architecturePassed, locations: architecturePassed ? [] : ['src/index.ts#L1'], deterministic: true });
   write(join(trialDir, 'policy.json'), { mutation: policyMutation, paths: policyMutation ? ['.blueprints/task.json'] : [], observedWritePaths: [] });
@@ -369,7 +380,7 @@ write(join(runsDir, 'ledger.jsonl'), `${ledger.map((entry) => JSON.stringify(ent
 const analyzerArgs = [join(root, 'scripts', 'analyze-model-evaluation.mjs'), '--bundle', bundleDir, '--runs', runsDir];
 const output = execFileSync(process.execPath, analyzerArgs, { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 const analysis = JSON.parse(output);
-if (analysis.verifiedTrials !== 240 || analysis.pooledConfirmatoryEstimate !== null) throw new Error('analyzer did not retain the exact 240-trial unpooled denominator');
+if (analysis.verifiedTrials !== 600 || analysis.pooledConfirmatoryEstimate !== null) throw new Error('analyzer did not retain the exact 600-trial unpooled denominator');
 if (analysis.productDecision.decision !== 'ineligible-instrumentation-pilot-no-efficacy-decision' || analysis.productDecision.checks !== null) {
   throw new Error('pilot analysis emitted product-efficacy threshold credit');
 }
@@ -395,6 +406,37 @@ blockedSeal.rootSha256 = blockedSealParts.rootSha256;
 write(join(bundleDir, 'seal.json'), blockedSeal);
 const blockedResult = verifyBundle(bundleDir);
 if (blockedResult.ok || !blockedResult.refusals.some((item) => item.includes('regenerate exactly'))) throw new Error('verifier accepted arm-blocked, non-regenerating assignment order');
+writeFileSync(join(bundleDir, 'task-manifest.json'), originalManifest);
+writeFileSync(join(bundleDir, 'seal.json'), originalSeal);
+
+const unboundPatchManifest = JSON.parse(originalManifest);
+unboundPatchManifest.tasks[0].referencePatchSha256 = 'f'.repeat(64);
+write(join(bundleDir, 'task-manifest.json'), unboundPatchManifest);
+const unboundPatchSealParts = expectedSeal(bundleDir, protocol, unboundPatchManifest);
+const unboundPatchSeal = JSON.parse(originalSeal);
+unboundPatchSeal.entries = unboundPatchSealParts.entries;
+unboundPatchSeal.rootSha256 = unboundPatchSealParts.rootSha256;
+write(join(bundleDir, 'seal.json'), unboundPatchSeal);
+const unboundPatchResult = verifyBundle(bundleDir);
+if (unboundPatchResult.ok || !unboundPatchResult.refusals.some((item) => item.includes('reference patch artifact digest'))) throw new Error('verifier accepted an unbound reference-patch digest');
+writeFileSync(join(bundleDir, 'task-manifest.json'), originalManifest);
+writeFileSync(join(bundleDir, 'seal.json'), originalSeal);
+
+const linkedManifest = JSON.parse(originalManifest);
+const linkedRepository = linkedManifest.repositories[0];
+const linkedPath = join(bundleDir, linkedRepository.treePath, 'host-link');
+symlinkSync('/etc/passwd', linkedPath);
+linkedRepository.treeSha256 = hashTree(join(bundleDir, linkedRepository.treePath));
+linkedRepository.preparedTreeSha256 = linkedRepository.treeSha256;
+write(join(bundleDir, 'task-manifest.json'), linkedManifest);
+const linkedSealParts = expectedSeal(bundleDir, protocol, linkedManifest);
+const linkedSeal = JSON.parse(originalSeal);
+linkedSeal.entries = linkedSealParts.entries;
+linkedSeal.rootSha256 = linkedSealParts.rootSha256;
+write(join(bundleDir, 'seal.json'), linkedSeal);
+const linkedResult = verifyBundle(bundleDir);
+if (linkedResult.ok || !linkedResult.refusals.some((item) => item.includes('symbolic links are refused'))) throw new Error('verifier accepted a repository symlink');
+unlinkSync(linkedPath);
 writeFileSync(join(bundleDir, 'task-manifest.json'), originalManifest);
 writeFileSync(join(bundleDir, 'seal.json'), originalSeal);
 
@@ -427,5 +469,5 @@ renameSync(hiddenTerminal, terminalPath);
 const liveReadiness = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/research-readiness.ts', '--model-eval'], { cwd: root, encoding: 'utf8' });
 if (liveReadiness.status !== 2 || !liveReadiness.stderr.includes('REFUSED')) throw new Error('unpopulated canonical study did not refuse live execution');
 
-console.log('model-evaluation protocol v2 self-test: PASS (sealed paired 240-trial replay; objective safe success; policy mutation retained; blocked order, asserted outcomes, artifact tamper, missing denominator, and live unready inputs refused)');
+console.log('model-evaluation protocol v2 self-test: PASS (sealed paired 600-trial replay; false-block threshold has a sufficient zero-event denominator; objective safe success; policy mutation retained; blocked order, asserted outcomes, artifact tamper, missing denominator, and live unready inputs refused)');
 rmSync(scratch, { recursive: true, force: true });

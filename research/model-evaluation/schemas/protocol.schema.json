@@ -142,7 +142,7 @@
     "isolation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["executionDriver", "executionDriverSha256", "freshWorkspacePerAttempt", "freshClientStatePerAttempt", "clientExecutableStagingRequired", "runtimeExecutableStagingRequired", "runtimeExecutable", "runtimeVersion", "runtimeArtifactSha256", "clientSandboxMode", "readDefaultDeny", "positiveCapabilityProofRequired", "userPreferencesImported", "authenticationMountedSeparately", "sharedModelSession", "sharedRepositoryCache", "oracleOutsideAgentWorkspace", "oracleReadIsolationProofRequired", "networkPolicyRecorded", "sameNonBceToolsAndPermissions"],
+      "required": ["executionDriver", "executionDriverSha256", "freshWorkspacePerAttempt", "freshClientStatePerAttempt", "clientExecutableStagingRequired", "runtimeExecutableStagingRequired", "runtimeExecutable", "runtimeVersion", "runtimeArtifactSha256", "clientSandboxMode", "readDefaultDeny", "positiveCapabilityProofRequired", "userPreferencesImported", "authenticationMountedSeparately", "sharedModelSession", "sharedRepositoryCache", "oracleOutsideAgentWorkspace", "oracleReadIsolationProofRequired", "networkPolicyRecorded", "modelNetworkPolicy", "sameNonBceToolsAndPermissions"],
       "properties": {
         "executionDriver": { "type": ["string", "null"] },
         "executionDriverSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
@@ -163,6 +163,7 @@
         "oracleOutsideAgentWorkspace": { "const": true },
         "oracleReadIsolationProofRequired": { "const": true },
         "networkPolicyRecorded": { "const": true },
+        "modelNetworkPolicy": { "type": ["string", "null"], "enum": ["loopback-only-single-endpoint", null] },
         "sameNonBceToolsAndPermissions": { "const": true }
       }
     },
@@ -181,13 +182,14 @@
     "implementation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["verifierSha256", "assignmentGeneratorSha256", "runnerSha256", "analyzerSha256", "analysisCoreSha256"],
+      "required": ["verifierSha256", "assignmentGeneratorSha256", "runnerSha256", "analyzerSha256", "analysisCoreSha256", "referenceVerifierSha256"],
       "properties": {
         "verifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "assignmentGeneratorSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "runnerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "analyzerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
-        "analysisCoreSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
+        "analysisCoreSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "referenceVerifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
       }
     },
     "stopping": {
@@ -265,7 +267,27 @@
         "resolvedModel": { "type": ["string", "null"] },
         "modelIdentitySource": { "type": ["string", "null"] },
         "modelIdentityEvidence": { "type": ["string", "null"], "enum": ["provider-response", "client-request-configuration", "synthetic-response", null] },
-        "reasoningEffort": { "type": ["string", "null"] }
+        "reasoningEffort": { "type": ["string", "null"] },
+        "localProvider": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/definitions/localProvider" }
+          ]
+        }
+      }
+    },
+    "localProvider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "endpoint", "serverVersion", "modelName", "modelDigest", "modelSizeBytes", "authentication"],
+      "properties": {
+        "kind": { "const": "ollama" },
+        "endpoint": { "type": "string", "minLength": 1 },
+        "serverVersion": { "type": "string", "minLength": 1 },
+        "modelName": { "type": "string", "minLength": 1 },
+        "modelDigest": { "$ref": "#/definitions/sha256" },
+        "modelSizeBytes": { "type": "integer", "minimum": 1 },
+        "authentication": { "const": "none" }
       }
     }
   }

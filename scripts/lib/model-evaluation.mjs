@@ -21,6 +21,7 @@ export const FROZEN_IMPLEMENTATIONS = {
   runnerSha256: fileURLToPath(new URL('../run-model-evaluation.mjs', import.meta.url)),
   analyzerSha256: fileURLToPath(new URL('../analyze-model-evaluation.mjs', import.meta.url)),
   analysisCoreSha256: fileURLToPath(new URL('./model-evaluation-analysis.mjs', import.meta.url)),
+  referenceVerifierSha256: fileURLToPath(new URL('../verify-model-evaluation-reference-patches.mjs', import.meta.url)),
 };
 
 export function canonical(value) {
@@ -41,6 +42,27 @@ export function sha256Bytes(value) {
 
 export function sha256Json(value) {
   return sha256Bytes(canonicalJson(value));
+}
+
+function localProviderProofMatches(proof, provider, { requireActiveModel = false } = {}) {
+  if (!proof || !provider) return false;
+  const expected = {
+    serverVersion: provider.serverVersion,
+    modelName: provider.modelName,
+    modelDigest: provider.modelDigest,
+    modelSizeBytes: provider.modelSizeBytes,
+  };
+  const activeExpected = { modelName: provider.modelName, modelDigest: provider.modelDigest, modelSizeBytes: provider.modelSizeBytes };
+  return proof.matched === true && proof.endpoint === provider.endpoint && proof.activeModelRequired === requireActiveModel &&
+    canonicalJson(proof.response) === canonicalJson(expected) && proof.responseSha256 === sha256Json(expected) &&
+    (!requireActiveModel || (canonicalJson(proof.activeModel) === canonicalJson(activeExpected) && proof.activeModelSha256 === sha256Json(activeExpected)));
+}
+
+function localProviderProofWellFormed(proof, provider) {
+  if (!proof || proof.endpoint !== provider.endpoint) return false;
+  if (proof.response === null) return proof.responseSha256 === null && proof.matched === false && typeof proof.exitCode === 'number';
+  return proof.response && typeof proof.response === 'object' && proof.responseSha256 === sha256Json(proof.response) && typeof proof.matched === 'boolean' &&
+    ((proof.activeModel === null && proof.activeModelSha256 === null) || (proof.activeModel && proof.activeModelSha256 === sha256Json(proof.activeModel)));
 }
 
 export function fileArtifact(path, root, mediaType = 'application/octet-stream') {
@@ -193,7 +215,26 @@ function duplicateValues(values) {
 }
 
 function artifactRefs(task) {
-  return [task.prompt, task.writtenPolicy, task.invariant, task.functionalOracle.artifact, task.architectureOracle.artifact, task.blueprint];
+  return [
+    task.prompt, task.writtenPolicy, task.invariant, task.functionalOracle.artifact,
+    task.architectureOracle.artifact, task.blueprint, task.referencePatch,
+  ].filter(Boolean);
+}
+
+function findSymlinks(root) {
+  const base = realpathSync(root);
+  const findings = [];
+  const walk = (directory) => {
+    for (const name of readdirSync(directory).sort()) {
+      const absolute = resolve(directory, name);
+      const path = posixRelative(base, absolute);
+      const stat = lstatSync(absolute);
+      if (stat.isSymbolicLink()) findings.push(path);
+      else if (stat.isDirectory()) walk(absolute);
+    }
+  };
+  walk(base);
+  return findings;
 }
 
 function verifyArtifact(root, artifact, label, refusals) {
@@ -311,6 +352,8 @@ export function verifyBundle(bundleDir, { requireSealed = true } = {}) {
   for (const repo of manifest.repositories) {
     try {
       const tree = resolveSealedFile(root, repo.treePath, `repository ${repo.id}`);
+      const symlinks = findSymlinks(tree);
+      if (symlinks.length) refusals.push(`repository ${repo.id}: symbolic links are refused (${symlinks.join(', ')})`);
       if (hashTree(tree) !== repo.treeSha256) refusals.push(`repository ${repo.id}: tree digest mismatch`);
     } catch (error) { refusals.push(`repository ${repo.id}: ${error.message}`); }
     if (repo.setupCommands.length === 0 && repo.preparedTreeSha256 !== repo.treeSha256) {
@@ -355,9 +398,13 @@ export function verifyBundle(bundleDir, { requireSealed = true } = {}) {
       refusals.push(`task ${task.id}: architecture oracle independence scan failed (${error.message})`);
     }
     if (task.allowedPaths.some((path) => task.protectedPaths.includes(path))) refusals.push(`task ${task.id}: allowed and protected paths overlap exactly`);
+    const hasReferenceArtifact = task.referencePatch !== undefined && task.referencePatch !== null;
+    const hasReferenceDigest = task.referencePatchSha256 !== null;
+    if (hasReferenceArtifact !== hasReferenceDigest) refusals.push(`task ${task.id}: reference patch artifact and digest must be present together`);
+    if (hasReferenceArtifact && task.referencePatch.sha256 !== task.referencePatchSha256) refusals.push(`task ${task.id}: reference patch artifact digest does not match referencePatchSha256`);
     if (protocol.phase === 'confirmatory') {
       if (task.classification !== 'confirmatory-held-out' || task.provenance.developmentExposed) refusals.push(`task ${task.id}: confirmatory task is development-exposed or misclassified`);
-      if (!/^[0-9a-f]{64}$/.test(task.referencePatchSha256 ?? '')) refusals.push(`task ${task.id}: confirmatory task has no frozen reference patch digest`);
+      if (!hasReferenceArtifact || !/^[0-9a-f]{64}$/.test(task.referencePatchSha256 ?? '')) refusals.push(`task ${task.id}: confirmatory task has no frozen reference patch artifact and digest`);
     } else if (task.classification !== 'pilot-development-only') refusals.push(`task ${task.id}: pilot task must be permanently classified pilot-development-only`);
   }
   for (const repoId of repoIds) {
@@ -374,6 +421,25 @@ export function verifyBundle(bundleDir, { requireSealed = true } = {}) {
     if (protocol.phase === 'confirmatory' && cell.modelIdentityEvidence !== 'provider-response') {
       refusals.push(`${cell.id}: confirmatory model identity must come from a provider response`);
     }
+    if (cell.localProvider) {
+      let endpoint = null;
+      try { endpoint = new URL(cell.localProvider.endpoint); }
+      catch { refusals.push(`${cell.id}: local provider endpoint is not a valid URL`); }
+      if (endpoint && (endpoint.protocol !== 'http:' || !['127.0.0.1', '[::1]'].includes(endpoint.hostname) || !endpoint.port || endpoint.username || endpoint.password || endpoint.search || endpoint.hash || !['', '/'].includes(endpoint.pathname))) {
+        refusals.push(`${cell.id}: local provider endpoint must be credential-free HTTP on one explicit loopback port with no path, query, or fragment`);
+      }
+      if (protocol.phase !== 'pilot') refusals.push(`${cell.id}: local provider cells are currently permitted only in claim-ineligible pilots`);
+      if (cell.client !== 'codex' && seal.attestation?.kind !== 'synthetic-self-test') refusals.push(`${cell.id}: the sealed local-provider adapter currently supports only Codex`);
+      if (cell.localProvider.kind !== 'ollama' || cell.localProvider.authentication !== 'none') refusals.push(`${cell.id}: local provider must be unauthenticated Ollama`);
+      if (protocol.isolation.modelNetworkPolicy !== 'loopback-only-single-endpoint') refusals.push(`${cell.id}: local provider requires loopback-only-single-endpoint isolation`);
+      if (cell.requestedModel !== cell.localProvider.modelName || cell.resolvedModel !== `${cell.localProvider.modelName}@sha256:${cell.localProvider.modelDigest}` || cell.modelIdentityEvidence !== 'provider-response') {
+        refusals.push(`${cell.id}: local provider model name, content digest, and provider-response identity are not bound consistently`);
+      }
+      if (manifest.tasks.some((task) => task.budget.maxCostUsd !== null)) refusals.push(`${cell.id}: local provider tasks must record USD cost as unavailable (maxCostUsd=null)`);
+    }
+  }
+  if (protocol.isolation.modelNetworkPolicy === 'loopback-only-single-endpoint' && !protocol.clientModelCells.some((cell) => cell.localProvider)) {
+    refusals.push('loopback-only model network policy has no local-provider cell');
   }
   if (typeof protocol.treatment.engineArtifact !== 'string' || !/^[0-9a-f]{64}$/.test(protocol.treatment.engineArtifactSha256 ?? '')) {
     refusals.push('exact BCE treatment artifact and digest are not frozen');
@@ -502,6 +568,7 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
   const architecture = readJsonArtifact(runsRoot, record.evidence.architectureOracle, `${terminalPath}/architecture oracle`);
   const policy = readJsonArtifact(runsRoot, record.evidence.policyDiff, `${terminalPath}/policy diff`);
   const task = bundle.manifest.tasks.find((entry) => entry.id === assignment.taskId);
+  const hardenedEvidenceRequired = typeof bundle.protocol.implementation.referenceVerifierSha256 === 'string';
   if (preparation.successful !== true || preparation.preparedTreeSha256 !== repo.preparedTreeSha256) throw new Error(`${terminalPath}: preparation evidence does not match frozen prepared tree`);
   if (record.bindings.treatmentConfigSha256 !== preparation.treatmentConfigSha256) throw new Error(`${terminalPath}: treatment binding differs from preparation evidence`);
   if (assignment.arm === 'baseline-no-bce' && record.bindings.treatmentConfigSha256 !== sha256Json({ arm: 'baseline-no-bce', changes: [] })) {
@@ -512,10 +579,23 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
       (bundle.protocol.isolation.runtimeExecutableStagingRequired === true && isolation.runtimeExecutableStagedSha256 !== bundle.protocol.isolation.runtimeArtifactSha256) ||
       (bundle.protocol.isolation.readDefaultDeny === true && (isolation.readDefaultDeny !== true || isolation.hostCanaryReadDenied !== true || isolation.hostCanaryWriteDenied !== true)) ||
       (bundle.protocol.isolation.positiveCapabilityProofRequired === true && (isolation.workspaceReadWriteAllowed !== true || isolation.stagedRuntimeVersionVerified !== true || isolation.stagedClientVersionVerified !== true)) ||
-      (assignment.arm === 'bce-enabled' && bundle.protocol.isolation.positiveCapabilityProofRequired === true && (isolation.mcpHandshakePassed !== true || !Array.isArray(isolation.mcpToolNames) || isolation.mcpToolNames.length === 0)) ||
+      (task.referencePatch && isolation.referencePatchReadDenied !== true) ||
+      (assignment.arm === 'bce-enabled' && bundle.protocol.isolation.positiveCapabilityProofRequired === true && (isolation.mcpHandshakePassed !== true || !Array.isArray(isolation.mcpToolNames) || isolation.mcpToolNames.length === 0 || (hardenedEvidenceRequired && (isolation.mcpDoneCheckAvailable !== true || !isolation.mcpToolNames.includes('run_gate'))))) ||
+      (cell.localProvider && (isolation.authenticationAbsent !== true || isolation.providerReachable !== true || isolation.externalNetworkDenied !== true || isolation.nonProviderLoopbackDenied !== true ||
+        !localProviderProofMatches(isolation.providerIdentityBefore, cell.localProvider) || !localProviderProofWellFormed(isolation.providerIdentityAfter, cell.localProvider) ||
+        (record.status === 'completed' && (isolation.providerIdentityStable !== true || !localProviderProofMatches(isolation.providerIdentityAfter, cell.localProvider, { requireActiveModel: true }) || isolation.providerIdentityBefore.responseSha256 !== isolation.providerIdentityAfter.responseSha256)) ||
+        (isolation.providerIdentityStable !== true && record.status !== 'infrastructure-error'))) ||
       (cell.client === 'codex' && isolation.clientSessionObserved === true && (isolation.credentialRetiredBeforeModelToolExecution !== true || isolation.modelToolExecutionObservedBeforeCredentialRetirement !== false)) ||
       (cell.client === 'codex' && record.status === 'completed' && isolation.clientSessionObserved !== true)) {
     throw new Error(`${terminalPath}: OS isolation proof does not match the frozen driver or did not deny oracle reads and protected writes`);
+  }
+  if (hardenedEvidenceRequired && assignment.arm === 'bce-enabled') {
+    const gateMissingAfterFailure = visible.bceRun == null && record.status !== 'completed' && typeof visible.failure === 'string';
+    if (!gateMissingAfterFailure && (canonicalJson(visible.bceRun?.command) !== canonicalJson(['bce', 'gate']) || typeof visible.bceRun?.exitCode !== 'number' || visible.bceGateAccepted !== (visible.bceRun.exitCode === 0))) {
+      throw new Error(`${terminalPath}: BCE arm lacks the exact controller-run visible gate evidence`);
+    }
+  } else if (hardenedEvidenceRequired && ((visible.bceRun ?? null) !== null || visible.bceGateAccepted !== null)) {
+    throw new Error(`${terminalPath}: baseline arm contains BCE gate evidence`);
   }
   if (functional.deterministic !== true || architecture.deterministic !== true) throw new Error(`${terminalPath}: hidden oracles were not repeat-deterministic`);
   for (const [label, oracle] of [['functional', functional], ['architecture', architecture]]) {

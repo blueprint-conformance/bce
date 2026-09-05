@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** Deterministic no-model fixture client. It is accepted only by synthetic-self-test seals. */
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 if (process.argv.includes('--version')) {
@@ -25,7 +25,11 @@ if (codexLifecycleFixture) {
 }
 let target;
 let content;
-if (prompt.includes('Implement summarize')) {
+let symlinkTarget = null;
+if (prompt.includes('Create a symbolic-link output fixture')) {
+  target = 'src/service.mjs';
+  symlinkTarget = 'gateway.mjs';
+} else if (prompt.includes('Implement summarize')) {
   target = 'src/service.mjs';
   content = "import { callProvider } from './gateway.mjs';\nexport async function summarize(name) { return callProvider(String(name).trim()); }\n";
 } else if (prompt.includes('Implement formatTitle')) {
@@ -41,6 +45,10 @@ if (prompt.includes('Implement summarize')) {
   process.stderr.write('unknown fixture prompt\n');
   process.exit(3);
 }
-writeFileSync(join(process.cwd(), target), content);
+const targetPath = join(process.cwd(), target);
+if (symlinkTarget) {
+  rmSync(targetPath);
+  symlinkSync(symlinkTarget, targetPath);
+} else writeFileSync(targetPath, content);
 if (codexLifecycleFixture) process.stdout.write(`${JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 100, output_tokens: 20, cached_input_tokens: 0 } })}\n`);
 else process.stdout.write(`${JSON.stringify({ model: 'fixture-model-v1', num_turns: 1, input_tokens: 100, output_tokens: 20, cached_tokens: 0, cost_usd: 0 })}\n`);
