@@ -127,7 +127,7 @@ import {
 
 // Reviewed upstream Action commits. Generated workflows execute these exact objects;
 // the major versions are comments for human update tooling, never executable refs.
-const CHECKOUT_ACTION = 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262'; // v4
+const CHECKOUT_ACTION = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'; // v7.0.1
 const SETUP_NODE_ACTION = 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020'; // v4
 
 interface Args {
@@ -1034,8 +1034,8 @@ async function main(): Promise<void> {
     fs.writeFileSync(targets.blueprint, stableStringify(sourceBlueprint));
     writeModeConfig(repoDir, 'advisory');
     fs.writeFileSync(targets.workflow, packageEngine
-      ? `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: ${CHECKOUT_ACTION} # v4\n        with:\n          fetch-depth: 0\n      - uses: ${SETUP_NODE_ACTION} # v4\n        with:\n          node-version: "22"\n      - run: npx --yes --package ${engine} bce gate --repo . --report-json bce-report.json\n`
-      : `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: ${CHECKOUT_ACTION} # v4\n        with:\n          fetch-depth: 0\n      - uses: ${engine}\n        with:\n          engine: local\n          repo: .\n          comment: "false"\n`);
+      ? `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: ${CHECKOUT_ACTION} # v7.0.1\n        with:\n          fetch-depth: 0\n      - uses: ${SETUP_NODE_ACTION} # v4\n        with:\n          node-version: "22"\n      - run: npx --yes --package ${engine} bce gate --repo . --report-json bce-report.json\n`
+      : `name: blueprint conformance\non: [pull_request]\npermissions:\n  contents: read\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: ${CHECKOUT_ACTION} # v7.0.1\n        with:\n          fetch-depth: 0\n      - uses: ${engine}\n        with:\n          engine: local\n          repo: .\n          comment: "false"\n`);
     const contextMarker = '<!-- bce-agent-context -->';
     const context = `${contextMarker}\n# BCE done-check\n\nPrefer MCP \`run_gate {}\` for diagnosis and the final live-tree done-check; if BCE MCP is unavailable, run \`npx --no-install bce gate --repo .\`. ` +
       `Read the substantive verdict: advisory mode can exit 0 while reports remain RED. Fix code on violations. Treat refusals and CLI exits 1 and 2 as red. Blueprint, baseline, mode, workflow, waiver, agent/MCP configuration, installed-skill, and engine-pin changes are policy changes and require human-owner review.\n`;

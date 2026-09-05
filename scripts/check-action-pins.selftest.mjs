@@ -36,7 +36,7 @@ if (!unknownOwner.includes("owner 'untrusted' is not in the repository allowlist
 
 writeFileSync(
   workflow,
-  'jobs:\n  probe:\n    steps:\n      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4\n      - uses: ./\n',
+  'jobs:\n  probe:\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n      - uses: ./\n',
 );
 const accepted = run(true);
 if (!accepted.includes('PASS (2 executable references, all immutable)')) {

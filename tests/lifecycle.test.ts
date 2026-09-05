@@ -11,7 +11,7 @@ import { reviewDigest } from '../src/review.js';
 
 const ROOT = path.join(__dirname, '..');
 const CLI = path.join(ROOT, 'src', 'cli.ts');
-const CHECKOUT_SHA = '11d5960a326750d5838078e36cf38b85af677262';
+const CHECKOUT_SHA = '3d3c42e5aac5ba805825da76410c181273ba90b1';
 const SETUP_NODE_SHA = '49933ea5288caeca8642d1e84afbd3f7d6820020';
 
 function cli(args: string[], cwd = ROOT) {
@@ -86,7 +86,7 @@ describe('adopt — safe proposal, never ratification', () => {
     const workflow = fs.readFileSync(path.join(dir, '.github', 'workflows', 'blueprint-conformance.yml'), 'utf8');
     expect(workflow).toContain('contents: read');
     expect(workflow).toContain('bce-engine@1.2.3');
-    expect(workflow).toContain(`uses: actions/checkout@${CHECKOUT_SHA} # v4`);
+    expect(workflow).toContain(`uses: actions/checkout@${CHECKOUT_SHA} # v7.0.1`);
     expect(workflow).toContain(`uses: actions/setup-node@${SETUP_NODE_SHA} # v4`);
     expect(workflow).not.toMatch(/uses:\s+[^\s]+@v\d/);
     expect(workflow).not.toContain('pull-requests: write');
@@ -122,7 +122,7 @@ describe('onboard — full repository wiring', () => {
     expect(result.status, result.out).toBe(0);
     const workflow = fs.readFileSync(path.join(dir, '.github/workflows/blueprint-conformance.yml'), 'utf8');
     expect(workflow).toContain(`uses: blueprint-conformance/bce@${sha}`);
-    expect(workflow).toContain(`uses: actions/checkout@${CHECKOUT_SHA} # v4`);
+    expect(workflow).toContain(`uses: actions/checkout@${CHECKOUT_SHA} # v7.0.1`);
     expect(workflow).not.toMatch(/uses:\s+[^\s]+@v\d/);
     expect(workflow).toContain('engine: local');
     expect(workflow).toContain('fetch-depth: 0');
