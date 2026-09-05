@@ -32,6 +32,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # Sealed pilots bind implementation bytes to their pre-run Git commit.
+          # Keep those historical objects available so replay can fail closed on
+          # real digest drift instead of failing because a shallow clone hid them.
+          fetch-depth: 0
 
       - name: Action supply-chain policy (negative control + full-tree check)
         run: node scripts/check-action-pins.selftest.mjs && node scripts/check-action-pins.mjs
