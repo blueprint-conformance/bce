@@ -142,7 +142,131 @@ function requireArtifactDigest(root, path, expectedSha256, label, blockers) {
   }
 }
 
-function verifyReleaseBinding(root, releaseBinding, blockers) {
+function exactObjectKeys(value, expected, label, blockers) {
+  const actual = value && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).sort() : [];
+  if (canonicalJson(actual) !== canonicalJson([...expected].sort())) blockers.push(`${label} has an unexpected shape`);
+}
+
+function decodeDssePayload(bundle, label, blockers) {
+  const encoded = bundle?.dsseEnvelope?.payload;
+  if (typeof encoded !== 'string' || encoded.length === 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) {
+    blockers.push(`${label} has no canonical DSSE payload`);
+    return null;
+  }
+  const bytes = Buffer.from(encoded, 'base64');
+  if (bytes.toString('base64') !== encoded) {
+    blockers.push(`${label} DSSE payload is not canonical base64`);
+    return null;
+  }
+  try {
+    return { bytes, value: JSON.parse(bytes.toString('utf8')) };
+  } catch (error) {
+    blockers.push(`${label} DSSE payload is not JSON: ${error.message}`);
+    return null;
+  }
+}
+
+function defaultSigstoreVerifier(root, bundlePath, { issuer, identity } = {}) {
+  const cli = resolve(root, 'node_modules', '@sigstore', 'cli', 'bin', 'run');
+  const args = [cli, 'verify', bundlePath];
+  if (issuer) args.push('--certificate-issuer', issuer, '--certificate-identity-uri', identity);
+  const result = spawnSync(process.execPath, args, { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  if (result.status !== 0) throw new Error(String(result.stderr || result.stdout).trim() || `exit ${result.status}`);
+}
+
+function packageSubjectRefusals(statement, releaseBinding, label) {
+  const refusals = [];
+  const subjects = statement?.subject;
+  const expectedName = `pkg:npm/${releaseBinding.packageName}@${releaseBinding.version}`;
+  let expectedSha512;
+  try {
+    const encoded = releaseBinding.npmIntegrity.replace(/^sha512-/, '');
+    const bytes = Buffer.from(encoded, 'base64');
+    if (bytes.byteLength !== 64 || bytes.toString('base64') !== encoded) throw new Error('not canonical SHA-512 base64');
+    expectedSha512 = bytes.toString('hex');
+  } catch (error) {
+    refusals.push(`${label} cannot derive the package digest from npm integrity: ${error.message}`);
+    return refusals;
+  }
+  if (!Array.isArray(subjects) || subjects.length !== 1 || subjects[0]?.name !== expectedName ||
+      canonicalJson(Object.keys(subjects[0]?.digest ?? {}).sort()) !== canonicalJson(['sha512']) ||
+      subjects[0]?.digest?.sha512 !== expectedSha512) {
+    refusals.push(`${label} does not bind the exact registry package bytes`);
+  }
+  return refusals;
+}
+
+export function registryReleaseEvidenceRefusals(root, releaseBinding, { verifySigstore = defaultSigstoreVerifier } = {}) {
+  const blockers = [];
+  const reference = releaseBinding?.registryVerification;
+  if (!reference) return ['registry-byte and npm-provenance verification is unset'];
+  requireArtifactDigest(root, reference.recordPath, reference.recordSha256, 'registry verification record', blockers);
+  let record;
+  try {
+    record = readJsonFile(root, reference.recordPath, 'registry verification record').value;
+  } catch (error) {
+    blockers.push(`registry verification record: ${error.message}`);
+    return blockers;
+  }
+  exactObjectKeys(record, [
+    'schemaVersion', 'packageName', 'version', 'registry', 'tarballUrl', 'npmIntegrity',
+    'downloadedTarballSha256', 'attestationsUrl', 'capturedAt', 'provenanceAttestation',
+  ], 'registry verification record', blockers);
+  const expectedAttestationsUrl =
+    `https://registry.npmjs.org/-/npm/v1/attestations/${releaseBinding.packageName}@${releaseBinding.version}`;
+  if (record.schemaVersion !== '1' || record.packageName !== releaseBinding.packageName ||
+      record.version !== releaseBinding.version || record.registry !== 'https://registry.npmjs.org/' ||
+      record.tarballUrl !== releaseBinding.registryTarballUrl || record.npmIntegrity !== releaseBinding.npmIntegrity ||
+      record.downloadedTarballSha256 !== releaseBinding.packageArtifactSha256 ||
+      record.attestationsUrl !== expectedAttestationsUrl ||
+      !Number.isFinite(Date.parse(record.capturedAt))) {
+    blockers.push('registry verification record differs from the exact downloaded release binding');
+  }
+  const expectedAttestationKeys = ['path', 'sha256', 'predicateType'];
+  exactObjectKeys(record.provenanceAttestation, [
+    ...expectedAttestationKeys, 'certificateIssuer', 'certificateIdentityURI',
+  ], 'npm provenance attestation reference', blockers);
+  if (record.provenanceAttestation?.predicateType !== 'https://slsa.dev/provenance/v1' ||
+      record.provenanceAttestation?.certificateIssuer !== 'https://token.actions.githubusercontent.com' ||
+      record.provenanceAttestation?.certificateIdentityURI !==
+        `https://github.com/blueprint-conformance/bce/.github/workflows/release.yml@refs/tags/v${releaseBinding.version}`) {
+    blockers.push('registry provenance does not name the exact GitHub release identity');
+  }
+  for (const [label, attestation] of [['npm provenance attestation', record.provenanceAttestation]]) {
+    if (!attestation) continue;
+    requireArtifactDigest(root, attestation.path, attestation.sha256, `${label} bundle`, blockers);
+    let bundleFile;
+    try {
+      bundleFile = readJsonFile(root, attestation.path, `${label} bundle`);
+    } catch (error) {
+      blockers.push(error.message);
+      continue;
+    }
+    const payload = decodeDssePayload(bundleFile.value, label, blockers);
+    if (!payload) continue;
+    blockers.push(...packageSubjectRefusals(payload.value, releaseBinding, label));
+    if (payload.value.predicateType !== attestation.predicateType) blockers.push(`${label} predicate type differs from its frozen reference`);
+    const build = payload.value.predicate?.buildDefinition;
+    const workflow = build?.externalParameters?.workflow;
+    const source = build?.resolvedDependencies?.find((entry) => entry?.digest?.gitCommit === releaseBinding.gitCommit);
+    if (workflow?.repository !== 'https://github.com/blueprint-conformance/bce' ||
+        workflow?.path !== '.github/workflows/release.yml' || workflow?.ref !== `refs/tags/v${releaseBinding.version}` ||
+        source?.uri !== `git+https://github.com/blueprint-conformance/bce@refs/tags/v${releaseBinding.version}`) {
+      blockers.push('npm provenance attestation does not bind the exact BCE release workflow, tag, and source commit');
+    }
+    try {
+      verifySigstore(root, bundleFile.absolute, {
+        issuer: attestation.certificateIssuer,
+        identity: attestation.certificateIdentityURI,
+      });
+    } catch (error) {
+      blockers.push(`${label} cryptographic verification failed: ${error.message}`);
+    }
+  }
+  return blockers;
+}
+
+function verifyReleaseBinding(root, releaseBinding, blockers, hooks = {}) {
   if (releaseBinding === null) {
     blockers.push('release binding is unset');
     return;
@@ -150,6 +274,7 @@ function verifyReleaseBinding(root, releaseBinding, blockers) {
   requireArtifactDigest(root, releaseBinding.packageArtifactPath, releaseBinding.packageArtifactSha256, 'release package artifact', blockers);
   requireArtifactDigest(root, releaseBinding.releaseStatePath, releaseBinding.releaseStateSha256, 'public release state', blockers);
   requireArtifactDigest(root, releaseBinding.attestationPath, releaseBinding.attestationSha256, 'release attestation', blockers);
+  blockers.push(...registryReleaseEvidenceRefusals(root, releaseBinding, hooks));
   try {
     const packageArtifact = resolveRegularFileInside(root, releaseBinding.packageArtifactPath, 'release package artifact');
     const actualIntegrity = `sha512-${createHash('sha512').update(readFileSync(packageArtifact)).digest('base64')}`;
@@ -173,6 +298,7 @@ function verifyReleaseBinding(root, releaseBinding, blockers) {
       registryTarballUrl: releaseBinding.registryTarballUrl,
       runtimeArtifactSha256: releaseBinding.runtimeArtifactSha256,
       installedTreeSha256: releaseBinding.installedTreeSha256,
+      registryVerificationSha256: releaseBinding.registryVerification.recordSha256,
       releaseStateSha256: releaseBinding.releaseStateSha256,
     };
     if (canonicalJson(attestation) !== canonicalJson(expected)) blockers.push('release attestation content differs from the exact source, package, registry, runtime, and installed-tree binding');
@@ -291,6 +417,31 @@ function resolveDirectoryInside(root, path, label) {
   return canonicalPath;
 }
 
+export function stageExecutionCellBindingRefusals(stage, cell, bundleCell) {
+  const refusals = [];
+  const bindings = [
+    ['id', 'id'],
+    ['client', 'client'],
+    ['executable', 'executable'],
+    ['clientVersion', 'clientVersion'],
+    ['clientArtifactSha256', 'clientArtifactSha256'],
+    ['adapterArtifactSha256', 'adapterSha256'],
+    ['requestedModel', 'requestedModel'],
+    ['resolvedModel', 'resolvedModel'],
+    ['modelIdentitySource', 'modelIdentitySource'],
+    ['reasoningEffort', 'reasoningEffort'],
+  ];
+  if (bindings.some(([v3Key, v2Key]) => cell[v3Key] !== bundleCell[v2Key])) {
+    refusals.push(`${stage.id} execution bundle client/model identity differs from the preregistered cell`);
+  }
+  // A v2 execution bundle is a complete single-stage experiment, so its sole
+  // cell is locally primary. V3 owns the separate cross-stage transport role.
+  if (bundleCell.role !== 'primary') {
+    refusals.push(`${stage.id} execution bundle cell must be primary within its single-stage v2 design`);
+  }
+  return refusals;
+}
+
 function verifyStageExecutionBundle(root, protocol, stage, blockers) {
   if (!stage.executionBundlePath) {
     blockers.push(`${stage.id} sealed execution bundle is unset`);
@@ -331,22 +482,7 @@ function verifyStageExecutionBundle(root, protocol, stage, blockers) {
     blockers.push(`${stage.id} execution bundle topology differs from the preregistered task population and denominator`);
   }
   if (cell && bundleCell) {
-    const bindings = [
-      ['id', 'id'],
-      ['role', 'role'],
-      ['client', 'client'],
-      ['executable', 'executable'],
-      ['clientVersion', 'clientVersion'],
-      ['clientArtifactSha256', 'clientArtifactSha256'],
-      ['adapterArtifactSha256', 'adapterSha256'],
-      ['requestedModel', 'requestedModel'],
-      ['resolvedModel', 'resolvedModel'],
-      ['modelIdentitySource', 'modelIdentitySource'],
-      ['reasoningEffort', 'reasoningEffort'],
-    ];
-    if (bindings.some(([v3Key, v2Key]) => cell[v3Key] !== bundleCell[v2Key])) {
-      blockers.push(`${stage.id} execution bundle client/model identity differs from the preregistered cell`);
-    }
+    blockers.push(...stageExecutionCellBindingRefusals(stage, cell, bundleCell));
     const qualification = bundleCell.toolLoop?.qualificationAttestation;
     const expectedQualificationPath = qualification ? `${stage.executionBundlePath}/${qualification.path}` : null;
     if (!qualification || cell.qualification.attestationPath !== expectedQualificationPath || cell.qualification.attestationSha256 !== qualification.sha256) {
@@ -387,6 +523,56 @@ function verifyStageExecutionBundle(root, protocol, stage, blockers) {
   return { bundleRoot, bundle };
 }
 
+export function externalResultAnchorRefusals(root, protocol, stage, executionStudyId, summary, { verifySigstore = defaultSigstoreVerifier } = {}) {
+  const blockers = [];
+  const evidence = stage.resultEvidence;
+  requireArtifactDigest(root, evidence.externalAnchorPath, evidence.externalAnchorSha256, `${stage.id} external result anchor`, blockers);
+  requireArtifactDigest(root, evidence.externalAnchorBundlePath, evidence.externalAnchorBundleSha256, `${stage.id} external result-anchor Sigstore bundle`, blockers);
+  let anchorFile;
+  let bundleFile;
+  try {
+    anchorFile = readJsonFile(root, evidence.externalAnchorPath, `${stage.id} external result anchor`);
+    bundleFile = readJsonFile(root, evidence.externalAnchorBundlePath, `${stage.id} external result-anchor Sigstore bundle`);
+  } catch (error) {
+    blockers.push(error.message);
+    return blockers;
+  }
+  const anchor = anchorFile.value;
+  exactObjectKeys(anchor, [
+    'schemaVersion', 'anchorKind', 'studyId', 'executionStudyId', 'stageId', 'resultSha256',
+    'checkpointHeadSha256', 'releasePackageArtifactSha256', 'releaseRegistryVerificationSha256',
+    'resultSourceCommit', 'anchorWorkflowCommit', 'operatorModel', 'operatorIndependence',
+    'publicUrl', 'anchoredAt', 'anchorSha256',
+  ], `${stage.id} external result anchor`, blockers);
+  if (anchor.schemaVersion !== '2' || anchor.anchorKind !== 'sigstore-github-oidc-result-anchor' ||
+      anchor.studyId !== protocol.studyId || anchor.executionStudyId !== executionStudyId || anchor.stageId !== stage.id ||
+      anchor.resultSha256 !== summary.resultSha256 || anchor.checkpointHeadSha256 !== summary.publicReplay?.checkpointHeadSha256 ||
+      anchor.releasePackageArtifactSha256 !== protocol.releaseBinding?.packageArtifactSha256 ||
+      anchor.releaseRegistryVerificationSha256 !== protocol.releaseBinding?.registryVerification?.recordSha256 ||
+      !/^[0-9a-f]{40}$/.test(anchor.resultSourceCommit ?? '') || !/^[0-9a-f]{40}$/.test(anchor.anchorWorkflowCommit ?? '') ||
+      anchor.resultSourceCommit !== anchor.anchorWorkflowCommit ||
+      anchor.operatorModel !== 'solo-maintainer-machine-adjudicated' ||
+      anchor.operatorIndependence !== 'author-controlled-not-independent' ||
+      !/^https:\/\/github\.com\/blueprint-conformance\/bce\/actions\/runs\/[1-9][0-9]*(?:\/attempts\/[1-9][0-9]*)?$/.test(anchor.publicUrl ?? '') ||
+      !Number.isFinite(Date.parse(anchor.anchoredAt)) ||
+      anchor.anchorSha256 !== sha256Bytes(JSON.stringify(canonical({ ...anchor, anchorSha256: null })))) {
+    blockers.push(`${stage.id} external result anchor is not a closed binding to the result, registry-verified release, and disclosed solo operator`);
+  }
+  const payload = decodeDssePayload(bundleFile.value, `${stage.id} external result-anchor Sigstore bundle`, blockers);
+  if (payload && !payload.bytes.equals(readFileSync(anchorFile.absolute))) {
+    blockers.push(`${stage.id} external result-anchor Sigstore payload differs from the exact anchor bytes`);
+  }
+  try {
+    verifySigstore(root, bundleFile.absolute, {
+      issuer: evidence.externalAnchorCertificateIssuer,
+      identity: evidence.externalAnchorCertificateIdentityURI,
+    });
+  } catch (error) {
+    blockers.push(`${stage.id} external result-anchor cryptographic verification failed: ${error.message}`);
+  }
+  return blockers;
+}
+
 function verifyCompletedStageEvidence(root, protocol, stage, blockers) {
   const execution = verifyStageExecutionBundle(root, protocol, stage, blockers);
   if (!stage.resultEvidence) {
@@ -419,16 +605,7 @@ function verifyCompletedStageEvidence(root, protocol, stage, blockers) {
         summary.runDisposition?.committedTrials !== expectedTrials || summary.publicReplay?.checkpointHeadSha256 !== stage.resultEvidence.checkpointHeadSha256) {
       blockers.push(`${stage.id} public result does not bind the full preregistered denominator and checkpoint head`);
     }
-    requireArtifactDigest(root, stage.resultEvidence.externalAnchorPath, stage.resultEvidence.externalAnchorSha256, `${stage.id} external checkpoint anchor`, blockers);
-    const anchor = readJsonFile(root, stage.resultEvidence.externalAnchorPath, `${stage.id} external checkpoint anchor`).value;
-    const expectedKeys = ['schemaVersion', 'studyId', 'executionStudyId', 'stageId', 'resultSha256', 'checkpointHeadSha256', 'publicUrl', 'anchoredAt', 'anchorSha256'].sort();
-    if (canonicalJson(Object.keys(anchor).sort()) !== canonicalJson(expectedKeys) || anchor.schemaVersion !== '1' ||
-        anchor.studyId !== protocol.studyId || anchor.executionStudyId !== execution.bundle.protocol.studyId || anchor.stageId !== stage.id ||
-        anchor.resultSha256 !== summary.resultSha256 || anchor.checkpointHeadSha256 !== summary.publicReplay?.checkpointHeadSha256 ||
-        !/^https:\/\//.test(anchor.publicUrl ?? '') || !Number.isFinite(Date.parse(anchor.anchoredAt)) ||
-        anchor.anchorSha256 !== sha256Bytes(JSON.stringify(canonical({ ...anchor, anchorSha256: null })))) {
-      blockers.push(`${stage.id} external checkpoint anchor is not a closed self-digested binding to the public result`);
-    }
+    blockers.push(...externalResultAnchorRefusals(root, protocol, stage, execution.bundle.protocol.studyId, summary));
   } catch (error) {
     blockers.push(`${stage.id} completed evidence could not be read: ${error.message}`);
   }
@@ -680,6 +857,13 @@ export function validateProtocolV3(root, protocol) {
   }
   if (protocol.heldoutAccess.firstAccessAt !== null && !Number.isFinite(Date.parse(protocol.heldoutAccess.firstAccessAt))) refusals.push('heldout first-access timestamp is invalid');
   const completedStages = protocol.stages.filter((stage) => stage.lifecycle === 'complete');
+  const hasClaimBearingState = completedStages.length > 0 || protocol.currentClaimClasses.some((claimClass) =>
+    CLAIM_CLASSES.find((entry) => entry.id === claimClass)?.efficacyEligible === true);
+  if (hasClaimBearingState) {
+    // Readiness is advisory before a run, but release authenticity is not
+    // advisory once a protocol can carry an efficacy claim.
+    verifyReleaseBinding(root, protocol.releaseBinding, refusals);
+  }
   for (const stage of protocol.stages) {
     if (stage.lifecycle === 'complete') verifyCompletedStageEvidence(root, protocol, stage, refusals);
     else if (stage.resultEvidence !== null) refusals.push(`${stage.id}: only a completed stage may bind claim-bearing result evidence`);
@@ -695,7 +879,6 @@ export function validateProtocolV3(root, protocol) {
     }
     if (completedStages.length === protocol.stages.length) {
       claimsByLifecycle.push(CLAIM['bounded-default-adoption-decision-all-preregistered-cells-exact-release-and-task-population']);
-      if (protocol.operatorModel === 'independent-replication') claimsByLifecycle.push(CLAIM['independent-replication-exact-frozen-scope']);
     }
   }
   if (canonicalJson(protocol.currentClaimClasses) !== canonicalJson(claimsByLifecycle)) {
@@ -738,8 +921,8 @@ export function validateProtocolV3(root, protocol) {
     if (protocol.stages.some((stage) => stage.preregistration !== 'sealed-before-heldout-access')) refusals.push('non-draft stages require preregistration before heldout access');
     if (protocol.stages.some((stage) => stage.lifecycle === 'design-draft')) refusals.push('non-draft program may not contain a draft stage');
   }
-  if (protocol.operatorModel === 'solo-maintainer-machine-adjudicated' && protocol.currentClaimClasses.includes(CLAIM['independent-replication-exact-frozen-scope'])) {
-    refusals.push('a solo-maintainer study cannot claim independent replication');
+  if (protocol.currentClaimClasses.includes(CLAIM['independent-replication-exact-frozen-scope'])) {
+    refusals.push('the canonical solo-maintainer study cannot claim independent replication');
   }
   refuseIfAny(refusals, 'v3 protocol refused');
   return { valid: true, claimClasses: protocol.currentClaimClasses };
@@ -812,9 +995,7 @@ export function verifyStudyRegistry({ root, indexPath = 'research/model-evaluati
       if (study.lifecycle !== protocol.lifecycle || canonicalJson(study.currentClaimClasses) !== canonicalJson(protocol.currentClaimClasses)) throw new EvidenceFoundryRefusal(`${study.studyId}: registry state differs from protocol`);
       const expectedEvidenceClass = protocol.lifecycle === 'design-draft'
         ? 'confirmatory-program-design'
-        : protocol.operatorModel === 'independent-replication'
-          ? 'independent-replication'
-          : 'confirmatory-staged-causal-study';
+        : 'confirmatory-staged-causal-study';
       if (study.evidenceClass !== expectedEvidenceClass) throw new EvidenceFoundryRefusal(`${study.studyId}: registry evidence class differs from protocol lifecycle and operator`);
       if (protocol.artifacts.powerDesign.path !== study.powerDesignPath || protocol.artifacts.powerDesign.sha256 !== study.powerDesignSha256) {
         throw new EvidenceFoundryRefusal(`${study.studyId}: protocol power-design binding differs from registry`);
@@ -831,7 +1012,7 @@ export function verifyStudyRegistry({ root, indexPath = 'research/model-evaluati
   return { valid: true, ready: readinessBlockers.length === 0, readinessScope: stageId ?? 'program', archives: archiveReports, studies: studyReports, readinessBlockers };
 }
 
-export function studyReadinessBlockers(root, protocol, powerDesign, { stageId } = {}) {
+export function studyReadinessBlockers(root, protocol, powerDesign, { stageId, verifySigstore } = {}) {
   const blockers = [];
   const targetStage = stageId === undefined ? null : protocol.stages.find((stage) => stage.id === stageId);
   if (stageId !== undefined && !targetStage) throw new EvidenceFoundryRefusal(`unknown stage: ${stageId}`);
@@ -852,7 +1033,7 @@ export function studyReadinessBlockers(root, protocol, powerDesign, { stageId } 
     if (protocol.lifecycle !== 'frozen-ready-not-run') blockers.push(`lifecycle is ${protocol.lifecycle}, expected frozen-ready-not-run`);
     if (canonicalJson(protocol.currentClaimClasses) !== canonicalJson([CLAIM['no-efficacy-claim']])) blockers.push('a not-yet-run study must have only the no-efficacy-claim class');
   }
-  verifyReleaseBinding(root, protocol.releaseBinding, blockers);
+  verifyReleaseBinding(root, protocol.releaseBinding, blockers, { verifySigstore });
   if (protocol.taskPopulation.status !== 'frozen') blockers.push('task manifest is not frozen');
   if (protocol.taskPopulation.exposure !== 'never-exposed-to-development') blockers.push('task population is development-exposed');
   const expectedHeldoutStatus = targetStage?.stageType === 'transport-confirmatory' ? 'accessed-after-seal' : 'never-accessed';

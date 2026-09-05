@@ -1,0 +1,130 @@
+name: Evidence Foundry result anchor
+
+# Produces the external, transparency-log-backed result anchor required before
+# v3 can unlock a causal claim. This does not create independent replication:
+# the signed statement explicitly discloses an author-controlled solo operator.
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Full commit containing the running protocol and complete public result bytes
+        type: string
+        required: true
+      stage_id:
+        description: Exact preregistered stage to anchor
+        type: choice
+        required: true
+        options:
+          - primary-confirmatory
+          - transport-a
+          - transport-b
+          - transport-c
+      results_path:
+        description: Repository-relative public results directory for the stage execution bundle
+        type: string
+        required: true
+      protocol_path:
+        description: Repository-relative v3 protocol path
+        type: string
+        required: true
+        default: research/model-evaluation/studies/evidence-foundry-v3/protocol.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-foundry-anchor-${{ inputs.stage_id }}-${{ inputs.source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  anchor:
+    name: verify result and issue GitHub OIDC anchor
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      STAGE_ID: ${{ inputs.stage_id }}
+      RESULTS_PATH: ${{ inputs.results_path }}
+      PROTOCOL_PATH: ${{ inputs.protocol_path }}
+    steps:
+      - name: Refuse mutable or ambiguous source selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::source_commit must be a full lowercase commit SHA"; exit 1; }
+          [ "$GITHUB_REF" = "refs/heads/main" ] || { echo "::error::anchors may be issued only from the protected main branch"; exit 1; }
+          [ "$SOURCE_COMMIT" = "$GITHUB_SHA" ] || { echo "::error::source_commit must equal the exact main workflow commit"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ inputs.source_commit }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: 22.22.2
+          cache: npm
+
+      - name: Install verifier dependencies
+        run: npm ci
+
+      - name: Verify the registered v3 structure before result replay
+        run: node scripts/verify-evidence-foundry-registry.mjs --json
+
+      - name: Prove the checkout is the requested immutable result source
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          [ "$actual" = "$SOURCE_COMMIT" ] || { echo "::error::checkout ${actual} differs from ${SOURCE_COMMIT}"; exit 1; }
+
+      - name: Replay result and create closed solo-operator statement
+        run: >-
+          node scripts/create-evidence-foundry-result-anchor.mjs
+          --protocol "$PROTOCOL_PATH"
+          --stage "$STAGE_ID"
+          --results "$RESULTS_PATH"
+          --out result-anchor.json
+
+      - name: Sign and publish the statement through Sigstore transparency
+        run: >-
+          node node_modules/@sigstore/cli/bin/run attest result-anchor.json
+          --output-file result-anchor.sigstore
+          --timeout 60
+
+      - name: Reverify exact GitHub workflow identity and emit integration values
+        shell: bash
+        run: |
+          set -euo pipefail
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/evidence-foundry-anchor.yml@${GITHUB_REF}"
+          node node_modules/@sigstore/cli/bin/run verify result-anchor.sigstore \
+            --certificate-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-uri "$identity"
+          IDENTITY="$identity" node --input-type=module -e '
+            import { createHash } from "node:crypto";
+            import { readFileSync, writeFileSync } from "node:fs";
+            const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
+            const anchor = JSON.parse(readFileSync("result-anchor.json", "utf8"));
+            writeFileSync("result-evidence-values.json", `${JSON.stringify({
+              resultSha256: anchor.resultSha256,
+              checkpointHeadSha256: anchor.checkpointHeadSha256,
+              externalAnchorSha256: sha256("result-anchor.json"),
+              externalAnchorBundleSha256: sha256("result-anchor.sigstore"),
+              externalAnchorCertificateIssuer: "https://token.actions.githubusercontent.com",
+              externalAnchorCertificateIdentityURI: process.env.IDENTITY,
+            }, null, 2)}\n`);
+          '
+
+      - name: Retain exact claim-chain bytes for protocol integration
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: evidence-foundry-${{ inputs.stage_id }}-result-anchor
+          path: |
+            result-anchor.json
+            result-anchor.sigstore
+            result-evidence-values.json
+          if-no-files-found: error
+          retention-days: 90

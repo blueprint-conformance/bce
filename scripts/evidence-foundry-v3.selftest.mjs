@@ -9,9 +9,13 @@ import { tmpdir } from 'node:os';
 import {
   CLAIM_CLASSES,
   EvidenceFoundryRefusal,
+  canonical,
+  externalResultAnchorRefusals,
+  registryReleaseEvidenceRefusals,
   recomputeStagePower,
   resolveRegularFileInside,
   sha256Bytes,
+  stageExecutionCellBindingRefusals,
   studyReadinessBlockers,
   validatePowerDesign,
   validateProtocolV3,
@@ -53,6 +57,10 @@ function frozenProtocol() {
     registryTarballUrl: 'https://registry.npmjs.org/bce-engine/-/bce-engine-0.3.0.tgz',
     runtimeArtifactSha256: '3'.repeat(64),
     installedTreeSha256: '4'.repeat(64),
+    registryVerification: {
+      recordPath: 'research/model-evaluation/studies/evidence-foundry-v3/registry-verification.json',
+      recordSha256: 'a'.repeat(64),
+    },
     releaseStatePath: 'release-state.json',
     releaseStateSha256: '5'.repeat(64),
     attestationPath: 'research/model-evaluation/studies/evidence-foundry-v3/release-attestation.json',
@@ -100,6 +108,24 @@ assert.equal(CLAIM_CLASSES.length, 6);
 assert.equal(new Set(CLAIM_CLASSES.map((entry) => entry.id)).size, 6);
 assert.deepEqual(registry.claimClasses, CLAIM_CLASSES);
 
+const stageCell = {
+  id: 'transport-cell-a', role: 'transportability', client: 'bce-ollama-tool-client', executable: '/sealed/client.mjs',
+  clientVersion: 'bce-ollama-tool-client 1.0.0', clientArtifactSha256: '1'.repeat(64), adapterArtifactSha256: '2'.repeat(64),
+  requestedModel: 'model', resolvedModel: `model@sha256:${'3'.repeat(64)}`, modelIdentitySource: 'provider-response', reasoningEffort: 'low',
+};
+const singleStageBundleCell = { ...stageCell, role: 'primary', adapterSha256: stageCell.adapterArtifactSha256 };
+delete singleStageBundleCell.adapterArtifactSha256;
+assert.deepEqual(stageExecutionCellBindingRefusals({ id: 'primary-confirmatory' }, { ...stageCell, role: 'primary' }, singleStageBundleCell), []);
+assert.deepEqual(stageExecutionCellBindingRefusals({ id: 'transport-a' }, stageCell, singleStageBundleCell), []);
+assert.match(
+  stageExecutionCellBindingRefusals({ id: 'transport-a' }, stageCell, { ...singleStageBundleCell, role: 'transportability' }).join('\n'),
+  /must be primary within its single-stage v2 design/,
+);
+assert.match(
+  stageExecutionCellBindingRefusals({ id: 'transport-a' }, stageCell, { ...singleStageBundleCell, resolvedModel: 'other' }).join('\n'),
+  /identity differs from the preregistered cell/,
+);
+
 const report = verifyStudyRegistry({ root });
 assert.equal(report.valid, true);
 assert.equal(report.ready, false);
@@ -113,6 +139,39 @@ assert.match(readyCli.stderr, /structurally valid but not execution-ready/);
 const unknownCli = spawnSync(process.execPath, [resolve(root, 'scripts/verify-evidence-foundry-registry.mjs'), '--invented-flag'], { cwd: root, encoding: 'utf8' });
 assert.equal(unknownCli.status, 2);
 assert.match(unknownCli.stderr, /unknown argument/);
+
+const captureCli = resolve(root, 'scripts/capture-evidence-foundry-registry.mjs');
+const captureNoArgs = spawnSync(process.execPath, [captureCli], { cwd: root, encoding: 'utf8' });
+assert.equal(captureNoArgs.status, 2);
+assert.match(captureNoArgs.stderr, /usage:/);
+const captureTraversal = spawnSync(process.execPath, [captureCli,
+  '--version', '0.3.0', '--source-commit', '1'.repeat(40), '--out-dir', '../outside',
+], { cwd: root, encoding: 'utf8' });
+assert.equal(captureTraversal.status, 2);
+assert.match(captureTraversal.stderr, /repository-relative and traversal-free/);
+const captureExisting = spawnSync(process.execPath, [captureCli,
+  '--version', '0.3.0', '--source-commit', '1'.repeat(40), '--out-dir', 'research',
+], { cwd: root, encoding: 'utf8' });
+assert.equal(captureExisting.status, 2);
+assert.match(captureExisting.stderr, /already exists.*may not be replaced/);
+
+const anchorCli = resolve(root, 'scripts/create-evidence-foundry-result-anchor.mjs');
+const anchorOutsideActions = spawnSync(process.execPath, [anchorCli,
+  '--stage', 'primary-confirmatory', '--results', 'results', '--out', 'anchor.json',
+], { cwd: root, encoding: 'utf8', env: { ...process.env, GITHUB_ACTIONS: 'false' } });
+assert.equal(anchorOutsideActions.status, 2);
+assert.match(anchorOutsideActions.stderr, /only by an identified blueprint-conformance\/bce GitHub Actions run/);
+
+const anchorWorkflow = readFileSync(resolve(root, '.github/workflows/evidence-foundry-anchor.yml'), 'utf8');
+assert.match(anchorWorkflow, /workflow_dispatch:/);
+assert.match(anchorWorkflow, /id-token: write/);
+assert.match(anchorWorkflow, /GITHUB_REF" = "refs\/heads\/main/);
+assert.doesNotMatch(anchorWorkflow, /refs\/tags/);
+assert.match(anchorWorkflow, /create-evidence-foundry-result-anchor\.mjs/);
+assert.match(anchorWorkflow, /verify-evidence-foundry-registry\.mjs --json/);
+assert.match(anchorWorkflow, /@sigstore\/cli\/bin\/run attest/);
+assert.match(anchorWorkflow, /@sigstore\/cli\/bin\/run verify/);
+assert.match(anchorWorkflow, /actions\/upload-artifact@[0-9a-f]{40}/);
 
 const indexExtra = clone(registry);
 indexExtra.unreviewed = true;
@@ -174,6 +233,10 @@ draftRelease.releaseBinding = {
   registryTarballUrl: 'https://registry.npmjs.org/bce-engine/-/bce-engine-0.3.0.tgz',
   runtimeArtifactSha256: '3'.repeat(64),
   installedTreeSha256: '4'.repeat(64),
+  registryVerification: {
+    recordPath: 'research/model-evaluation/studies/evidence-foundry-v3/registry-verification.json',
+    recordSha256: 'a'.repeat(64),
+  },
   releaseStatePath: 'release-state.json',
   releaseStateSha256: '5'.repeat(64),
   attestationPath: 'research/model-evaluation/studies/evidence-foundry-v3/release-attestation.json',
@@ -199,6 +262,54 @@ try {
   const artifact = (name, value) => artifactBytes(name, Buffer.from(JSON.stringify(value)));
   const packageArtifact = artifactBytes('release.tgz', Buffer.from('synthetic release artifact'));
   const packageIntegrity = `sha512-${createHash('sha512').update(readFileSync(join(readinessScratch, packageArtifact.path))).digest('base64')}`;
+  const packageSha512 = createHash('sha512').update(readFileSync(join(readinessScratch, packageArtifact.path))).digest('hex');
+  ready.releaseBinding.packageArtifactPath = packageArtifact.path;
+  ready.releaseBinding.packageArtifactSha256 = packageArtifact.sha256;
+  ready.releaseBinding.npmIntegrity = packageIntegrity;
+  const packageSubject = [{
+    name: `pkg:npm/${ready.releaseBinding.packageName}@${ready.releaseBinding.version}`,
+    digest: { sha512: packageSha512 },
+  }];
+  const provenanceStatement = {
+    subject: packageSubject,
+    predicateType: 'https://slsa.dev/provenance/v1',
+    predicate: {
+      buildDefinition: {
+        externalParameters: {
+          workflow: {
+            repository: 'https://github.com/blueprint-conformance/bce',
+            path: '.github/workflows/release.yml',
+            ref: 'refs/tags/v0.3.0',
+          },
+        },
+        resolvedDependencies: [{
+          uri: 'git+https://github.com/blueprint-conformance/bce@refs/tags/v0.3.0',
+          digest: { gitCommit: ready.releaseBinding.gitCommit },
+        }],
+      },
+    },
+  };
+  const dsse = (statement) => ({ dsseEnvelope: { payload: Buffer.from(JSON.stringify(statement)).toString('base64') } });
+  const provenanceBundle = artifact('npm-provenance.sigstore', dsse(provenanceStatement));
+  const registryVerification = artifact('registry-verification.json', {
+    schemaVersion: '1',
+    packageName: ready.releaseBinding.packageName,
+    version: ready.releaseBinding.version,
+    registry: 'https://registry.npmjs.org/',
+    tarballUrl: ready.releaseBinding.registryTarballUrl,
+    npmIntegrity: packageIntegrity,
+    downloadedTarballSha256: packageArtifact.sha256,
+    attestationsUrl: 'https://registry.npmjs.org/-/npm/v1/attestations/bce-engine@0.3.0',
+    capturedAt: '2026-09-06T00:00:00.000Z',
+    provenanceAttestation: {
+      path: provenanceBundle.path,
+      sha256: provenanceBundle.sha256,
+      predicateType: provenanceStatement.predicateType,
+      certificateIssuer: 'https://token.actions.githubusercontent.com',
+      certificateIdentityURI: 'https://github.com/blueprint-conformance/bce/.github/workflows/release.yml@refs/tags/v0.3.0',
+    },
+  });
+  ready.releaseBinding.registryVerification = { recordPath: registryVerification.path, recordSha256: registryVerification.sha256 };
   const releaseState = artifact('release-state.json', {
     currentVersion: ready.releaseBinding.version,
     npmIntegrity: packageIntegrity,
@@ -222,12 +333,10 @@ try {
     registryTarballUrl: ready.releaseBinding.registryTarballUrl,
     runtimeArtifactSha256: ready.releaseBinding.runtimeArtifactSha256,
     installedTreeSha256: ready.releaseBinding.installedTreeSha256,
+    registryVerificationSha256: registryVerification.sha256,
     releaseStateSha256: releaseState.sha256,
   };
   const releaseAttestation = artifact('release-attestation.json', releaseAttestationValue);
-  ready.releaseBinding.packageArtifactPath = packageArtifact.path;
-  ready.releaseBinding.packageArtifactSha256 = packageArtifact.sha256;
-  ready.releaseBinding.npmIntegrity = packageIntegrity;
   ready.releaseBinding.attestationPath = releaseAttestation.path;
   ready.releaseBinding.attestationSha256 = releaseAttestation.sha256;
   const manifest = artifact('task-manifest.json', { sealed: true });
@@ -256,7 +365,12 @@ try {
     cell.qualification.attestationPath = attestation.path;
     cell.qualification.attestationSha256 = attestation.sha256;
   }
-  assert.deepEqual(studyReadinessBlockers(readinessScratch, ready, powerDesign).filter((item) => /sealed execution bundle is unset/.test(item)), [
+  const readiness = (candidate, options = {}) => studyReadinessBlockers(readinessScratch, candidate, powerDesign, {
+    ...options,
+    verifySigstore: () => {},
+  });
+  assert.deepEqual(registryReleaseEvidenceRefusals(readinessScratch, ready.releaseBinding, { verifySigstore: () => {} }), []);
+  assert.deepEqual(readiness(ready).filter((item) => /sealed execution bundle is unset/.test(item)), [
     'primary-confirmatory sealed execution bundle is unset',
     'transport-a sealed execution bundle is unset',
     'transport-b sealed execution bundle is unset',
@@ -266,21 +380,21 @@ try {
   for (const cell of primaryOnly.clientModelCells.slice(1)) {
     cell.qualification = { status: 'unqualified', attestationPath: null, attestationSha256: null };
   }
-  assert.deepEqual(studyReadinessBlockers(readinessScratch, primaryOnly, powerDesign, { stageId: 'primary-confirmatory' }), [
+  assert.deepEqual(readiness(primaryOnly, { stageId: 'primary-confirmatory' }), [
     'primary-confirmatory sealed execution bundle is unset',
   ]);
   mkdirSync(join(readinessScratch, 'fake-bundle'));
   const fakeBundle = clone(primaryOnly);
   fakeBundle.stages[0].executionBundlePath = 'fake-bundle';
-  assert.match(studyReadinessBlockers(readinessScratch, fakeBundle, powerDesign, { stageId: 'primary-confirmatory' }).join('\n'), /execution bundle verifier failed/);
-  assert.match(studyReadinessBlockers(readinessScratch, primaryOnly, powerDesign).join('\n'), /transport-cell-a is not qualified before stage exposure/);
+  assert.match(readiness(fakeBundle, { stageId: 'primary-confirmatory' }).join('\n'), /execution bundle verifier failed/);
+  assert.match(readiness(primaryOnly).join('\n'), /transport-cell-a is not qualified before stage exposure/);
   assertRefuses(() => studyReadinessBlockers(readinessScratch, primaryOnly, powerDesign, { stageId: 'unknown-stage' }), /unknown stage/);
   const wrongIntegrity = clone(ready);
   wrongIntegrity.releaseBinding.npmIntegrity = `sha512-${Buffer.from('wrong bytes').toString('base64')}`;
-  assert.match(studyReadinessBlockers(readinessScratch, wrongIntegrity, powerDesign).join('\n'), /npm integrity does not match/);
+  assert.match(readiness(wrongIntegrity).join('\n'), /npm integrity does not match/);
   const wrongRegistryUrl = clone(ready);
   wrongRegistryUrl.releaseBinding.registryTarballUrl = 'https://registry.npmjs.org/bce-engine/-/bce-engine-9.9.9.tgz';
-  assert.match(studyReadinessBlockers(readinessScratch, wrongRegistryUrl, powerDesign).join('\n'), /registry tarball URL is not canonical/);
+  assert.match(readiness(wrongRegistryUrl).join('\n'), /registry tarball URL is not canonical/);
   const falseEvaluatorLock = clone(ready);
   falseEvaluatorLock.artifacts.evaluatorLock = artifact('false-evaluator-lock.json', {
     schemaVersion: '1',
@@ -291,13 +405,77 @@ try {
     deterministicPrimaryOracles: true,
     lockedBeforeHeldoutAccess: true,
   });
-  assert.match(studyReadinessBlockers(readinessScratch, falseEvaluatorLock, powerDesign).join('\n'), /evaluator lock content differs/);
+  assert.match(readiness(falseEvaluatorLock).join('\n'), /evaluator lock content differs/);
   const falseIntegrityLock = clone(ready);
   falseIntegrityLock.artifacts.integrityLock = artifact('false-integrity-lock.json', { schemaVersion: '1', policyId: 'weaker-policy' });
-  assert.match(studyReadinessBlockers(readinessScratch, falseIntegrityLock, powerDesign).join('\n'), /run-integrity lock differs/);
+  assert.match(readiness(falseIntegrityLock).join('\n'), /run-integrity lock differs/);
   const wrongManifest = clone(ready);
   wrongManifest.taskPopulation.manifestSha256 = '0'.repeat(64);
-  assert.match(studyReadinessBlockers(readinessScratch, wrongManifest, powerDesign).join('\n'), /task manifest digest does not match/);
+  assert.match(readiness(wrongManifest).join('\n'), /task manifest digest does not match/);
+
+  const wrongRegistryBytes = clone(ready);
+  wrongRegistryBytes.releaseBinding.packageArtifactSha256 = '0'.repeat(64);
+  assert.match(readiness(wrongRegistryBytes).join('\n'), /registry verification record differs|package artifact digest does not match/);
+  const wrongProvenanceCommit = clone(provenanceStatement);
+  wrongProvenanceCommit.predicate.buildDefinition.resolvedDependencies[0].digest.gitCommit = 'f'.repeat(40);
+  const wrongProvenanceBundle = artifact('wrong-provenance.sigstore', dsse(wrongProvenanceCommit));
+  const wrongProvenanceRecordValue = JSON.parse(readFileSync(join(readinessScratch, registryVerification.path), 'utf8'));
+  wrongProvenanceRecordValue.provenanceAttestation.path = wrongProvenanceBundle.path;
+  wrongProvenanceRecordValue.provenanceAttestation.sha256 = wrongProvenanceBundle.sha256;
+  const wrongProvenanceRecord = artifact('wrong-registry-verification.json', wrongProvenanceRecordValue);
+  const wrongProvenance = clone(ready);
+  wrongProvenance.releaseBinding.registryVerification = { recordPath: wrongProvenanceRecord.path, recordSha256: wrongProvenanceRecord.sha256 };
+  assert.match(readiness(wrongProvenance).join('\n'), /does not bind the exact BCE release workflow, tag, and source commit/);
+
+  const summary = {
+    resultSha256: 'd'.repeat(64),
+    publicReplay: { checkpointHeadSha256: 'e'.repeat(64) },
+  };
+  const anchor = {
+    schemaVersion: '2',
+    anchorKind: 'sigstore-github-oidc-result-anchor',
+    studyId: ready.studyId,
+    executionStudyId: 'bce-primary-execution',
+    stageId: ready.stages[0].id,
+    resultSha256: summary.resultSha256,
+    checkpointHeadSha256: summary.publicReplay.checkpointHeadSha256,
+    releasePackageArtifactSha256: ready.releaseBinding.packageArtifactSha256,
+    releaseRegistryVerificationSha256: ready.releaseBinding.registryVerification.recordSha256,
+    resultSourceCommit: '1'.repeat(40),
+    anchorWorkflowCommit: '1'.repeat(40),
+    operatorModel: 'solo-maintainer-machine-adjudicated',
+    operatorIndependence: 'author-controlled-not-independent',
+    publicUrl: 'https://github.com/blueprint-conformance/bce/actions/runs/123/attempts/1',
+    anchoredAt: '2026-09-06T00:00:00.000Z',
+    anchorSha256: null,
+  };
+  anchor.anchorSha256 = sha256Bytes(JSON.stringify(canonical(anchor)));
+  const anchorArtifact = artifact('primary-result-anchor.json', anchor);
+  const anchorBundle = artifact('primary-result-anchor.sigstore', {
+    dsseEnvelope: { payload: readFileSync(join(readinessScratch, anchorArtifact.path)).toString('base64') },
+  });
+  const anchoredStage = clone(ready.stages[0]);
+  anchoredStage.resultEvidence = {
+    resultsPath: 'results',
+    resultSha256: summary.resultSha256,
+    checkpointHeadSha256: summary.publicReplay.checkpointHeadSha256,
+    externalAnchorPath: anchorArtifact.path,
+    externalAnchorSha256: anchorArtifact.sha256,
+    externalAnchorBundlePath: anchorBundle.path,
+    externalAnchorBundleSha256: anchorBundle.sha256,
+    externalAnchorCertificateIssuer: 'https://token.actions.githubusercontent.com',
+    externalAnchorCertificateIdentityURI: 'https://github.com/blueprint-conformance/bce/.github/workflows/evidence-foundry-anchor.yml@refs/heads/main',
+  };
+  assert.deepEqual(externalResultAnchorRefusals(
+    readinessScratch, ready, anchoredStage, anchor.executionStudyId, summary, { verifySigstore: () => {} },
+  ), []);
+  const spoofedBundle = artifact('spoofed-result-anchor.sigstore', dsse({ ...anchor, resultSha256: '0'.repeat(64) }));
+  const spoofedStage = clone(anchoredStage);
+  spoofedStage.resultEvidence.externalAnchorBundlePath = spoofedBundle.path;
+  spoofedStage.resultEvidence.externalAnchorBundleSha256 = spoofedBundle.sha256;
+  assert.match(externalResultAnchorRefusals(
+    readinessScratch, ready, spoofedStage, anchor.executionStudyId, summary, { verifySigstore: () => {} },
+  ).join('\n'), /Sigstore payload differs from the exact anchor bytes/);
 } finally {
   rmSync(readinessScratch, { recursive: true, force: true });
 }
@@ -305,7 +483,17 @@ const primaryComplete = clone(frozen);
 beginRun(primaryComplete);
 primaryComplete.stages[0].lifecycle = 'complete';
 primaryComplete.currentClaimClasses = ['bounded-primary-causal-effect-exact-cell-release-and-task-population'];
-assertRefuses(() => validateProtocolV3(root, primaryComplete), /complete without public result evidence/);
+assertRefuses(
+  () => validateProtocolV3(root, primaryComplete),
+  /registry verification record.*(?:ENOENT|no such file)|complete without public result evidence/,
+);
+try {
+  validateProtocolV3(root, primaryComplete);
+  assert.fail('claim-bearing protocol with unavailable registry proof must refuse');
+} catch (error) {
+  assert.match(error.message, /registry verification record/);
+  assert.match(error.message, /complete without public result evidence/);
+}
 const prematureTransport = clone(frozen);
 beginRun(prematureTransport);
 prematureTransport.stages[1].lifecycle = 'running';
@@ -329,7 +517,7 @@ falseIndependent.currentClaimClasses.push('independent-replication-exact-frozen-
 assertRefuses(() => validateProtocolV3(root, falseIndependent), /require exact claim classes/);
 const independent = clone(falseIndependent);
 independent.operatorModel = 'independent-replication';
-assertRefuses(() => validateProtocolV3(root, independent), /complete without public result evidence/);
+assertRefuses(() => validateProtocolV3(root, independent), /must be equal to constant/);
 const safetyHalt = clone(frozen);
 safetyHalt.lifecycle = 'safety-halted';
 safetyHalt.stages[0].lifecycle = 'safety-halted';
