@@ -8,6 +8,20 @@
     "type": "git",
     "url": "git+https://github.com/blueprint-conformance/bce.git"
   },
+  "homepage": "https://blueprint-conformance.github.io/bce/",
+  "bugs": {
+    "url": "https://github.com/blueprint-conformance/bce/issues"
+  },
+  "keywords": [
+    "agent-skills",
+    "ai-agents",
+    "architecture",
+    "architecture-as-code",
+    "conformance",
+    "developer-tools",
+    "github-actions",
+    "mcp"
+  ],
   "publishConfig": {
     "access": "public"
   },

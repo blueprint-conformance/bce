@@ -27,7 +27,7 @@ describe('CLI discovery is read-only', () => {
     const before = fs.readdirSync(path.join(dir, '.blueprints'));
     const help = cli(['baseline', '--help'], dir);
     expect(help.status, help.out).toBe(0);
-    expect(help.out).toContain('bce — Blueprint Compliance Engine');
+    expect(help.out).toContain('bce — Blueprint Conformance Engine');
     expect(fs.readdirSync(path.join(dir, '.blueprints'))).toEqual(before);
     const version = cli(['gate', '--version'], dir);
     expect(version.status, version.out).toBe(0);

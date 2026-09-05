@@ -100,6 +100,8 @@ jobs:
 
           require _site/index.html
           require _site/assets/site.css
+          require _site/assets/bce-avatar.svg
+          require _site/assets/bce-social-card.png
           require _site/llms.txt
           require _site/spec/index.html
           require _site/spec/conformance-vectors/index.html
