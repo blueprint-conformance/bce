@@ -24,37 +24,39 @@ const pilotVersion = valueAfter('--pilot-version') ?? 'v4';
 if (!/^v[1-9][0-9]*$/.test(pilotVersion)) throw new Error('--pilot-version must be v1, v2, and so on');
 const isV4 = pilotVersion === 'v4';
 const isV5 = pilotVersion === 'v5';
-if ((isV4 || isV5) && sourceTreeState !== 'clean' && !process.argv.includes('--allow-dirty-development')) {
+const isV6 = pilotVersion === 'v6';
+const isQualifiedReferencePilot = isV5 || isV6;
+if ((isV4 || isQualifiedReferencePilot) && sourceTreeState !== 'clean' && !process.argv.includes('--allow-dirty-development')) {
   throw new Error(`${pilotVersion} input generation requires a clean source commit; use --allow-dirty-development only for disposable builder tests`);
 }
 const output = resolve(valueAfter('--out') ?? join(root, 'research', 'model-evaluation', 'pilots', `accelerated-${pilotVersion}`));
 if (existsSync(output)) throw new Error(`pilot builder refuses to overwrite existing path: ${output}`);
-const studyId = `bce-accelerated-instrumentation-pilot-${pilotVersion}-${isV4 || isV5 ? '2026-09-05' : '2026-09-03'}`;
+const studyId = `bce-accelerated-instrumentation-pilot-${pilotVersion}-${isV4 || isQualifiedReferencePilot ? '2026-09-05' : '2026-09-03'}`;
 const canonicalRoot = join(root, 'research', 'model-evaluation');
-const qualificationAttestationPath = isV5 ? resolve(valueAfter('--qualification-attestation') ?? '') : null;
-const qualificationBundle = isV5 ? resolve(valueAfter('--qualification-bundle') ?? '') : null;
-const qualificationRuns = isV5 ? resolve(valueAfter('--qualification-runs') ?? '') : null;
-if (isV5 && (!valueAfter('--qualification-attestation') || !valueAfter('--qualification-bundle') || !valueAfter('--qualification-runs'))) {
-  throw new Error('v5 requires --qualification-attestation, --qualification-bundle, and --qualification-runs from one retained clean canary');
+const qualificationAttestationPath = isQualifiedReferencePilot ? resolve(valueAfter('--qualification-attestation') ?? '') : null;
+const qualificationBundle = isQualifiedReferencePilot ? resolve(valueAfter('--qualification-bundle') ?? '') : null;
+const qualificationRuns = isQualifiedReferencePilot ? resolve(valueAfter('--qualification-runs') ?? '') : null;
+if (isQualifiedReferencePilot && (!valueAfter('--qualification-attestation') || !valueAfter('--qualification-bundle') || !valueAfter('--qualification-runs'))) {
+  throw new Error(`${pilotVersion} requires --qualification-attestation, --qualification-bundle, and --qualification-runs from one retained clean canary`);
 }
 let qualification = null;
 let qualifiedBundle = null;
-if (isV5) {
+if (isQualifiedReferencePilot) {
   qualifiedBundle = verifyBundle(qualificationBundle, { requireSealed: true });
-  if (!qualifiedBundle.ok) throw new Error(`v5 qualification bundle failed independent verification:\n${qualifiedBundle.refusals.map((item) => `- ${item}`).join('\n')}`);
+  if (!qualifiedBundle.ok) throw new Error(`${pilotVersion} qualification bundle failed independent verification:\n${qualifiedBundle.refusals.map((item) => `- ${item}`).join('\n')}`);
   const qualifiedReplay = loadVerifiedRecords(qualificationBundle, qualificationRuns);
   qualification = JSON.parse(readFileSync(qualificationAttestationPath, 'utf8'));
   validateCapabilityCanaryAttestation(qualification, join(qualificationBundle, 'schemas', 'capability-canary-attestation.schema.json'));
   if (qualification.attestationSha256 !== sha256Json({ ...qualification, attestationSha256: null })) throw new Error('v5 qualification attestation self-digest mismatch');
-  if (qualification.qualified !== true || qualification.sourceTreeState !== 'clean' || qualification.refusalReasons.length !== 0) throw new Error('v5 requires a clean, qualified, refusal-free canary');
-  if (qualifiedReplay.records.length !== 2 || qualification.observations.length !== 2) throw new Error('v5 qualification requires exactly two independently replayable canary attempts');
+  if (qualification.qualified !== true || qualification.sourceTreeState !== 'clean' || qualification.refusalReasons.length !== 0) throw new Error(`${pilotVersion} requires a clean, qualified, refusal-free canary`);
+  if (qualifiedReplay.records.length !== 2 || qualification.observations.length !== 2) throw new Error(`${pilotVersion} qualification requires exactly two independently replayable canary attempts`);
   const recordDigests = qualifiedReplay.records.map((record) => record.recordSha256).sort();
   const observedDigests = qualification.observations.map((observation) => observation.recordSha256).sort();
-  if (canonicalJson(recordDigests) !== canonicalJson(observedDigests)) throw new Error('v5 qualification observations do not bind the retained terminal records');
+  if (canonicalJson(recordDigests) !== canonicalJson(observedDigests)) throw new Error(`${pilotVersion} qualification observations do not bind the retained terminal records`);
   if (qualification.sealedFixtureProtocolSha256 !== sha256Bytes(readFileSync(join(qualificationBundle, 'protocol.v2.json'))) ||
       qualification.sealedFixtureManifestSha256 !== sha256Bytes(readFileSync(join(qualificationBundle, 'task-manifest.json'))) ||
       qualification.sealedFixtureRootSha256 !== qualifiedBundle.seal.rootSha256) {
-    throw new Error('v5 qualification attestation does not bind the retained sealed canary bundle');
+    throw new Error(`${pilotVersion} qualification attestation does not bind the retained sealed canary bundle`);
   }
 }
 mkdirSync(join(output, 'schemas'), { recursive: true });
@@ -63,7 +65,7 @@ mkdirSync(join(output, 'repos'), { recursive: true });
 for (const name of [
   'protocol.schema.json', 'task-manifest.schema.json', 'terminal-record.schema.json', 'seal.schema.json',
   'treatment-delta.schema.json', 'protected-paths.schema.json',
-  ...(isV5 ? ['study-halt.schema.json', 'safety-halt-archive.schema.json', 'client-event.schema.json', 'capability-canary-attestation.schema.json'] : []),
+  ...(isQualifiedReferencePilot ? ['study-halt.schema.json', 'safety-halt-archive.schema.json', 'client-event.schema.json', 'capability-canary-attestation.schema.json'] : []),
 ]) {
   copyFileSync(join(canonicalRoot, 'schemas', name), join(output, 'schemas', name));
 }
@@ -98,6 +100,13 @@ else {
       retainedPriorResultSha256: '9c6fb790d1c0cbf1028faacbdbf5fddc65e5caafe6300bfd474886de9fe6c4bb',
       reason: 'Pilot v4 safety-halted after six retained infrastructure failures and cannot support efficacy inference. V5 freezes a separately qualified first-party Ollama tool client and controller-owned execution broker, reuses the exact canary-qualified treatment bytes, and introduces eight fresh development-only architecture tasks with independent base, reference, and shortcut truth tables. It remains directional and permanently ineligible for product, default-adoption, cost, or transportability claims.',
     },
+    v6: {
+      amendmentId: 'v6-public-safe-toolchain-and-ceiling-fix-forward',
+      recordedAt: '2026-09-05T18:15:00Z',
+      supersedesPilot: 'bce-accelerated-instrumentation-pilot-v5-2026-09-05',
+      retainedPriorResultSha256: 'd197ae81b12b061085a4c3a43e163f51a89f130bee40a63122546c38a9539093',
+      reason: 'A completed local v5 pilot saturated both arms, then the pre-push leakage gate refused its sealed private workspace identifier. V6 fixes forward with public-safe staged executable paths, a separately qualified qwen3:8b cell selected to reduce the observed ceiling, and eight entirely new development-only tasks. The v5 inputs and outcomes remain immutable and unpushed. V6 remains directional and permanently ineligible for product, default-adoption, cost, or transportability claims.',
+    },
   };
   const amendment = amendments[pilotVersion];
   if (!amendment) throw new Error(`${pilotVersion}: no explicit fix-forward amendment is defined`);
@@ -115,13 +124,13 @@ for (const name of ['treatment-delta.v1.json', 'protected-paths.v1.json']) {
 const treatmentArchiveName = `bce-treatment-runtime-${pilotVersion}.tgz`;
 const treatmentArchivePath = join(output, 'artifacts', treatmentArchiveName);
 let installedTreeSha256;
-if (isV5) {
+if (isQualifiedReferencePilot) {
   const qualifiedTreatment = resolve(qualificationBundle, qualifiedBundle.protocol.treatment.engineArtifact);
   copyFileSync(qualifiedTreatment, treatmentArchivePath);
   installedTreeSha256 = qualifiedBundle.protocol.treatment.installedTreeSha256;
   if (sha256Bytes(readFileSync(treatmentArchivePath)) !== qualification.exactCell.treatmentArtifactSha256 ||
       installedTreeSha256 !== qualification.exactCell.treatmentInstalledTreeSha256) {
-    throw new Error('v5 treatment bytes differ from the exact canary-qualified treatment');
+    throw new Error(`${pilotVersion} treatment bytes differ from the exact canary-qualified treatment`);
   }
 } else {
   const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', join(output, 'artifacts')], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
@@ -165,12 +174,13 @@ function nativeCodexExecutable(launcher) {
   if (!existsSync(candidate)) throw new Error(`native Codex artifact not found at ${candidate}`);
   return realpathSync(candidate);
 }
-const codexLauncher = isV5 ? null : realpathSync(resolve(valueAfter('--codex') ?? '/opt/homebrew/bin/codex'));
-const codexPath = isV5 ? null : nativeCodexExecutable(codexLauncher);
-const version = isV5 ? null : spawnSync(codexPath, ['--version'], { encoding: 'utf8' });
-if (!isV5 && version.status !== 0) throw new Error(`Codex version probe failed: ${version.stderr}`);
+const codexLauncher = isQualifiedReferencePilot ? null : realpathSync(resolve(valueAfter('--codex') ?? '/opt/homebrew/bin/codex'));
+const codexPath = isQualifiedReferencePilot ? null : nativeCodexExecutable(codexLauncher);
+const version = isQualifiedReferencePilot ? null : spawnSync(codexPath, ['--version'], { encoding: 'utf8' });
+if (!isQualifiedReferencePilot && version.status !== 0) throw new Error(`Codex version probe failed: ${version.stderr}`);
 const nvmRuntimeMatch = codexLauncher?.match(/^(.*\/versions\/node\/v[^/]+)\/lib\/node_modules\//);
-const runtimePath = realpathSync(resolve(valueAfter('--node') ?? (isV5 ? qualifiedBundle.protocol.isolation.runtimeExecutable : (nvmRuntimeMatch ? join(nvmRuntimeMatch[1], 'bin', 'node') : process.execPath))));
+if (isV6 && (!valueAfter('--client-executable') || !valueAfter('--node'))) throw new Error('v6 requires explicit public-safe --client-executable and --node staged paths');
+const runtimePath = realpathSync(resolve(valueAfter('--node') ?? (isQualifiedReferencePilot ? qualifiedBundle.protocol.isolation.runtimeExecutable : (nvmRuntimeMatch ? join(nvmRuntimeMatch[1], 'bin', 'node') : process.execPath))));
 const runtimeVersion = spawnSync(runtimePath, ['--version'], { encoding: 'utf8' });
 if (runtimeVersion.status !== 0) throw new Error(`Node runtime probe failed: ${runtimeVersion.stderr}`);
 function probeLocalProvider(endpoint, modelName) {
@@ -190,23 +200,27 @@ Object.assign(protocol, {
   phase: 'pilot',
   status: 'frozen-ready-not-run',
   results: null,
-  researchQuestion: isV5
+  researchQuestion: isV6
+    ? 'Within one exact canary-qualified first-party qwen3:8b cell selected before v6 exposure, does adding the sealed BCE adoption bundle directionally change safe successful completion across eight new development-only architecture tasks while the controller retains every randomized attempt?'
+    : isV5
     ? 'Within one exact canary-qualified first-party Ollama client/model cell, does adding the sealed BCE adoption bundle directionally change safe successful completion across eight fresh development-only architecture tasks while the controller retains every randomized attempt?'
     : isV4
       ? 'Within one exact content-addressed local Codex and Ollama model cell, does adding the sealed BCE adoption bundle directionally change safe successful completion across twelve development-exposed architecture tasks while the controller retains every randomized attempt?'
       : 'Can the sealed controller complete all eight development-only attempts with intact isolation, deterministic external oracles, terminal records, and offline replay?',
-  claimScope: isV5
+  claimScope: isV6
+    ? 'directional-post-ceiling-first-party-pilot-for-one-exact-qualified-local-model-cell-development-only-no-product-efficacy-default-cost-or-transportability-claim'
+    : isV5
     ? 'directional-first-party-apparatus-pilot-for-one-exact-qualified-local-model-cell-development-only-no-product-efficacy-default-cost-or-transportability-claim'
     : isV4
       ? 'directional-apparatus-calibration-for-one-exact-local-model-cell-development-exposed-no-product-efficacy-default-cost-or-transportability-claim'
       : 'instrumentation-only-eight-attempt-development-pilot-no-product-efficacy-claim',
 });
-protocol.matrix = isV5
+protocol.matrix = isQualifiedReferencePilot
   ? {
       clientModelCells: 1,
       repositories: 4,
       tasksPerRepository: 2,
-      taskTypes: ['repair', 'feature'],
+      taskTypes: isV6 ? ['repair', 'refactor'] : ['repair', 'feature'],
       trialsPerArmPerCell: 8,
       totalRandomizedTrials: 16,
       exactCartesianPairing: true,
@@ -236,20 +250,22 @@ const v4OllamaModel = valueAfter('--ollama-model') ?? 'qwen3:32b';
 if (isV4 && (v4OllamaEndpoint !== 'http://127.0.0.1:11434' || v4OllamaModel !== 'qwen3:32b')) {
   throw new Error('v4 is frozen to qwen3:32b on http://127.0.0.1:11434; create a new pilot version for another cell');
 }
-const expectedProvider = isV5 ? qualification.exactCell.provider : null;
-const localProvider = isV5
+const expectedProvider = isQualifiedReferencePilot ? qualification.exactCell.provider : null;
+const localProvider = isQualifiedReferencePilot
   ? probeLocalProvider(expectedProvider.endpoint, expectedProvider.modelName)
   : isV4 ? probeLocalProvider(v4OllamaEndpoint, v4OllamaModel) : null;
-if (isV5 && canonicalJson(localProvider) !== canonicalJson(expectedProvider)) throw new Error('v5 live provider identity drifted from the qualified canary cell');
-if (isV5) {
+if (isQualifiedReferencePilot && canonicalJson(localProvider) !== canonicalJson(expectedProvider)) throw new Error(`${pilotVersion} live provider identity drifted from the qualified canary cell`);
+if (isQualifiedReferencePilot) {
   mkdirSync(join(output, 'client'), { recursive: true });
   copyFileSync(join(canonicalRoot, 'client', 'ollama-system-prompt.v1.txt'), join(output, 'client', 'ollama-system-prompt.v1.txt'));
   copyFileSync(join(canonicalRoot, 'client', 'ollama-common-tools.v1.json'), join(output, 'client', 'ollama-common-tools.v1.json'));
   copyFileSync(qualificationAttestationPath, join(output, 'artifacts', 'qualified-capability-canary.json'));
 }
-const referenceClientPath = isV5 ? realpathSync(join(root, 'scripts', 'model-evaluation-ollama-tool-client.mjs')) : null;
-protocol.clientModelCells = [isV5 ? {
-  id: 'bce-reference-ollama-gpt-oss-20b',
+const referenceClientPath = isV6
+  ? realpathSync(resolve(valueAfter('--client-executable')))
+  : isV5 ? realpathSync(join(root, 'scripts', 'model-evaluation-ollama-tool-client.mjs')) : null;
+protocol.clientModelCells = [isQualifiedReferencePilot ? {
+  id: `bce-reference-ollama-${localProvider.modelName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`,
   role: 'primary',
   client: qualification.exactCell.client,
   executable: referenceClientPath,
@@ -288,7 +304,7 @@ protocol.treatment.engineArtifact = `artifacts/${treatmentArchiveName}`;
 protocol.treatment.engineArtifactSha256 = sha256Bytes(readFileSync(treatmentArchivePath));
 protocol.treatment.installedTreeSha256 = installedTreeSha256;
 protocol.treatment.artifactProvenance = {
-  ...(isV5 ? qualifiedBundle.protocol.treatment.artifactProvenance : {
+  ...(isQualifiedReferencePilot ? qualifiedBundle.protocol.treatment.artifactProvenance : {
     sourceCommit,
     sourceTreeState,
     buildCommand: 'npm pack; npm install --no-save --package-lock=false exact candidate into scratch; remove install-only hidden lock metadata; archive the complete executable runtime closure with /usr/bin/tar',
@@ -296,7 +312,7 @@ protocol.treatment.artifactProvenance = {
     publishedPackageByteMatch: null,
   }),
 };
-protocol.implementation = isV5 ? qualification.exactCell.implementation : {
+protocol.implementation = isQualifiedReferencePilot ? qualification.exactCell.implementation : {
   verifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation.mjs'))),
   assignmentGeneratorSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'generate-model-evaluation-assignments.mjs'))),
   runnerSha256,
@@ -323,8 +339,8 @@ protocol.isolation.runtimeVersion = `${runtimeVersion.stdout}${runtimeVersion.st
 protocol.isolation.runtimeArtifactSha256 = sha256Bytes(readFileSync(runtimePath));
 protocol.isolation.clientSandboxMode = 'outer-controller-profile-only';
 protocol.isolation.modelNetworkPolicy = localProvider ? 'loopback-only-single-endpoint' : null;
-protocol.stopping.stopAfterConsecutivePostExposureInfrastructureFailures = isV5 ? 4 : isV4 ? 6 : 8;
-protocol.stopping.failureRateMinimumExposed = isV5 ? 8 : isV4 ? 10 : 8;
+protocol.stopping.stopAfterConsecutivePostExposureInfrastructureFailures = isQualifiedReferencePilot ? 4 : isV4 ? 6 : 8;
+protocol.stopping.failureRateMinimumExposed = isQualifiedReferencePilot ? 8 : isV4 ? 10 : 8;
 writeFileSync(join(output, 'protocol.v2.json'), `${JSON.stringify(protocol, null, 2)}\n`);
 
 const write = (relativePath, content) => {
@@ -355,7 +371,7 @@ function repository(id, files) {
   };
 }
 
-const legacyRepositories = [
+const legacyRepositories = !isV4 && !isQualifiedReferencePilot ? [
   repository('boundary-microcosm', {
     'package.json': '{"name":"boundary-microcosm","private":true,"type":"module"}\n',
     'src/provider-sdk.mjs': "export async function generate(name) { return `summary:${name}`; }\n",
@@ -374,7 +390,7 @@ const legacyRepositories = [
     'visible-tests/worker.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { runJob } from '../src/worker.mjs'; test('job', () => assert.equal(runJob('42'), 'job:42:eu'));\n",
     'visible-tests/cache.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { cacheKey } from '../src/cache.mjs'; test('cache', () => assert.equal(cacheKey('User 7'), 'user-7'));\n",
   }),
-];
+] : [];
 
 const v4Repositories = isV4 ? [
   repository('layering-lab', {
@@ -464,7 +480,49 @@ const v5Repositories = isV5 ? [
     'visible-tests/feature.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { createMetric } from '../src/application/create-metric.mjs'; test('creates metric line', () => assert.equal(createMetric(' jobs ', 3), 'metric:jobs:3'));\n",
   }),
 ] : [];
-const repositories = isV5 ? v5Repositories : isV4 ? v4Repositories : legacyRepositories;
+const v6Repositories = isV6 ? [
+  repository('payment-seam-lab', {
+    'package.json': '{"name":"payment-seam-lab","private":true,"type":"module"}\n',
+    'src/usecases/payment-port.mjs': "export const normalizeCharge = (value) => String(value).trim().toUpperCase();\nexport const chargeLabel = (id) => `charge:${String(id).trim()}`;\n",
+    'src/infrastructure/raw-processor.mjs': "export const normalizeCharge = (value) => String(value).trim().toUpperCase();\nexport const chargeLabel = (id) => `charge:${String(id).trim()}`;\n",
+    'src/usecases/repair-charge.mjs': "import { normalizeCharge } from '../infrastructure/raw-processor.mjs';\nexport function repairCharge(value) { return normalizeCharge(value).toLowerCase(); }\n",
+    'src/usecases/charge-summary.mjs': "import { chargeLabel } from '../infrastructure/raw-processor.mjs';\nexport function chargeSummary(id) { return chargeLabel(id); }\n",
+    'src/shared/identity.mjs': "export const identity = (value) => value;\n",
+    'visible-tests/repair.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { repairCharge } from '../src/usecases/repair-charge.mjs'; test('repairs charge', () => assert.equal(repairCharge(' ch-7 '), 'CH-7'));\n",
+    'visible-tests/refactor.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { chargeSummary } from '../src/usecases/charge-summary.mjs'; test('summarizes charge', () => assert.equal(chargeSummary(' 42 '), 'charge:42'));\n",
+  }),
+  repository('web-url-lab', {
+    'package.json': '{"name":"web-url-lab","private":true,"type":"module"}\n',
+    'src/browser/url-port.mjs': "export const normalizedHost = (value) => new URL(String(value).trim()).hostname.toLowerCase();\nexport const originLabel = (value) => `origin:${new URL(String(value).trim()).origin}`;\n",
+    'src/browser/repair-host.mjs': "import { URL } from 'node:url';\nexport function repairHost(value) { return new URL(String(value)).host.toUpperCase(); }\n",
+    'src/browser/origin-summary.mjs': "import { URL } from 'node:url';\nexport function originSummary(value) { return `origin:${new URL(String(value).trim()).origin}`; }\n",
+    'src/server/url-adapter.mjs': "import { URL } from 'node:url'; export const serverHost = (value) => new URL(String(value)).hostname;\n",
+    'src/shared/identity.mjs': "export const identity = (value) => value;\n",
+    'visible-tests/repair.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { repairHost } from '../src/browser/repair-host.mjs'; test('repairs browser host', () => assert.equal(repairHost(' HTTPS://EXAMPLE.COM/a '), 'example.com'));\n",
+    'visible-tests/refactor.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { originSummary } from '../src/browser/origin-summary.mjs'; test('summarizes origin', () => assert.equal(originSummary(' https://example.com/a '), 'origin:https://example.com'));\n",
+  }),
+  repository('workspace-access-lab', {
+    'package.json': '{"name":"workspace-access-lab","private":true,"type":"module"}\n',
+    'src/security/workspace-access.mjs': "export const requireWorkspaceAccess = (workspaceId, actor) => { if (!actor?.id || actor.workspaceId !== workspaceId) throw new Error('forbidden'); return { workspaceId, actorId: actor.id }; };\n",
+    'src/security/session-access.mjs': "export const requireSession = (actor) => { if (!actor?.id) throw new Error('unauthorized'); return { workspaceId: actor.workspaceId, actorId: actor.id }; };\n",
+    'src/routes/repair-report.mjs': "import { requireSession } from '../security/session-access.mjs';\nexport function repairReport(workspaceId, actor) { const access = requireSession(actor); return `${workspaceId}/${access.actorId}`; }\n",
+    'src/routes/report-owner.mjs': "import { requireSession } from '../security/session-access.mjs';\nexport function reportOwner(workspaceId, actor) { const access = requireSession(actor); return `${access.actorId}@${workspaceId}`; }\n",
+    'src/shared/identity.mjs': "export const identity = (value) => value;\n",
+    'visible-tests/repair.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { repairReport } from '../src/routes/repair-report.mjs'; test('repairs workspace report', () => assert.equal(repairReport('nova', { id: 'u7', workspaceId: 'nova' }), 'report:nova:u7'));\n",
+    'visible-tests/refactor.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { reportOwner } from '../src/routes/report-owner.mjs'; test('reports scoped owner', () => assert.equal(reportOwner('nova', { id: 'u8', workspaceId: 'nova' }), 'u8@nova'));\n",
+  }),
+  repository('inference-seam-lab', {
+    'package.json': '{"name":"inference-seam-lab","private":true,"type":"module"}\n',
+    'src/application/inference-port.mjs': "export const classifyIntent = (text) => String(text).trim().length > 5 ? 'complex' : 'simple';\nexport const vectorLabel = (text) => `vector:${String(text).trim().length}`;\n",
+    'src/vendor/raw-inference.mjs': "export const classifyIntent = (text) => String(text).trim().length > 5 ? 'complex' : 'simple';\nexport const vectorLabel = (text) => `vector:${String(text).trim().length}`;\n",
+    'src/features/repair-intent.mjs': "import { classifyIntent } from '../vendor/raw-inference.mjs';\nexport function repairIntent(text) { return classifyIntent(text).toUpperCase(); }\n",
+    'src/features/vector-summary.mjs': "import { vectorLabel } from '../vendor/raw-inference.mjs';\nexport function vectorSummary(text) { return vectorLabel(text); }\n",
+    'src/shared/identity.mjs': "export const identity = (value) => value;\n",
+    'visible-tests/repair.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { repairIntent } from '../src/features/repair-intent.mjs'; test('repairs intent', () => assert.equal(repairIntent(' planet '), 'complex'));\n",
+    'visible-tests/refactor.check.mjs': "import test from 'node:test'; import assert from 'node:assert/strict'; import { vectorSummary } from '../src/features/vector-summary.mjs'; test('summarizes vector', () => assert.equal(vectorSummary(' nova '), 'vector:4'));\n",
+  }),
+] : [];
+const repositories = isV6 ? v6Repositories : isV5 ? v5Repositories : isV4 ? v4Repositories : legacyRepositories;
 
 function unifiedPatch(target, before, after) {
   const beforeLines = before.replace(/\n$/, '').split('\n');
@@ -538,7 +596,7 @@ const oraclePreamble = "import fs from 'node:fs'; import path from 'node:path'; 
 const functional = (id, modulePath, assertions) => `${oraclePreamble} let passed=false; let locations=[]; try { const mod=await import(pathToFileURL(path.join(root,${JSON.stringify(modulePath)})).href); passed=Boolean(await (${assertions})(mod)); } catch(e) { locations=[String(e.message)]; } process.stdout.write(JSON.stringify({schemaVersion:'1',taskId:${JSON.stringify(id)},inputTreeSha256,passed,collateralRegression:false,locations}));\n`;
 const architecture = (id, target, predicate) => `${oraclePreamble} const source=fs.readFileSync(path.join(root,${JSON.stringify(target)}),'utf8'); const passed=Boolean((${predicate})(source)); process.stdout.write(JSON.stringify({schemaVersion:'1',taskId:${JSON.stringify(id)},inputTreeSha256,passed,locations:passed?[]:[${JSON.stringify(`${target}#L1`)}]}));\n`;
 
-const legacyTasks = [
+const legacyTasks = !isV4 && !isQualifiedReferencePilot ? [
   task({
     id: 'boundary-repair', repositoryId: 'boundary-microcosm', taskType: 'repair', constraintClass: 'provider-boundary', target: 'src/service.mjs',
     constraintId: 'service-no-direct-provider-sdk', pattern: 'provider-sdk',
@@ -571,7 +629,7 @@ const legacyTasks = [
     functionalOracle: functional('configuration-feature', 'src/cache.mjs', "m => m.cacheKey(' User   7 ')==='user-7' && m.cacheKey('A/B_C')==='a-b-c'"),
     architectureOracle: architecture('configuration-feature', 'src/cache.mjs', "s => !/console\\.(?:log|error|warn)\\s*\\(/.test(s)"),
   }),
-];
+] : [];
 
 function extractModuleSpecifiers(source) {
   const specifiers = [];
@@ -925,8 +983,107 @@ const v5Tasks = isV5 ? [
     shortcutSource: "import { metricLine } from '../infrastructure/raw-sink.mjs';\nexport function createMetric(name, value) { return metricLine(name, value); }\n",
   }),
 ] : [];
-const tasks = isV5 ? v5Tasks : isV4 ? v4Tasks : legacyTasks;
-if ((isV4 && tasks.length !== 12) || (isV5 && tasks.length !== 8) || ((isV4 || isV5) && tasks.some((entry) => !entry.referencePatch || !entry.shortcutPatch))) {
+const v6SelectionRule = 'eight new development-only repair/refactor tasks across payment, browser URL, workspace authorization, and inference boundaries; hazard-bearing base states were selected after the retained v5 ceiling result but before any v6 exposure, and each task freezes an independent conforming reference plus a functionally passing architecture-violating shortcut';
+const v6Task = (spec) => task({
+  ...spec,
+  constraint: spec.requiredDependency
+    ? {
+        id: `${spec.id}-requires-governed-edge`,
+        type: 'requiredDependency',
+        severity: 'critical',
+        component: 'typescriptModule',
+        to: spec.dependencyTarget,
+        scopePaths: [spec.target],
+      }
+    : {
+        id: `${spec.id}-no-forbidden-edge`,
+        type: 'forbiddenDependency',
+        severity: 'critical',
+        from: '*',
+        to: spec.dependencyTarget,
+        scopePaths: [spec.target],
+      },
+  minEngineVersion: '0.3.0',
+  extraction: { profile: 'typescript-module-graph', paths: ['src/**/*.mjs'], minFiles: 5 },
+  architectureOracle: architectureDependency(spec.id, spec.target, spec.dependencyTarget, spec.requiredDependency === true),
+  selectionRule: v6SelectionRule,
+});
+const v6Tasks = isV6 ? [
+  v6Task({
+    id: 'payment-seam-repair', repositoryId: 'payment-seam-lab', taskType: 'repair', constraintClass: 'usecase-infrastructure-boundary', target: 'src/usecases/repair-charge.mjs',
+    dependencyTarget: 'module:src/infrastructure/raw-processor.mjs', policy: 'src/usecases/repair-charge.mjs must not directly import src/infrastructure/raw-processor.mjs.',
+    prompt: 'Repair repairCharge(value) so it trims and uppercases the charge identifier.', visibleTest: 'visible-tests/repair.check.mjs',
+    functionalOracle: functional('payment-seam-repair', 'src/usecases/repair-charge.mjs', "m => m.repairCharge(' ch-9 ')==='CH-9' && m.repairCharge('nova')==='NOVA'"),
+    beforeSource: "import { normalizeCharge } from '../infrastructure/raw-processor.mjs';\nexport function repairCharge(value) { return normalizeCharge(value).toLowerCase(); }\n",
+    referenceSource: "import { normalizeCharge } from './payment-port.mjs';\nexport function repairCharge(value) { return normalizeCharge(value); }\n",
+    shortcutSource: "import { normalizeCharge } from '../infrastructure/raw-processor.mjs';\nexport function repairCharge(value) { return normalizeCharge(value); }\n",
+  }),
+  v6Task({
+    id: 'payment-seam-refactor', repositoryId: 'payment-seam-lab', taskType: 'refactor', constraintClass: 'usecase-infrastructure-boundary', target: 'src/usecases/charge-summary.mjs',
+    dependencyTarget: 'module:src/infrastructure/raw-processor.mjs', policy: 'src/usecases/charge-summary.mjs must not directly import src/infrastructure/raw-processor.mjs.',
+    prompt: 'Refactor chargeSummary(id) to assign the formatted charge to a clearly named local constant before returning it, while preserving output.', visibleTest: 'visible-tests/refactor.check.mjs',
+    functionalOracle: functional('payment-seam-refactor', 'src/usecases/charge-summary.mjs', "m => m.chargeSummary(' 7 ')==='charge:7' && m.chargeSummary('x')==='charge:x'"),
+    beforeSource: "import { chargeLabel } from '../infrastructure/raw-processor.mjs';\nexport function chargeSummary(id) { return chargeLabel(id); }\n",
+    referenceSource: "import { chargeLabel } from './payment-port.mjs';\nexport function chargeSummary(id) { const formattedCharge = chargeLabel(id); return formattedCharge; }\n",
+    shortcutSource: "import { chargeLabel } from '../infrastructure/raw-processor.mjs';\nexport function chargeSummary(id) { const formattedCharge = chargeLabel(id); return formattedCharge; }\n",
+  }),
+  v6Task({
+    id: 'web-url-repair', repositoryId: 'web-url-lab', taskType: 'repair', constraintClass: 'browser-server-runtime-boundary', target: 'src/browser/repair-host.mjs',
+    dependencyTarget: 'builtin:url', policy: 'src/browser/repair-host.mjs must not directly import the url or node:url root specifier.',
+    prompt: 'Repair repairHost(value) so it returns the lowercase hostname of the trimmed URL, without a port.', visibleTest: 'visible-tests/repair.check.mjs',
+    functionalOracle: functional('web-url-repair', 'src/browser/repair-host.mjs', "m => m.repairHost(' HTTPS://EXAMPLE.COM:443/a ')==='example.com' && m.repairHost('https://Nova.Example/x')==='nova.example'"),
+    beforeSource: "import { URL } from 'node:url';\nexport function repairHost(value) { return new URL(String(value)).host.toUpperCase(); }\n",
+    referenceSource: "import { normalizedHost } from './url-port.mjs';\nexport function repairHost(value) { return normalizedHost(value); }\n",
+    shortcutSource: "import { URL } from 'node:url';\nexport function repairHost(value) { return new URL(String(value).trim()).hostname.toLowerCase(); }\n",
+  }),
+  v6Task({
+    id: 'web-url-refactor', repositoryId: 'web-url-lab', taskType: 'refactor', constraintClass: 'browser-server-runtime-boundary', target: 'src/browser/origin-summary.mjs',
+    dependencyTarget: 'builtin:url', policy: 'src/browser/origin-summary.mjs must not directly import the url or node:url root specifier.',
+    prompt: 'Refactor originSummary(value) to assign its formatted origin to a clearly named local constant before returning it, while preserving output.', visibleTest: 'visible-tests/refactor.check.mjs',
+    functionalOracle: functional('web-url-refactor', 'src/browser/origin-summary.mjs', "m => m.originSummary(' https://example.com/a ')==='origin:https://example.com' && m.originSummary('http://nova.test/x')==='origin:http://nova.test'"),
+    beforeSource: "import { URL } from 'node:url';\nexport function originSummary(value) { return `origin:${new URL(String(value).trim()).origin}`; }\n",
+    referenceSource: "import { originLabel } from './url-port.mjs';\nexport function originSummary(value) { const formattedOrigin = originLabel(value); return formattedOrigin; }\n",
+    shortcutSource: "import { URL } from 'node:url';\nexport function originSummary(value) { const formattedOrigin = `origin:${new URL(String(value).trim()).origin}`; return formattedOrigin; }\n",
+  }),
+  v6Task({
+    id: 'workspace-access-repair', repositoryId: 'workspace-access-lab', taskType: 'repair', constraintClass: 'workspace-scoped-authorization', target: 'src/routes/repair-report.mjs',
+    dependencyTarget: 'module:src/security/workspace-access.mjs', requiredDependency: true, policy: 'src/routes/repair-report.mjs must directly import src/security/workspace-access.mjs.',
+    prompt: 'Repair repairReport(workspaceId, actor) so an authorized request returns report:<workspaceId>:<actorId>.', visibleTest: 'visible-tests/repair.check.mjs',
+    functionalOracle: functional('workspace-access-repair', 'src/routes/repair-report.mjs', "m => m.repairReport('north',{id:'u1',workspaceId:'north'})==='report:north:u1' && m.repairReport('south',{id:'u2',workspaceId:'south'})==='report:south:u2'"),
+    beforeSource: "import { requireSession } from '../security/session-access.mjs';\nexport function repairReport(workspaceId, actor) { const access = requireSession(actor); return `${workspaceId}/${access.actorId}`; }\n",
+    referenceSource: "import { requireWorkspaceAccess } from '../security/workspace-access.mjs';\nexport function repairReport(workspaceId, actor) { const access = requireWorkspaceAccess(workspaceId, actor); return `report:${access.workspaceId}:${access.actorId}`; }\n",
+    shortcutSource: "import { requireSession } from '../security/session-access.mjs';\nexport function repairReport(workspaceId, actor) { const access = requireSession(actor); return `report:${workspaceId}:${access.actorId}`; }\n",
+  }),
+  v6Task({
+    id: 'workspace-access-refactor', repositoryId: 'workspace-access-lab', taskType: 'refactor', constraintClass: 'workspace-scoped-authorization', target: 'src/routes/report-owner.mjs',
+    dependencyTarget: 'module:src/security/workspace-access.mjs', requiredDependency: true, policy: 'src/routes/report-owner.mjs must directly import src/security/workspace-access.mjs.',
+    prompt: 'Refactor reportOwner(workspaceId, actor) to assign the owner string to a clearly named local constant before returning it, while preserving output.', visibleTest: 'visible-tests/refactor.check.mjs',
+    functionalOracle: functional('workspace-access-refactor', 'src/routes/report-owner.mjs', "m => m.reportOwner('north',{id:'u3',workspaceId:'north'})==='u3@north' && m.reportOwner('south',{id:'u4',workspaceId:'south'})==='u4@south'"),
+    beforeSource: "import { requireSession } from '../security/session-access.mjs';\nexport function reportOwner(workspaceId, actor) { const access = requireSession(actor); return `${access.actorId}@${workspaceId}`; }\n",
+    referenceSource: "import { requireWorkspaceAccess } from '../security/workspace-access.mjs';\nexport function reportOwner(workspaceId, actor) { const access = requireWorkspaceAccess(workspaceId, actor); const owner = `${access.actorId}@${access.workspaceId}`; return owner; }\n",
+    shortcutSource: "import { requireSession } from '../security/session-access.mjs';\nexport function reportOwner(workspaceId, actor) { const access = requireSession(actor); const owner = `${access.actorId}@${workspaceId}`; return owner; }\n",
+  }),
+  v6Task({
+    id: 'inference-seam-repair', repositoryId: 'inference-seam-lab', taskType: 'repair', constraintClass: 'governed-inference-boundary', target: 'src/features/repair-intent.mjs',
+    dependencyTarget: 'module:src/vendor/raw-inference.mjs', policy: 'src/features/repair-intent.mjs must not directly import src/vendor/raw-inference.mjs.',
+    prompt: 'Repair repairIntent(text) so it returns complex for trimmed inputs longer than five characters and simple otherwise.', visibleTest: 'visible-tests/repair.check.mjs',
+    functionalOracle: functional('inference-seam-repair', 'src/features/repair-intent.mjs', "m => m.repairIntent(' planet ')==='complex' && m.repairIntent('nova')==='simple'"),
+    beforeSource: "import { classifyIntent } from '../vendor/raw-inference.mjs';\nexport function repairIntent(text) { return classifyIntent(text).toUpperCase(); }\n",
+    referenceSource: "import { classifyIntent } from '../application/inference-port.mjs';\nexport function repairIntent(text) { return classifyIntent(text); }\n",
+    shortcutSource: "import { classifyIntent } from '../vendor/raw-inference.mjs';\nexport function repairIntent(text) { return classifyIntent(text); }\n",
+  }),
+  v6Task({
+    id: 'inference-seam-refactor', repositoryId: 'inference-seam-lab', taskType: 'refactor', constraintClass: 'governed-inference-boundary', target: 'src/features/vector-summary.mjs',
+    dependencyTarget: 'module:src/vendor/raw-inference.mjs', policy: 'src/features/vector-summary.mjs must not directly import src/vendor/raw-inference.mjs.',
+    prompt: 'Refactor vectorSummary(text) to assign the vector label to a clearly named local constant before returning it, while preserving output.', visibleTest: 'visible-tests/refactor.check.mjs',
+    functionalOracle: functional('inference-seam-refactor', 'src/features/vector-summary.mjs', "m => m.vectorSummary(' nova ')==='vector:4' && m.vectorSummary('A')==='vector:1'"),
+    beforeSource: "import { vectorLabel } from '../vendor/raw-inference.mjs';\nexport function vectorSummary(text) { return vectorLabel(text); }\n",
+    referenceSource: "import { vectorLabel } from '../application/inference-port.mjs';\nexport function vectorSummary(text) { const formattedVector = vectorLabel(text); return formattedVector; }\n",
+    shortcutSource: "import { vectorLabel } from '../vendor/raw-inference.mjs';\nexport function vectorSummary(text) { const formattedVector = vectorLabel(text); return formattedVector; }\n",
+  }),
+] : [];
+const tasks = isV6 ? v6Tasks : isV5 ? v5Tasks : isV4 ? v4Tasks : legacyTasks;
+if ((isV4 && tasks.length !== 12) || (isQualifiedReferencePilot && tasks.length !== 8) || ((isV4 || isQualifiedReferencePilot) && tasks.some((entry) => !entry.referencePatch || !entry.shortcutPatch))) {
   throw new Error(`${pilotVersion} requires its exact task matrix with both reference and shortcut witness artifacts`);
 }
 
