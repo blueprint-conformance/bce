@@ -271,6 +271,48 @@ describe('bce author — model-agnostic scaffold generator', () => {
     });
   }, 60000);
 
+  it('authors a structured Python module boundary with explicit repeatable roots', () => {
+    const repo = join(tmp, 'python-repo');
+    mkdirSync(join(repo, 'src', 'service'), { recursive: true });
+    writeFileSync(join(repo, 'src', 'service', 'api.py'), 'VALUE = True\n');
+    const out = join(tmp, 'python-module.blueprint.json');
+    const r = runCli([
+      'author',
+      '--id', 'python-internals-no-api',
+      '--intent-ref', 'policy/python-layering',
+      '--repo', repo,
+      '--scope-paths', 'src/**/*.py',
+      '--extraction-profile', 'python-module-graph',
+      '--python-root', 'src',
+      '--constraint', 'forbiddenDependency:module:src/service/api.py:critical',
+      '--out', out,
+    ]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain('author sanity: scope matches 1 file(s)');
+    const bp = parseBlueprint(JSON.parse(readFileSync(out, 'utf8')));
+    expect(bp.extraction).toMatchObject({
+      profile: 'python-module-graph',
+      paths: ['src/**/*.py'],
+      pythonRoots: ['src'],
+      minFiles: 1,
+    });
+    expect(bp.minEngineVersion).toBe('0.3.0');
+    expect(bp.constraints[0]).toMatchObject({
+      from: '*',
+      to: 'module:src/service/api.py',
+      scopePaths: ['src/**/*.py'],
+    });
+
+    const missingRoot = runCli([
+      'author', '--id', 'missing-root', '--intent-ref', 'policy/python-layering',
+      '--repository', 'example/python', '--scope-paths', 'src/**/*.py',
+      '--extraction-profile', 'python-module-graph',
+      '--constraint', 'forbiddenDependency:package:openai:critical', '--out', join(tmp, 'missing.json'),
+    ]);
+    expect(missingRoot.code).toBe(1);
+    expect(missingRoot.stderr).toMatch(/requires at least one --python-root/);
+  }, 60000);
+
   it('scan sanity FAILS CLOSED (exit 2) when the scope matches 0 files — draft left for editing', () => {
     const repo = join(tmp, 'empty-repo');
     mkdirSync(repo, { recursive: true });

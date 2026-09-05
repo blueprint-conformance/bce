@@ -260,6 +260,58 @@ jobs:
 
           echo "Python RED/GREEN discriminating pair: PROVEN — opposite verdicts by real exit codes (0 / 1)."
 
+      - name: Structured Python module RED/GREEN pair (python-module-graph profile)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Preserve the released import-surface proof above and separately prove the
+          # candidate structured graph: one exact blueprint, two trees, real exit codes.
+          BPD="$(mktemp -d)"
+          cp fixtures/python-module-layering.blueprint.json "$BPD/"
+
+          echo "--- GREEN leg: conformant structured Python graph must PASS (exit 0) ---"
+          set +e
+          node dist/cli.js gate \
+            --repo fixtures/python-module-graph-surface/conformant \
+            --blueprint-dir "$BPD" \
+            --extractor ast > pygraph-green.out 2> pygraph-green.err
+          rc_green=$?
+          set -e
+          cat pygraph-green.out pygraph-green.err
+          if [ "$rc_green" -ne 0 ]; then
+            echo "::error::Structured Python GREEN leg exited ${rc_green} (expected 0)"
+            exit 1
+          fi
+          if ! grep -q "score 100 (pass)" pygraph-green.out; then
+            echo "::error::Structured Python GREEN leg exit 0 but the pass marker is missing"
+            exit 1
+          fi
+
+          echo "--- RED leg: reverse Python layer must FAIL (exit exactly 1, violation named) ---"
+          set +e
+          node dist/cli.js gate \
+            --repo fixtures/python-module-graph-surface/drift-reverse-layer \
+            --blueprint-dir "$BPD" \
+            --extractor ast > pygraph-red.out 2> pygraph-red.err
+          rc_red=$?
+          set -e
+          cat pygraph-red.out pygraph-red.err
+          if [ "$rc_red" -ne 1 ]; then
+            echo "::error::Structured Python RED leg exited ${rc_red} (expected exactly 1)"
+            exit 1
+          fi
+          if ! grep -q "domain-cannot-import-api" pygraph-red.err; then
+            echo "::error::Structured Python RED leg did not name domain-cannot-import-api"
+            exit 1
+          fi
+          if ! grep -q "src/service/domain/orders.py#L3" pygraph-red.err; then
+            echo "::error::Structured Python RED leg did not locate the reverse import"
+            exit 1
+          fi
+
+          echo "Structured Python RED/GREEN pair: PROVEN — opposite verdicts by real exit codes (0 / 1)."
+
       # SELF-USE PROOF (WO-03): the repo gates its OWN tree THROUGH the THIN
       # composite action it ships (uses: ./). This proves the adoption surface
       # end-to-end — engine=local rebuilds the HEAD engine inside the action and

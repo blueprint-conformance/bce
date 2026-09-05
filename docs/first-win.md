@@ -37,7 +37,7 @@ all six recipes. That is pre-release machinery evidence, not registry availabili
 <p align="center">
   <picture>
     <source media="(max-width: 600px)" srcset="../assets/diagrams/first-win-recipes-mobile.svg">
-    <img src="../assets/diagrams/first-win-recipes.svg" alt="Six executable BCE recipe paths branch from the architecture boundary a maintainer needs to protect. Extension contracts, Next.js tenant route guards, governed egress, and direct module layering use TypeScript or JavaScript AST extraction. Python provider imports use the MVP Python import graph. Configuration allowlists use a real-source content-pattern pair. Every path runs a conforming tree to GREEN and planted drift to a named RED violation.">
+    <img src="../assets/diagrams/first-win-recipes.svg" alt="Six executable BCE recipe paths branch from the architecture boundary a maintainer needs to protect. Extension contracts, Next.js tenant route guards, and governed egress use mature TypeScript or JavaScript AST extraction. TypeScript and Python layering use direct structured module graphs. Configuration allowlists use a real-source content-pattern pair. Every path runs a conforming tree to GREEN and planted drift to a named RED violation.">
   </picture>
 </p>
 
@@ -49,7 +49,7 @@ all six recipes. That is pre-release machinery evidence, not registry availabili
 | Every exported tenant route must call the access guard | `tenant-route-guard` | Next.js TypeScript, mature AST; function-level call evidence |
 | Raw network calls must stay on governed hosts | `governed-egress` | TypeScript/JavaScript, mature AST; resolved literal host evidence |
 | Domain, UI, server, or infrastructure layers must keep their direction | `module-layering` | TypeScript/JavaScript direct module graph; resolved importer, target, and source line |
-| Python modules must not import a provider SDK directly | `python-provider-import` | Python import graph MVP; imports and scanned-file rules only |
+| Python service layers must keep their direction | `python-module-layering` | Python structured direct module graph; explicit roots, resolved repository targets, and fail-closed uncertainty |
 | A governed manifest must not silently widen | `configuration-allowlist` | JSON/Markdown real-source RED/GREEN pair; content-pattern teeth are evaluator-refutable |
 
 Run one from the candidate checkout with `node dist/cli.js demo --recipe <id>`. The catalog is
@@ -58,7 +58,7 @@ or the wrong violation id.
 
 ## Adapt the proof to your layout
 
-The packaged recipes prove what BCE can observe. These five walkthroughs show how to author a draft
+The packaged recipes prove what BCE can observe. These six walkthroughs show how to author a draft
 against files in a repository shaped like yours:
 
 | Starting layout | Walkthrough | What changes |
@@ -68,6 +68,7 @@ against files in a repository shaped like yours:
 | TypeScript service | [TypeScript](../examples/first-win/typescript/README.md) | authors a content constraint for parameterized SQL |
 | several workspace packages | [monorepo](../examples/first-win/monorepo/README.md) | narrows enforcement with `--scope-paths` |
 | application and domain layers | [direct module layering](../examples/first-win/module-layering/README.md) | candidate-only C3 boundary over resolved module edges |
+| Python service package and API adapter | [Python module layering](../examples/first-win/python-layering/README.md) | candidate-only structured C3 boundary with explicit import roots |
 
 Each walkthrough executes its own documented `bce author → RED → code fix → GREEN` sequence in CI.
 The hard CI ceiling is 120 seconds per layout; the front-page claim is separately bound to every
@@ -78,11 +79,12 @@ authoring a draft never approves policy.
 
 - The released, mature TypeScript/JavaScript AST path covers Next.js route handlers, plugin
   surfaces, literal egress, paths, files, and line content.
-- The `v0.3.0` candidate adds direct module boundaries with controlled GREEN/RED fixtures and one
-  measured authoring loop. It is direct-only and does not claim transitive reachability, cycle
-  analysis, independent adoption, or released availability.
-- Python is an import-graph MVP. It does not yet claim TypeScript-level component, call, or egress
-  semantics.
+- The `v0.3.0` candidate adds direct TypeScript/JavaScript and structured Python module boundaries
+  with controlled GREEN/RED fixtures and measured authoring loops. They are direct-only and do not
+  claim transitive reachability, cycle analysis, independent adoption, or released availability.
+- The released Python import-surface MVP remains available. The candidate Python module graph adds
+  repository-module resolution and fail-closed dynamic-import uncertainty; it does not claim call
+  or egress semantics.
 - Content patterns can protect configuration and policy files, but BCE labels their teeth
   `evaluator-refutable`; the paired real-source mutation supplies the stronger practical proof.
 - None of these mechanism demonstrations establishes that BCE improves agent success, cost,
@@ -100,3 +102,5 @@ gate in advisory mode. Existing violations remain visible; policy approval stays
   recipe.
 - [TypeScript module graph](typescript-module-graph.md) — selector grammar, resolution, uncertainty,
   and honest limits for layering, runtime separation, and SDK choke points.
+- [Python module graph](python-module-graph.md) — explicit roots, structured import resolution,
+  fail-closed uncertainty, and honest limits.

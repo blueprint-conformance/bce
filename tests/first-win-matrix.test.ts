@@ -1,12 +1,12 @@
 /**
- * first-win-matrix — the five starting shapes in `examples/first-win/` each complete a real
+ * first-win-matrix — the six starting shapes in `examples/first-win/` each complete a real
  * `bce author` → RED → fix → GREEN loop, and each is TIMED against a hard 120-second budget.
  *
  * WHY THIS EXISTS. `examples/quickstart` proves ONE fixed shape: a pre-authored, ratified
  * blueprint gating a two-tree example. It cannot answer the question a visitor actually has —
  * "what does this look like on a repo shaped like mine, where I have to write the contract
- * myself?" The first-win matrix answers that for five shapes (empty-repo / plain-js /
- * typescript / monorepo / module-layering), and this suite is what stops the answer from being a story:
+ * myself?" The first-win matrix answers that for six shapes (empty-repo / plain-js /
+ * typescript / monorepo / module-layering / python-layering), and this suite is what stops the answer from being a story:
  *
  *   1. EVERY `bce` command is EXTRACTED FROM THE WALKTHROUGH'S OWN ```bash BLOCKS and executed
  *      verbatim — never re-typed here. A walkthrough whose commands stop working fails HERE,
@@ -162,11 +162,11 @@ function replaceOnce(dir: string, rel: string, from: string, to: string): void {
   writeFile(dir, rel, before.replace(from, to));
 }
 
-const SHAPES = ['empty-repo', 'plain-js', 'typescript', 'monorepo', 'module-layering'] as const;
+const SHAPES = ['empty-repo', 'plain-js', 'typescript', 'monorepo', 'module-layering', 'python-layering'] as const;
 /** Filled in as each shape runs; asserted as a set at the end so the summary is one place. */
 const measured = new Map<string, number>();
 
-describe('first-win matrix — five shapes, each a real author → RED → fix → GREEN loop', () => {
+describe('first-win matrix — six shapes, each a real author → RED → fix → GREEN loop', () => {
   it(
     'empty-repo: author REFUSES an empty scope (exit 2), then first-file → RED → fix → GREEN',
     () => {
@@ -499,6 +499,69 @@ describe('first-win matrix — five shapes, each a real author → RED → fix �
       // eslint-disable-next-line no-console
       console.log(`  first-win[module-layering] ${elapsed}ms  (budget ${BUDGET_MS}ms)`);
       expect(elapsed, `module-layering took ${elapsed}ms, over the ${BUDGET_MS}ms first-win budget`).toBeLessThan(
+        BUDGET_MS,
+      );
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'python-layering: a reverse direct Python import is named — author → RED → fix → GREEN',
+    () => {
+      const readme = path.join(MATRIX_ROOT, 'python-layering', 'README.md');
+      const cmds = bceCommandsFrom(readme);
+      expect(cmds).toHaveLength(3);
+      const [author, gateRed, gateGreen] = cmds as [string[], string[], string[]];
+      expect(author[0]).toBe('author');
+      expect(author).toContain('python-module-graph');
+      expect(author).toContain('src/**/*.py');
+      expect(author).toContain('src');
+
+      const dir = arrangeShape('python-layering');
+      const started = Date.now();
+      try {
+        const authored = runCli(author, dir);
+        expect(authored.status).toBe(0);
+        expect(authored.out).toContain('author sanity: scope matches 4 file(s) in . (4 component(s) observed)');
+        const bpPath = path.join(dir, '.blueprints', 'internals-do-not-import-api.blueprint.json');
+        const bp = JSON.parse(fs.readFileSync(bpPath, 'utf8')) as {
+          minEngineVersion?: string;
+          extraction?: { profile?: string; pythonRoots?: string[] };
+        };
+        expect(bp.minEngineVersion).toBe('0.3.0');
+        expect(bp.extraction?.profile).toBe('python-module-graph');
+        expect(bp.extraction?.pythonRoots).toEqual(['src']);
+
+        const red = runCli(gateRed, dir);
+        expect(red.status).toBe(1);
+        expect(red.out).toContain('src/service/domain/orders.py#L1');
+        assertReadmeCarries(
+          readme,
+          'observed: forbidden direct import module:src/service/domain/orders.py -> module:src/service/api.py is present',
+        );
+
+        writeFile(
+          dir,
+          'src/service/domain/orders.py',
+          [
+            'def normalize_order_id(order_id: str) -> str:',
+            '    return order_id.strip().lower()',
+            '',
+          ].join('\n'),
+        );
+
+        const green = runCli(gateGreen, dir);
+        expect(green.status).toBe(0);
+        expect(green.out).toContain('score 100 (pass)');
+        expect(readFile(dir, 'src/service/api.py')).toContain('handle_order');
+      } finally {
+        measured.set('python-layering', Date.now() - started);
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+      const elapsed = measured.get('python-layering') as number;
+      // eslint-disable-next-line no-console
+      console.log(`  first-win[python-layering] ${elapsed}ms  (budget ${BUDGET_MS}ms)`);
+      expect(elapsed, `python-layering took ${elapsed}ms, over the ${BUDGET_MS}ms first-win budget`).toBeLessThan(
         BUDGET_MS,
       );
     },

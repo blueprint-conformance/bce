@@ -1,19 +1,20 @@
-# Seeded-defect taxonomy — coverage audit (corpus v3)
+# Seeded-defect taxonomy — coverage audit (corpus v4)
 
 The corpus is graded on three axes: **constraint type** (what policy class the defect
 violates), **drift mechanism** (the syntactic route the drift takes), and **surface** (which
-extraction profile observes it). This file is the audit that drove the v3 expansion
-(28 → 34): every cell either cites the defect ids covering it, or states honestly why it is
+extraction profile observes it). This file records the v4 expansion
+(34 → 35): every cell either cites the defect ids covering it, or states honestly why it is
 uncovered — `[EXPRESSIBLE]` (the engine can catch it today; seeding is corpus work) or
 `[DESIGN]` (catching it needs new engine capability; seeding it today would produce a
 silently-missed corpus row, which the recall gate forbids).
 
-## Coverage matrix (34 defects)
+## Coverage matrix (35 defects)
 
 | Constraint type | Surface | Mechanisms covered (defect ids) |
 | --- | --- | --- |
 | forbiddenDependency | plugin-surface (TS) | static import (`ext-direct-openai-import`), re-export (`ext-reexport-openai`), dynamic import (`ext-dynamic-import-openai`), dynamic template (`ext-dynamic-template-openai`), require (`ext-require-openai`), require template (`ext-require-template-openai`), import-equals (`ext-import-equals-openai`, v3), subpath prefix (`ext-subpath-openai-import`, v3), unrecognized-factory attribution (`ext-unrecognizable-forbidden-import`) |
 | forbiddenDependency | python-import-surface | plain import (`py-direct-openai-import`), aliased (`py-aliased-openai-import`, v3), parenthesized from-import (`py-paren-from-import`, v3) |
+| forbiddenDependency | python-module-graph | resolved repository reverse-layer edge (`pygraph-reverse-api-import`, v4) |
 | requiredDependency (governed registration) | plugin-surface | missing registration (`ext-ungoverned-registration`), shadowed harness (`ext-shadowed-harness-decoy`), decoy object (`ext-decoy-registration`), stray registration outside factory (`ext-stray-register`), ungoverned-module bare call (`ext-ungoverned-registry-import`), zero-targets (`ext-unrecognizable-zero-targets`) |
 | requiredDependency (tenant guard, D6) | next-route-handler | missing guard (`rg-missing-tenant-guard`), unguarded new route (`rg-unguarded-new-route`), decoy guard object (`rg-decoy-guard-object`) |
 | requiredComponent | plugin-surface | unrecognizable factory (`ext-unrecognizable-factory`) |
@@ -34,8 +35,10 @@ silently-missed corpus row, which the recall gate forbids).
 - `[DESIGN]` **cross-module indirection** (forbidden import re-exported through an in-repo
   barrel, guard applied via an imported wrapper) — extractors declare `no cross-module symbol
   resolution` in `coverage.unsupported`. Needs engine capability; not seedable honestly.
-- `[DESIGN]` **python dynamic imports** (`__import__`, `importlib.import_module`) — documented
-  miss, pinned by honesty tests (a seeded defect here would be a permanently-red corpus row).
+- `[RUNS]` **python dynamic imports** (`__import__`, `importlib.import_module`) — the structured
+  module graph locates them as uncertainty and relevant C2/C3 boundaries emit a blocking
+  fail-closed violation. It does not invent a target, so this is uncertainty coverage rather than
+  a target-specific graded corpus defect.
 - `[RUNS]` **egress via cross-module/env-only hosts** — governed-host allowlists fail closed
   with a located unresolved-destination violation. Blocklists disclose the uncertainty but do
   not invent a forbidden destination.

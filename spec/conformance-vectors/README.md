@@ -40,7 +40,7 @@ constraint-type spread plus one clean control per blueprint:
   `behavioralInvariant`.
 - **green vectors** — one conformant control per shipped blueprint.
 
-The full corpus (all 34 seeded defects + the 13-fixture clean control set) is the recall denominator
+The full corpus (all 35 seeded defects + the 11-fixture clean control set) is the recall denominator
 and is exercised exhaustively by `tests/recall-e2e-proof.test.ts`. These vectors are the *portable,
 human-and-machine-legible extract* of that same ground truth.
 

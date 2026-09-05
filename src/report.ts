@@ -197,6 +197,11 @@ export function evaluate(
   // components that have at least one satisfying edge of a given edge-type
   const satisfiedIds = (edgeType: string): Set<string> =>
     new Set(graph.guardEdges.filter((e) => e.type === edgeType).map((e) => e.from));
+  const moduleGraphComponentType = profile === 'typescript-module-graph'
+    ? 'typescriptModule'
+    : profile === 'python-module-graph'
+      ? 'pythonModule'
+      : null;
 
   let skipped = 0;
   let implemented = 0; // count of ENFORCING (non-skipped) constraints that actually ran
@@ -204,19 +209,19 @@ export function evaluate(
   for (const c of blueprint.constraints) {
     if (c.type === 'requiredDependency') {
       implemented += 1;
-      if (profile === 'typescript-module-graph') {
+      if (moduleGraphComponentType) {
         const scopeMatchers = (c.scopePaths ?? []).map(pathGlobToRe);
-        const targets = componentsByType('typescriptModule').filter((component) =>
+        const targets = componentsByType(moduleGraphComponentType).filter((component) =>
           scopeMatchers.some((matcher) => matcher.test(component.path)),
         );
         if (targets.length === 0) {
           violations.push({
             constraintId: c.id,
             severity: c.severity,
-            component: 'typescriptModule',
+            component: moduleGraphComponentType,
             evidenceType: 'staticAst',
             evidenceRef: (c.scopePaths ?? []).join(','),
-            observed: 'no typescriptModule component matched the required dependency source scope',
+            observed: `no ${moduleGraphComponentType} component matched the required dependency source scope`,
             expected: `at least one source module matching ${(c.scopePaths ?? []).join('|')}`,
           });
         }
@@ -293,19 +298,19 @@ export function evaluate(
       }
     } else if (c.type === 'forbiddenDependency' && c.to) {
       implemented += 1;
-      if (profile === 'typescript-module-graph') {
+      if (moduleGraphComponentType) {
         const scopeMatchers = (c.scopePaths ?? []).map(pathGlobToRe);
-        const sources = componentsByType('typescriptModule').filter((component) =>
+        const sources = componentsByType(moduleGraphComponentType).filter((component) =>
           scopeMatchers.some((matcher) => matcher.test(component.path)),
         );
         if (sources.length === 0) {
           violations.push({
             constraintId: c.id,
             severity: c.severity,
-            component: 'typescriptModule',
+            component: moduleGraphComponentType,
             evidenceType: 'staticAst',
             evidenceRef: (c.scopePaths ?? []).join(','),
-            observed: 'no typescriptModule component matched the forbidden dependency source scope',
+            observed: `no ${moduleGraphComponentType} component matched the forbidden dependency source scope`,
             expected: `at least one source module matching ${(c.scopePaths ?? []).join('|')} so the boundary can be graded`,
           });
         }

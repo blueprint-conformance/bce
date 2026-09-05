@@ -1,10 +1,10 @@
-# The authoring matrix — five layouts, five measured RED→GREEN loops
+# The authoring matrix — six layouts, six measured RED→GREEN loops
 
 The [First Win recipe catalog](../../docs/first-win.md) proves six architecture boundaries in the
 `v0.3.0` source candidate. This directory answers the next question: **how do I author one of those
 contracts against files laid out like mine?**
 
-Five starting layouts. Each one authors its own contract with `bce author`, gates it to a real
+Six starting layouts. Each one authors its own contract with `bce author`, gates it to a real
 RED, fixes it, and gates it to GREEN. Every step is executed in CI by
 [`tests/first-win-matrix.test.ts`](../../tests/first-win-matrix.test.ts), which also **measures
 the wall-clock of each full sequence and fails if any shape exceeds 120 seconds**. The timings
@@ -17,6 +17,7 @@ in the table below are not estimates.
 | [typescript](typescript/README.md) | TypeScript service, one handler | `forbiddenPattern` (interpolated SQL) | A contract can be a *content* rule, not only a dependency edge — and you author it yourself |
 | [monorepo](monorepo/README.md) | Two packages, server + browser | `forbiddenDependency:stripe`, scoped | `--scope-paths`: the same import is conformant in one package and a violation in another |
 | [module-layering](module-layering/README.md) | Application + domain packages | module-targeted `forbiddenDependency` | A reverse direct import is located and blocked; `minEngineVersion` is automatic |
+| [python-layering](python-layering/README.md) | Python service package + API adapter | module-targeted `forbiddenDependency` | Structured Python imports resolve to repository modules; roots and uncertainty are explicit |
 
 Every shape follows the same loop:
 
@@ -37,10 +38,9 @@ npx --no-install bce …
 ```
 
 The published package manifest includes `examples/`: four `v0.2.0` walkthroughs plus the full
-onboarding assets. The
-module-layering walkthrough is candidate-only and must run from a built checkout until `v0.3.0`
-resolves on npm. Registry signatures and provenance verify only the released package path; the
-candidate has a separate clean-room local-tarball proof.
+onboarding assets. The module-layering and python-layering walkthroughs are candidate-only and must
+run from a built checkout until `v0.3.0` resolves on npm. Registry signatures and provenance verify
+only the released package path; the candidate has a separate clean-room local-tarball proof.
 
 Both statements are checked against the repository's own state by the matrix test, so they cannot
 quietly go stale after a publish.

@@ -20,8 +20,9 @@ source tree.
 - For supported extractor/constraint combinations, it can discriminate committed conformant and
   seeded-drift fixtures and produce deterministic reports.
 - The `v0.3.0` source-candidate First Win catalog executes six GREEN/named-RED architecture recipes
-  across the mature TypeScript/JavaScript AST path, the direct TypeScript/JavaScript module graph,
-  Python import-graph MVP, and a real-source configuration pattern pair. These are mechanism
+  across the mature TypeScript/JavaScript AST path, direct TypeScript/JavaScript and structured
+  Python module graphs, and a real-source configuration pattern pair. The released Python
+  import-surface MVP remains available unchanged. These are mechanism
   demonstrations; their breadth does not establish efficacy or registry availability.
 - Gate outcomes are three-state: pass (exit 0), violation (exit 1), and structural refusal
   (exit 2). A missing blueprint set, unsupported critical analysis, unknown constraint, unbound
@@ -37,9 +38,10 @@ source tree.
 - The built MCP server passes strict discovery through locked Inspector 2.5.0, boundary/framing
   tests, and a 2-second startup/discovery p95 gate. This is Inspector compatibility, not proof of
   every named host client.
-- The synthetic scale track scans 2,000 TypeScript files, enforces a 30-second p95 ceiling, and
-  requires a planted final-package import to redden at its exact line. It is a regression budget,
-  not real-monorepo generalization evidence.
+- The synthetic scale track independently scans 2,000 TypeScript files and 2,000 Python files,
+  enforces a 30-second p95 ceiling per structured provider, and requires a planted cross-package
+  import to redden at its exact line. It is a regression budget, not real-repository
+  generalization evidence.
 - The v0.2.0 source and packed artifact passed the public Ubuntu/macOS/Windows × Node 22/24
   [portability matrix](https://github.com/blueprint-conformance/bce/actions/runs/33709587798), including
   build, typecheck, cross-platform engine/CLI/evidence/MCP tests, restricted-network operation, and
@@ -74,9 +76,9 @@ source tree.
   skill reads, MCP calls, the git diff, policy preservation, and RED → GREEN. The 2026-09-02 paired
   author-operated sample changed tool selection from CLI to MCP after the routing instructions were
   corrected. One sample is not a success-rate estimate, model comparison, or independent witness.
-- The engine self-blueprint has 45/45 separately materialized source mutants killed through the
+- The engine self-blueprint has 47/47 separately materialized source mutants killed through the
   production extractor/evaluator path. CI regenerates and freshness-checks the mapping, rejects
-  invalid or collateral mutants, and requires the real proof. This establishes that the current 45
+  invalid or collateral mutants, and requires the real proof. This establishes that the current 47
   clauses can redden on real source changes; it does not establish specification completeness.
 - Pull-request and release boundaries execute one dependency-free leakage scanner. Its 33 pattern
   classes have planted negative controls, sealed-evidence exceptions are exact path-and-digest pairs,

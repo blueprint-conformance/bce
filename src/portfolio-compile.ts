@@ -23,6 +23,7 @@
  * overlay validates AND its paths match real files when evaluated at the repoDir.
  */
 import {
+  PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION,
   TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION,
   parseBlueprint,
   type EngineeringBlueprint,
@@ -106,7 +107,9 @@ export function compilePortfolio(portfolio: PortfolioBlueprint): CompiledOverlay
       extraction: { ...portfolio.extraction },
       ...(portfolio.extraction.profile === 'typescript-module-graph'
         ? { minEngineVersion: TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION }
-        : {}),
+        : portfolio.extraction.profile === 'python-module-graph'
+          ? { minEngineVersion: PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION }
+          : {}),
     });
     return { member, blueprint: overlay };
   });

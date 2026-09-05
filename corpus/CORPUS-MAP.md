@@ -1,16 +1,16 @@
-# CORPUS-MAP — the shipped corpus (v3) and its mapping to the frozen paper corpus
+# CORPUS-MAP — the shipped corpus (v4) and its mapping to the frozen paper corpus
 
 This document explains what the seeded-defect corpus shipped in this repository **is**, how it
 relates to the corpus cited by the accompanying research paper, and exactly which claim the
 mapping supports.
 
-## What ships here (corpus v3)
+## What ships here (corpus v4)
 
 The corpus has three parts, all in this repository and all exercised in CI:
 
 | Part | Where | Role |
 |---|---|---|
-| Seeded-defect registry | `src/corpus.ts` (`SEEDED_CORPUS`) | 34 planted architecture defects — the recall denominator |
+| Seeded-defect registry | `src/corpus.ts` (`SEEDED_CORPUS`) | 35 planted architecture defects — the recall denominator |
 | Fixture trees | `fixtures/` (extension, egress, route, behavior surfaces) | Real source trees the engine scans; each seeded defect is planted in exactly one |
 | Machine-readable index | `corpus/MANIFEST.json` | defect ids ↔ fixtures ↔ constraint types ↔ expected verdicts, plus the clean control set |
 
@@ -29,9 +29,9 @@ carries internal identifiers that could not all be published; see `EXCLUSIONS.md
 what was withheld and why.
 
 **suite-v2** is the *genericized reproduction* of that corpus — defect-map rows 1–25 below.
-The shipped corpus is **v3**: suite-v2 plus nine append-only defects (rows 26–34) that
-postdate the paper and therefore have **no frozen counterpart**; the paper mapping in this
-section is about rows 1–25 only.
+The shipped corpus is **v4**: suite-v2 plus ten append-only defects (rows 26–35) that
+postdate the paper and therefore have **no frozen counterpart**. Rows 26–34 formed v3; row 35
+adds the structured Python reverse-layer defect. The paper mapping here covers rows 1–25 only.
 
 **Identical — the stable join keys (suite-v2 rows 1–25):**
 
@@ -54,8 +54,8 @@ section is about rows 1–25 only.
 ## The claim (and the claim we deliberately do not make)
 
 > **Claim:** the measured-recall *protocol* reproduces on your machine: running the engine in
-> this repository over the corpus in this repository yields **recall 1.0 (34/34) with zero
-> cried-wolf false positives over 42 reports** (32 distinct seeded fixture runs + 10 clean
+> this repository over the corpus in this repository yields **recall 1.0 (35/35) with zero
+> cried-wolf false positives over 44 reports** (33 distinct seeded fixture runs + 11 clean
 > control runs), and the gate passes at its default thresholds.
 
 > **Non-claim:** we do **not** claim the files here are byte-identical to the paper's cited
@@ -82,11 +82,11 @@ rubber-stamp).
 Set legend: **P** = original baseline (the 9 defects of the pre-suite-v2 corpus, in registry
 order). **The paper's cited recall measurement is over rows 1–25 (N=25), not these 9** — see
 `counts.paperFrozenCorpus` in [`MANIFEST.json`](MANIFEST.json). The earlier wording here said the
-paper's measurements "were built on" the 9, which contradicted this file's own line 27
+paper's measurements "were built on" the 9, which contradicted this file's own explanation
 ("suite-v2 is the genericized reproduction of that corpus — defect-map rows 1–25") and, read
 beside the paper's N=25, made the corpus look inflated 2.8×. The paper is correct; this legend
 was not, **E** = expansion (append-only growth, same protocol — suite-v2 took the
-corpus to N=25; corpus v3 to N=34; see [`TAXONOMY.md`](TAXONOMY.md) for the v3 coverage audit).
+corpus to N=25; corpus v3 to N=34; corpus v4 to N=35; see [`TAXONOMY.md`](TAXONOMY.md) for the current coverage audit).
 
 | # | Defect id | Set | Blueprint | Constraint type | Severity | Fixture |
 |---|---|---|---|---|---|---|
@@ -124,11 +124,12 @@ corpus to N=25; corpus v3 to N=34; see [`TAXONOMY.md`](TAXONOMY.md) for the v3 c
 | 32 | `ext-ungoverned-egress-globalthis` | E | `egress-reader@0.1.0` | forbiddenEgress | critical | `fixtures/egress-surface/drift-egress-globalthis` |
 | 33 | `py-aliased-openai-import` | E | `python-service@0.1.0` | forbiddenDependency | critical | `fixtures/python-surface/drift-aliased-import` |
 | 34 | `py-paren-from-import` | E | `python-service@0.1.0` | forbiddenDependency | critical | `fixtures/python-surface/drift-paren-from-import` |
+| 35 | `pygraph-reverse-api-import` | E | `python-module-layering@0.1.0` | forbiddenDependency | critical | `fixtures/python-module-graph-surface/drift-reverse-layer` |
 
 Rows 16–18 are the deliberate **tri-seed**: one fixture (`drift-unrecognized-factory`) plants one
-defect with three seeded consequences; the recall run executes each distinct fixture once (32
-runs), which is why the false-positive denominator is 45, not 47.
+defect with three seeded consequences; the recall run executes each distinct fixture once. With
+the structured Python pair, that is 33 seeded runs plus 11 clean controls: 44 reports.
 
-The 13-fixture **clean control set** (zero seeded defects; any violation on them is a
+The 11-fixture **clean control set** (zero seeded defects; any violation on them is a
 cried-wolf false positive) is enumerated in `corpus/MANIFEST.json` under `cleanFixtures` and
 asserted violation-free, itemized per fixture, in `tests/recall-e2e-proof.test.ts`.

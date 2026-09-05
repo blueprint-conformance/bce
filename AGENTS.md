@@ -9,8 +9,9 @@ the snippet to drop into *another* repo so an agent treats bce as its done-check
 **bce, the blueprint conformance engine** — a fail-closed architecture-conformance gate. You author an
 `EngineeringBlueprint` (a durable architectural contract for a repository), and bce measures the code
 against it: a deterministic conformance score, a fail-closed required-check gate, and hash-chained
-evidence anyone can re-derive offline. TypeScript/JavaScript AST extraction is the mature path;
-Python import extraction is an explicit MVP behind the same language-neutral provider seam.
+evidence anyone can re-derive offline. TypeScript/JavaScript framework AST extraction is the mature
+released path; the source candidate also carries direct TypeScript/JavaScript and structured Python
+module graphs behind the same language-neutral provider seam.
 
 ## The rules that never bend
 

@@ -43,6 +43,7 @@ import {
   ConstraintTypeSchema,
   SeveritySchema,
   ExtractionProfileSchema,
+  PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION,
   TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION,
   type BlueprintExtraction,
   type Component,
@@ -247,14 +248,14 @@ const DEMO_RECIPES = [
     expectedConstraintId: 'reader-egress-governed-only',
   },
   {
-    id: 'python-provider-import',
-    title: 'Keep provider SDKs behind a Python gateway',
-    support: 'Python · MVP import graph',
-    protects: 'Python modules cannot import the provider SDK directly',
-    blueprint: 'fixtures/python-service.blueprint.json',
-    greenTree: 'fixtures/python-surface/conformant',
-    redTree: 'fixtures/python-surface/drift-forbidden-import',
-    expectedConstraintId: 'no-direct-provider-sdk',
+    id: 'python-module-layering',
+    title: 'Keep Python domain code below the API layer',
+    support: 'Python · structured direct graph',
+    protects: 'directional Python layers cannot grow a reverse direct import',
+    blueprint: 'fixtures/python-module-layering.blueprint.json',
+    greenTree: 'fixtures/python-module-graph-surface/conformant',
+    redTree: 'fixtures/python-module-graph-surface/drift-reverse-layer',
+    expectedConstraintId: 'domain-cannot-import-api',
   },
   {
     id: 'module-layering',
@@ -408,7 +409,7 @@ function slugFragment(s: string): string {
  *   forbiddenDependency:<module>            → { from:'*', to: module }
  *   requiredDependency:<componentType>      → { component } (a component of that type must
  *                                             carry a provides/guards edge — see report.ts)
- *   requiredDependency:<componentType>-><target> → { component, to } for typescript-module-graph
+ *   requiredDependency:<componentType>-><target> → { component, to } for module-graph profiles
  *   requiredComponent:<componentType>       → { component }
  *   forbiddenPath:<glob>                    → { path } (matches EXTRACTED-COMPONENT paths)
  *   forbiddenFile:<glob>                    → { path } (matches RAW scanned-file paths — export-shape-agnostic)
@@ -564,8 +565,11 @@ function buildGraph(
   cfg: ResolvedExtraction,
 ): ArchitectureGraph {
   if (!ctRepo || !fs.existsSync(ctRepo)) die(`--ct-repo not found: ${ctRepo}`);
-  if (extractorKind === 'line-scan' && cfg.profile === 'typescript-module-graph') {
-    die(`typescript-module-graph requires --extractor ast; line-scan cannot resolve module targets`, 2);
+  if (
+    extractorKind === 'line-scan' &&
+    (cfg.profile === 'typescript-module-graph' || cfg.profile === 'python-module-graph')
+  ) {
+    die(`${cfg.profile} requires --extractor ast; line-scan cannot resolve module targets`, 2);
   }
   let tree: string;
   let revision: string;
@@ -899,8 +903,8 @@ async function main(): Promise<void> {
       : args._[1] === 'decide'
         ? ['packet', 'decision', 'github-repo', 'github-pull', 'github-review', 'repo']
         : ['packet', 'decision', 'repo'],
-    author: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'min-files', 'repo', 'out'],
-    init: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'min-files', 'repo', 'out'],
+    author: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'python-root', 'min-files', 'repo', 'out'],
+    init: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'python-root', 'min-files', 'repo', 'out'],
     scan: ['ct-repo', 'blueprint', 'ref', 'extractor', 'no-pin', 'out'],
     run: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'out', 'observations', 'emit-bundle', 'emit', 'prev-hash', 'emit-evidence-out', 'emit-wo-out'],
     teeth: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'require-extractor-real', 'reviewed-waiver', 'mutation-manifest', 'require-all-extractor-real', 'out'],
@@ -1498,6 +1502,7 @@ async function main(): Promise<void> {
         die(`--extraction-profile ${profileParsed.data} requires --scope-paths <glob,glob> (this profile has no default globs).`, 1);
       }
       const guardSymbols = collectRepeatable(rawArgv, 'guard-symbol');
+      const pythonRoots = collectRepeatable(rawArgv, 'python-root');
       let minFiles = 1;
       if (typeof args['min-files'] === 'string') {
         minFiles = Number.parseInt(args['min-files'] as string, 10);
@@ -1507,6 +1512,7 @@ async function main(): Promise<void> {
         profile: profileParsed.data,
         ...(scopePaths && scopePaths.length > 0 ? { paths: scopePaths } : {}),
         ...(guardSymbols.length > 0 ? { guardSymbols } : {}),
+        ...(pythonRoots.length > 0 ? { pythonRoots } : {}),
         minFiles,
         ...(typeof args.tsconfig === 'string' ? { tsconfig: args.tsconfig } : {}),
       };
@@ -1514,14 +1520,22 @@ async function main(): Promise<void> {
       if (args.tsconfig && profileParsed.data !== 'typescript-module-graph') {
         die(`--tsconfig is only valid with --extraction-profile typescript-module-graph.`, 1);
       }
-      if (profileParsed.data === 'typescript-module-graph') {
+      if (pythonRoots.length > 0 && profileParsed.data !== 'python-module-graph') {
+        die(`--python-root is only valid with --extraction-profile python-module-graph.`, 1);
+      }
+      if (profileParsed.data === 'python-module-graph' && pythonRoots.length === 0) {
+        die(`python-module-graph requires at least one --python-root <repo-relative-directory>.`, 1);
+      }
+      const isModuleGraph =
+        profileParsed.data === 'typescript-module-graph' || profileParsed.data === 'python-module-graph';
+      if (isModuleGraph) {
         for (const constraint of constraints) {
           if (constraint.type !== 'requiredDependency' && constraint.type !== 'forbiddenDependency') continue;
           constraint.scopePaths = [...(scopePaths ?? [])];
           if (constraint.type === 'requiredDependency' && !constraint.to) {
             die(
-              `typescript-module-graph requiredDependency uses '<componentType>-><target>' ` +
-                `(example: requiredDependency:typescriptModule->package:zod).`,
+              `${profileParsed.data} requiredDependency uses '<componentType>-><target>' ` +
+                `(example: requiredDependency:${profileParsed.data === 'python-module-graph' ? 'pythonModule->package:requests' : 'typescriptModule->package:zod'}).`,
               1,
             );
           }
@@ -1556,7 +1570,9 @@ async function main(): Promise<void> {
       ...(extraction ? { extraction } : {}),
       ...(extraction?.profile === 'typescript-module-graph'
         ? { minEngineVersion: TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION }
-        : {}),
+        : extraction?.profile === 'python-module-graph'
+          ? { minEngineVersion: PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION }
+          : {}),
     };
 
     // SELF-VALIDATE (fail-closed): the scaffold must pass the STRICT schema BEFORE it is written.
@@ -1633,8 +1649,11 @@ async function main(): Promise<void> {
     }
     // python-import-surface resolves no egress hosts under either kind flag — refuse LOUD (same
     // discipline as the line-scan refusal above; a silent zero-edge scan would be a false pass).
-    if (cfg.profile === 'python-import-surface' && cfg.egressEnabled) {
-      die(`forbiddenEgress is not supported by the python-import-surface profile`, 1);
+    if (
+      (cfg.profile === 'python-import-surface' || cfg.profile === 'python-module-graph') &&
+      cfg.egressEnabled
+    ) {
+      die(`forbiddenEgress is not supported by the ${cfg.profile} profile`, 1);
     }
     // 0.9.0 --observations: a bare flag (no path) is a LOUD error, never a silent skip.
     if (args.observations === true) {
@@ -2263,11 +2282,11 @@ async function main(): Promise<void> {
       `  bce verify-bundle --bundle <json>  Re-hash and re-evaluate; reports integrity, never origin authenticity\n` +
       `  bce author --id <id> --intent-ref <ref> --constraint "<type>:<arg>[:<severity>]"\n` +
       `       [--repository <org/repo>] [--repo <dir>] [--scope-paths <glob,glob>]\n` +
-      `       [--extraction-profile next-route-handler|plugin-surface|typescript-module-graph|python-import-surface] [--guard-symbol <sym>]\n` +
-      `       [--tsconfig <repo-relative-file>] [--min-files <n>] [--name <name>] [--owner-role <r>] [--steward-role <r>] [--out <path>]\n` +
+      `       [--extraction-profile next-route-handler|plugin-surface|typescript-module-graph|python-import-surface|python-module-graph] [--guard-symbol <sym>]\n` +
+      `       [--tsconfig <repo-relative-file>] [--python-root <repo-relative-directory>] [--min-files <n>] [--name <name>] [--owner-role <r>] [--steward-role <r>] [--out <path>]\n` +
       `       (alias: bce init) Scaffold a schema-VALID draft blueprint (status draft, 0.1.0) —\n` +
       `       interactive-free, self-validating; with --repo, refuses (exit 2) a scope matching 0 files.\n` +
-      `       --intent-ref / --constraint / --repository / --guard-symbol are repeatable. Constraint grammar:\n` +
+      `       --intent-ref / --constraint / --repository / --guard-symbol / --python-root are repeatable. Constraint grammar:\n` +
       `         forbiddenDependency:<module-or-target> | requiredDependency:<componentType> | requiredComponent:<componentType>\n` +
       `         module graph requiredDependency:<componentType>-><module:glob|package:root|builtin:name>\n` +
       `         forbiddenPath:<glob> | forbiddenEgress:<host,...> (blocklist) | forbiddenEgress:governed=<host,...> (allowlist)\n` +

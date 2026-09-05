@@ -81,6 +81,12 @@ export type { ResolvedExtraction, EgressHostResolution } from './extractors.js';
 export { makeExtractor, EXTRACTOR_PROVIDERS } from './extractor-registry.js';
 export type { ExtractorProvider } from './extractor-registry.js';
 export { PythonImportExtractor, pythonModuleId, parsePythonImports } from './python-extractor.js';
+export {
+  PythonModuleGraphExtractor,
+  buildPythonModuleIndex,
+  parsePythonModuleImports,
+  readUtf8PythonSource,
+} from './python-module-graph.js';
 
 export { evaluate, stableStringify, SEVERITY_WEIGHT } from './report.js';
 export type { ComplianceReport, Violation } from './report.js';

@@ -169,6 +169,11 @@ describe('validator agreement — Zod and the generated schema on authored artif
     expect(() => parseBlueprint(mutant)).toThrow(/minEngineVersion >=0\.3\.0/);
     expect(ebValidate(mutant)).toBe(true);
 
+    const pythonMutant = readJson(path.join(ROOT, 'fixtures', 'python-module-layering.blueprint.json')) as Record<string, unknown>;
+    delete (pythonMutant.extraction as Record<string, unknown>).pythonRoots;
+    expect(() => parseBlueprint(pythonMutant)).toThrow(/python-module-graph requires.*pythonRoot/i);
+    expect(ebValidate(pythonMutant)).toBe(true);
+
     const portfolio = readJson(path.join(ROOT, 'fixtures', 'portfolio', 'demo-fleet.portfolio-blueprint.json')) as Record<string, unknown>;
     const modulePortfolio = {
       ...portfolio,
@@ -187,6 +192,20 @@ describe('validator agreement — Zod and the generated schema on authored artif
     };
     expect(() => parsePortfolioBlueprint(modulePortfolio)).toThrow(/member enginePin >=0\.3\.0/);
     expect(pbValidate(modulePortfolio)).toBe(true);
+
+    const pythonPortfolio = {
+      ...modulePortfolio,
+      extraction: { profile: 'python-module-graph', paths: ['src/**/*.py'], pythonRoots: ['src'], minFiles: 1 },
+      fleetConstraints: [{
+        id: 'no-api-from-domain',
+        type: 'forbiddenDependency',
+        severity: 'critical',
+        to: 'module:src/api/**',
+        scopePaths: ['src/domain/**'],
+      }],
+    };
+    expect(() => parsePortfolioBlueprint(pythonPortfolio)).toThrow(/member enginePin >=0\.3\.0/);
+    expect(pbValidate(pythonPortfolio)).toBe(true);
   });
 });
 

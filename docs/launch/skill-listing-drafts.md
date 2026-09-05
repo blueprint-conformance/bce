@@ -129,7 +129,7 @@ a stronger claim, the answer is no.
 | Deterministic, re-derivable evidence | [`docs/evidence-format.md`](../evidence-format.md) |
 | A constraint's refutability is graded | the `teeth` verdict set: `toothed`, `evaluator-refutable`, `toothless` |
 | Graduated adoption path | [`docs/adopt-existing-repo.md`](../adopt-existing-repo.md) |
-| TypeScript/JavaScript extraction (full AST) plus a Python import-graph MVP today | [`docs/extending-extractors.md`](../extending-extractors.md) — matches the README's own wording, and the `python-import-surface` profile the CLI accepts. The blueprint model is language-neutral, but a listing must not imply the extractors reach further than these two |
+| Released TypeScript/JavaScript framework AST plus the Python import-surface MVP; candidate direct TypeScript/JavaScript and structured Python module graphs | [`docs/extending-extractors.md`](../extending-extractors.md) and [`docs/python-module-graph.md`](../python-module-graph.md) — listings must distinguish the `v0.2.0` registry release from the unpublished `v0.3.0` source candidate and must not imply call, egress, transitive, or cycle analysis for Python |
 
 Claims **not** to make: any superlative, any comparison to a named competitor,
 any figure about adoption or users, and anything about language support beyond

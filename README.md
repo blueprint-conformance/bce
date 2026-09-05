@@ -12,15 +12,15 @@
 cannot merge.
 
 **Released support (`v0.2.0`):** mature TypeScript/JavaScript framework-surface AST extraction and
-Python import-graph MVP. **Source candidate (`v0.3.0`):** adds direct TypeScript/JavaScript module
-boundaries. Node 22+ is required; the contract remains pre-1.0.
+Python import-surface MVP. **Source candidate (`v0.3.0`):** adds direct TypeScript/JavaScript and
+structured Python module boundaries. Node 22+ is required; the contract remains pre-1.0.
 
 <!-- award-slot: reserved. Activate only in a PR that links an award actually won. -->
 
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 886">
+  <img src="assets/badges/tests.svg" alt="tests: 912">
 </p>
 
 ## Run a real gate
@@ -34,9 +34,9 @@ npx --no-install bce demo
 ```
 
 The released demo runs one conforming tree and one drifted tree. The `v0.3.0` source candidate adds
-six targeted recipes for extension registration, tenant access, egress, module layering, Python
-imports, and configuration widening. It is not published yet; the registry preflight below must
-succeed before anyone installs or describes it as released:
+six targeted recipes for extension registration, tenant access, egress, TypeScript and Python
+module layering, and configuration widening. It is not published yet; the registry preflight below
+must succeed before anyone installs or describes it as released:
 
 ```bash
 npm view bce-engine@0.3.0 version dist.integrity
@@ -131,7 +131,7 @@ The mode is committed policy—not a skip flag—and moving backward requires a 
 ## Evidence and limits
 
 **Mechanism evidence is strong; causal product benefit is not established.** This repository has
-a generated suite whose current count is shown above, replayed RED/GREEN fixtures, 45/45 killed
+a generated suite whose current count is shown above, replayed RED/GREEN fixtures, 47/47 killed
 self-blueprint mutants, deterministic reports,
 and cross-platform CI. Those are first-party proofs on author-controlled infrastructure;
 [independent witnesses remain 0](ATTESTATIONS.md).

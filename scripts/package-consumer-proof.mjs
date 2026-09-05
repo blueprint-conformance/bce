@@ -75,7 +75,7 @@ for (const marker of [
   'recipe extension-contract',
   'recipe tenant-route-guard',
   'recipe governed-egress',
-  'recipe python-provider-import',
+  'recipe python-module-layering',
   'recipe configuration-allowlist',
   'recipe module-layering',
   'bce demo: 6/6 packaged recipes discriminate GREEN from RED',
@@ -103,6 +103,26 @@ if (mcpRed.gateFailed !== true || mcpRed.outcome !== 'violation' || mcpRed.exitC
 if (!JSON.stringify(mcpRed).includes('domain-cannot-import-app') ||
     !JSON.stringify(mcpRed).includes('packages/domain/order.ts#L1')) {
   throw new Error('packed MCP module RED omitted the named reverse edge and source line');
+}
+
+const pythonBlueprintDir = join(scratch, 'python-module-blueprints');
+mkdirSync(pythonBlueprintDir, { recursive: true });
+writeFileSync(
+  join(pythonBlueprintDir, 'python-module-layering.blueprint.json'),
+  readFileSync(join(installedRoot, 'fixtures', 'python-module-layering.blueprint.json')),
+);
+const pythonTrees = join(installedRoot, 'fixtures', 'python-module-graph-surface');
+const pythonMcpGreen = callInstalledRunGate(join(pythonTrees, 'conformant'), pythonBlueprintDir);
+const pythonMcpRed = callInstalledRunGate(join(pythonTrees, 'drift-reverse-layer'), pythonBlueprintDir);
+if (pythonMcpGreen.gateFailed !== false || pythonMcpGreen.outcome !== 'pass' || pythonMcpGreen.exitCode !== 0) {
+  throw new Error(`packed MCP Python module GREEN contract failed: ${JSON.stringify(pythonMcpGreen)}`);
+}
+if (pythonMcpRed.gateFailed !== true || pythonMcpRed.outcome !== 'violation' || pythonMcpRed.exitCode !== 1) {
+  throw new Error(`packed MCP Python module RED contract failed: ${JSON.stringify(pythonMcpRed)}`);
+}
+if (!JSON.stringify(pythonMcpRed).includes('domain-cannot-import-api') ||
+    !JSON.stringify(pythonMcpRed).includes('src/service/domain/orders.py#L3')) {
+  throw new Error('packed MCP Python module RED omitted the named reverse edge and source line');
 }
 
 const installed = JSON.parse(readFileSync(join(scratch, 'node_modules', 'bce-engine', 'package.json'), 'utf8'));
@@ -252,4 +272,5 @@ for (const rel of [
 }
 process.stdout.write(output);
 process.stdout.write('packed MCP module-layering run_gate: GREEN/RED PASS\n');
+process.stdout.write('packed MCP python-module-layering run_gate: GREEN/RED PASS\n');
 process.stdout.write(`packed consumer proof: PASS (${packed[0].filename})\n`);

@@ -123,6 +123,7 @@ const PAGES = [
   { route: 'guides/agent-loop', source: 'docs/agent-loop.md', section: 'Guides' },
   { route: 'guides/constraint-guide', source: 'docs/constraint-guide.md', section: 'Guides' },
   { route: 'guides/typescript-module-graph', source: 'docs/typescript-module-graph.md', section: 'Guides' },
+  { route: 'guides/python-module-graph', source: 'docs/python-module-graph.md', section: 'Guides' },
   { route: 'guides/self-hosting', source: 'docs/self-hosting.md', section: 'Guides' },
   { route: 'guides/accelerated-dogfooding', source: 'docs/accelerated-dogfooding.md', section: 'Guides' },
   { route: 'guides/agent-estate', source: 'docs/fleet-dogfooding.md', section: 'Guides' },

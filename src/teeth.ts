@@ -177,6 +177,11 @@ function reddeningMutation(
   g: ArchitectureGraph,
   profile: Profile,
 ): { g2: ArchitectureGraph; mutation: string } | null {
+  const moduleGraphComponentType = profile === 'typescript-module-graph'
+    ? 'typescriptModule'
+    : profile === 'python-module-graph'
+      ? 'pythonModule'
+      : null;
   switch (c.type) {
     case 'requiredComponent': {
       // Reddens by REMOVING every component of the required type (a real deletion a bad PR does).
@@ -196,11 +201,11 @@ function reddeningMutation(
       // evidenceType:'tenantGuard' must NOT retarget to 'guards' (report.ts finding #3), or teeth
       // removes the wrong edge type (a no-op on the count) and mislabels a genuinely-toothed
       // constraint TRIVIALLY_GREEN → a spurious toothless REJECT. Thread the real profile through.
-      if (profile === 'typescript-module-graph') {
+      if (moduleGraphComponentType) {
         const scopeMatchers = (c.scopePaths ?? []).map(pathGlobToRe);
         const sourceIds = new Set(
           g.components
-            .filter((component) => component.type === 'typescriptModule' && scopeMatchers.some((re) => re.test(component.path)))
+            .filter((component) => component.type === moduleGraphComponentType && scopeMatchers.some((re) => re.test(component.path)))
             .map((component) => component.id),
         );
         const satisfying = g.guardEdges.filter(
@@ -227,10 +232,10 @@ function reddeningMutation(
       // Reddens by ADDING the exact forbidden edge a bad PR would introduce.
       const to = c.to;
       if (!to) return null;
-      const moduleSource = profile === 'typescript-module-graph'
+      const moduleSource = moduleGraphComponentType
         ? g.components.find(
             (component) =>
-              component.type === 'typescriptModule' &&
+              component.type === moduleGraphComponentType &&
               (c.scopePaths ?? []).some((scope) => pathGlobToRe(scope).test(component.path)),
           )
         : undefined;
@@ -244,7 +249,7 @@ function reddeningMutation(
       // exact in-scope file a real bad PR would edit.
       const scope0 = c.scopePaths?.[0];
       const injectedPath = scope0 ? concretePathForGlob(scope0) : 'teeth:injected';
-      const injectedTarget = profile === 'typescript-module-graph' && to.startsWith('module:')
+      const injectedTarget = moduleGraphComponentType && to.startsWith('module:')
         ? `module:${concretePathForGlob(to.slice('module:'.length))}`
         : to;
       const injected: ObservedEdge = { from, to: injectedTarget, type: 'imports', evidenceRef: `${injectedPath}#L1` };

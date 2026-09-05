@@ -85,6 +85,10 @@
         "type": "externalDependency"
       },
       {
+        "id": "lezer-python",
+        "type": "externalDependency"
+      },
+      {
         "id": "zod",
         "type": "externalDependency"
       }
@@ -105,6 +109,12 @@
       {
         "from": "extractor",
         "to": "ts-morph",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "extractor",
+        "to": "lezer-python",
         "type": "imports",
         "allowed": true
       },
@@ -221,6 +231,7 @@
         "src/portfolio-compile.ts",
         "src/proposal-io.ts",
         "src/python-extractor.ts",
+        "src/python-module-graph.ts",
         "src/recall-gate.ts",
         "src/report.ts",
         "src/review-contracts.ts",
@@ -239,11 +250,61 @@
       "policyRef": "policy/extraction-seam-isolation"
     },
     {
-      "id": "runtime-dep-allowlist-zod-and-ts-morph",
+      "id": "only-python-module-graph-may-import-lezer",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "@lezer",
+      "scopePaths": [
+        "src/assistant-adapter.ts",
+        "src/baseline.ts",
+        "src/benchmark.ts",
+        "src/cli.ts",
+        "src/corpus.ts",
+        "src/emit.ts",
+        "src/evidence-bundle.ts",
+        "src/evidence-store.ts",
+        "src/extractor-teeth.ts",
+        "src/extractor-registry.ts",
+        "src/extractors.ts",
+        "src/gate.ts",
+        "src/graph.ts",
+        "src/index.ts",
+        "src/lifecycle.ts",
+        "src/materializer.ts",
+        "src/mcp-server.ts",
+        "src/mode.ts",
+        "src/observations.ts",
+        "src/pin.ts",
+        "src/policy-change.ts",
+        "src/policy-history.ts",
+        "src/portfolio-collect.ts",
+        "src/portfolio-compile.ts",
+        "src/proposal-io.ts",
+        "src/python-extractor.ts",
+        "src/recall-gate.ts",
+        "src/report.ts",
+        "src/review-contracts.ts",
+        "src/review-render.ts",
+        "src/review.ts",
+        "src/runtime-identity.ts",
+        "src/safe-regex.ts",
+        "src/scm-review.ts",
+        "src/schema.ts",
+        "src/score.ts",
+        "src/teeth-waiver.ts",
+        "src/teeth.ts",
+        "src/violation-format.ts",
+        "src/violation-rollup.ts"
+      ],
+      "policyRef": "policy/extraction-seam-isolation"
+    },
+    {
+      "id": "runtime-dep-allowlist-approved-parsers",
       "type": "forbiddenPattern",
       "severity": "critical",
       "path": "src/**/*.ts",
-      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod['\"]|ts-morph['\"]|node:|\\.{1,2}/)",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod['\"]|ts-morph['\"]|@lezer/(?:common|python)['\"]|node:|\\.{1,2}/)",
       "policyRef": "policy/runtime-dep-allowlist"
     },
     {
@@ -527,6 +588,14 @@
       "policyRef": "policy/library-modules-never-exit"
     },
     {
+      "id": "only-cli-may-call-process-exit--python-module-graph",
+      "type": "forbiddenPattern",
+      "severity": "high",
+      "path": "src/python-module-graph.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit"
+    },
+    {
       "id": "only-cli-may-call-process-exit--runtime-identity",
       "type": "forbiddenPattern",
       "severity": "high",
@@ -609,6 +678,6 @@
     "paths": [
       "src/**/*.ts"
     ],
-    "minFiles": 40
+    "minFiles": 41
   }
 }

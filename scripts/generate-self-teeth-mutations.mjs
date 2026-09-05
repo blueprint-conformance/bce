@@ -29,14 +29,17 @@ const cases = blueprint.constraints.map((constraint) => {
   if (constraint.id === 'only-extractors-may-import-ts-morph') {
     return appendCase(constraint, 'src/cli.ts', "\nimport { Project as __BceMutationProject } from 'ts-morph';\n");
   }
-  if (constraint.id === 'runtime-dep-allowlist-zod-and-ts-morph') {
+  if (constraint.id === 'only-python-module-graph-may-import-lezer') {
+    return appendCase(constraint, 'src/cli.ts', "\nimport { parser as __BceMutationParser } from '@lezer/python';\n");
+  }
+  if (constraint.id === 'runtime-dep-allowlist-approved-parsers') {
     return appendCase(constraint, 'src/cli.ts', "\nimport __bceMutationRuntimeDependency from 'ajv';\n");
   }
   if (constraint.id === 'schema-imports-only-zod-and-safe-regex') {
-    return appendCase(constraint, 'src/schema.ts', "\nimport __bceMutationSchemaDependency from 'ajv';\n", ['runtime-dep-allowlist-zod-and-ts-morph']);
+    return appendCase(constraint, 'src/schema.ts', "\nimport __bceMutationSchemaDependency from 'ajv';\n", ['runtime-dep-allowlist-approved-parsers']);
   }
   if (constraint.id === 'evaluator-pure--report-imports-only-crypto-and-relative') {
-    return appendCase(constraint, 'src/report.ts', "\nimport __bceMutationReportDependency from 'ajv';\n", ['runtime-dep-allowlist-zod-and-ts-morph']);
+    return appendCase(constraint, 'src/report.ts', "\nimport __bceMutationReportDependency from 'ajv';\n", ['runtime-dep-allowlist-approved-parsers']);
   }
   if (constraint.id === 'evaluator-pure--score-imports-relative-only') {
     return appendCase(constraint, 'src/score.ts', "\nimport { randomBytes as __bceMutationRandomBytes } from 'node:crypto';\n");

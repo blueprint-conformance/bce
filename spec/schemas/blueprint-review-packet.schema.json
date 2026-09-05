@@ -333,9 +333,17 @@
                             "next-route-handler",
                             "plugin-surface",
                             "typescript-module-graph",
-                            "python-import-surface"
+                            "python-import-surface",
+                            "python-module-graph"
                           ],
                           "type": "string"
+                        },
+                        "pythonRoots": {
+                          "items": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "tsconfig": {
                           "minLength": 1,
@@ -909,9 +917,17 @@
                             "next-route-handler",
                             "plugin-surface",
                             "typescript-module-graph",
-                            "python-import-surface"
+                            "python-import-surface",
+                            "python-module-graph"
                           ],
                           "type": "string"
+                        },
+                        "pythonRoots": {
+                          "items": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "tsconfig": {
                           "minLength": 1,
@@ -1583,9 +1599,17 @@
                             "next-route-handler",
                             "plugin-surface",
                             "typescript-module-graph",
-                            "python-import-surface"
+                            "python-import-surface",
+                            "python-module-graph"
                           ],
                           "type": "string"
+                        },
+                        "pythonRoots": {
+                          "items": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "tsconfig": {
                           "minLength": 1,
@@ -2296,7 +2320,8 @@
                     "next-route-handler",
                     "plugin-surface",
                     "typescript-module-graph",
-                    "python-import-surface"
+                    "python-import-surface",
+                    "python-module-graph"
                   ],
                   "type": "string"
                 },

@@ -1,0 +1,105 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "python-module-layering",
+    "name": "Python service — domain stays below the API layer",
+    "version": "0.1.0",
+    "status": "approved",
+    "ownerRole": "service-maintainer",
+    "stewardRole": "blueprint-steward"
+  },
+  "intentRefs": [
+    "policy/python-layer-direction"
+  ],
+  "scope": {
+    "repositories": [
+      "python-module-service"
+    ],
+    "paths": [
+      "src/**/*.py"
+    ],
+    "environments": [
+      "ci",
+      "production"
+    ]
+  },
+  "architecture": {
+    "components": [
+      {
+        "id": "pythonModules",
+        "type": "pythonModule",
+        "owner": "service-maintainers"
+      }
+    ],
+    "relationships": [
+      {
+        "from": "module:src/service/api.py",
+        "to": "module:src/service/domain/orders.py",
+        "type": "imports",
+        "allowed": true
+      },
+      {
+        "from": "module:src/service/domain/**",
+        "to": "module:src/service/api.py",
+        "type": "imports",
+        "allowed": false
+      }
+    ]
+  },
+  "constraints": [
+    {
+      "id": "python-module-surface-exists",
+      "type": "requiredComponent",
+      "severity": "high",
+      "component": "pythonModule",
+      "policyRef": "policy/python-layer-direction"
+    },
+    {
+      "id": "api-delegates-to-domain",
+      "type": "requiredDependency",
+      "severity": "high",
+      "component": "pythonModule",
+      "to": "module:src/service/domain/orders.py",
+      "scopePaths": [
+        "src/service/api.py"
+      ],
+      "policyRef": "policy/python-layer-direction"
+    },
+    {
+      "id": "domain-cannot-import-api",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "module:src/service/api.py",
+      "scopePaths": [
+        "src/service/domain/**/*.py"
+      ],
+      "policyRef": "policy/python-layer-direction"
+    }
+  ],
+  "evidenceRequirements": [
+    {
+      "type": "staticAst",
+      "required": true,
+      "onMissing": "block"
+    }
+  ],
+  "approvals": [
+    {
+      "role": "blueprint-steward",
+      "stage": "ratify"
+    }
+  ],
+  "extraction": {
+    "profile": "python-module-graph",
+    "paths": [
+      "src/**/*.py"
+    ],
+    "pythonRoots": [
+      "src"
+    ],
+    "minFiles": 4
+  },
+  "minEngineVersion": "0.3.0"
+}

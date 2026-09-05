@@ -91,6 +91,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@lezer/common": "1.5.2",
+    "@lezer/python": "1.1.19",
     "ts-morph": "23.0.0",
     "zod": "3.25.76"
   },

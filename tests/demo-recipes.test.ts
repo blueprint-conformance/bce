@@ -28,7 +28,7 @@ const RECIPE_IDS = [
   'extension-contract',
   'tenant-route-guard',
   'governed-egress',
-  'python-provider-import',
+  'python-module-layering',
   'module-layering',
   'configuration-allowlist',
 ] as const;
@@ -53,14 +53,14 @@ describe('packaged architecture demo recipes', () => {
     expect(result.stdout.match(/^  [a-z][a-z-]+\s+/gm)).toHaveLength(RECIPE_IDS.length);
     expect(result.stdout).toContain('TypeScript/JavaScript · mature AST');
     expect(result.stdout).toContain('Next.js TypeScript · mature AST');
-    expect(result.stdout).toContain('Python · MVP import graph');
+    expect(result.stdout).toContain('Python · structured direct graph');
     expect(result.stdout).toContain('TypeScript/JavaScript · direct module graph');
     expect(result.stdout).toContain('JSON/Markdown · real-source pattern pair');
     expect(result.stdout).toContain('run all: bce demo --recipe all');
 
     const firstWin = readFileSync(path.join(REPO_ROOT, 'docs', 'first-win.md'), 'utf8');
     for (const id of RECIPE_IDS) expect(firstWin).toContain(`\`${id}\``);
-    expect(firstWin).toContain('Python import graph MVP');
+    expect(firstWin).toContain('Python structured direct module graph');
     expect(firstWin).toContain('evaluator-refutable');
   });
 
@@ -85,7 +85,7 @@ describe('packaged architecture demo recipes', () => {
     expect(result.stdout).toContain('recipe tenant-route-guard');
     expect(result.stdout).toContain('violation d6-tenant-guard');
     expect(result.stdout).not.toContain('recipe extension-contract');
-    expect(result.stdout).not.toContain('recipe python-provider-import');
+    expect(result.stdout).not.toContain('recipe python-module-layering');
   });
 
   it('refuses missing, unknown, or ambiguous recipe selection', () => {
