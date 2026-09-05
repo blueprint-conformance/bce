@@ -64,6 +64,11 @@ implementation bytes, treatment runtime, and Sigstore pre-run seal. A lifecycle 
 unlock an efficacy claim; completion also requires full-denominator public replay plus an external,
 self-digested checkpoint anchor.
 
+Each stage owns a one-cell v2 execution bundle. That cell is `primary` within its stage-local paired
+experiment; v3 separately classifies the stage as the program primary or a transportability stage.
+Claim-bearing local-provider cells are admitted only for the first-party tool client with its exact
+sealed two-arm capability qualification. Other local-provider clients remain pilot-only.
+
 ## Lifecycle
 
 ```text
@@ -162,7 +167,7 @@ The sealed adapter also sets shell environment inheritance to none. A dedicated 
 credential remains the confirmatory-study standard; this pilot does not claim credential-broker
 isolation.
 
-Local Ollama pilots use a different, credential-free cell. The controller refuses non-loopback
+Local Ollama cells use a different, credential-free path. The controller refuses non-loopback
 endpoints, allows the model process to reach one sealed loopback port only, proves external and
 wrong-port connections fail with an OS permission denial, checks Ollama version and model artifact
 digest before exposure, and requires `/api/ps` to return the exact active model name and digest

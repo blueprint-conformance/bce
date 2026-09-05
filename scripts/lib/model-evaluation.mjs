@@ -617,6 +617,7 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
         if (manifest.tasks.some((task) => task.budget.maxTurns > configuration.limits.maximumTurns)) refusals.push(`${cell.id}: a task exceeds the frozen tool-loop turn cap`);
         if (seal.attestation?.kind !== 'synthetic-self-test') verifyQualificationAttestation(root, protocol, seal, cell, configuration, refusals);
       }
+      if (!cell.localProvider) refusals.push(`${cell.id}: first-party Ollama client lacks an exact frozen local provider`);
     } else if (cell.toolLoop != null) refusals.push(`${cell.id}: non-reference client unexpectedly declares toolLoop configuration`);
     if (cell.localProvider) {
       let endpoint = null;
@@ -625,7 +626,11 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
       if (endpoint && (endpoint.protocol !== 'http:' || !['127.0.0.1', '[::1]'].includes(endpoint.hostname) || !endpoint.port || endpoint.username || endpoint.password || endpoint.search || endpoint.hash || !['', '/'].includes(endpoint.pathname))) {
         refusals.push(`${cell.id}: local provider endpoint must be credential-free HTTP on one explicit loopback port with no path, query, or fragment`);
       }
-      if (protocol.phase !== 'pilot') refusals.push(`${cell.id}: local provider cells are currently permitted only in claim-ineligible pilots`);
+      const qualifiedFirstPartyConfirmatoryCell = protocol.phase === 'confirmatory' &&
+        cell.client === 'bce-ollama-tool-client' && cell.toolLoop?.qualificationAttestation != null;
+      if (protocol.phase !== 'pilot' && !qualifiedFirstPartyConfirmatoryCell) {
+        refusals.push(`${cell.id}: confirmatory local-provider cells require the first-party tool client and its exact sealed capability qualification`);
+      }
       if (!['codex', 'bce-ollama-tool-client'].includes(cell.client) && seal.attestation?.kind !== 'synthetic-self-test') refusals.push(`${cell.id}: no sealed local-provider adapter exists for ${cell.client}`);
       if (cell.localProvider.kind !== 'ollama' || cell.localProvider.authentication !== 'none') refusals.push(`${cell.id}: local provider must be unauthenticated Ollama`);
       if (protocol.isolation.modelNetworkPolicy !== 'loopback-only-single-endpoint') refusals.push(`${cell.id}: local provider requires loopback-only-single-endpoint isolation`);

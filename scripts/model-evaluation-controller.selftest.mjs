@@ -4,7 +4,7 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { expectedSeal, hashTree, sha256Bytes, sha256Json, verifyBundle, verifyTerminalRecord } from './lib/model-evaluation.mjs';
+import { expectedSeal, fileArtifact, hashTree, sha256Bytes, sha256Json, verifyBundle, verifyTerminalRecord } from './lib/model-evaluation.mjs';
 
 if (process.platform !== 'darwin') {
   process.stderr.write('controller self-test requires the same macOS sandbox-exec driver as the accelerated pilot\n');
@@ -65,6 +65,7 @@ function prepareBundle(name) {
   const bundle = join(scratch, name, 'bundle');
   cpSync(sourceBundle, bundle, { recursive: true });
   copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'protocol.schema.json'), join(bundle, 'schemas', 'protocol.schema.json'));
+  copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'task-manifest.schema.json'), join(bundle, 'schemas', 'task-manifest.schema.json'));
   copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'terminal-record.schema.json'), join(bundle, 'schemas', 'terminal-record.schema.json'));
   copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'study-halt.schema.json'), join(bundle, 'schemas', 'study-halt.schema.json'));
   copyFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'safety-halt-archive.schema.json'), join(bundle, 'schemas', 'safety-halt-archive.schema.json'));
@@ -475,6 +476,37 @@ function verifyReferenceCanaryBinding() {
     sealBundle();
     const accepted = verifyBundle(bundle, { requireSealed: true });
     if (!accepted.ok) throw new Error(`valid sealed reference canary binding was refused: ${accepted.refusals.join('; ')}`);
+
+    protocol.phase = 'confirmatory';
+    manifest.phase = 'confirmatory';
+    for (const repository of manifest.repositories) repository.developmentExposed = false;
+    for (const task of manifest.tasks) {
+      task.classification = 'confirmatory-held-out';
+      task.provenance.developmentExposed = false;
+      const referencePatchPath = join(bundle, 'artifacts', `${task.id}-confirmatory-reference.patch`);
+      writeFileSync(referencePatchPath, `diff --git a/src/index.ts b/src/index.ts\n# ${task.id} confirmatory reference\n`);
+      task.referencePatch = fileArtifact(referencePatchPath, bundle, 'text/x-diff');
+      task.referencePatchSha256 = task.referencePatch.sha256;
+    }
+    writeFileSync(protocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    const confirmatoryCandidate = verifyBundle(bundle, { requireSealed: false });
+    if (!confirmatoryCandidate.ok) {
+      throw new Error(`qualified first-party local confirmatory candidate was refused: ${confirmatoryCandidate.refusals.join('; ')}`);
+    }
+
+    const referenceClient = cell.client;
+    const referenceToolLoop = cell.toolLoop;
+    cell.client = 'codex';
+    cell.toolLoop = null;
+    writeFileSync(protocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
+    const unqualifiedLocalConfirmatory = verifyBundle(bundle, { requireSealed: false });
+    if (unqualifiedLocalConfirmatory.ok || !unqualifiedLocalConfirmatory.refusals.some((message) => message.includes('confirmatory local-provider cells require the first-party tool client'))) {
+      throw new Error('confirmatory verifier accepted a local-provider cell outside the qualified first-party path');
+    }
+    cell.client = referenceClient;
+    cell.toolLoop = referenceToolLoop;
+    writeFileSync(protocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
 
     attestation.observations[1].bceLastVerifiedVerdict = 'fail';
     attestation.attestationSha256 = null;
