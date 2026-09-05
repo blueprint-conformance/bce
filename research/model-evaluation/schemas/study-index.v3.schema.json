@@ -1,0 +1,140 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCE evidence foundry study registry v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "registryId",
+    "claimClasses",
+    "legacyArchives",
+    "reservedStudyIds",
+    "studies"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "3" },
+    "registryId": { "const": "bce-causal-efficacy-studies-v3" },
+    "claimClasses": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/claimClass" }
+    },
+    "legacyArchives": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/legacyArchive" }
+    },
+    "reservedStudyIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/reservedStudy" }
+    },
+    "studies": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/study" }
+    }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "relativeJsonPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[a-zA-Z0-9._/-]+\\.json$"
+    },
+    "studyId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,127}$" },
+    "claimClassId": {
+      "enum": [
+        "no-efficacy-claim",
+        "apparatus-validation-only",
+        "bounded-primary-causal-effect-exact-cell-release-and-task-population",
+        "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
+        "bounded-default-adoption-decision-all-preregistered-cells-exact-release-and-task-population",
+        "independent-replication-exact-frozen-scope"
+      ]
+    },
+    "claimClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "efficacyEligible", "meaning"],
+      "properties": {
+        "id": { "$ref": "#/definitions/claimClassId" },
+        "efficacyEligible": { "type": "boolean" },
+        "meaning": { "type": "string", "minLength": 30 }
+      }
+    },
+    "legacyArchive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "studyId",
+        "generation",
+        "path",
+        "fileCount",
+        "contentTreeSha256",
+        "digestAlgorithm",
+        "evidenceClass",
+        "claimClass",
+        "immutable"
+      ],
+      "properties": {
+        "studyId": { "$ref": "#/definitions/studyId" },
+        "generation": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "path": { "type": "string", "pattern": "^research/model-evaluation/pilots/accelerated-v[1-6]$" },
+        "fileCount": { "type": "integer", "minimum": 1 },
+        "contentTreeSha256": { "$ref": "#/definitions/sha256" },
+        "digestAlgorithm": { "const": "bce-regular-file-tree-sha256-v1" },
+        "evidenceClass": { "enum": ["development-exposed-instrumentation-pilot", "safety-halted-instrumentation-pilot"] },
+        "claimClass": { "const": "apparatus-validation-only" },
+        "immutable": { "const": true }
+      }
+    },
+    "reservedStudy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["studyId", "generation", "disposition", "claimClass"],
+      "properties": {
+        "studyId": { "$ref": "#/definitions/studyId" },
+        "generation": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "disposition": { "const": "unpublished-never-indexed-and-identifier-may-not-be-reused" },
+        "claimClass": { "const": "no-efficacy-claim" }
+      }
+    },
+    "study": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "studyId",
+        "protocolVersion",
+        "protocolPath",
+        "protocolSha256",
+        "powerDesignPath",
+        "powerDesignSha256",
+        "lifecycle",
+        "evidenceClass",
+        "currentClaimClasses",
+        "immutableAfterSeal"
+      ],
+      "properties": {
+        "studyId": { "$ref": "#/definitions/studyId" },
+        "protocolVersion": { "const": "3" },
+        "protocolPath": { "$ref": "#/definitions/relativeJsonPath" },
+        "protocolSha256": { "$ref": "#/definitions/sha256" },
+        "powerDesignPath": { "$ref": "#/definitions/relativeJsonPath" },
+        "powerDesignSha256": { "$ref": "#/definitions/sha256" },
+        "lifecycle": { "enum": ["design-draft", "frozen-ready-not-run", "running", "safety-halted", "complete"] },
+        "evidenceClass": { "enum": ["confirmatory-program-design", "confirmatory-staged-causal-study", "independent-replication"] },
+        "currentClaimClasses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/claimClassId" }
+        },
+        "immutableAfterSeal": { "const": true }
+      }
+    }
+  }
+}

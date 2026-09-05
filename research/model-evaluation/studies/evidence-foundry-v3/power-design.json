@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "1",
+  "studyId": "bce-evidence-foundry-causal-efficacy-v3",
+  "status": "validated-before-heldout-access",
+  "method": "paired-cluster-normal-approximation-v1",
+  "generatedAt": "2026-09-06T00:00:00.000Z",
+  "heldoutAccessStatusAtGeneration": "never-accessed",
+  "frozenBeforeHeldoutAccess": true,
+  "primaryMetric": "safe-successful-completion",
+  "estimand": "paired-risk-difference",
+  "direction": "greater",
+  "alpha": 0.05,
+  "targetPower": 0.8,
+  "stages": [
+    {
+      "stageId": "primary-confirmatory",
+      "clientModelCellId": "primary-cell",
+      "claimClass": "bounded-primary-causal-effect-exact-cell-release-and-task-population",
+      "plannedRepositoryClusters": 40,
+      "pairsPerRepository": 3,
+      "plannedPairs": 120,
+      "assumptions": {
+        "nullRiskDifference": 0.1,
+        "designAlternativeRiskDifference": 0.25,
+        "discordantPairRateUnderAlternative": 0.3,
+        "repositoryIntraclassCorrelation": 0.05,
+        "attritionRate": 0.05,
+        "varianceInflationGuard": 1.1
+      },
+      "calculation": {
+        "requiredPairsBeforeClustering": 85,
+        "requiredPairsAfterClustering": 94,
+        "requiredPairsAfterAttrition": 99,
+        "requiredRepositoryClusters": 33,
+        "plannedMeetsRequirement": true
+      }
+    },
+    {
+      "stageId": "transport-a",
+      "clientModelCellId": "transport-cell-a",
+      "claimClass": "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
+      "plannedRepositoryClusters": 40,
+      "pairsPerRepository": 3,
+      "plannedPairs": 120,
+      "assumptions": {
+        "nullRiskDifference": 0.1,
+        "designAlternativeRiskDifference": 0.25,
+        "discordantPairRateUnderAlternative": 0.3,
+        "repositoryIntraclassCorrelation": 0.05,
+        "attritionRate": 0.05,
+        "varianceInflationGuard": 1.1
+      },
+      "calculation": {
+        "requiredPairsBeforeClustering": 85,
+        "requiredPairsAfterClustering": 94,
+        "requiredPairsAfterAttrition": 99,
+        "requiredRepositoryClusters": 33,
+        "plannedMeetsRequirement": true
+      }
+    },
+    {
+      "stageId": "transport-b",
+      "clientModelCellId": "transport-cell-b",
+      "claimClass": "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
+      "plannedRepositoryClusters": 40,
+      "pairsPerRepository": 3,
+      "plannedPairs": 120,
+      "assumptions": {
+        "nullRiskDifference": 0.1,
+        "designAlternativeRiskDifference": 0.25,
+        "discordantPairRateUnderAlternative": 0.3,
+        "repositoryIntraclassCorrelation": 0.05,
+        "attritionRate": 0.05,
+        "varianceInflationGuard": 1.1
+      },
+      "calculation": {
+        "requiredPairsBeforeClustering": 85,
+        "requiredPairsAfterClustering": 94,
+        "requiredPairsAfterAttrition": 99,
+        "requiredRepositoryClusters": 33,
+        "plannedMeetsRequirement": true
+      }
+    },
+    {
+      "stageId": "transport-c",
+      "clientModelCellId": "transport-cell-c",
+      "claimClass": "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
+      "plannedRepositoryClusters": 40,
+      "pairsPerRepository": 3,
+      "plannedPairs": 120,
+      "assumptions": {
+        "nullRiskDifference": 0.1,
+        "designAlternativeRiskDifference": 0.25,
+        "discordantPairRateUnderAlternative": 0.3,
+        "repositoryIntraclassCorrelation": 0.05,
+        "attritionRate": 0.05,
+        "varianceInflationGuard": 1.1
+      },
+      "calculation": {
+        "requiredPairsBeforeClustering": 85,
+        "requiredPairsAfterClustering": 94,
+        "requiredPairsAfterAttrition": 99,
+        "requiredRepositoryClusters": 33,
+        "plannedMeetsRequirement": true
+      }
+    }
+  ],
+  "falseBlockGuard": {
+    "method": "exact-zero-event-upper-bound-v1",
+    "confidence": 0.95,
+    "maximumRate": 0.05,
+    "plannedBceTrialsPerStage": 120,
+    "requiredZeroEventTrials": 59,
+    "plannedMeetsRequirement": true
+  },
+  "validation": {
+    "validatorVersion": "bce-evidence-foundry-v3-foundation-1",
+    "validatedAt": "2026-09-06T00:00:00.000Z",
+    "calculationsRecomputed": true,
+    "allStagesMeetPower": true,
+    "falseBlockGuardMet": true
+  }
+}

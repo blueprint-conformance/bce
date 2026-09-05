@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "3",
+  "registryId": "bce-causal-efficacy-studies-v3",
+  "claimClasses": [
+    {
+      "id": "no-efficacy-claim",
+      "efficacyEligible": false,
+      "meaning": "The evidence cannot support a product-efficacy, transportability, safety, cost, or adoption claim."
+    },
+    {
+      "id": "apparatus-validation-only",
+      "efficacyEligible": false,
+      "meaning": "The evidence exercises research machinery only and is permanently ineligible for product-efficacy claims."
+    },
+    {
+      "id": "bounded-primary-causal-effect-exact-cell-release-and-task-population",
+      "efficacyEligible": true,
+      "meaning": "A causal estimate for only the sealed primary client/model cell, byte-identical release, and frozen task population."
+    },
+    {
+      "id": "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
+      "efficacyEligible": true,
+      "meaning": "A causal transport estimate for only one sealed transport cell, byte-identical release, and frozen task population."
+    },
+    {
+      "id": "bounded-default-adoption-decision-all-preregistered-cells-exact-release-and-task-population",
+      "efficacyEligible": true,
+      "meaning": "A bounded adoption decision after every preregistered primary and transport cell completes for the exact frozen scope."
+    },
+    {
+      "id": "independent-replication-exact-frozen-scope",
+      "efficacyEligible": true,
+      "meaning": "An independent operator reproduced a fully frozen study without author access to hidden outcomes before sealing."
+    }
+  ],
+  "legacyArchives": [
+    {
+      "studyId": "bce-accelerated-instrumentation-pilot-2026-09-03",
+      "generation": 1,
+      "path": "research/model-evaluation/pilots/accelerated-v1",
+      "fileCount": 110,
+      "contentTreeSha256": "a5d986fd74aeff48bbd6048efbc06870735bf3790208bfbc5ee8f0c4ea0b3f2e",
+      "digestAlgorithm": "bce-regular-file-tree-sha256-v1",
+      "evidenceClass": "development-exposed-instrumentation-pilot",
+      "claimClass": "apparatus-validation-only",
+      "immutable": true
+    },
+    {
+      "studyId": "bce-accelerated-instrumentation-pilot-v2-2026-09-03",
+      "generation": 2,
+      "path": "research/model-evaluation/pilots/accelerated-v2",
+      "fileCount": 110,
+      "contentTreeSha256": "26831b473693f8d55b304ddeda3b15ae1870484564b5bbad523d8e719d4e0884",
+      "digestAlgorithm": "bce-regular-file-tree-sha256-v1",
+      "evidenceClass": "development-exposed-instrumentation-pilot",
+      "claimClass": "apparatus-validation-only",
+      "immutable": true
+    },
+    {
+      "studyId": "bce-accelerated-instrumentation-pilot-v3-2026-09-03",
+      "generation": 3,
+      "path": "research/model-evaluation/pilots/accelerated-v3",
+      "fileCount": 117,
+      "contentTreeSha256": "fe7077752ea40af6ae373a35b30cfc3af2beefda01281e46199f6b3629a99477",
+      "digestAlgorithm": "bce-regular-file-tree-sha256-v1",
+      "evidenceClass": "development-exposed-instrumentation-pilot",
+      "claimClass": "apparatus-validation-only",
+      "immutable": true
+    },
+    {
+      "studyId": "bce-accelerated-instrumentation-pilot-v4-2026-09-05",
+      "generation": 4,
+      "path": "research/model-evaluation/pilots/accelerated-v4",
+      "fileCount": 207,
+      "contentTreeSha256": "5640ddab992d0645cdc228a920d85a9f81d7d91f31d8d499664a5550a22e06d1",
+      "digestAlgorithm": "bce-regular-file-tree-sha256-v1",
+      "evidenceClass": "safety-halted-instrumentation-pilot",
+      "claimClass": "apparatus-validation-only",
+      "immutable": true
+    },
+    {
+      "studyId": "bce-accelerated-instrumentation-pilot-v6-2026-09-05",
+      "generation": 6,
+      "path": "research/model-evaluation/pilots/accelerated-v6",
+      "fileCount": 245,
+      "contentTreeSha256": "466767167e2d8cc948334ff69379509659f1623d000f5a0ea6ec9908b99613ab",
+      "digestAlgorithm": "bce-regular-file-tree-sha256-v1",
+      "evidenceClass": "development-exposed-instrumentation-pilot",
+      "claimClass": "apparatus-validation-only",
+      "immutable": true
+    }
+  ],
+  "reservedStudyIds": [
+    {
+      "studyId": "bce-accelerated-instrumentation-pilot-v5-reserved",
+      "generation": 5,
+      "disposition": "unpublished-never-indexed-and-identifier-may-not-be-reused",
+      "claimClass": "no-efficacy-claim"
+    }
+  ],
+  "studies": [
+    {
+      "studyId": "bce-evidence-foundry-causal-efficacy-v3",
+      "protocolVersion": "3",
+      "protocolPath": "research/model-evaluation/studies/evidence-foundry-v3/protocol.json",
+      "protocolSha256": "4ef9fdcff93b43d0793ecbb52e60dd6047c9717c52265d5b56c0c66059b7e73f",
+      "powerDesignPath": "research/model-evaluation/studies/evidence-foundry-v3/power-design.json",
+      "powerDesignSha256": "1fc3bbcb59d02eb78f65baea2e8060c5ebe22d82682ca6cf1ca2561c59148704",
+      "lifecycle": "design-draft",
+      "evidenceClass": "confirmatory-program-design",
+      "currentClaimClasses": [
+        "no-efficacy-claim"
+      ],
+      "immutableAfterSeal": true
+    }
+  ]
+}
