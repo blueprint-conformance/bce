@@ -104,7 +104,7 @@
   "devDependencies": {
     "@modelcontextprotocol/inspector": "2.5.0",
     "@sigstore/cli": "0.10.3",
-    "@types/node": "^22.5.0",
+    "@types/node": "^26.4.1",
     "ajv": "^8.20.0",
     "rimraf": "^6.0.1",
     "tsup": "^8.3.0",
