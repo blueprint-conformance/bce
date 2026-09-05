@@ -18,8 +18,8 @@
 #
 # THE REASON THIS DID NOT EXIST: a test for a banned-string scanner has to contain
 # banned strings, and would fail the very gate it tests. So every probe here is
-# ASSEMBLED FROM FRAGMENTS at runtime, the same technique leakage-gate.yml uses on
-# its own pattern list — no banned literal appears in this file.
+# ASSEMBLED FROM FRAGMENTS at runtime, the same technique leakage-scan.sh uses —
+# no banned literal appears in this file.
 #
 # Each probe is planted in a throwaway copy, one at a time, and the scan must flag
 # that file. A baseline asserts the clean copy is silent first, so a catch cannot
@@ -90,93 +90,31 @@ PROBES=(
   "cred-jwt|${jwt}"
 )
 
-# ---- The scan, mirroring leakage-gate.yml. Keep in lock-step with it. ---------
-scan() {  # scan <dir> -> prints hit filenames, exit 0 if any hit
-  local d="$1"
-  local NAME_PAT="(^|[^a-zA-Z])${NAME}"
-  # "O" + "d" + "in" + " Labs". The first version dropped the d, assembling "Oin
-  # Labs" — so the allowlist strip never matched and the three legitimately
-  # allowlisted files tripped the baseline. Fragment assembly is what keeps this
-  # file out of its own scan, and it is also how a typo hides in plain sight.
-  local STEWARD="O""d${o2} Labs"
-  local PUBLIC_SECURITY_CONTACT="mitchell@${o1}${o2}-labs.ai"
-  local CRED=(
-    "(^|[^a-zA-Z0-9])sk_[a-zA-Z0-9]{8,}"
-    "${gp}[A-Za-z0-9]{10,}" "${gs}[A-Za-z0-9]{10,}" "${go}[A-Za-z0-9]{10,}" "$gpat"
-    'AKIA[0-9A-Z]{8,}' 'xox[baprs]-'
-    "-----BEGIN [A-Z ]*${pk}-----" 'eyJ[A-Za-z0-9_-]{20,}\.eyJ'
-  )
-  local PATS=(
-    "$NAME_PAT" "$t1"
-    "(^|[^a-z0-9_])${t2}([^a-z0-9_]|$)"
-    "$t4" "$t5" "$t7" "$t8" "$t9"
-    "(^|[^a-z0-9_])${t3}([^a-z0-9_]|$)"
-    "(^|[^a-z0-9_])${t6}([^a-z0-9_]|$)"
-    "(^|[^a-z0-9_])${n1}([^a-z0-9_]|$)"
-    "(^|[^a-z0-9_])${n2}([^a-z0-9_]|$)"
-    "(^|[^a-z0-9_])${n3}([^a-z0-9_]|$)"
-    '77\.42\.80\.233' '10\.0\.0\.' '136\.243\.' '65\.21\.'
-    'rule-[0-9]' '(^|[^a-z0-9])vp-[a-z0-9]' '(^|[^a-z0-9])del-[a-z0-9]'
-    "$reg" "$sn" "${dfA}[-_. ]?${dfB}" "${ocA}${ocB}" "${CRED[@]}"
-  )
-  local ALLOW=("NOTICE" "GOVERNANCE.md" "TRADEMARKS.md")
-  # These are immutable, publicly sealed pilot bytes. Three v1-v3 oracles contain
-  # a legacy dummy word that collides with the steward-name rule, and the v3 gzip
-  # stream has an accidental binary collision. The exception is content-addressed:
-  # changing one byte makes the file go through the normal scan again.
-  local PINNED_EVIDENCE=(
-    "research/model-evaluation/pilots/accelerated-v1/artifacts/tasks/boundary-feature/functional-oracle.mjs|ab488713fce71d6272d0d2c1eaf42d0c750ad5873b28122868229db97a9cf1ef"
-    "research/model-evaluation/pilots/accelerated-v2/artifacts/tasks/boundary-feature/functional-oracle.mjs|ab488713fce71d6272d0d2c1eaf42d0c750ad5873b28122868229db97a9cf1ef"
-    "research/model-evaluation/pilots/accelerated-v3/artifacts/tasks/boundary-feature/functional-oracle.mjs|ab488713fce71d6272d0d2c1eaf42d0c750ad5873b28122868229db97a9cf1ef"
-    "research/model-evaluation/pilots/accelerated-v3/artifacts/bce-treatment-runtime-v3.tgz|db2a215679f89bdb76cce65f88e88b529a799ec2b880487315d908c78576d4e7"
-  )
-  sha256_file() {
-    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
-    else shasum -a 256 "$1" | awk '{print $1}'
-    fi
-  }
-  pinned_evidence() {
-    local rel="$1" file="$2" entry
-    for entry in "${PINNED_EVIDENCE[@]}"; do
-      [ "$rel" = "${entry%%|*}" ] || continue
-      [ "$(sha256_file "$file")" = "${entry#*|}" ] && return 0
-      return 1
-    done
-    return 1
-  }
-  # The whole walk runs INSIDE the target dir. The first version cd'd only in the
-  # find subshell, so the loop body read `./PROBE.txt` relative to the ORIGINAL
-  # cwd — every read failed and every probe reported MISS. A harness that cannot
-  # open the file it planted reports "not caught" for a gate that works perfectly.
-  ( cd "$d" || exit 0
-  local hit=""
-  while IFS= read -r -d '' f; do
-    local rel="${f#./}" allow=0
-    if pinned_evidence "$rel" "$f"; then continue; fi
-    for a in "${ALLOW[@]}"; do [ "$rel" = "$a" ] && allow=1; done
-    for p in "${PATS[@]}"; do
-      local h
-      if [ "$allow" -eq 1 ] && [ "$p" = "$NAME_PAT" ]; then
-        h="$(LC_ALL=C tr -d '\000' < "$f" | sed "s/${STEWARD}//g" | { grep -a -i -E -- "$p" || true; })"
-      elif [ "$rel" = "SECURITY.md" ] && [ "$p" = "$NAME_PAT" ]; then
-        h="$(LC_ALL=C tr -d '\000' < "$f" | sed "s/${PUBLIC_SECURITY_CONTACT}//g" | { grep -a -i -E -- "$p" || true; })"
-      else
-        h="$(LC_ALL=C tr -d '\000' < "$f" | { grep -a -i -E -- "$p" || true; })"
-      fi
-      [ -n "$h" ] && { hit="${hit}${rel} "; break; }
-    done
-  done < <(find . -type f ! -path './.git/*' ! -path './node_modules/*' -print0)
-  printf '%s' "$hit"
-  )
+# ---- Exercise the exact production scanner. ------------------------------------
+SCANNER="$REPO_ROOT/scripts/leakage-scan.sh"
+scan() {
+  bash "$SCANNER" "$1"
 }
+
+# Both enforcement contexts must call the same implementation exactly once.
+# This prevents the release copy from becoming weaker, broader, or simply stale.
+for workflow in \
+  "$REPO_ROOT/.github/workflows/leakage-gate.yml" \
+  "$REPO_ROOT/.github/workflows/release.yml"; do
+  consumer_count="$(grep -c '^        run: bash scripts/leakage-scan\.sh \.$' "$workflow" || true)"
+  if [ "$consumer_count" -ne 1 ]; then
+    echo "::error::$(basename "$workflow") must invoke the single-source leakage scanner exactly once"
+    exit 2
+  fi
+done
 
 echo "leakage-gate selftest: ${#PROBES[@]} pattern classes, each planted separately"
 echo
 
 git -C "$REPO_ROOT" archive HEAD --prefix=base/ | tar -x -C "$TMP"
-base_hits="$(scan "$TMP/base")"
-if [ -n "$base_hits" ]; then
-  echo "::error::selftest: the CLEAN tree already trips the scan: ${base_hits}"
+if ! base_output="$(scan "$TMP/base" 2>&1)"; then
+  echo "::error::selftest: the CLEAN tree already trips the scan:"
+  echo "$base_output"
   echo "Fix the real contamination before trusting any negative control."
   exit 2
 fi
@@ -188,12 +126,20 @@ pinned_rel="research/model-evaluation/pilots/accelerated-v1/artifacts/tasks/boun
 pinned_dir="$TMP/pinned_exception"
 mkdir -p "$pinned_dir/$(dirname "$pinned_rel")"
 cp "$TMP/base/$pinned_rel" "$pinned_dir/$pinned_rel"
-[ -z "$(scan "$pinned_dir")" ] || { echo "  MISS  exact sealed evidence was not recognized"; fails=$((fails+1)); }
+if ! scan "$pinned_dir" >/dev/null 2>&1; then
+  echo "  MISS  exact sealed evidence was not recognized"
+  fails=$((fails+1))
+fi
 printf '\n%s\n' "$t1" >> "$pinned_dir/$pinned_rel"
-case "$(scan "$pinned_dir")" in
-  *"$pinned_rel"*) ;;
-  *) echo "  MISS  changed sealed evidence escaped its digest pin"; fails=$((fails+1));;
-esac
+if changed_output="$(scan "$pinned_dir" 2>&1)"; then
+  echo "  MISS  changed sealed evidence escaped its digest pin"
+  fails=$((fails+1))
+else
+  case "$changed_output" in
+    *"$pinned_rel"*) ;;
+    *) echo "  MISS  changed sealed evidence failed without naming its path"; fails=$((fails+1));;
+  esac
+fi
 [ "$fails" -eq 0 ] && echo "  OK    sealed-evidence exception is path- and digest-scoped"
 echo
 
@@ -203,12 +149,25 @@ contact="mitchell@${o1}${o2}-labs.ai"
 exception_dir="$TMP/security_exception"
 mkdir -p "$exception_dir"
 printf 'Fallback: %s\n' "$contact" > "$exception_dir/SECURITY.md"
-[ -z "$(scan "$exception_dir")" ] || { echo "  MISS  exact security contact was not allowlisted"; fails=$((fails+1)); }
+if ! scan "$exception_dir" >/dev/null 2>&1; then
+  echo "  MISS  exact security contact was not allowlisted"
+  fails=$((fails+1))
+fi
 printf 'Fallback: %s\n%s Systems\n' "$contact" "$NAME" > "$exception_dir/SECURITY.md"
-case "$(scan "$exception_dir")" in *SECURITY.md*) ;; *) echo "  MISS  SECURITY.md exception hid another steward reference"; fails=$((fails+1));; esac
+if security_output="$(scan "$exception_dir" 2>&1)"; then
+  echo "  MISS  SECURITY.md exception hid another steward reference"
+  fails=$((fails+1))
+else
+  case "$security_output" in *SECURITY.md*) ;; *) echo "  MISS  SECURITY.md failure did not name its path"; fails=$((fails+1));; esac
+fi
 rm -f "$exception_dir/SECURITY.md"
 printf 'Fallback: %s\n' "$contact" > "$exception_dir/README.md"
-case "$(scan "$exception_dir")" in *README.md*) ;; *) echo "  MISS  security contact escaped its file-scoped allowlist"; fails=$((fails+1));; esac
+if outside_output="$(scan "$exception_dir" 2>&1)"; then
+  echo "  MISS  security contact escaped its file-scoped allowlist"
+  fails=$((fails+1))
+else
+  case "$outside_output" in *README.md*) ;; *) echo "  MISS  outside-contact failure did not name its path"; fails=$((fails+1));; esac
+fi
 [ "$fails" -eq 0 ] && echo "  OK    exact SECURITY.md contact exception is content- and file-scoped"
 echo
 
@@ -222,11 +181,15 @@ for entry in "${PROBES[@]}"; do
   # removed, which is a worse outcome than the one this prevents.
   rm -rf "$d"; mkdir -p "$d"
   printf '%s\n' "$probe" > "$d/PROBE.txt"
-  hits="$(scan "$d")"
-  case "$hits" in
-    *PROBE.txt*) echo "  OK    ${label}" ;;
-    *)           echo "  MISS  ${label} — planted and NOT caught"; fails=$((fails+1)) ;;
-  esac
+  if hits="$(scan "$d" 2>&1)"; then
+    echo "  MISS  ${label} — planted and NOT caught"
+    fails=$((fails+1))
+  else
+    case "$hits" in
+      *PROBE.txt*) echo "  OK    ${label}" ;;
+      *)           echo "  MISS  ${label} — failure did not name the planted file"; fails=$((fails+1)) ;;
+    esac
+  fi
 done
 
 echo

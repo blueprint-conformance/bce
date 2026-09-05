@@ -25,6 +25,7 @@ const requirements = [
   ['deterministic Agent Skills + MCP adoption proof', /^\s*run:\s*npm run test:ai-adoption\s*$/m],
   ['independent adoption denominator policy', /^\s*run:\s*npm run test:adoption-program\s*$/m],
   ['extractor-real self-blueprint source mutations', /npm run test:self-teeth-mutations/],
+  ['single-source leakage scan', /^\s*run:\s*bash scripts\/leakage-scan\.sh \.\s*$/m],
 ];
 const missing = requirements.filter(([, pattern]) => !pattern.test(gate)).map(([name]) => name);
 

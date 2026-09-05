@@ -233,71 +233,9 @@ jobs:
           echo "--- teeth report (surfaced in the run log) ---"
           cat extractor-teeth-report.json
 
-      - name: Leakage gate — NUL-proof banned-string scan (re-run at the tag)
+      - name: Leakage gate — NUL-proof banned-string scan (same implementation as the PR gate)
         shell: bash
-        run: |
-          # The banned-string scan, re-executed here so a release can never
-          # publish a tree that would fail leakage-gate.yml. Patterns are
-          # assembled from fragments at runtime so THIS file passes its own scan.
-          set -euo pipefail
-          o1="od"; o2="in"; c1="O"
-          NAME="${o1}${o2}"
-          NAME_PAT="(^|[^a-zA-Z])${NAME}"
-          STEWARD="${c1}d${o2} Labs"
-          PUBLIC_SECURITY_CONTACT="mitchell@${o1}${o2}-labs.ai"
-          sn="blueprintconformance"".dev"
-          t1="redro""cket"; t2="3d""3d"; t3="h""es"; t4="open""value"; t5="hazel""man"; t6="la""rs"; t7="techre""bels"
-          gp="gh""p_"; gs="gh""s_"; go="gh""o_"; gpat="git""hub_pat_"; pk="PRIV""ATE KEY"
-          CRED_PATTERNS=(
-            "(^|[^a-zA-Z0-9])sk_[a-zA-Z0-9]{8,}"
-            "${gp}[A-Za-z0-9]{10,}" "${gs}[A-Za-z0-9]{10,}" "${go}[A-Za-z0-9]{10,}" "$gpat"
-            'AKIA[0-9A-Z]{8,}' 'xox[baprs]-'
-            "-----BEGIN [A-Z ]*${pk}-----" 'eyJ[A-Za-z0-9_-]{20,}\.eyJ'
-          )
-          PATTERNS=(
-            "$NAME_PAT" "$t1" "$t2" "$t4" "$t5" "$t7"
-            "(^|[^a-z0-9_])${t3}([^a-z0-9_]|$)" "(^|[^a-z0-9_])${t6}([^a-z0-9_]|$)"
-            '77\.42\.80\.233' '10\.0\.0\.' '136\.243\.' '65\.21\.'
-            'rule-[0-9]' '(^|[^a-z0-9])vp-[a-z0-9]' '(^|[^a-z0-9])del-[a-z0-9]'
-            'npm\.pkg\.git''hub\.com' "$sn" "${CRED_PATTERNS[@]}"
-          )
-          STEWARD_ALLOWLIST=("NOTICE" "GOVERNANCE.md" "TRADEMARKS.md")
-          fail=0
-          while IFS= read -r -d '' f; do
-            rel="${f#./}"
-            allow=0
-            for a in "${STEWARD_ALLOWLIST[@]}"; do [ "$rel" = "$a" ] && allow=1; done
-            for p in "${PATTERNS[@]}"; do
-              if [ "$allow" -eq 1 ] && [ "$p" = "$NAME_PAT" ]; then
-                hits="$(tr -d '\000' < "$f" | sed "s/${STEWARD}//g" | { grep -a -i -n -E -- "$p" || true; })"
-              elif [ "$rel" = "SECURITY.md" ] && [ "$p" = "$NAME_PAT" ]; then
-                hits="$(tr -d '\000' < "$f" | sed "s/${PUBLIC_SECURITY_CONTACT}//g" | { grep -a -i -n -E -- "$p" || true; })"
-              else
-                hits="$(tr -d '\000' < "$f" | { grep -a -i -n -E -- "$p" || true; })"
-              fi
-              if [ -n "$hits" ]; then
-                echo "LEAKAGE HIT in ${rel} (pattern: ${p}):"; echo "$hits" | head -20; fail=1
-              fi
-            done
-          # node_modules is EXCLUDED so this scan covers the same surface the standalone
-          # leakage-gate.yml has always enforced. That gate is checkout-only (no `npm ci`),
-          # so it has never seen node_modules; this job installs and builds BEFORE this step,
-          # so without the exclusion it walks ~109 third-party packages that the standalone
-          # gate does not. Measured 2026-08-14 (dry-run 31788403214): that difference alone
-          # failed this gate on 22 hits — every one in node_modules (esbuild, vite, zod and
-          # @types/node tripping the cloud-key, private-range-IP and cycle-id patterns),
-          # ZERO in the repository tree. On a real v* tag that is a publish-blocking false red.
-          #
-          # (The banned strings are deliberately NOT quoted verbatim above — this file is
-          # itself scanned, which is why the pattern list below is assembled from fragments.)
-          #
-          # This is not a relaxation (rule: a gate tightens, never silently relaxes):
-          #   - node_modules is upstream code, is reinstalled from the lockfile, and is NOT
-          #     published — package.json `files:` is [dist, src, fixtures, integrations].
-          #   - The SHIPPED surface stays fully scanned, and the same dry-run proves it clean:
-          #     dist/, src/, fixtures/, integrations/ produced zero hits.
-          done < <(find . -type f ! -path './.git/*' ! -path './node_modules/*' -print0)
-          [ "$fail" -ne 0 ] && { echo "::error::leakage-gate: banned strings found — release refused"; exit 1; } || echo "leakage-gate: PASS"
+        run: bash scripts/leakage-scan.sh .
 
       - name: RED/GREEN discriminating pair (built dist CLI, real exit codes)
         shell: bash
