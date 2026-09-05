@@ -16,13 +16,35 @@ const state = json('release-state.json');
 const packageJson = json('package.json');
 const shrinkwrap = json('npm-shrinkwrap.json');
 const enginePin = json('.engine-pin.json');
-if (state.schemaVersion !== '1') failures.push('release-state.json has an unsupported schemaVersion');
-if (packageJson.version !== state.currentVersion) failures.push('currentVersion differs from package.json');
-if (shrinkwrap.version !== state.currentVersion || shrinkwrap.packages?.['']?.version !== state.currentVersion) {
-  failures.push('currentVersion differs from npm-shrinkwrap.json');
+if (state.schemaVersion !== '2') failures.push('release-state.json has an unsupported schemaVersion');
+const packageVersion = state.candidateVersion ?? state.currentVersion;
+const parseExactVersion = (value) => {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(value ?? '');
+  return match ? match.slice(1).map(Number) : null;
+};
+const compareVersions = (left, right) => {
+  for (let index = 0; index < 3; index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  return 0;
+};
+if (packageJson.version !== packageVersion) failures.push('package version differs from release candidate');
+if (shrinkwrap.version !== packageVersion || shrinkwrap.packages?.['']?.version !== packageVersion) {
+  failures.push('shrinkwrap version differs from release candidate');
 }
 if (enginePin.pin !== state.currentVersion || enginePin.published !== true) failures.push('Lane-A pin differs from the released version');
 if (state.releaseTag !== `v${state.currentVersion}`) failures.push('releaseTag does not match currentVersion');
+const releasedVersion = parseExactVersion(state.currentVersion);
+if (!releasedVersion) failures.push('currentVersion is not an exact x.y.z version');
+if (state.candidateVersion !== undefined && state.candidateVersion !== null) {
+  const candidateVersion = parseExactVersion(state.candidateVersion);
+  if (!candidateVersion) failures.push('candidateVersion is not an exact x.y.z version');
+  else if (releasedVersion && compareVersions(candidateVersion, releasedVersion) <= 0) {
+    failures.push('candidateVersion must be newer than the released version');
+  }
+  requireText('README.md', `npm view bce-engine@${state.candidateVersion} version dist.integrity`, 'candidate registry preflight');
+  requireText('README.md', `registry release: v${state.currentVersion}`, 'published/candidate distinction');
+}
 if (!/^[0-9a-f]{40}$/.test(state.actionCommit)) failures.push('actionCommit is not a full commit SHA');
 
 for (const path of ['README.md', 'STATUS.md', 'docs/onboarding.md']) {
@@ -94,4 +116,5 @@ if (failures.length > 0) {
   process.stderr.write(`release-claim-policy: FAIL (${failures.length})\n${failures.map((item) => `- ${item}`).join('\n')}\n`);
   process.exit(1);
 }
-process.stdout.write(`release-claim-policy: PASS (v${state.currentVersion}; action ${state.actionCommit}; witnesses ${state.independentWitnesses}; GitLab ${state.gitlabSupport})\n`);
+const candidate = state.candidateVersion ? `; candidate v${state.candidateVersion}` : '';
+process.stdout.write(`release-claim-policy: PASS (released v${state.currentVersion}${candidate}; action ${state.actionCommit}; witnesses ${state.independentWitnesses}; GitLab ${state.gitlabSupport})\n`);

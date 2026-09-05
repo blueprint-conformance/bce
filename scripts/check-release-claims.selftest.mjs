@@ -35,11 +35,30 @@ function reject(label, mutate, marker) {
   }
 }
 
-reject('stale version', () => {
+reject('stale candidate version', () => {
   const state = JSON.parse(originals.get('release-state.json'));
-  state.currentVersion = '9.9.9';
+  state.candidateVersion = '9.9.9';
   writeFileSync(join(fixture, 'release-state.json'), `${JSON.stringify(state, null, 2)}\n`);
-}, 'currentVersion differs from package.json');
+}, 'package version differs from release candidate');
+
+reject('candidate collides with published version', () => {
+  const state = JSON.parse(originals.get('release-state.json'));
+  state.candidateVersion = state.currentVersion;
+  writeFileSync(join(fixture, 'release-state.json'), `${JSON.stringify(state, null, 2)}\n`);
+}, 'candidateVersion must be newer than the released version');
+
+reject('candidate moves backwards', () => {
+  const state = JSON.parse(originals.get('release-state.json'));
+  state.candidateVersion = '0.1.4';
+  writeFileSync(join(fixture, 'release-state.json'), `${JSON.stringify(state, null, 2)}\n`);
+}, 'candidateVersion must be newer than the released version');
+
+reject('unpublished candidate becomes Lane-A pin', () => {
+  const pin = JSON.parse(originals.get('.engine-pin.json'));
+  const state = JSON.parse(originals.get('release-state.json'));
+  pin.pin = state.candidateVersion;
+  writeFileSync(join(fixture, '.engine-pin.json'), `${JSON.stringify(pin, null, 2)}\n`);
+}, 'Lane-A pin differs from the released version');
 
 reject('false immutability', () => {
   writeFileSync(join(fixture, 'STATUS.md'), originals.get('STATUS.md').replace('historical tag mutable', 'immutable'));
@@ -56,4 +75,4 @@ reject('dormant release marker', () => {
 restore();
 const accepted = execFileSync(process.execPath, [checker, '--root', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`clean claim set did not pass:\n${accepted}`);
-process.stdout.write('release-claim-policy self-test: PASS (stale version, false immutability, false independence, and dormant marker rejected)\n');
+process.stdout.write('release-claim-policy self-test: PASS (candidate drift/non-monotonicity, premature Lane-A pin, false immutability, false independence, and dormant marker rejected)\n');

@@ -1,6 +1,7 @@
 {
-  "schemaVersion": "1",
+  "schemaVersion": "2",
   "currentVersion": "0.1.5",
+  "candidateVersion": "0.2.0",
   "releaseTag": "v0.1.5",
   "actionCommit": "3611709acf0dace4698dd1876f835a73ec44837b",
   "githubReleaseImmutable": false,

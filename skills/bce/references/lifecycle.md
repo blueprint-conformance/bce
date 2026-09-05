@@ -8,7 +8,8 @@ code fix → GREEN task, the primary `SKILL.md` is sufficient.
 Use an exact provenance-backed version, never a range or `latest` for a merge gate:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.5
+npm view bce-engine@0.2.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.2.0
 npx --no-install bce demo
 ```
 
@@ -82,7 +83,7 @@ bce validate --blueprint parameterized-queries-only.blueprint.json
 bce onboard \
   --repo . \
   --blueprint parameterized-queries-only.blueprint.json \
-  --engine bce-engine@0.1.5 \
+  --engine bce-engine@0.2.0 \
   --harness codex
 ```
 

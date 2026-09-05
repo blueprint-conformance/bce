@@ -150,6 +150,12 @@ for (const rel of [
   'llms.txt',
 ]) {
   const text = readFileSync(join(installedRoot, rel), 'utf8');
+  const exactPackage = `bce-engine@${installed.version}`;
+  if (text.includes(exactPackage) && !text.includes(`npm view ${exactPackage} version dist.integrity`)) {
+    throw new Error(
+      `packed release guidance lacks an exact registry-integrity preflight in ${rel}: ${exactPackage}`,
+    );
+  }
   for (const pattern of [
     /bce-engine@(\d+\.\d+\.\d+)/g,
     /bce-engine\/v\/(\d+\.\d+\.\d+)/g,
