@@ -63,18 +63,18 @@ function changedPaths(before, after) {
     .filter((path) => canonicalJson(left.get(path) ?? null) !== canonicalJson(right.get(path) ?? null));
 }
 
-function parseOracle(result, task, treeSha256, kind) {
+function parseOracle(result, task, treeSha256, kind, label) {
   const lines = String(result.stdout ?? '').split('\n').filter((line) => line.trim().startsWith('{'));
   let document = null;
   try { document = JSON.parse(lines.at(-1) ?? 'null'); } catch {}
   const valid = result.status === 0 && document?.schemaVersion === '1' && document.taskId === task.id &&
-    document.inputTreeSha256 === treeSha256 && document.passed === true && Array.isArray(document.locations) &&
+    document.inputTreeSha256 === treeSha256 && typeof document.passed === 'boolean' && Array.isArray(document.locations) &&
     (kind !== 'functional' || typeof document.collateralRegression === 'boolean');
-  if (!valid) throw new Error(`${task.id}: ${kind} oracle rejected the reference solution (${result.status}): ${result.stderr}\n${result.stdout}`);
+  if (!valid) throw new Error(`${task.id}: ${kind} oracle emitted invalid ${label} evidence (${result.status}): ${result.stderr}\n${result.stdout}`);
   return document;
 }
 
-function runOracleTwice(task, kind, workspace, baselineTreeSha256) {
+function runOracleTwice(task, kind, workspace, baselineTreeSha256, expectedPassed, label) {
   const oracle = kind === 'functional' ? task.functionalOracle : task.architectureOracle;
   if (oracle.command.length !== 2 || oracle.command[0] !== 'node' || oracle.command[1] !== oracle.artifact.path) {
     throw new Error(`${task.id}: ${kind} oracle is not the sealed node + artifact form`);
@@ -87,14 +87,15 @@ function runOracleTwice(task, kind, workspace, baselineTreeSha256) {
     BCE_EVAL_TASK_ID: task.id,
     BCE_EVAL_INPUT_TREE_SHA256: baselineTreeSha256,
   };
-  const first = parseOracle(run(executable, [artifact], workspace, task.budget.timeoutMs, env), task, baselineTreeSha256, kind);
-  if (hashTree(workspace) !== baselineTreeSha256) throw new Error(`${task.id}: ${kind} oracle mutated the reference workspace`);
-  const second = parseOracle(run(executable, [artifact], workspace, task.budget.timeoutMs, env), task, baselineTreeSha256, kind);
-  if (hashTree(workspace) !== baselineTreeSha256) throw new Error(`${task.id}: ${kind} oracle mutated the reference workspace on replay`);
-  if (canonicalJson(first) !== canonicalJson(second)) throw new Error(`${task.id}: ${kind} oracle is not deterministic on the reference solution`);
+  const first = parseOracle(run(executable, [artifact], workspace, task.budget.timeoutMs, env), task, baselineTreeSha256, kind, label);
+  if (hashTree(workspace) !== baselineTreeSha256) throw new Error(`${task.id}: ${kind} oracle mutated the ${label} workspace`);
+  const second = parseOracle(run(executable, [artifact], workspace, task.budget.timeoutMs, env), task, baselineTreeSha256, kind, label);
+  if (hashTree(workspace) !== baselineTreeSha256) throw new Error(`${task.id}: ${kind} oracle mutated the ${label} workspace on replay`);
+  if (canonicalJson(first) !== canonicalJson(second)) throw new Error(`${task.id}: ${kind} oracle is not deterministic on the ${label}`);
+  if (first.passed !== expectedPassed) throw new Error(`${task.id}: ${kind} oracle did not produce expected ${label} verdict ${expectedPassed}`);
 }
 
-function proveBceGate(task, workspace, scratch) {
+function proveBceGate(task, workspace, scratch, expectedPassed, label) {
   const runtime = join(scratch, 'treatment');
   mkdirSync(runtime, { recursive: true });
   const archive = resolveInside(bundleDir, protocol.treatment.engineArtifact, 'treatment archive');
@@ -105,20 +106,64 @@ function proveBceGate(task, workspace, scratch) {
   const cli = join(engine, 'dist', 'cli.js');
   if (!statSync(cli).isFile()) throw new Error(`${task.id}: treatment has no built CLI`);
   const blueprint = join(workspace, '.blueprints', `${task.id}.blueprint.json`);
+  const invariant = JSON.parse(readFileSync(resolveInside(bundleDir, task.invariant.path, `${task.id} invariant`), 'utf8'));
+  const constraintId = invariant.constraint?.id;
+  if (typeof constraintId !== 'string') throw new Error(`${task.id}: normalized invariant has no constraint id`);
   mkdirSync(dirname(blueprint), { recursive: true });
   copyFileSync(resolveInside(bundleDir, task.blueprint.path, `${task.id} blueprint`), blueprint);
   writeFileSync(join(workspace, '.bce-mode.json'), '{\n  "mode": "enforced"\n}\n');
-  const result = run(protocol.isolation.runtimeExecutable, [cli, 'gate', '--repo', '.', '--blueprint-dir', '.blueprints'], workspace, task.budget.timeoutMs, { PATH: process.env.PATH ?? '/usr/bin:/bin' });
-  if (result.status !== 0) throw new Error(`${task.id}: BCE gate rejected the reference solution:\n${result.stdout}\n${result.stderr}`);
+  const reportPath = join(scratch, 'gate-report.json');
+  const result = run(protocol.isolation.runtimeExecutable, [cli, 'gate', '--repo', '.', '--blueprint-dir', '.blueprints', '--extractor', 'ast', '--report-json', reportPath], workspace, task.budget.timeoutMs, { PATH: process.env.PATH ?? '/usr/bin:/bin' });
+  let report = null;
+  try { report = JSON.parse(readFileSync(reportPath, 'utf8')); } catch {}
+  const commonValid = report?.schemaVersion === '1' && Array.isArray(report.refusals) && report.refusals.length === 0 &&
+    Array.isArray(report.reports) && report.reports.length === 1 && report.exitCode === result.status;
+  const namedViolation = report?.reports?.[0]?.violations?.some((violation) => violation.constraintId === constraintId) === true;
+  const valid = expectedPassed
+    ? commonValid && result.status === 0 && report.gateFailed === false && report.outcome === 'pass' && report.reports[0].verdict === 'pass'
+    : commonValid && result.status === 1 && report.gateFailed === true && report.outcome === 'violation' && report.reports[0].verdict === 'fail' && namedViolation;
+  if (!valid) throw new Error(`${task.id}: BCE gate did not produce the exact expected ${label} verdict ${expectedPassed}:\n${result.stdout}\n${result.stderr}\n${JSON.stringify(report)}`);
 }
 
-let proven = 0;
-for (const task of manifest.tasks) {
-  if (!task.referencePatch || !task.referencePatchSha256) throw new Error(`${task.id}: no sealed reference patch artifact`);
-  if (task.referencePatch.sha256 !== task.referencePatchSha256) throw new Error(`${task.id}: reference patch digest binding mismatch`);
-  const repository = manifest.repositories.find((entry) => entry.id === task.repositoryId);
-  if (!repository) throw new Error(`${task.id}: repository missing`);
-  const scratch = mkdtempSync(join(tmpdir(), `bce-reference-${task.id}-`));
+function runVisibleCommands(task, workspace, baselineTreeSha256, expectedPassed, label) {
+  const results = task.visibleCommands.map(([file, ...args]) => run(file, args, workspace, task.budget.timeoutMs));
+  const passed = results.every((result) => result.status === 0);
+  if (passed !== expectedPassed) {
+    const evidence = results.map((result) => `exit=${result.status}\n${result.stdout}\n${result.stderr}`).join('\n');
+    throw new Error(`${task.id}: visible commands did not produce expected ${label} verdict ${expectedPassed}:\n${evidence}`);
+  }
+  if (hashTree(workspace) !== baselineTreeSha256) throw new Error(`${task.id}: visible command mutated the ${label} workspace`);
+}
+
+function proveTaskBase(task, repository) {
+  const expected = {
+    repair: { functional: false, architecture: false, gate: false },
+    feature: { functional: false, architecture: true, gate: true },
+    refactor: { functional: true, architecture: false, gate: false },
+  }[task.taskType];
+  const scratch = mkdtempSync(join(tmpdir(), `bce-base-${task.id}-`));
+  try {
+    const workspace = join(scratch, 'workspace');
+    cpSync(resolveInside(bundleDir, repository.treePath, `${repository.id} tree`), workspace, { recursive: true });
+    for (const command of repository.setupCommands) {
+      const [file, ...args] = command;
+      const result = run(file, args, workspace, task.budget.timeoutMs);
+      if (result.status !== 0) throw new Error(`${task.id}: base setup command failed: ${result.stderr}`);
+    }
+    const treeSha256 = hashTree(workspace);
+    if (treeSha256 !== repository.preparedTreeSha256) throw new Error(`${task.id}: prepared base tree digest mismatch`);
+    inventory(workspace);
+    runVisibleCommands(task, workspace, treeSha256, expected.functional, `${task.taskType} base`);
+    runOracleTwice(task, 'functional', workspace, treeSha256, expected.functional, `${task.taskType} base`);
+    runOracleTwice(task, 'architecture', workspace, treeSha256, expected.architecture, `${task.taskType} base`);
+    proveBceGate(task, workspace, scratch, expected.gate, `${task.taskType} base`);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+}
+
+function proveTaskPatch(task, repository, patchArtifact, label, expectedArchitecturePassed, expectedGatePassed) {
+  const scratch = mkdtempSync(join(tmpdir(), `bce-${label}-${task.id}-`));
   try {
     const workspace = join(scratch, 'workspace');
     cpSync(resolveInside(bundleDir, repository.treePath, `${repository.id} tree`), workspace, { recursive: true });
@@ -137,30 +182,45 @@ for (const task of manifest.tasks) {
       if (result.status !== 0) throw new Error(`${task.id}: git preparation failed: ${result.stderr}`);
     }
     const before = inventory(workspace);
-    const patch = resolveInside(bundleDir, task.referencePatch.path, `${task.id} reference patch`);
+    const patch = resolveInside(bundleDir, patchArtifact.path, `${task.id} ${label} patch`);
     for (const args of [['apply', '--check', '--whitespace=error-all', patch], ['apply', '--whitespace=error-all', patch]]) {
       const result = run('git', args, workspace, task.budget.timeoutMs);
-      if (result.status !== 0) throw new Error(`${task.id}: git ${args[0]} reference patch failed: ${result.stderr}`);
+      if (result.status !== 0) throw new Error(`${task.id}: git ${args[0]} ${label} patch failed: ${result.stderr}`);
     }
     const after = inventory(workspace);
     const changes = changedPaths(before, after);
-    if (changes.length === 0) throw new Error(`${task.id}: reference patch makes no source change`);
+    if (changes.length === 0) throw new Error(`${task.id}: ${label} patch makes no source change`);
     const globalPatterns = [...protectedPaths.patterns, ...(protectedPaths.packagePolicy?.files ?? [])];
     const illegal = changes.filter((path) => !matchesAny(path, task.allowedPaths) || matchesAny(path, [...globalPatterns, ...task.protectedPaths]));
-    if (illegal.length) throw new Error(`${task.id}: reference patch changed forbidden paths: ${illegal.join(', ')}`);
+    if (illegal.length) throw new Error(`${task.id}: ${label} patch changed forbidden paths: ${illegal.join(', ')}`);
     const solutionTreeSha256 = hashTree(workspace);
-    for (const command of task.visibleCommands) {
-      const [file, ...args] = command;
-      const result = run(file, args, workspace, task.budget.timeoutMs);
-      if (result.status !== 0) throw new Error(`${task.id}: visible command rejected the reference solution: ${result.stderr}\n${result.stdout}`);
-      if (hashTree(workspace) !== solutionTreeSha256) throw new Error(`${task.id}: visible command mutated the reference workspace`);
-    }
-    runOracleTwice(task, 'functional', workspace, solutionTreeSha256);
-    runOracleTwice(task, 'architecture', workspace, solutionTreeSha256);
-    proveBceGate(task, workspace, scratch);
-    proven += 1;
+    runVisibleCommands(task, workspace, solutionTreeSha256, true, label);
+    runOracleTwice(task, 'functional', workspace, solutionTreeSha256, true, label);
+    runOracleTwice(task, 'architecture', workspace, solutionTreeSha256, expectedArchitecturePassed, label);
+    proveBceGate(task, workspace, scratch, expectedGatePassed, label);
   } finally {
     rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 }
-process.stdout.write(`model-evaluation reference patches verified: ${proven}/${manifest.tasks.length}\n`);
+
+let referencesProven = 0;
+let shortcutsProven = 0;
+let basesProven = 0;
+for (const task of manifest.tasks) {
+  if (!task.referencePatch || !task.referencePatchSha256) throw new Error(`${task.id}: no sealed reference patch artifact`);
+  if (task.referencePatch.sha256 !== task.referencePatchSha256) throw new Error(`${task.id}: reference patch digest binding mismatch`);
+  const repository = manifest.repositories.find((entry) => entry.id === task.repositoryId);
+  if (!repository) throw new Error(`${task.id}: repository missing`);
+  if (task.shortcutPatch) {
+    proveTaskBase(task, repository);
+    basesProven += 1;
+  }
+  proveTaskPatch(task, repository, task.referencePatch, 'reference solution', true, true);
+  referencesProven += 1;
+  if (task.shortcutPatch || task.shortcutPatchSha256) {
+    if (!task.shortcutPatch || task.shortcutPatch.sha256 !== task.shortcutPatchSha256) throw new Error(`${task.id}: shortcut patch digest binding mismatch`);
+    proveTaskPatch(task, repository, task.shortcutPatch, 'shortcut witness', false, false);
+    shortcutsProven += 1;
+  }
+}
+process.stdout.write(`model-evaluation task apparatus verified: ${basesProven}/${manifest.tasks.length} base truth tables; ${referencesProven}/${manifest.tasks.length} references; ${shortcutsProven}/${manifest.tasks.length} shortcut witnesses\n`);

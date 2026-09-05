@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "writtenPolicyText": "src/domain/order-label.mjs must not directly import src/infra/order-store.mjs.",
+  "constraint": {
+    "id": "layering-refactor-no-forbidden-edge",
+    "type": "forbiddenDependency",
+    "severity": "critical",
+    "from": "*",
+    "to": "module:src/infra/order-store.mjs",
+    "scopePaths": [
+      "src/domain/order-label.mjs"
+    ]
+  }
+}

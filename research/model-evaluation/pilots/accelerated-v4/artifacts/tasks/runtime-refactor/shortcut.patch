@@ -1,0 +1,8 @@
+diff --git a/src/browser/normalize-route.mjs b/src/browser/normalize-route.mjs
+--- a/src/browser/normalize-route.mjs
++++ b/src/browser/normalize-route.mjs
+@@ -1,2 +1,2 @@
+-import path from 'node:path';
+-export function normalizedRoute(value) { return `/${path.posix.normalize(String(value)).replace(/^\//, '')}`; }
++import path from 'node:path';
++export function normalizedRoute(value) { return String(`/${path.posix.normalize(String(value)).replace(/^\//, '')}`); }

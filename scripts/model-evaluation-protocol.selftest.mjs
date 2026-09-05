@@ -199,6 +199,28 @@ write(join(bundleDir, 'seal.json'), {
 const verified = verifyBundle(bundleDir);
 if (!verified.ok) throw new Error(`valid synthetic bundle refused:\n${verified.refusals.join('\n')}`);
 
+const portableProtocolBytes = readFileSync(join(bundleDir, 'protocol.v2.json'), 'utf8');
+const portableSealBytes = readFileSync(join(bundleDir, 'seal.json'), 'utf8');
+const absentHostProtocol = JSON.parse(portableProtocolBytes);
+absentHostProtocol.isolation.runtimeExecutable = '/host-bound/runtime/not-present-on-ci';
+write(join(bundleDir, 'protocol.v2.json'), absentHostProtocol);
+const portableSealParts = expectedSeal(bundleDir, absentHostProtocol, manifest);
+const portableSeal = JSON.parse(portableSealBytes);
+portableSeal.entries = portableSealParts.entries;
+portableSeal.rootSha256 = portableSealParts.rootSha256;
+portableSeal.attestation.subjectRootSha256 = portableSealParts.rootSha256;
+write(join(bundleDir, 'seal.json'), portableSeal);
+const exactHostResult = verifyBundle(bundleDir);
+if (exactHostResult.ok || !exactHostResult.refusals.some((item) => item.includes('execution runtime artifact'))) {
+  throw new Error('exact bundle verification accepted an unavailable host runtime');
+}
+const portableInputResult = verifyBundle(bundleDir, { verifyHostArtifacts: false });
+if (!portableInputResult.ok || portableInputResult.hostArtifactsVerified !== false) {
+  throw new Error(`portable input verification did not isolate the external host artifact: ${portableInputResult.refusals.join('; ')}`);
+}
+writeFileSync(join(bundleDir, 'protocol.v2.json'), portableProtocolBytes);
+writeFileSync(join(bundleDir, 'seal.json'), portableSealBytes);
+
 function makeTerminal(assignment) {
   const trialDir = join(runsDir, assignment.trialId, 'a0');
   mkdirSync(trialDir, { recursive: true });
@@ -422,6 +444,24 @@ if (unboundPatchResult.ok || !unboundPatchResult.refusals.some((item) => item.in
 writeFileSync(join(bundleDir, 'task-manifest.json'), originalManifest);
 writeFileSync(join(bundleDir, 'seal.json'), originalSeal);
 
+const originalProtocol = readFileSync(join(bundleDir, 'protocol.v2.json'), 'utf8');
+const shortcutRequiredProtocol = JSON.parse(originalProtocol);
+shortcutRequiredProtocol.claimScope = 'directional-apparatus-calibration-synthetic-negative-control';
+write(join(bundleDir, 'protocol.v2.json'), shortcutRequiredProtocol);
+const shortcutRequiredManifest = JSON.parse(originalManifest);
+const shortcutRequiredSealParts = expectedSeal(bundleDir, shortcutRequiredProtocol, shortcutRequiredManifest);
+const shortcutRequiredSeal = JSON.parse(originalSeal);
+shortcutRequiredSeal.entries = shortcutRequiredSealParts.entries;
+shortcutRequiredSeal.rootSha256 = shortcutRequiredSealParts.rootSha256;
+write(join(bundleDir, 'seal.json'), shortcutRequiredSeal);
+const shortcutRequiredResult = verifyBundle(bundleDir);
+if (shortcutRequiredResult.ok || !shortcutRequiredResult.refusals.some((item) => item.includes('has no frozen shortcut witness'))) {
+  throw new Error('verifier accepted a directional calibration pilot without shortcut witnesses');
+}
+writeFileSync(join(bundleDir, 'protocol.v2.json'), originalProtocol);
+writeFileSync(join(bundleDir, 'task-manifest.json'), originalManifest);
+writeFileSync(join(bundleDir, 'seal.json'), originalSeal);
+
 const linkedManifest = JSON.parse(originalManifest);
 const linkedRepository = linkedManifest.repositories[0];
 const linkedPath = join(bundleDir, linkedRepository.treePath, 'host-link');
@@ -469,5 +509,5 @@ renameSync(hiddenTerminal, terminalPath);
 const liveReadiness = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/research-readiness.ts', '--model-eval'], { cwd: root, encoding: 'utf8' });
 if (liveReadiness.status !== 2 || !liveReadiness.stderr.includes('REFUSED')) throw new Error('unpopulated canonical study did not refuse live execution');
 
-console.log('model-evaluation protocol v2 self-test: PASS (sealed paired 600-trial replay; false-block threshold has a sufficient zero-event denominator; objective safe success; policy mutation retained; blocked order, asserted outcomes, artifact tamper, missing denominator, and live unready inputs refused)');
+console.log('model-evaluation protocol v2 self-test: PASS (sealed paired 600-trial replay; portable-input versus exact-host verification boundary; false-block denominator coherence; objective outcomes; shortcut requirement; blocked order, asserted outcomes, artifact tamper, missing denominator, and live unready inputs refused)');
 rmSync(scratch, { recursive: true, force: true });

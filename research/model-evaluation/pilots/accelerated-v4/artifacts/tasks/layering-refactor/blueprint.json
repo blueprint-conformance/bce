@@ -1,0 +1,43 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "layering-refactor",
+    "version": "1.0.0",
+    "status": "approved"
+  },
+  "intentRefs": [
+    "pilot-policy/layering-refactor"
+  ],
+  "scope": {
+    "repositories": [
+      "pilot/layering-lab"
+    ]
+  },
+  "architecture": {
+    "components": [],
+    "relationships": []
+  },
+  "constraints": [
+    {
+      "id": "layering-refactor-no-forbidden-edge",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "module:src/infra/order-store.mjs",
+      "scopePaths": [
+        "src/domain/order-label.mjs"
+      ]
+    }
+  ],
+  "evidenceRequirements": [],
+  "approvals": [],
+  "minEngineVersion": "0.3.0",
+  "extraction": {
+    "profile": "typescript-module-graph",
+    "paths": [
+      "src/**/*.mjs"
+    ],
+    "minFiles": 5
+  }
+}

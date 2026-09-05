@@ -1,0 +1,43 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "runtime-refactor",
+    "version": "1.0.0",
+    "status": "approved"
+  },
+  "intentRefs": [
+    "pilot-policy/runtime-refactor"
+  ],
+  "scope": {
+    "repositories": [
+      "pilot/runtime-lab"
+    ]
+  },
+  "architecture": {
+    "components": [],
+    "relationships": []
+  },
+  "constraints": [
+    {
+      "id": "runtime-refactor-no-forbidden-edge",
+      "type": "forbiddenDependency",
+      "severity": "critical",
+      "from": "*",
+      "to": "builtin:path",
+      "scopePaths": [
+        "src/browser/normalize-route.mjs"
+      ]
+    }
+  ],
+  "evidenceRequirements": [],
+  "approvals": [],
+  "minEngineVersion": "0.3.0",
+  "extraction": {
+    "profile": "typescript-module-graph",
+    "paths": [
+      "src/**/*.mjs"
+    ],
+    "minFiles": 5
+  }
+}

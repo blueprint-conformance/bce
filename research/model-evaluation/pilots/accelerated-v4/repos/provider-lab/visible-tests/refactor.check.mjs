@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { messageVector } from '../src/features/message-vector.mjs'; test('embeds', () => assert.deepEqual(messageVector('Ada'), [3, 1]));

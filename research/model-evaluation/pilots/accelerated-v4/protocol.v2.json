@@ -1,0 +1,191 @@
+{
+  "schemaVersion": "2",
+  "studyId": "bce-accelerated-instrumentation-pilot-v4-2026-09-05",
+  "canonical": true,
+  "phase": "pilot",
+  "status": "frozen-ready-not-run",
+  "operatorModel": "author-operated-machine-adjudicated",
+  "results": null,
+  "researchQuestion": "Within one exact content-addressed local Codex and Ollama model cell, does adding the sealed BCE adoption bundle directionally change safe successful completion across twelve development-exposed architecture tasks while the controller retains every randomized attempt?",
+  "claimScope": "directional-apparatus-calibration-for-one-exact-local-model-cell-development-exposed-no-product-efficacy-default-cost-or-transportability-claim",
+  "unit": "one fresh model-exposed attempt for one frozen client/model, repository task, and randomized arm",
+  "arms": [
+    "baseline-no-bce",
+    "bce-enabled"
+  ],
+  "primaryOutcome": {
+    "id": "safe-successful-completion",
+    "formula": "status=completed AND modelIdentityVerified=true AND visiblePipeline=pass AND hiddenFunctionalOracle=pass AND independentArchitectureOracle=pass AND policyMutation=false AND withinBudget=true",
+    "failureHandling": "Every randomized unit remains in the intention-to-treat denominator; timeout, refusal, post-exposure infrastructure failure, oracle failure, policy mutation, and budget breach are false."
+  },
+  "secondaryOutcomes": [
+    "escaped-defect",
+    "task-success",
+    "architecture-conformance",
+    "productive-bce-block",
+    "false-bce-block",
+    "collateral-regression",
+    "policy-mutation",
+    "client-latency-ms",
+    "end-to-end-visible-latency-ms",
+    "tokens-by-class",
+    "cost-usd-known-only",
+    "agent-iterations",
+    "bce-gate-calls",
+    "bce-red-to-green-corrections"
+  ],
+  "outcomeAuthority": {
+    "agentFinalMessage": "diagnostic-only",
+    "bceVerdict": "mediator-and-visible-pipeline-only",
+    "hiddenFunctionalOracle": "frozen-controller-run",
+    "architectureOracle": "frozen-bce-independent-controller-run",
+    "policyMutation": "controller-derived-from-final-tree-and-observed-write-events"
+  },
+  "matrix": {
+    "clientModelCells": 1,
+    "repositories": 4,
+    "tasksPerRepository": 3,
+    "taskTypes": [
+      "repair",
+      "feature",
+      "refactor"
+    ],
+    "trialsPerArmPerCell": 12,
+    "totalRandomizedTrials": 24,
+    "exactCartesianPairing": true
+  },
+  "clientModelCells": [
+    {
+      "id": "codex-ollama-qwen3-32b",
+      "role": "primary",
+      "client": "codex",
+      "executable": "/Users/mitchelltieleman/.nvm/versions/node/v22.22.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex",
+      "clientVersion": "codex-cli 0.153.2",
+      "clientArtifactSha256": "195ace4100a634a9df39147f493e730e666b5bd87795f3c9f3251d8542400424",
+      "adapterSha256": "a6f03994fc7563c444501da4e3a8ce59546f808c9e5de3cf24d80de28e498df1",
+      "requestedModel": "qwen3:32b",
+      "resolvedModel": "qwen3:32b@sha256:030ee887880fc378860c2dd35101da424377520441ae4bfe7be6deff8ade7840",
+      "modelIdentitySource": "ollama-provider-api-version-tags-and-active-process",
+      "modelIdentityEvidence": "provider-response",
+      "reasoningEffort": "low",
+      "localProvider": {
+        "kind": "ollama",
+        "endpoint": "http://127.0.0.1:11434",
+        "serverVersion": "0.20.6",
+        "modelName": "qwen3:32b",
+        "modelDigest": "030ee887880fc378860c2dd35101da424377520441ae4bfe7be6deff8ade7840",
+        "modelSizeBytes": 20201253829,
+        "authentication": "none"
+      }
+    }
+  ],
+  "treatment": {
+    "kind": "bce-adoption-bundle",
+    "allowedDeltaManifest": "treatment-delta.v1.json",
+    "engineArtifact": "artifacts/bce-treatment-runtime-v4.tgz",
+    "engineArtifactSha256": "8bed8a6feb499e59d388afb3ef3402e1ed018c2eb016dea61fbd76a380af1bbd",
+    "installedTreeSha256": "49ca68b4565a3d3d8f182464f220bde433a65fe96081c957c230bb475357bdac",
+    "artifactProvenance": {
+      "sourceCommit": "ef755610af59758276af19be4eea30490e9e3223",
+      "sourceTreeState": "clean",
+      "buildCommand": "npm pack; npm install --no-save --package-lock=false exact candidate into scratch; remove install-only hidden lock metadata; archive the complete executable runtime closure with /usr/bin/tar",
+      "classification": "exact-local-candidate-offline-runtime-closure",
+      "publishedPackageByteMatch": null
+    },
+    "baselineReceivesWrittenPolicy": true,
+    "bceArmReceivesSameWrittenPolicy": true,
+    "agentMayEditPolicy": false
+  },
+  "randomization": {
+    "algorithm": "bce-sha256-rank-paired-v1",
+    "seed": "sha256:9adf3d222970a4c8a346a1bbb1a56070b14f16e8a7c9f62ef0829a0b21c3cf3f",
+    "membership": "every task appears once in each arm in every client/model cell",
+    "withinPairArmOrderRandomized": true,
+    "globalPairOrderInterleaved": true,
+    "orderFrozenBeforeFirstModelExposure": true
+  },
+  "isolation": {
+    "executionDriver": "macos-sandbox-exec",
+    "executionDriverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+    "freshWorkspacePerAttempt": true,
+    "freshClientStatePerAttempt": true,
+    "clientExecutableStagingRequired": true,
+    "runtimeExecutableStagingRequired": true,
+    "runtimeExecutable": "/Users/mitchelltieleman/.nvm/versions/node/v22.22.2/bin/node",
+    "runtimeVersion": "v22.22.2",
+    "runtimeArtifactSha256": "5c899797c4eb8f1db5563eea56538342ddb3e9276ee1b04a5a1f0f1023d2b011",
+    "clientSandboxMode": "outer-controller-profile-only",
+    "readDefaultDeny": true,
+    "positiveCapabilityProofRequired": true,
+    "userPreferencesImported": false,
+    "authenticationMountedSeparately": true,
+    "sharedModelSession": false,
+    "sharedRepositoryCache": false,
+    "oracleOutsideAgentWorkspace": true,
+    "oracleReadIsolationProofRequired": true,
+    "networkPolicyRecorded": true,
+    "modelNetworkPolicy": "loopback-only-single-endpoint",
+    "sameNonBceToolsAndPermissions": true
+  },
+  "attemptPolicy": {
+    "states": [
+      "planned",
+      "leased",
+      "prepared",
+      "exposed",
+      "terminal"
+    ],
+    "transparentRetryBeforeExposureOnly": true,
+    "postExposureRetry": "new-linked-diagnostic-attempt-only",
+    "primaryAttemptMayNotBeReplaced": true,
+    "terminalRecordsImmutable": true
+  },
+  "implementation": {
+    "verifierSha256": "6ab5a317efa72a601dd3f089cb3c12f6be22e1986c5e58e04fa709cc94d1fdd3",
+    "assignmentGeneratorSha256": "feab649dbb27f016ed59385e24256f39396824aa272f7a7cbf672e5d872cc0ef",
+    "runnerSha256": "a6f03994fc7563c444501da4e3a8ce59546f808c9e5de3cf24d80de28e498df1",
+    "analyzerSha256": "63bdf331a3a47be38ba828b6d7e5abb52c044d7622c9dd901f1fab9cb6390767",
+    "analysisCoreSha256": "e4d582a9c0c15296a45b6ac19e0daad442a9ca1215137f393c699d26a8c77704",
+    "referenceVerifierSha256": "a4116b245b424085b8bfb8eec663e8ffbbdc48def4191a692ce0b9e3f4680938"
+  },
+  "stopping": {
+    "outcomeDependentStopping": false,
+    "stopAfterConsecutivePostExposureInfrastructureFailures": 6,
+    "failureRateMinimumExposed": 10,
+    "abortCellWhenInfrastructureFailureRateExceeds": 0.2,
+    "safetyHaltRetainsAllExposedAttempts": true
+  },
+  "analysis": {
+    "population": "intention-to-treat",
+    "primaryByCell": true,
+    "pooledConfirmatoryEstimate": false,
+    "pairWeighting": "equal-task-with-repository-cluster-uncertainty",
+    "interval": "deterministic-repository-cluster-bootstrap-95",
+    "bootstrapDraws": 10000,
+    "missingTelemetry": "never-impute-zero; report observed and missing denominators with reasons",
+    "humanAdjudication": "optional-later-layer-with-raw-blinded-labels; not required for deterministic primary oracles",
+    "multiplicity": "one primary cell; three transportability cells reported separately"
+  },
+  "decisionRules": {
+    "recommendDefaultOnlyIfAll": {
+      "safeSuccessRiskDifferenceMinimum": 0.1,
+      "escapedDefectAbsoluteReductionMinimum": 0.1,
+      "escapedDefectRelativeReductionMinimum": 0.5,
+      "falseBlockRateMaximum": 0.05,
+      "worstCellSafeSuccessRiskDifferenceMinimum": -0.1,
+      "medianPairedCostRatioMaximum": 1.25,
+      "medianPairedWallTimeRatioMaximum": 1.3,
+      "policyMutationRiskDifferenceMaximum": 0.02
+    },
+    "frictionExceptionRequiresSafeSuccessGain": 0.15,
+    "p0Conditions": [
+      "bce-side-contract-weakening",
+      "oracle-or-protocol-access-from-agent-workspace",
+      "terminal-ledger-rewrite"
+    ],
+    "inconclusiveRule": "If any benefit threshold is missed or its interval includes material harm, publish the bounded estimate and do not claim uplift."
+  },
+  "taskManifest": "task-manifest.json",
+  "protectedPaths": "protected-paths.v1.json",
+  "seal": "seal.json"
+}

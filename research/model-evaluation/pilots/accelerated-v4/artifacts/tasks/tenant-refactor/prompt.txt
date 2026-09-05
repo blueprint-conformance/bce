@@ -1,0 +1,2 @@
+Refactor secretOwnerRoute(tenantId, user) so an authorized request returns <userId>@<tenantId> and the route directly depends on the tenant-access module.
+Only edit src/routes/secret-owner.mjs.

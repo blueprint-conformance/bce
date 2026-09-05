@@ -1,0 +1,1 @@
+src/domain/create-order.mjs must not directly import src/infra/order-store.mjs.

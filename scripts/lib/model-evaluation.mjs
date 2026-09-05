@@ -217,7 +217,7 @@ function duplicateValues(values) {
 function artifactRefs(task) {
   return [
     task.prompt, task.writtenPolicy, task.invariant, task.functionalOracle.artifact,
-    task.architectureOracle.artifact, task.blueprint, task.referencePatch,
+    task.architectureOracle.artifact, task.blueprint, task.referencePatch, task.shortcutPatch,
   ].filter(Boolean);
 }
 
@@ -289,7 +289,7 @@ export function loadBundle(bundleDir) {
   return { root, protocol, manifest, seal, treatmentDelta, protectedPaths };
 }
 
-export function verifyBundle(bundleDir, { requireSealed = true } = {}) {
+export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifacts = true } = {}) {
   const { root, protocol, manifest, seal, treatmentDelta, protectedPaths } = loadBundle(bundleDir);
   const refusals = [];
   try { validateOrThrow(protocol, resolve(root, 'schemas/protocol.schema.json'), 'protocol'); }
@@ -340,9 +340,11 @@ export function verifyBundle(bundleDir, { requireSealed = true } = {}) {
     if (protocol.isolation.clientSandboxMode !== undefined && protocol.isolation.clientSandboxMode !== 'outer-controller-profile-only') {
       refusals.push('execution client sandbox ownership is not frozen to the outer controller profile');
     }
-    try {
-      if (sha256Bytes(readFileSync(protocol.isolation.runtimeExecutable)) !== protocol.isolation.runtimeArtifactSha256) refusals.push('execution runtime artifact digest mismatch');
-    } catch (error) { refusals.push(`execution runtime artifact: ${error.message}`); }
+    if (verifyHostArtifacts) {
+      try {
+        if (sha256Bytes(readFileSync(protocol.isolation.runtimeExecutable)) !== protocol.isolation.runtimeArtifactSha256) refusals.push('execution runtime artifact digest mismatch');
+      } catch (error) { refusals.push(`execution runtime artifact: ${error.message}`); }
+    }
   }
   if (protocol.matrix.clientModelCells !== protocol.clientModelCells.length) refusals.push('matrix clientModelCells does not equal declared cell count');
   if (protocol.matrix.repositories !== manifest.repositories.length) refusals.push('matrix repository count does not equal manifest');
@@ -361,6 +363,7 @@ export function verifyBundle(bundleDir, { requireSealed = true } = {}) {
     }
     if (protocol.phase === 'confirmatory' && repo.developmentExposed) refusals.push(`repository ${repo.id}: confirmatory repository is marked development-exposed`);
   }
+  const shortcutCalibrationRequired = protocol.phase === 'pilot' && protocol.claimScope.includes('directional-apparatus-calibration');
   for (const task of manifest.tasks) {
     if (!repos.has(task.repositoryId)) refusals.push(`task ${task.id}: unknown repositoryId ${task.repositoryId}`);
     for (const artifact of artifactRefs(task)) verifyArtifact(root, artifact, `task ${task.id}/${basename(artifact.path)}`, refusals);
@@ -402,6 +405,11 @@ export function verifyBundle(bundleDir, { requireSealed = true } = {}) {
     const hasReferenceDigest = task.referencePatchSha256 !== null;
     if (hasReferenceArtifact !== hasReferenceDigest) refusals.push(`task ${task.id}: reference patch artifact and digest must be present together`);
     if (hasReferenceArtifact && task.referencePatch.sha256 !== task.referencePatchSha256) refusals.push(`task ${task.id}: reference patch artifact digest does not match referencePatchSha256`);
+    const hasShortcutArtifact = task.shortcutPatch !== undefined && task.shortcutPatch !== null;
+    const hasShortcutDigest = task.shortcutPatchSha256 !== undefined && task.shortcutPatchSha256 !== null;
+    if (hasShortcutArtifact !== hasShortcutDigest) refusals.push(`task ${task.id}: shortcut patch artifact and digest must be present together`);
+    if (hasShortcutArtifact && task.shortcutPatch.sha256 !== task.shortcutPatchSha256) refusals.push(`task ${task.id}: shortcut patch artifact digest does not match shortcutPatchSha256`);
+    if (shortcutCalibrationRequired && !hasShortcutArtifact) refusals.push(`task ${task.id}: directional apparatus-calibration pilot has no frozen shortcut witness`);
     if (protocol.phase === 'confirmatory') {
       if (task.classification !== 'confirmatory-held-out' || task.provenance.developmentExposed) refusals.push(`task ${task.id}: confirmatory task is development-exposed or misclassified`);
       if (!hasReferenceArtifact || !/^[0-9a-f]{64}$/.test(task.referencePatchSha256 ?? '')) refusals.push(`task ${task.id}: confirmatory task has no frozen reference patch artifact and digest`);
@@ -498,7 +506,7 @@ export function verifyBundle(bundleDir, { requireSealed = true } = {}) {
       }
     } catch (error) { refusals.push(`seal verification: ${error.message}`); }
   }
-  return { ok: refusals.length === 0, refusals, root, protocol, manifest, seal, treatmentDelta, protectedPaths };
+  return { ok: refusals.length === 0, refusals, root, protocol, manifest, seal, treatmentDelta, protectedPaths, hostArtifactsVerified: verifyHostArtifacts };
 }
 
 function verifyEventChain(path) {
@@ -580,6 +588,7 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
       (bundle.protocol.isolation.readDefaultDeny === true && (isolation.readDefaultDeny !== true || isolation.hostCanaryReadDenied !== true || isolation.hostCanaryWriteDenied !== true)) ||
       (bundle.protocol.isolation.positiveCapabilityProofRequired === true && (isolation.workspaceReadWriteAllowed !== true || isolation.stagedRuntimeVersionVerified !== true || isolation.stagedClientVersionVerified !== true)) ||
       (task.referencePatch && isolation.referencePatchReadDenied !== true) ||
+      (task.shortcutPatch && isolation.shortcutPatchReadDenied !== true) ||
       (assignment.arm === 'bce-enabled' && bundle.protocol.isolation.positiveCapabilityProofRequired === true && (isolation.mcpHandshakePassed !== true || !Array.isArray(isolation.mcpToolNames) || isolation.mcpToolNames.length === 0 || (hardenedEvidenceRequired && (isolation.mcpDoneCheckAvailable !== true || !isolation.mcpToolNames.includes('run_gate'))))) ||
       (cell.localProvider && (isolation.authenticationAbsent !== true || isolation.providerReachable !== true || isolation.externalNetworkDenied !== true || isolation.nonProviderLoopbackDenied !== true ||
         !localProviderProofMatches(isolation.providerIdentityBefore, cell.localProvider) || !localProviderProofWellFormed(isolation.providerIdentityAfter, cell.localProvider) ||

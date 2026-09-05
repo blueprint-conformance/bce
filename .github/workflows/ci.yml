@@ -92,6 +92,17 @@ jobs:
       - name: Reference solutions apply safely and pass independent proof surfaces
         run: npm run test:model-eval-references
 
+      - name: Accelerated v4 portable inputs remain internally reproducible when present
+        shell: bash
+        run: |
+          if [[ -d research/model-evaluation/pilots/accelerated-v4 ]]; then
+            if jq -e '.status == "sealed-before-first-trial"' research/model-evaluation/pilots/accelerated-v4/seal.json >/dev/null; then
+              npm run model-eval:verify -- --bundle research/model-evaluation/pilots/accelerated-v4 --portable-inputs
+            else
+              npm run model-eval:verify -- --bundle research/model-evaluation/pilots/accelerated-v4 --draft --portable-inputs
+            fi
+          fi
+
       - name: Restricted-network runtime + hostile proxy/registry proof
         run: npm run test:restricted-network
 

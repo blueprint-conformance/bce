@@ -1,0 +1,7 @@
+diff --git a/src/features/classify-message.mjs b/src/features/classify-message.mjs
+--- a/src/features/classify-message.mjs
++++ b/src/features/classify-message.mjs
+@@ -1,1 +1,2 @@
+-export function classifyMessage(text) { throw new Error('TODO'); }
++import { classifyThroughGateway } from '../platform/provider-gateway.mjs';
++export function classifyMessage(text) { return classifyThroughGateway(text); }

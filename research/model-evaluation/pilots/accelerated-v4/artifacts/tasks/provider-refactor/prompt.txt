@@ -1,0 +1,2 @@
+Refactor messageVector(text) to return [trimmed-length, 1] without bypassing the governed provider gateway.
+Only edit src/features/message-vector.mjs.
