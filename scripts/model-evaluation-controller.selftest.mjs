@@ -84,6 +84,7 @@ function prepareBundle(name) {
   protocol.implementation.haltVerifierSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-halt.mjs')));
   protocol.implementation.publicExporterSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'export-model-evaluation-public.mjs')));
   protocol.implementation.publicVerifierSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'verify-model-evaluation-public.mjs')));
+  protocol.implementation.blindedEvaluatorSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'model-evaluation-blinded-evaluator.mjs')));
   protocol.implementation.studyHaltSchemaSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'study-halt.schema.json')));
   protocol.implementation.safetyHaltArchiveSchemaSha256 = sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'safety-halt-archive.schema.json')));
   protocol.implementation.canaryRunnerSha256 = sha256Bytes(readFileSync(join(root, 'scripts', 'run-model-evaluation-canary.mjs')));
@@ -338,7 +339,7 @@ function executeCredentialRetirement() {
   const result = spawnSync(process.execPath, [
     'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study', '--limit', '1',
   ], { cwd: root, env: { ...process.env, CODEX_HOME: syntheticCodexHome }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  if (result.status !== 0) throw new Error(`credential retirement fixture failed:\n${result.stdout}\n${result.stderr}`);
+  if (result.status !== 4) throw new Error(`credential retirement fixture did not stop at an explicit incomplete checkpoint:\n${result.stdout}\n${result.stderr}`);
   const trialId = manifest.assignments[0].trialId;
   const terminal = JSON.parse(readFileSync(join(runs, 'trials', trialId, 'a0', 'terminal.json'), 'utf8'));
   const isolation = JSON.parse(readFileSync(join(runs, 'trials', trialId, 'a0', 'isolation-proof.json'), 'utf8'));
@@ -357,7 +358,7 @@ function executeLocalProviderIsolation() {
     const result = spawnSync(process.execPath, [
       'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study', '--limit', '1',
     ], { cwd: root, env: { ...process.env, CODEX_HOME: sourceCodexHome }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-    if (result.status !== 0) throw new Error(`local provider fixture failed:\n${result.stdout}\n${result.stderr}`);
+    if (result.status !== 4) throw new Error(`local provider fixture did not stop at an explicit incomplete checkpoint:\n${result.stdout}\n${result.stderr}`);
     const manifest = JSON.parse(readFileSync(join(bundle, 'task-manifest.json'), 'utf8'));
     const trialId = manifest.assignments[0].trialId;
     const terminal = JSON.parse(readFileSync(join(runs, 'trials', trialId, 'a0', 'terminal.json'), 'utf8'));
@@ -389,7 +390,7 @@ function executeReferenceClientBrokerIsolation() {
     const result = spawnSync(process.execPath, [
       'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study', '--limit', '1',
     ], { cwd: root, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 300000 });
-    if (result.status !== 0) throw new Error(`reference client broker fixture failed:\n${result.stdout}\n${result.stderr}`);
+    if (result.status !== 4) throw new Error(`reference client broker fixture did not stop at an explicit incomplete checkpoint:\n${result.stdout}\n${result.stderr}`);
     const manifest = JSON.parse(readFileSync(join(bundle, 'task-manifest.json'), 'utf8'));
     const trialId = manifest.assignments[0].trialId;
     const terminalPath = join(runs, 'trials', trialId, 'a0', 'terminal.json');
@@ -496,7 +497,7 @@ function executeSymlinkReplayRefusal() {
   const result = spawnSync(process.execPath, [
     'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study', '--limit', '1',
   ], { cwd: root, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  if (result.status !== 0) throw new Error(`symlink replay fixture controller failed:\n${result.stdout}\n${result.stderr}`);
+  if (result.status !== 4) throw new Error(`symlink replay fixture did not stop at an explicit incomplete checkpoint:\n${result.stdout}\n${result.stderr}`);
   const terminalPath = join(runs, 'trials', assignment.trialId, 'a0', 'terminal.json');
   const terminal = JSON.parse(readFileSync(terminalPath, 'utf8'));
   const bundleVerification = verifyBundle(bundle, { requireSealed: true });
@@ -516,7 +517,7 @@ function executeProviderIdentityDriftRefusal() {
     const result = spawnSync(process.execPath, [
       'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study', '--limit', '1',
     ], { cwd: root, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-    if (result.status !== 0) throw new Error(`provider drift fixture controller failed:\n${result.stdout}\n${result.stderr}`);
+    if (result.status !== 4) throw new Error(`provider drift fixture did not stop at an explicit incomplete checkpoint:\n${result.stdout}\n${result.stderr}`);
     const manifest = JSON.parse(readFileSync(join(bundle, 'task-manifest.json'), 'utf8'));
     const trialId = manifest.assignments[0].trialId;
     const terminalPath = join(runs, 'trials', trialId, 'a0', 'terminal.json');
@@ -545,7 +546,7 @@ function executeMissingActiveProviderRefusal() {
     const result = spawnSync(process.execPath, [
       'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study', '--limit', '1',
     ], { cwd: root, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-    if (result.status !== 0) throw new Error(`missing-active fixture controller failed:\n${result.stdout}\n${result.stderr}`);
+    if (result.status !== 4) throw new Error(`missing-active fixture did not stop at an explicit incomplete checkpoint:\n${result.stdout}\n${result.stderr}`);
     const manifest = JSON.parse(readFileSync(join(bundle, 'task-manifest.json'), 'utf8'));
     const terminal = JSON.parse(readFileSync(join(runs, 'trials', manifest.assignments[0].trialId, 'a0', 'terminal.json'), 'utf8'));
     const isolation = JSON.parse(readFileSync(join(runs, 'cas', 'sha256', terminal.evidence.isolationProof.sha256), 'utf8'));
@@ -617,13 +618,50 @@ execFileSync(process.execPath, [
 ], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 const publicSummary = JSON.parse(readFileSync(join(publicOut, 'summary.json'), 'utf8'));
 if (publicSummary.verifiedTrials !== 8 || publicSummary.restrictedEvidence.commitments.length !== 8 ||
+    !/^[0-9a-f]{64}$/.test(publicSummary.publicReplay.runRegistrationSha256 ?? '') ||
+    !/^[0-9a-f]{64}$/.test(publicSummary.publicReplay.checkpointHeadSha256 ?? '') ||
     publicSummary.restrictedEvidence.commitments.some((commitment) => existsSync(join(publicOut, 'cas', 'sha256', commitment.sha256)))) {
   throw new Error('public exporter did not preserve transcript commitments while excluding restricted transcript bytes');
+}
+const exportedRecords = readFileSync(join(publicOut, 'terminal-records.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+for (const record of exportedRecords) {
+  if (!/^[0-9a-f]{64}$/.test(record.bindings.runId ?? '') || !record.evidence.evaluation) throw new Error('registered terminal omitted its run or blinded-evaluation binding');
+  const evaluation = JSON.parse(readFileSync(join(publicOut, record.evidence.evaluation.path), 'utf8'));
+  const patch = JSON.parse(readFileSync(join(publicOut, record.evidence.patch.path), 'utf8'));
+  if (evaluation.armBlind !== true || patch.format !== 'bce-replay-patch/v1' || patch.changes.some((change) => change.operation === 'write' && typeof change.contentBase64 !== 'string')) {
+    throw new Error('public terminal omitted arm-blind evaluation or exact replay bytes');
+  }
 }
 const publicVerification = spawnSync(process.execPath, [
   'scripts/verify-model-evaluation-public.mjs', '--bundle', normal.bundle, '--results', publicOut,
 ], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 if (publicVerification.status !== 0) throw new Error(`public replay failed:\n${publicVerification.stderr}`);
+const originalCheckpointBytes = readFileSync(join(publicOut, 'checkpoints.jsonl'));
+const rewrittenCheckpoints = originalCheckpointBytes.toString('utf8').trim().split('\n').map((line) => JSON.parse(line));
+rewrittenCheckpoints[0].terminalRecordSha256 = 'f'.repeat(64);
+let rewrittenPrevious = null;
+for (const checkpoint of rewrittenCheckpoints) {
+  checkpoint.previousCheckpointSha256 = rewrittenPrevious;
+  checkpoint.checkpointSha256 = null;
+  checkpoint.checkpointSha256 = sha256Json(checkpoint);
+  rewrittenPrevious = checkpoint.checkpointSha256;
+}
+const rewrittenCheckpointBytes = Buffer.from(`${rewrittenCheckpoints.map((entry) => JSON.stringify(entry)).join('\n')}\n`);
+writeFileSync(join(publicOut, 'checkpoints.jsonl'), rewrittenCheckpointBytes);
+const rewrittenCheckpointSummary = structuredClone(publicSummary);
+rewrittenCheckpointSummary.publicReplay.checkpointsSha256 = sha256Bytes(rewrittenCheckpointBytes);
+rewrittenCheckpointSummary.publicReplay.checkpointHeadSha256 = rewrittenPrevious;
+rewrittenCheckpointSummary.resultSha256 = null;
+rewrittenCheckpointSummary.resultSha256 = sha256Json(rewrittenCheckpointSummary);
+writeFileSync(join(publicOut, 'summary.json'), `${JSON.stringify(rewrittenCheckpointSummary, null, 2)}\n`);
+const checkpointTamper = spawnSync(process.execPath, [
+  'scripts/verify-model-evaluation-public.mjs', '--bundle', normal.bundle, '--results', publicOut,
+], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+if (checkpointTamper.status === 0 || !/does not bind the registered ledger prefix/.test(checkpointTamper.stderr)) {
+  throw new Error('public verifier accepted a self-rehashed checkpoint fork');
+}
+writeFileSync(join(publicOut, 'checkpoints.jsonl'), originalCheckpointBytes);
+writeFileSync(join(publicOut, 'summary.json'), `${JSON.stringify(publicSummary, null, 2)}\n`);
 const tamperedSummary = structuredClone(publicSummary);
 tamperedSummary.analysis.cells['primary-codex-mini'].arms['baseline-no-bce'].taskSuccess.successes = 0;
 tamperedSummary.analysis.resultSha256 = sha256Json({ ...tamperedSummary.analysis, resultSha256: null });
@@ -650,5 +688,5 @@ executeSymlinkReplayRefusal();
 executeProviderIdentityDriftRefusal();
 executeMissingActiveProviderRefusal();
 executeFirstClassSafetyHalt();
-process.stdout.write('model-evaluation controller self-test: PASS (outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable; first-party typed exec broker denied provider/external network, forks, oracle reads, protected writes, and toolchain writes with bijective controller evidence; allowed-path symlink replay refused before oracles; provider digest drift and missing-active failures retained without erasing policy evidence; pre-trigger, replayed, and tampered safety-halt states fail closed; first-class halt exits 3; aggregate tamper refused; pilot recommendation impossible)\n');
+process.stdout.write('model-evaluation controller self-test: PASS (registered fsync-backed run + checkpoint chain; arm-blind evaluator; exact replay bytes; outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable; first-party typed exec broker denied provider/external network, forks, oracle reads, protected writes, and toolchain writes with bijective controller evidence; allowed-path symlink replay refused before oracles; provider digest drift and missing-active failures retained without erasing policy evidence; pre-trigger, replayed, and tampered safety-halt states fail closed; first-class halt exits 3; checkpoint fork and aggregate tamper refused; pilot recommendation impossible)\n');
 rmSync(scratch, { recursive: true, force: true });

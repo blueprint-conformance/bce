@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /** Ordered, fail-closed controller for a sealed BCE product-efficacy study. */
 import { spawn, spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import {
-  appendFileSync, chmodSync, closeSync, copyFileSync, cpSync, existsSync, lstatSync,
-  mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync,
+  chmodSync, closeSync, copyFileSync, cpSync, existsSync, lstatSync,
+  fsyncSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync,
   rmSync, statSync, unlinkSync, writeFileSync,
 } from 'node:fs';
 import { homedir, platform, tmpdir } from 'node:os';
@@ -59,6 +60,7 @@ mkdirSync(runsRoot, { recursive: true, mode: 0o700 });
 chmodSync(runsRoot, 0o700);
 const runnerPath = fileURLToPath(import.meta.url);
 const repositoryRoot = resolve(dirname(runnerPath), '..');
+const blindedEvaluatorPath = join(repositoryRoot, 'scripts', 'model-evaluation-blinded-evaluator.mjs');
 const runnerSha256 = sha256Bytes(readFileSync(runnerPath));
 if (runnerSha256 !== protocol.implementation.runnerSha256) {
   process.stderr.write('execution refused: running controller digest differs from the sealed protocol\n');
@@ -98,6 +100,7 @@ catch (error) {
   process.exit(2);
 }
 let controllerAttemptedExposure = false;
+let activeRunRegistration = null;
 
 function run(file, args, cwd, options = {}) {
   return spawnSync(file, args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...options });
@@ -114,8 +117,33 @@ function redact(text) {
 function writeAtomic(path, content) {
   mkdirSync(dirname(path), { recursive: true });
   const temporary = `${path}.tmp-${process.pid}`;
-  writeFileSync(temporary, content);
+  const descriptor = openSync(temporary, 'wx', 0o600);
+  try {
+    writeFileSync(descriptor, content);
+    fsyncSync(descriptor);
+  } finally {
+    closeSync(descriptor);
+  }
   renameSync(temporary, path);
+  fsyncDirectory(dirname(path));
+}
+
+function fsyncDirectory(path) {
+  const descriptor = openSync(path, 'r');
+  try { fsyncSync(descriptor); }
+  finally { closeSync(descriptor); }
+}
+
+function appendDurableLine(path, value) {
+  mkdirSync(dirname(path), { recursive: true });
+  const descriptor = openSync(path, 'a', 0o600);
+  try {
+    writeFileSync(descriptor, `${JSON.stringify(value)}\n`);
+    fsyncSync(descriptor);
+  } finally {
+    closeSync(descriptor);
+  }
+  fsyncDirectory(dirname(path));
 }
 
 function storeArtifact(trialDir, filename, content, mediaType, redaction = 'none', sensitivity = 'public') {
@@ -138,7 +166,7 @@ function appendEvent(state, source, type, payload) {
   };
   event.eventSha256 = sha256Json(event);
   state.events.push(event);
-  writeFileSync(state.eventsPath, `${JSON.stringify(event)}\n`, { flag: 'a' });
+  appendDurableLine(state.eventsPath, event);
 }
 
 function executableDigest(path) {
@@ -238,6 +266,18 @@ function inventoryChanges(before, after) {
   return [...new Set([...left.keys(), ...right.keys()])].sort()
     .filter((entryPath) => canonicalJson(left.get(entryPath) ?? null) !== canonicalJson(right.get(entryPath) ?? null))
     .map((entryPath) => ({ path: entryPath, before: left.get(entryPath) ?? null, after: right.get(entryPath) ?? null }));
+}
+
+function replayableChanges(changes, workspace) {
+  return changes.map((change) => {
+    if (change.after === null) return { ...change, operation: 'delete', contentBase64: null };
+    if (change.after.type !== 'file') return { ...change, operation: 'unsupported', contentBase64: null };
+    const bytes = readFileSync(resolve(workspace, change.path));
+    if (bytes.byteLength !== change.after.bytes || sha256Bytes(bytes) !== change.after.sha256) {
+      throw new Error(`replay content differs from final inventory: ${change.path}`);
+    }
+    return { ...change, operation: 'write', contentBase64: bytes.toString('base64') };
+  });
 }
 
 function globToRegExp(glob) {
@@ -1119,6 +1159,79 @@ function runOracleTwice(oracle, task, neutralRoot, kind, scratchRoot) {
   };
 }
 
+function blindedEvaluatorProfile(blockedRoot) {
+  return [
+    '(version 1)',
+    '(allow default)',
+    `(deny file-read-data (subpath ${sandboxLiteral(bundleDir)}))`,
+    `(deny file-read-data (subpath ${sandboxLiteral(runsRoot)}))`,
+    `(deny file-read-data (subpath ${sandboxLiteral(blockedRoot)}))`,
+    '(deny file-write*)',
+    '(deny network*)',
+  ].join('\n');
+}
+
+function runBlindedEvaluation(task, neutralRoot, blockedRoot) {
+  const frozenDigest = protocol.implementation.blindedEvaluatorSha256;
+  if (!/^[0-9a-f]{64}$/.test(frozenDigest ?? '') || sha256Bytes(readFileSync(blindedEvaluatorPath)) !== frozenDigest) {
+    throw new Error('blinded evaluator implementation is not frozen to the running bytes');
+  }
+  const evaluationRoot = mkdtempSync(join(tmpdir(), 'bce-neutral-evaluation-'));
+  try {
+    const workspace = join(evaluationRoot, 'workspace');
+    const oracleRoot = join(evaluationRoot, 'oracles');
+    copyTree(neutralRoot, workspace, { includeNodeModules: true });
+    mkdirSync(oracleRoot, { recursive: true, mode: 0o700 });
+    const functionalOracle = join(oracleRoot, 'functional.mjs');
+    const architectureOracle = join(oracleRoot, 'architecture.mjs');
+    copyFileSync(resolveInside(bundleDir, task.functionalOracle.artifact.path, `${task.id} functional oracle`), functionalOracle);
+    copyFileSync(resolveInside(bundleDir, task.architectureOracle.artifact.path, `${task.id} architecture oracle`), architectureOracle);
+    if (sha256Bytes(readFileSync(functionalOracle)) !== task.functionalOracle.artifact.sha256 ||
+        sha256Bytes(readFileSync(architectureOracle)) !== task.architectureOracle.artifact.sha256) {
+      throw new Error('copied blinded-evaluator oracle differs from the sealed artifact');
+    }
+    const request = {
+      schemaVersion: '1',
+      evaluationId: randomBytes(32).toString('hex'),
+      taskId: task.id,
+      neutralTree: workspace,
+      neutralTreeSha256: hashTree(workspace),
+      visibleCommands: task.visibleCommands,
+      functionalOracle,
+      architectureOracle,
+      timeoutMs: task.budget.timeoutMs,
+      requestSha256: null,
+    };
+    request.requestSha256 = sha256Json(request);
+    const requestPath = join(evaluationRoot, 'request.json');
+    writeFileSync(requestPath, `${JSON.stringify(request, null, 2)}\n`, { mode: 0o600 });
+    const profile = blindedEvaluatorProfile(blockedRoot);
+    const result = run('/usr/bin/sandbox-exec', [
+      '-p', profile, process.execPath, blindedEvaluatorPath, '--request', requestPath,
+    ], evaluationRoot, { env: minimalControllerEnv(), timeout: Math.max(task.budget.timeoutMs * 5, 30000) });
+    if (result.status !== 0) throw new Error(`blinded evaluator refused the neutral tree: ${result.stderr || result.stdout}`);
+    let evaluation;
+    try { evaluation = JSON.parse(result.stdout); }
+    catch { throw new Error('blinded evaluator returned a non-JSON result'); }
+    if (evaluation.evaluationId !== request.evaluationId || evaluation.requestSha256 !== request.requestSha256 ||
+        evaluation.neutralTreeSha256 !== request.neutralTreeSha256 || evaluation.armBlind !== true ||
+        evaluation.resultSha256 !== sha256Json({ ...evaluation, resultSha256: null })) {
+      throw new Error('blinded evaluator result does not bind the opaque request');
+    }
+    const isolationProof = proveOracleIsolation(profile, join(blockedRoot, 'controller-only'), evaluationRoot);
+    if (!isolationProof.controllerReadDenied || !isolationProof.networkDenied) {
+      throw new Error(`blinded evaluator isolation canary failed: ${JSON.stringify(isolationProof)}`);
+    }
+    evaluation.functional.runs = evaluation.functional.runs.map((entry) => ({ ...entry, isolationProof }));
+    evaluation.architecture.runs = evaluation.architecture.runs.map((entry) => ({ ...entry, isolationProof }));
+    evaluation.resultSha256 = null;
+    evaluation.resultSha256 = sha256Json(evaluation);
+    return evaluation;
+  } finally {
+    rmSync(evaluationRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+}
+
 function derive(assignment, status, bindings, visible, functional, architecture, policy, telemetry, task) {
   const cell = protocol.clientModelCells.find((entry) => entry.id === assignment.cellId);
   const modelIdentityVerified = bindings.resolvedModel === cell.resolvedModel && ['provider-response', 'synthetic-response'].includes(cell.modelIdentityEvidence);
@@ -1153,12 +1266,97 @@ function appendLedger(record) {
   if (record.assignment.orderIndex !== prior.length) throw new Error(`${record.trialId}: ledger order ${prior.length} differs from frozen order ${record.assignment.orderIndex}`);
   if (prior.some((entry) => entry.trialId === record.trialId)) throw new Error(`${record.trialId}: ledger already contains a primary attempt`);
   const entry = {
-    schemaVersion: '1', sequence: prior.length, orderIndex: record.assignment.orderIndex, trialId: record.trialId,
+    schemaVersion: '2', runId: activeRunRegistration?.runId ?? null,
+    sequence: prior.length, orderIndex: record.assignment.orderIndex, trialId: record.trialId,
     attemptId: record.attemptId, recordSha256: record.recordSha256,
     previousEntrySha256: prior.at(-1)?.entrySha256 ?? null, entrySha256: null,
   };
   entry.entrySha256 = sha256Json(entry);
-  appendFileSync(path, `${JSON.stringify(entry)}\n`, { flag: 'a' });
+  appendDurableLine(path, entry);
+  appendCheckpoint(entry, record);
+}
+
+function expectedRunIdentity() {
+  return {
+    studyId: protocol.studyId,
+    sealRootSha256: seal.rootSha256,
+    protocolSha256: sha256Bytes(readFileSync(join(bundleDir, 'protocol.v2.json'))),
+    manifestSha256: sha256Bytes(readFileSync(join(bundleDir, 'task-manifest.json'))),
+    runnerSha256,
+    plannedTrials: manifest.assignments.length,
+  };
+}
+
+function ensureRunRegistration() {
+  const path = join(runsRoot, 'run-registration.json');
+  const identity = expectedRunIdentity();
+  const deterministicRunId = sha256Json({ schemaVersion: 'bce-model-evaluation-run/v1', ...identity });
+  if (!existsSync(path)) {
+    if (existsSync(join(runsRoot, 'ledger.jsonl')) || existsSync(join(runsRoot, 'checkpoints.jsonl')) || existsSync(join(runsRoot, 'trials'))) {
+      throw new Error('run registration is missing but execution artifacts already exist');
+    }
+    const registration = {
+      schemaVersion: '1', runId: deterministicRunId, registeredAt: new Date().toISOString(),
+      ...identity, registrationSha256: null,
+    };
+    registration.registrationSha256 = sha256Json(registration);
+    writeAtomic(path, `${JSON.stringify(registration, null, 2)}\n`);
+  }
+  const registration = JSON.parse(readFileSync(path, 'utf8'));
+  const observedIdentity = Object.fromEntries(Object.keys(identity).map((key) => [key, registration[key]]));
+  if (registration.schemaVersion !== '1' || registration.runId !== deterministicRunId ||
+      registration.registrationSha256 !== sha256Json({ ...registration, registrationSha256: null }) ||
+      canonicalJson(observedIdentity) !== canonicalJson(identity)) {
+    throw new Error('run registration does not bind the exact sealed study and running controller');
+  }
+  return registration;
+}
+
+function readCheckpoints() {
+  const path = join(runsRoot, 'checkpoints.jsonl');
+  if (!existsSync(path)) return [];
+  const rows = readFileSync(path, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
+  let previous = null;
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (row.schemaVersion !== '1' || row.runId !== activeRunRegistration.runId || row.sequence !== index ||
+        row.committedTrials !== index + 1 || row.previousCheckpointSha256 !== previous ||
+        row.checkpointSha256 !== sha256Json({ ...row, checkpointSha256: null })) {
+      throw new Error(`checkpoint chain is invalid at sequence ${index}`);
+    }
+    previous = row.checkpointSha256;
+  }
+  return rows;
+}
+
+function appendCheckpoint(ledgerEntry, record) {
+  const prior = readCheckpoints();
+  if (prior.length !== ledgerEntry.sequence) throw new Error(`checkpoint prefix ${prior.length} differs from ledger sequence ${ledgerEntry.sequence}`);
+  const checkpoint = {
+    schemaVersion: '1', runId: activeRunRegistration.runId, sequence: ledgerEntry.sequence,
+    committedTrials: ledgerEntry.sequence + 1, ledgerHeadSha256: ledgerEntry.entrySha256,
+    terminalRecordSha256: record.recordSha256, committedAt: new Date().toISOString(),
+    previousCheckpointSha256: prior.at(-1)?.checkpointSha256 ?? null, checkpointSha256: null,
+  };
+  checkpoint.checkpointSha256 = sha256Json(checkpoint);
+  appendDurableLine(join(runsRoot, 'checkpoints.jsonl'), checkpoint);
+}
+
+function reconcileCheckpoints(ledger) {
+  let checkpoints = readCheckpoints();
+  if (checkpoints.length > ledger.length) throw new Error('checkpoint chain is ahead of the durable trial ledger');
+  for (let index = checkpoints.length; index < ledger.length; index += 1) {
+    const entry = ledger[index];
+    const terminalPath = join(runsRoot, 'trials', entry.trialId, 'a0', 'terminal.json');
+    appendCheckpoint(entry, JSON.parse(readFileSync(terminalPath, 'utf8')));
+    checkpoints = readCheckpoints();
+  }
+  for (let index = 0; index < checkpoints.length; index += 1) {
+    if (checkpoints[index].ledgerHeadSha256 !== ledger[index].entrySha256 || checkpoints[index].terminalRecordSha256 !== ledger[index].recordSha256) {
+      throw new Error(`checkpoint ${index} differs from the durable ledger or terminal`);
+    }
+  }
+  return checkpoints;
 }
 
 function commitTerminal(context) {
@@ -1175,6 +1373,9 @@ function commitTerminal(context) {
     architectureOracle: storeArtifact(trialDir, 'architecture-oracle.json', `${JSON.stringify(documents.architecture, null, 2)}\n`, 'application/json'),
     policyDiff: storeArtifact(trialDir, 'policy-diff.json', `${JSON.stringify(documents.policy, null, 2)}\n`, 'application/json'),
   };
+  if (documents.evaluation) {
+    evidence.evaluation = storeArtifact(trialDir, 'blinded-evaluation.json', `${JSON.stringify(documents.evaluation, null, 2)}\n`, 'application/json');
+  }
   const derived = derive(assignment, status, bindings, documents.visible, documents.functional, documents.architecture, documents.policy, telemetry, task);
   const terminal = {
     schemaVersion: terminalRecordSchemaVersion, studyId: protocol.studyId, trialId: assignment.trialId, pairId: assignment.pairId,
@@ -1213,6 +1414,7 @@ function failureDocuments(context, error) {
     functional: { passed: false, collateralRegression: false, deterministic: true, executed: false, failure: message },
     architecture: { passed: false, locations: [], deterministic: true, executed: false, failure: message },
     policy: captured.policy ?? { assessmentComplete: false, mutationObserved: false, failClosedForOutcome: true, mutation: false, finalPolicyPaths: [], observedWritePaths: [], outOfScope: [], conservativeFailureClassification: true },
+    evaluation: captured.evaluation ?? null,
     mechanism: captured.mechanism ?? {
       eventEvidenceAvailable: false, skillReadObserved: null, mcpToolCalls: null, bceGateCalls: null,
       bceVerdictSequence: null, redToGreenCorrectionObserved: null,
@@ -1270,6 +1472,7 @@ function recoverExposedAttempt(assignment, task, repository, cell, trialDir, eve
   };
   const isolationProof = isolationEvent.payload;
   const bindings = {
+    runId: activeRunRegistration?.runId ?? null,
     sealRootSha256: seal.rootSha256,
     protocolSha256: sha256Bytes(readFileSync(join(bundleDir, 'protocol.v2.json'))),
     manifestSha256: sha256Bytes(readFileSync(join(bundleDir, 'task-manifest.json'))),
@@ -1439,7 +1642,12 @@ async function executeAssignment(assignment) {
           execBrokerError: clientResult.execBrokerError,
         } : null,
       },
-      patch: { schemaVersion: '1', authority: 'controller-before-after-inventory', changes },
+      patch: {
+        schemaVersion: '2',
+        format: 'bce-replay-patch/v1',
+        authority: 'controller-before-after-inventory-plus-exact-content',
+        changes: replayableChanges(changes, workspace),
+      },
       finalTree: { available: true, agentWorkspaceInventorySha256: sha256Json(finalInventory), changedPaths },
       policy,
       mechanism: extractMechanism(stdout, assignment, sealedClientEvidence, cell),
@@ -1467,13 +1675,16 @@ async function executeAssignment(assignment) {
     }
     const usage = capturedUsage;
     applyAllowedChanges(preparedRoot, workspace, neutralRoot, changes, task.allowedPaths);
+    const blindedEvaluation = protocol.implementation.blindedEvaluatorSha256
+      ? runBlindedEvaluation(task, neutralRoot, scratch)
+      : null;
     const nonBceStart = performance.now();
-    const nonBceRuns = task.visibleCommands.map((commandSpec) => {
+    const nonBceRuns = blindedEvaluation?.visible.nonBceRuns ?? task.visibleCommands.map((commandSpec) => {
       const result = runCommandSpec(commandSpec, neutralRoot, task.budget.timeoutMs);
       return { command: commandSpec, exitCode: result.status, signal: result.signal, stdout: redact(result.stdout), stderr: redact(result.stderr) };
     });
-    const nonBcePipelineMs = Math.round(performance.now() - nonBceStart);
-    const nonBceAccepted = nonBceRuns.every((entry) => entry.exitCode === 0);
+    const nonBcePipelineMs = blindedEvaluation?.timing.visibleMs ?? Math.round(performance.now() - nonBceStart);
+    const nonBceAccepted = blindedEvaluation?.visible.nonBceAccepted ?? nonBceRuns.every((entry) => entry.exitCode === 0);
     let bceGateAccepted = null;
     let bceGateMs = null;
     let bceRun = null;
@@ -1490,9 +1701,10 @@ async function executeAssignment(assignment) {
     if (seal.attestation?.kind === 'synthetic-self-test' && process.env.BCE_MODEL_EVAL_FAULT_AT === 'before-oracle') {
       throw new Error('synthetic fault injection before hidden oracle execution');
     }
-    const functional = runOracleTwice(task.functionalOracle, task, neutralRoot, 'functional', controllerRoot);
-    const architecture = runOracleTwice(task.architectureOracle, task, neutralRoot, 'architecture', controllerRoot);
-    const oracleMs = Math.round(performance.now() - oracleStart);
+    const functional = blindedEvaluation?.functional ?? runOracleTwice(task.functionalOracle, task, neutralRoot, 'functional', controllerRoot);
+    const architecture = blindedEvaluation?.architecture ?? runOracleTwice(task.architectureOracle, task, neutralRoot, 'architecture', controllerRoot);
+    const oracleMs = blindedEvaluation?.timing.oracleMs ?? Math.round(performance.now() - oracleStart);
+    if (blindedEvaluation) captured.evaluation = blindedEvaluation;
     appendEvent(state, 'oracle', 'outcomes-derived', { visiblePipelineAccepted: visible.accepted, hiddenFunctionalPassed: functional.passed, independentArchitecturePassed: architecture.passed, policyAssessmentComplete: policy.assessmentComplete, policyMutationObserved: policy.mutationObserved, policyFailClosedForOutcome: policy.failClosedForOutcome, modelIdentityVerified: usage.resolvedModel === cell.resolvedModel && ['provider-response', 'synthetic-response'].includes(cell.modelIdentityEvidence) });
     const telemetryValues = {
       latencyMs: clientResult.latencyMs, nonBcePipelineMs, bceGateMs, endToEndVisibleMs, oracleMs,
@@ -1503,6 +1715,7 @@ async function executeAssignment(assignment) {
     for (const [key, value] of Object.entries(telemetryValues)) if (value === null) missingReasons[key] = key === 'bceGateMs' && assignment.arm === 'baseline-no-bce' ? 'baseline arm has no BCE gate' : `${cell.client} did not expose a trustworthy ${key}`;
     const telemetry = { ...telemetryValues, missingReasons };
     const bindings = {
+      runId: activeRunRegistration?.runId ?? null,
       sealRootSha256: seal.rootSha256,
       protocolSha256: sha256Bytes(readFileSync(join(bundleDir, 'protocol.v2.json'))),
       manifestSha256: sha256Bytes(readFileSync(join(bundleDir, 'task-manifest.json'))),
@@ -1517,6 +1730,7 @@ async function executeAssignment(assignment) {
       finalTree: { ...captured.finalTree, neutralTreeSha256: hashTree(neutralRoot), agentWorkspaceTreeSha256: hashTree(workspace) },
       preparation,
       isolationProof, visible, functional, architecture, policy,
+      evaluation: blindedEvaluation,
       mechanism: captured.mechanism,
     };
     return commitTerminal({ assignment, task, trialDir, state, status, startedAt, exitCode: clientResult.status, bindings, documents, telemetry });
@@ -1524,6 +1738,7 @@ async function executeAssignment(assignment) {
     if (!exposed) throw error;
     appendEvent(state, 'controller', 'post-exposure-failure-retained', { error: redact(error instanceof Error ? error.message : String(error)) });
     const bindings = {
+      runId: activeRunRegistration?.runId ?? null,
       sealRootSha256: seal.rootSha256,
       protocolSha256: sha256Bytes(readFileSync(join(bundleDir, 'protocol.v2.json'))),
       manifestSha256: sha256Bytes(readFileSync(join(bundleDir, 'task-manifest.json'))),
@@ -1553,7 +1768,7 @@ function readLedger() {
   for (let index = 0; index < rows.length; index += 1) {
     const row = rows[index];
     const assignment = manifest.assignments[index];
-    if (!assignment || row.sequence !== index || row.orderIndex !== index || row.trialId !== assignment.trialId || row.previousEntrySha256 !== previous || row.entrySha256 !== sha256Json({ ...row, entrySha256: null })) throw new Error(`ledger is not an intact prefix of the frozen assignment order at sequence ${index}`);
+    if (!assignment || row.schemaVersion !== '2' || row.runId !== activeRunRegistration?.runId || row.sequence !== index || row.orderIndex !== index || row.trialId !== assignment.trialId || row.previousEntrySha256 !== previous || row.entrySha256 !== sha256Json({ ...row, entrySha256: null })) throw new Error(`ledger is not an intact registered prefix of the frozen assignment order at sequence ${index}`);
     previous = row.entrySha256;
   }
   return rows;
@@ -1599,7 +1814,9 @@ try {
     }
     process.stdout.write(`${JSON.stringify({ preflight: 'passed-without-model-exposure', reports })}\n`);
   } else {
+    activeRunRegistration = ensureRunRegistration();
     let ledger = reconcileTerminalWithoutLedger();
+    reconcileCheckpoints(ledger);
     const records = ledger.map((entry) => JSON.parse(readFileSync(join(runsRoot, 'trials', entry.trialId, 'a0', 'terminal.json'), 'utf8')));
     const existingHalt = stoppingHaltTrigger(records, protocol);
     if (existsSync(join(runsRoot, 'study-halt.json')) && !existingHalt) {
@@ -1627,6 +1844,10 @@ try {
       }
     }
     process.stdout.write(`model-evaluation controller: ${executed} new primary attempt(s); ${ledger.length}/${manifest.assignments.length} frozen assignments committed\n`);
+    if (process.exitCode === undefined && ledger.length < manifest.assignments.length && executed >= limit) {
+      process.stderr.write(`model-evaluation checkpoint: registered run is incomplete at ${ledger.length}/${manifest.assignments.length}; resume the same runId to continue\n`);
+      process.exitCode = 4;
+    }
   }
 } catch (error) {
   const message = error instanceof Error ? error.stack ?? error.message : String(error);

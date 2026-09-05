@@ -57,6 +57,20 @@ function assertPublicSafe(bytes, label) {
   const text = bytes.toString('utf8');
   if (forbiddenPublicPatterns.some((pattern) => pattern.test(text))) throw new Error(`${label}: possible credential material refused from public export`);
 }
+function assertArtifactPublicSafe(bytes, label) {
+  assertPublicSafe(bytes, label);
+  let document;
+  try { document = JSON.parse(bytes.toString('utf8')); } catch { return; }
+  if (document?.format !== 'bce-replay-patch/v1') return;
+  for (const change of document.changes ?? []) {
+    if (change.operation !== 'write') continue;
+    let content;
+    try { content = Buffer.from(change.contentBase64, 'base64'); }
+    catch { throw new Error(`${label}/${String(change.path)}: invalid replay content`); }
+    if (content.toString('base64') !== change.contentBase64) throw new Error(`${label}/${String(change.path)}: non-canonical replay content`);
+    assertPublicSafe(content, `${label}/${String(change.path)}`);
+  }
+}
 function write(relativePath, bytes) {
   const path = join(output, relativePath);
   mkdirSync(dirname(path), { recursive: true });
@@ -94,7 +108,7 @@ for (const record of records) {
     const source = resolveInside(runsRoot, artifact.path, `${record.trialId}/${label}`);
     const bytes = readFileSync(source);
     if (sha256Bytes(bytes) !== artifact.sha256 || bytes.byteLength !== artifact.bytes) throw new Error(`${record.trialId}/${label}: artifact commitment mismatch`);
-    assertPublicSafe(bytes, `${record.trialId}/${label}`);
+    assertArtifactPublicSafe(bytes, `${record.trialId}/${label}`);
     if (/\bfile:\/\/\/Users\/[^/\s]+\/|\/Users\/[^/\s]+\//.test(bytes.toString('utf8'))) {
       withheldPublicArtifactCommitments.push({
         trialId: record.trialId,
@@ -112,6 +126,10 @@ for (const record of records) {
   }
 }
 
+if (bundle.protocol.phase === 'confirmatory' && withheldPublicArtifactCommitments.length > 0) {
+  throw new Error('confirmatory export refuses withheld outcome evidence; sanitize paths before the claim-bearing run, never after it');
+}
+
 mkdirSync(output, { recursive: true });
 for (const [digest, { source }] of [...publicArtifacts].sort(([left], [right]) => left.localeCompare(right))) {
   const target = join(output, 'cas', 'sha256', digest);
@@ -125,6 +143,15 @@ const ledgerBytes = readFileSync(join(runsRoot, 'ledger.jsonl'));
 assertPublicSafe(ledgerBytes, 'ledger');
 write('ledger.jsonl', ledgerBytes);
 const ledger = ledgerBytes.toString('utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
+const registeredRun = ledger.some((entry) => entry.runId !== undefined && entry.runId !== null);
+const registrationBytes = registeredRun ? readFileSync(join(runsRoot, 'run-registration.json')) : null;
+const checkpointBytes = registeredRun ? readFileSync(join(runsRoot, 'checkpoints.jsonl')) : null;
+if (registrationBytes && checkpointBytes) {
+  assertPublicSafe(registrationBytes, 'run registration');
+  assertPublicSafe(checkpointBytes, 'run checkpoints');
+  write('run-registration.json', registrationBytes);
+  write('checkpoints.jsonl', checkpointBytes);
+}
 let runDisposition = { status: 'complete', plannedTrials: bundle.manifest.assignments.length, committedTrials: records.length };
 if (safetyHalted) {
   assertPublicSafe(loaded.haltBytes, 'study halt');
@@ -145,7 +172,9 @@ const summary = {
   evidenceClass: safetyHalted ? archive.evidenceClass : analysis.evidenceClass,
   claimBoundary: safetyHalted
     ? 'safety-halted apparatus record only; no efficacy estimate, arm comparison, cost/latency comparison, uplift claim, or product recommendation'
-    : 'instrumentation-only-development-pilot; never product-efficacy evidence and never a recommendation',
+    : bundle.protocol.phase === 'confirmatory'
+      ? `author-operated randomized evidence for the exact sealed task population and client/model cells in ${bundle.protocol.studyId}; not independent replication, production validation, or evidence for unrun clients, models, repositories, or releases`
+      : 'instrumentation-only-development-pilot; never product-efficacy evidence and never a recommendation',
   exporterSha256,
   verifiedTrials: records.length,
   runDisposition,
@@ -159,6 +188,9 @@ const summary = {
     ledgerSha256: sha256Bytes(ledgerBytes),
     ledgerHeadSha256: ledger.at(-1)?.entrySha256 ?? null,
     terminalRecordsSha256: sha256Bytes(terminalBytes),
+    runRegistrationSha256: registrationBytes ? sha256Bytes(registrationBytes) : null,
+    checkpointsSha256: checkpointBytes ? sha256Bytes(checkpointBytes) : null,
+    checkpointHeadSha256: checkpointBytes ? JSON.parse(checkpointBytes.toString('utf8').trim().split('\n').at(-1)).checkpointSha256 : null,
     publicArtifactCount: publicArtifacts.size,
     publicCasPath: 'cas/sha256',
   },

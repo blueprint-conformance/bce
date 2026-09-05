@@ -20,6 +20,37 @@ import { verifyOllamaClientEvents } from './model-evaluation-client-events.mjs';
 
 export const ARMS = ['baseline-no-bce', 'bce-enabled'];
 export const ASSIGNMENT_ALGORITHM = 'bce-sha256-rank-paired-v1';
+const TREATMENT_DELTA_CONTRACT = {
+  onlyAllowedArmDifferences: [
+    'exact BCE engine artifact installed in the trial workspace',
+    'task-specific EngineeringBlueprint encoding the same written policy both arms receive',
+    'project-scoped BCE Agent Skill',
+    'project-scoped BCE MCP configuration',
+    'visible pipeline includes the BCE done-check',
+  ],
+  mustRemainByteIdentical: [
+    'base task tree before treatment materialization',
+    'task prompt and written architecture rule',
+    'client executable and client version',
+    'requested and resolved model identity',
+    'reasoning effort and model parameters',
+    'non-BCE tools and permissions',
+    'network policy',
+    'time, token, turn, and cost ceilings',
+    'visible functional tests',
+    'hidden functional oracle',
+    'independent architecture oracle',
+    'protected-path classifier',
+  ],
+  forbiddenTreatmentDifferences: [
+    'additional architecture facts unavailable to baseline',
+    'different task wording',
+    'different resource budgets',
+    'different repository revision',
+    'different non-BCE tools',
+    'outcome-dependent retry or stopping',
+  ],
+};
 
 export const FROZEN_IMPLEMENTATIONS = {
   verifierSha256: fileURLToPath(import.meta.url),
@@ -32,6 +63,7 @@ export const FROZEN_IMPLEMENTATIONS = {
   haltVerifierSha256: fileURLToPath(new URL('./model-evaluation-halt.mjs', import.meta.url)),
   publicExporterSha256: fileURLToPath(new URL('../export-model-evaluation-public.mjs', import.meta.url)),
   publicVerifierSha256: fileURLToPath(new URL('../verify-model-evaluation-public.mjs', import.meta.url)),
+  blindedEvaluatorSha256: fileURLToPath(new URL('../model-evaluation-blinded-evaluator.mjs', import.meta.url)),
   studyHaltSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/study-halt.schema.json', import.meta.url)),
   safetyHaltArchiveSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/safety-halt-archive.schema.json', import.meta.url)),
   canaryRunnerSha256: fileURLToPath(new URL('../run-model-evaluation-canary.mjs', import.meta.url)),
@@ -55,12 +87,40 @@ export function canonicalJson(value) {
   return JSON.stringify(canonical(value));
 }
 
+function globMatches(path, glob) {
+  const marker = '__DOUBLE_STAR__';
+  const escaped = glob.replace(/\*\*/g, marker).replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*').replaceAll(marker, '.*');
+  return new RegExp(`^${escaped}$`).test(path);
+}
+
 export function sha256Bytes(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
 export function sha256Json(value) {
   return sha256Bytes(canonicalJson(value));
+}
+
+export function verifyRunRegistration(runsRoot, bundle) {
+  const path = resolve(runsRoot, 'run-registration.json');
+  const registration = JSON.parse(readFileSync(path, 'utf8'));
+  const identity = {
+    studyId: bundle.protocol.studyId,
+    sealRootSha256: bundle.seal.rootSha256,
+    protocolSha256: sha256Bytes(readFileSync(resolve(bundle.root, 'protocol.v2.json'))),
+    manifestSha256: sha256Bytes(readFileSync(resolve(bundle.root, 'task-manifest.json'))),
+    runnerSha256: bundle.protocol.implementation.runnerSha256,
+    plannedTrials: bundle.manifest.assignments.length,
+  };
+  const expectedRunId = sha256Json({ schemaVersion: 'bce-model-evaluation-run/v1', ...identity });
+  const keys = ['schemaVersion', 'runId', 'registeredAt', ...Object.keys(identity), 'registrationSha256'].sort();
+  if (canonicalJson(Object.keys(registration).sort()) !== canonicalJson(keys) || registration.schemaVersion !== '1' ||
+      registration.runId !== expectedRunId || !Number.isFinite(Date.parse(registration.registeredAt ?? '')) ||
+      registration.registrationSha256 !== sha256Json({ ...registration, registrationSha256: null }) ||
+      canonicalJson(Object.fromEntries(Object.keys(identity).map((key) => [key, registration[key]]))) !== canonicalJson(identity)) {
+    throw new Error('run registration does not bind the exact sealed study');
+  }
+  return registration;
 }
 
 export function fileArtifact(path, root, mediaType = 'application/octet-stream') {
@@ -388,6 +448,9 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
   for (const required of ['.bce-runtime/**', '.blueprints/**', '.bce-mode.json']) {
     if (!treatmentDelta.allowedPathPatterns?.includes(required)) refusals.push(`treatment delta omits required materialization surface ${required}`);
   }
+  for (const [field, expected] of Object.entries(TREATMENT_DELTA_CONTRACT)) {
+    if (canonicalJson(treatmentDelta[field]) !== canonicalJson(expected)) refusals.push(`treatment delta ${field} differs from the executable v1 arm-parity contract`);
+  }
   for (const required of ['.blueprints/**', '.bce-runtime/**', '.github/**', 'tests/**']) {
     if (!protectedPaths.patterns?.includes(required)) refusals.push(`protected paths omit required policy/evaluator surface ${required}`);
   }
@@ -679,6 +742,10 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
   }
   if (!record.primaryAttempt || record.retryOf !== null) throw new Error(`${terminalPath}: randomized denominator must use the immutable primary attempt`);
   if (record.bindings.sealRootSha256 !== bundle.seal.rootSha256) throw new Error(`${terminalPath}: seal binding mismatch`);
+  if (record.bindings.runId !== undefined && record.bindings.runId !== null) {
+    const registration = verifyRunRegistration(runsRoot, bundle);
+    if (record.bindings.runId !== registration.runId) throw new Error(`${terminalPath}: run binding differs from the registered run`);
+  }
   if (record.bindings.protocolSha256 !== sha256Bytes(readFileSync(resolve(bundle.root, 'protocol.v2.json')))) throw new Error(`${terminalPath}: protocol binding mismatch`);
   if (record.bindings.manifestSha256 !== sha256Bytes(readFileSync(resolve(bundle.root, 'task-manifest.json')))) throw new Error(`${terminalPath}: manifest binding mismatch`);
   if (record.bindings.runnerSha256 !== bundle.protocol.implementation.runnerSha256) throw new Error(`${terminalPath}: runner binding differs from protocol`);
@@ -701,10 +768,68 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
   const functional = readJsonArtifact(runsRoot, record.evidence.functionalOracle, `${terminalPath}/functional oracle`);
   const architecture = readJsonArtifact(runsRoot, record.evidence.architectureOracle, `${terminalPath}/architecture oracle`);
   const policy = readJsonArtifact(runsRoot, record.evidence.policyDiff, `${terminalPath}/policy diff`);
+  const finalTree = readJsonArtifact(runsRoot, record.evidence.finalTree, `${terminalPath}/final tree`);
+  const patch = record.evidence.patch.mediaType === 'application/json'
+    ? readJsonArtifact(runsRoot, record.evidence.patch, `${terminalPath}/replay patch`)
+    : null;
   const transcript = readJsonArtifact(runsRoot, record.evidence.transcript, `${terminalPath}/transcript`);
+  const evaluation = record.evidence.evaluation
+    ? readJsonArtifact(runsRoot, record.evidence.evaluation, `${terminalPath}/blinded evaluation`)
+    : null;
   const task = bundle.manifest.tasks.find((entry) => entry.id === assignment.taskId);
   const hardenedEvidenceRequired = typeof bundle.protocol.implementation.referenceVerifierSha256 === 'string';
   if (preparation.successful !== true || preparation.preparedTreeSha256 !== repo.preparedTreeSha256) throw new Error(`${terminalPath}: preparation evidence does not match frozen prepared tree`);
+  if (preparation.treatmentDelta) {
+    if (preparation.treatmentConfigSha256 !== sha256Json(preparation.treatmentDelta)) throw new Error(`${terminalPath}: treatment preparation self-binding mismatch`);
+    if (preparation.treatmentDelta.arm !== assignment.arm || !Array.isArray(preparation.treatmentDelta.changes)) throw new Error(`${terminalPath}: treatment preparation arm or changes are invalid`);
+    if (assignment.arm === 'baseline-no-bce' && preparation.treatmentDelta.changes.length !== 0) throw new Error(`${terminalPath}: baseline preparation contains treatment changes`);
+    if (assignment.arm === 'bce-enabled') {
+      const paths = preparation.treatmentDelta.changes.map((change) => change.path);
+      if (duplicateValues(paths).length || paths.some((path) => !bundle.treatmentDelta.allowedPathPatterns.some((pattern) => globMatches(path, pattern)))) {
+        throw new Error(`${terminalPath}: BCE treatment changed a duplicated or undeclared path`);
+      }
+      if (!paths.includes('.bce-mode.json') || !paths.includes(`.blueprints/${task.id}.blueprint.json`) ||
+          !paths.some((path) => ['AGENTS.md', 'CLAUDE.md', '.cursorrules'].includes(path)) ||
+          !paths.some((path) => ['.mcp.json', '.codex/config.toml', '.cursor/mcp.json'].includes(path))) {
+        throw new Error(`${terminalPath}: BCE treatment omits a required mode, blueprint, agent-context, or MCP surface`);
+      }
+    }
+  } else if (record.status === 'completed' && record.bindings.runId) throw new Error(`${terminalPath}: registered completed attempt lacks executable treatment preparation evidence`);
+  if (bundle.protocol.phase === 'confirmatory' && record.status === 'completed' && evaluation === null) throw new Error(`${terminalPath}: completed confirmatory outcome lacks a blinded evaluation artifact`);
+  if (evaluation === null && (functional.executed !== false || architecture.executed !== false) && bundle.protocol.phase === 'confirmatory') {
+    throw new Error(`${terminalPath}: confirmatory oracle outcomes were produced outside the blinded evaluator`);
+  }
+  if (evaluation !== null) {
+    if (evaluation.armBlind !== true || !/^[0-9a-f]{64}$/.test(evaluation.evaluationId ?? '') ||
+        evaluation.resultSha256 !== sha256Json({ ...evaluation, resultSha256: null }) ||
+        evaluation.neutralTreeSha256 !== finalTree.neutralTreeSha256 ||
+        canonicalJson(evaluation.visible) !== canonicalJson({ nonBceAccepted: visible.nonBceAccepted, nonBceRuns: visible.nonBceRuns }) ||
+        canonicalJson(evaluation.functional) !== canonicalJson(functional) || canonicalJson(evaluation.architecture) !== canonicalJson(architecture)) {
+      throw new Error(`${terminalPath}: blinded evaluation does not bind the published neutral-tree outcomes`);
+    }
+  }
+  if (patch?.format === 'bce-replay-patch/v1') {
+    if (patch.schemaVersion !== '2' || !Array.isArray(patch.changes)) throw new Error(`${terminalPath}: replay patch shape is invalid`);
+    const replayPaths = patch.changes.map((change) => change.path);
+    if (duplicateValues(replayPaths).length || replayPaths.some((path) => typeof path !== 'string' || path.length === 0 || isAbsolute(path) || path.split(/[\\/]/).includes('..')) ||
+        canonicalJson([...replayPaths].sort()) !== canonicalJson([...(finalTree.changedPaths ?? [])].sort())) {
+      throw new Error(`${terminalPath}: replay patch paths are duplicated, unsafe, or differ from the final-tree inventory`);
+    }
+    for (const change of patch.changes) {
+      const expectedOperation = change.after === null ? 'delete' : change.after?.type === 'file' ? 'write' : 'unsupported';
+      if (change.operation !== expectedOperation) throw new Error(`${terminalPath}: replay operation disagrees with inventory for ${String(change.path)}`);
+      if (change.operation === 'write') {
+        let bytes;
+        try { bytes = Buffer.from(change.contentBase64, 'base64'); }
+        catch { throw new Error(`${terminalPath}: replay content is not base64 for ${String(change.path)}`); }
+        if (bytes.toString('base64') !== change.contentBase64 || bytes.byteLength !== change.after.bytes || sha256Bytes(bytes) !== change.after.sha256) {
+          throw new Error(`${terminalPath}: replay content does not match final inventory for ${String(change.path)}`);
+        }
+      } else if (change.contentBase64 !== null) throw new Error(`${terminalPath}: non-write replay operation carries content for ${String(change.path)}`);
+    }
+  } else if (bundle.protocol.phase === 'confirmatory' && patch?.available !== false) {
+    throw new Error(`${terminalPath}: confirmatory output lacks an exact replay patch`);
+  }
   if (record.bindings.treatmentConfigSha256 !== preparation.treatmentConfigSha256) throw new Error(`${terminalPath}: treatment binding differs from preparation evidence`);
   if (assignment.arm === 'baseline-no-bce' && record.bindings.treatmentConfigSha256 !== sha256Json({ arm: 'baseline-no-bce', changes: [] })) {
     throw new Error(`${terminalPath}: baseline treatment binding is not the frozen no-BCE configuration`);
@@ -857,6 +982,27 @@ export function loadVerifiedRecords(bundleDir, runsDir) {
     return entry;
   });
   if (ledger.length !== primary.length) throw new Error(`trial ledger/terminal mismatch: ${ledger.length} ledger entries, ${primary.length} primary records`);
+  const registeredLedger = ledger.some((entry) => entry.runId !== undefined && entry.runId !== null);
+  if (registeredLedger) {
+    const registration = verifyRunRegistration(runsRoot, bundle);
+    if (ledger.some((entry) => entry.schemaVersion !== '2' || entry.runId !== registration.runId)) {
+      throw new Error('trial ledger mixes registered and legacy entries');
+    }
+    const checkpointPath = resolve(runsRoot, 'checkpoints.jsonl');
+    const checkpoints = readFileSync(checkpointPath, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    if (checkpoints.length !== ledger.length) throw new Error('checkpoint/ledger denominator mismatch');
+    let previousCheckpointSha256 = null;
+    for (let index = 0; index < checkpoints.length; index += 1) {
+      const checkpoint = checkpoints[index];
+      if (checkpoint.schemaVersion !== '1' || checkpoint.runId !== registration.runId || checkpoint.sequence !== index ||
+          checkpoint.committedTrials !== index + 1 || checkpoint.ledgerHeadSha256 !== ledger[index].entrySha256 ||
+          checkpoint.terminalRecordSha256 !== ledger[index].recordSha256 || checkpoint.previousCheckpointSha256 !== previousCheckpointSha256 ||
+          checkpoint.checkpointSha256 !== sha256Json({ ...checkpoint, checkpointSha256: null })) {
+        throw new Error(`checkpoint ${index} does not bind the registered ledger prefix`);
+      }
+      previousCheckpointSha256 = checkpoint.checkpointSha256;
+    }
+  }
   const ledgerByTrial = new Map(ledger.map((entry) => [entry.trialId, entry]));
   for (const record of primary) {
     const entry = ledgerByTrial.get(record.trialId);
