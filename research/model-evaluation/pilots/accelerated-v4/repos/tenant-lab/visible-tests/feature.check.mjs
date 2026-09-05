@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { createSecretRoute } from '../src/routes/create-secret.mjs'; test('creates tenant route', () => assert.equal(createSecretRoute('acme', { id: 'u2', tenantId: 'acme' }), 'secret:acme:u2'));

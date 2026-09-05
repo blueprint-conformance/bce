@@ -1,0 +1,39 @@
+{
+  "apiVersion": "blueprint-conformance/v1alpha1",
+  "kind": "EngineeringBlueprint",
+  "metadata": {
+    "id": "boundary-feature",
+    "version": "1.0.0",
+    "status": "approved"
+  },
+  "intentRefs": [
+    "pilot-policy/boundary-feature"
+  ],
+  "scope": {
+    "repositories": [
+      "pilot/boundary-microcosm"
+    ]
+  },
+  "architecture": {
+    "components": [],
+    "relationships": []
+  },
+  "constraints": [
+    {
+      "id": "title-no-process-exit",
+      "type": "forbiddenPattern",
+      "severity": "critical",
+      "path": "src/title.mjs",
+      "pattern": "process\\.exit\\s*\\("
+    }
+  ],
+  "evidenceRequirements": [],
+  "approvals": [],
+  "extraction": {
+    "profile": "plugin-surface",
+    "paths": [
+      "src/**/*.mjs"
+    ],
+    "minFiles": 4
+  }
+}

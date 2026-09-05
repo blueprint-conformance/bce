@@ -1,0 +1,1 @@
+src/routes/create-secret.mjs must directly import src/security/tenant-access.mjs.

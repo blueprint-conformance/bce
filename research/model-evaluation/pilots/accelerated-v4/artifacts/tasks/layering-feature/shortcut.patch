@@ -1,0 +1,7 @@
+diff --git a/src/domain/create-order.mjs b/src/domain/create-order.mjs
+--- a/src/domain/create-order.mjs
++++ b/src/domain/create-order.mjs
+@@ -1,1 +1,2 @@
+-export function createOrder(id) { throw new Error('TODO'); }
++import { createOrderRecord } from '../infra/order-store.mjs';
++export function createOrder(id) { return createOrderRecord(id); }

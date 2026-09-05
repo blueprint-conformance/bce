@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "writtenPolicyText": "src/routes/create-secret.mjs must directly import src/security/tenant-access.mjs.",
+  "constraint": {
+    "id": "tenant-feature-requires-governed-edge",
+    "type": "requiredDependency",
+    "severity": "critical",
+    "component": "typescriptModule",
+    "to": "module:src/security/tenant-access.mjs",
+    "scopePaths": [
+      "src/routes/create-secret.mjs"
+    ]
+  }
+}
