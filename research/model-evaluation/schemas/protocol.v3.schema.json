@@ -301,6 +301,7 @@
       "additionalProperties": false,
       "required": [
         "packageName",
+        "studyId",
         "version",
         "gitCommit",
         "sourceTreeSha256",
@@ -308,12 +309,16 @@
         "packageArtifactSha256",
         "npmIntegrity",
         "registryTarballUrl",
+        "runtimeArtifactSha256",
         "installedTreeSha256",
+        "releaseStatePath",
+        "releaseStateSha256",
         "attestationPath",
         "attestationSha256"
       ],
       "properties": {
         "packageName": { "const": "bce-engine" },
+        "studyId": { "$ref": "#/definitions/studyId" },
         "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
         "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
         "sourceTreeSha256": { "$ref": "#/definitions/sha256" },
@@ -321,7 +326,10 @@
         "packageArtifactSha256": { "$ref": "#/definitions/sha256" },
         "npmIntegrity": { "type": "string", "pattern": "^sha512-[A-Za-z0-9+/]+=*$" },
         "registryTarballUrl": { "type": "string", "pattern": "^https://registry\\.npmjs\\.org/bce-engine/-/bce-engine-[0-9A-Za-z.-]+\\.tgz$" },
+        "runtimeArtifactSha256": { "$ref": "#/definitions/sha256" },
         "installedTreeSha256": { "$ref": "#/definitions/sha256" },
+        "releaseStatePath": { "$ref": "#/definitions/relativeJsonPath" },
+        "releaseStateSha256": { "$ref": "#/definitions/sha256" },
         "attestationPath": { "$ref": "#/definitions/relativeJsonPath" },
         "attestationSha256": { "$ref": "#/definitions/sha256" }
       }
@@ -375,7 +383,7 @@
     "stage": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "stageType", "dependsOn", "clientModelCellId", "lifecycle", "claimClass", "claimScope", "powerDesignStageId", "preregistration"],
+      "required": ["id", "stageType", "dependsOn", "clientModelCellId", "lifecycle", "claimClass", "claimScope", "powerDesignStageId", "preregistration", "executionBundlePath", "resultEvidence"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
         "stageType": { "enum": ["primary-confirmatory", "transport-confirmatory"] },
@@ -394,8 +402,30 @@
         },
         "claimScope": { "type": "string", "minLength": 40 },
         "powerDesignStageId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
-        "preregistration": { "enum": ["draft-unsealed", "sealed-before-heldout-access"] }
+        "preregistration": { "enum": ["draft-unsealed", "sealed-before-heldout-access"] },
+        "executionBundlePath": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/relativeDirectoryPath" }] },
+        "resultEvidence": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["resultsPath", "resultSha256", "checkpointHeadSha256", "externalAnchorPath", "externalAnchorSha256"],
+              "properties": {
+                "resultsPath": { "$ref": "#/definitions/relativeDirectoryPath" },
+                "resultSha256": { "$ref": "#/definitions/sha256" },
+                "checkpointHeadSha256": { "$ref": "#/definitions/sha256" },
+                "externalAnchorPath": { "$ref": "#/definitions/relativeJsonPath" },
+                "externalAnchorSha256": { "$ref": "#/definitions/sha256" }
+              }
+            }
+          ]
+        }
       }
+    },
+    "relativeDirectoryPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[a-zA-Z0-9._/-]*[a-zA-Z0-9._-]$"
     }
   }
 }

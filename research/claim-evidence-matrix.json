@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "2",
+  "schemaVersion": "3",
   "studies": [
     {
       "id": "accelerated-v6",
@@ -18,6 +18,31 @@
         "transportability": false,
         "independentReplication": false
       }
+    },
+    {
+      "id": "evidence-foundry-v3",
+      "label": "Evidence Foundry v3 forward confirmatory design",
+      "evidenceClass": "confirmatory-program-design",
+      "registry": "research/model-evaluation/studies/index.v3.json",
+      "protocol": "research/model-evaluation/studies/evidence-foundry-v3/protocol.json",
+      "powerDesign": "research/model-evaluation/studies/evidence-foundry-v3/power-design.json",
+      "studyId": "bce-evidence-foundry-causal-efficacy-v3",
+      "registrySha256": "90413354e2b8a72d6ad23e7236f4909709c26f2d0c88f9f2ac3f1b57ec57326c",
+      "protocolSha256": "72cc1a50fc714b1253e6904f564e2d13b27e764ab366077e5620913cced3c0bf",
+      "powerDesignSha256": "1fc3bbcb59d02eb78f65baea2e8060c5ebe22d82682ca6cf1ca2561c59148704",
+      "lifecycle": "design-draft",
+      "ready": false,
+      "currentClaimClasses": [
+        "no-efficacy-claim"
+      ],
+      "primaryStage": {
+        "stageId": "primary-confirmatory",
+        "repositoryClusters": 40,
+        "tasksPerRepository": 3,
+        "pairs": 120,
+        "retainedAttempts": 240
+      },
+      "prospectiveStageCount": 4
     }
   ],
   "claims": [
@@ -93,6 +118,10 @@
     {
       "path": "research/README.md",
       "required": "Accelerated v6 is directional instrumentation evidence, not product-efficacy evidence."
+    },
+    {
+      "path": "docs/scale-and-detection.md",
+      "required": "The forward controlled coding-agent study is Evidence Foundry v3."
     }
   ]
 }

@@ -33,7 +33,7 @@ The distinguishing mechanism is a fail-closed, local-first architecture gate tha
 - Validation, extraction, gating, MCP discovery, and evidence verification work without a hosted service after installation.
 - Critical unsupported analysis, missing rules, unsafe paths, and unknown constraints fail closed.
 - GitHub README rendering constrains the public surface to portable Markdown, HTML supported by GitHub, and repository-owned assets.
-- Product efficacy is not established. The held-out, provider-identified 600-trial confirmatory study has not run, and the public page must not claim improved agent success, cost, latency, or safety.
+- Product efficacy is not established. The forward Evidence Foundry v3 primary stage (120 pairs, 240 retained attempts) has not run; three transport cells are separately gated after it. The public page must not claim improved agent success, cost, latency, or safety.
 - Independent witnesses remain at zero until an external party records a run.
 
 ## Brand Commitments

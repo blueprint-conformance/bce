@@ -149,7 +149,9 @@
       "claimClass": "bounded-primary-causal-effect-exact-cell-release-and-task-population",
       "claimScope": "Only the exact sealed primary client/model, byte-identical BCE release, and frozen task population.",
       "powerDesignStageId": "primary-confirmatory",
-      "preregistration": "draft-unsealed"
+      "preregistration": "draft-unsealed",
+      "executionBundlePath": null,
+      "resultEvidence": null
     },
     {
       "id": "transport-a",
@@ -162,7 +164,9 @@
       "claimClass": "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
       "claimScope": "Only the exact sealed transport A client/model, byte-identical BCE release, and frozen task population.",
       "powerDesignStageId": "transport-a",
-      "preregistration": "draft-unsealed"
+      "preregistration": "draft-unsealed",
+      "executionBundlePath": null,
+      "resultEvidence": null
     },
     {
       "id": "transport-b",
@@ -175,7 +179,9 @@
       "claimClass": "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
       "claimScope": "Only the exact sealed transport B client/model, byte-identical BCE release, and frozen task population.",
       "powerDesignStageId": "transport-b",
-      "preregistration": "draft-unsealed"
+      "preregistration": "draft-unsealed",
+      "executionBundlePath": null,
+      "resultEvidence": null
     },
     {
       "id": "transport-c",
@@ -188,7 +194,9 @@
       "claimClass": "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
       "claimScope": "Only the exact sealed transport C client/model, byte-identical BCE release, and frozen task population.",
       "powerDesignStageId": "transport-c",
-      "preregistration": "draft-unsealed"
+      "preregistration": "draft-unsealed",
+      "executionBundlePath": null,
+      "resultEvidence": null
     }
   ],
   "treatmentIsolation": {

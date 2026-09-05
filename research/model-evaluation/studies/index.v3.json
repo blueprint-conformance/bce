@@ -103,7 +103,7 @@
       "studyId": "bce-evidence-foundry-causal-efficacy-v3",
       "protocolVersion": "3",
       "protocolPath": "research/model-evaluation/studies/evidence-foundry-v3/protocol.json",
-      "protocolSha256": "e99db697351053355875c519f5f7585f39b87069a635b59bd04bc82e58a700b4",
+      "protocolSha256": "72cc1a50fc714b1253e6904f564e2d13b27e764ab366077e5620913cced3c0bf",
       "powerDesignPath": "research/model-evaluation/studies/evidence-foundry-v3/power-design.json",
       "powerDesignSha256": "1fc3bbcb59d02eb78f65baea2e8060c5ebe22d82682ca6cf1ca2561c59148704",
       "lifecycle": "design-draft",

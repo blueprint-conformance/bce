@@ -1,5 +1,6 @@
 import Ajv from 'ajv';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import {
   existsSync,
   lstatSync,
@@ -7,7 +8,8 @@ import {
   readdirSync,
   realpathSync,
 } from 'node:fs';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { verifyBundle } from './model-evaluation.mjs';
 
 export const EVIDENCE_FOUNDRY_VALIDATOR_VERSION = 'bce-evidence-foundry-v3-foundation-1';
 
@@ -146,6 +148,7 @@ function verifyReleaseBinding(root, releaseBinding, blockers) {
     return;
   }
   requireArtifactDigest(root, releaseBinding.packageArtifactPath, releaseBinding.packageArtifactSha256, 'release package artifact', blockers);
+  requireArtifactDigest(root, releaseBinding.releaseStatePath, releaseBinding.releaseStateSha256, 'public release state', blockers);
   requireArtifactDigest(root, releaseBinding.attestationPath, releaseBinding.attestationSha256, 'release attestation', blockers);
   try {
     const packageArtifact = resolveRegularFileInside(root, releaseBinding.packageArtifactPath, 'release package artifact');
@@ -156,6 +159,37 @@ function verifyReleaseBinding(root, releaseBinding, blockers) {
   }
   const expectedUrl = `https://registry.npmjs.org/${releaseBinding.packageName}/-/${releaseBinding.packageName}-${releaseBinding.version}.tgz`;
   if (releaseBinding.registryTarballUrl !== expectedUrl) blockers.push('release registry tarball URL is not canonical for the exact package and version');
+  try {
+    const attestation = readJsonFile(root, releaseBinding.attestationPath, 'release attestation').value;
+    const expected = {
+      schemaVersion: '1',
+      studyId: releaseBinding.studyId,
+      packageName: releaseBinding.packageName,
+      version: releaseBinding.version,
+      gitCommit: releaseBinding.gitCommit,
+      sourceTreeSha256: releaseBinding.sourceTreeSha256,
+      packageArtifactSha256: releaseBinding.packageArtifactSha256,
+      npmIntegrity: releaseBinding.npmIntegrity,
+      registryTarballUrl: releaseBinding.registryTarballUrl,
+      runtimeArtifactSha256: releaseBinding.runtimeArtifactSha256,
+      installedTreeSha256: releaseBinding.installedTreeSha256,
+      releaseStateSha256: releaseBinding.releaseStateSha256,
+    };
+    if (canonicalJson(attestation) !== canonicalJson(expected)) blockers.push('release attestation content differs from the exact source, package, registry, runtime, and installed-tree binding');
+  } catch (error) {
+    if (!blockers.includes(error.message)) blockers.push(error.message);
+  }
+  try {
+    const releaseState = readJsonFile(root, releaseBinding.releaseStatePath, 'public release state').value;
+    if (releaseState.currentVersion !== releaseBinding.version || releaseState.npmIntegrity !== releaseBinding.npmIntegrity ||
+        releaseState.tarballSha256 !== releaseBinding.packageArtifactSha256 || releaseState.githubReleaseImmutable !== true ||
+        releaseState.repositoryImmutableReleasesEnabled !== true || !/^https:\/\/github\.com\/blueprint-conformance\/bce\/actions\/runs\//.test(releaseState.provenanceRunUrl ?? '') ||
+        releaseState.canonicalReleaseUrl !== `https://github.com/blueprint-conformance/bce/releases/tag/v${releaseBinding.version}`) {
+      blockers.push('public release state does not bind the immutable registry package and provenance run');
+    }
+  } catch (error) {
+    if (!blockers.includes(error.message)) blockers.push(error.message);
+  }
 }
 
 function verifyEvaluatorArtifacts(root, protocol, blockers) {
@@ -255,6 +289,149 @@ function resolveDirectoryInside(root, path, label) {
     throw new EvidenceFoundryRefusal(`${label}: expected a directory inside the repository root`);
   }
   return canonicalPath;
+}
+
+function verifyStageExecutionBundle(root, protocol, stage, blockers) {
+  if (!stage.executionBundlePath) {
+    blockers.push(`${stage.id} sealed execution bundle is unset`);
+    return null;
+  }
+  let bundleRoot;
+  try {
+    bundleRoot = resolveDirectoryInside(root, stage.executionBundlePath, `${stage.id} execution bundle`);
+  } catch (error) {
+    blockers.push(error.message);
+    return null;
+  }
+  let bundle;
+  try {
+    bundle = verifyBundle(bundleRoot, { requireSealed: true, verifyHostArtifacts: true });
+  } catch (error) {
+    blockers.push(`${stage.id} execution bundle verifier failed: ${error.message}`);
+    return null;
+  }
+  if (!bundle.ok) {
+    blockers.push(`${stage.id} execution bundle refused: ${bundle.refusals.join('; ')}`);
+    return null;
+  }
+  const cell = protocol.clientModelCells.find((entry) => entry.id === stage.clientModelCellId);
+  const bundleProtocol = bundle.protocol;
+  const bundleManifest = bundle.manifest;
+  const bundleCell = bundleProtocol.clientModelCells?.[0];
+  const expectedTrials = protocol.taskPopulation.pairsPerCell * protocol.arms.length;
+  if (bundleProtocol.phase !== 'confirmatory') blockers.push(`${stage.id} execution bundle is not confirmatory`);
+  if (bundleProtocol.clientModelCells?.length !== 1 || !bundleCell) blockers.push(`${stage.id} execution bundle must contain exactly one client/model cell`);
+  if (bundleProtocol.matrix?.repositories !== protocol.taskPopulation.repositoryClusters ||
+      bundleProtocol.matrix?.tasksPerRepository !== protocol.taskPopulation.tasksPerRepository ||
+      bundleProtocol.matrix?.trialsPerArmPerCell !== protocol.taskPopulation.pairsPerCell ||
+      bundleProtocol.matrix?.totalRandomizedTrials !== expectedTrials ||
+      bundleManifest.repositories?.length !== protocol.taskPopulation.repositoryClusters ||
+      bundleManifest.tasks?.length !== protocol.taskPopulation.pairsPerCell ||
+      bundleManifest.assignments?.length !== expectedTrials) {
+    blockers.push(`${stage.id} execution bundle topology differs from the preregistered task population and denominator`);
+  }
+  if (cell && bundleCell) {
+    const bindings = [
+      ['id', 'id'],
+      ['role', 'role'],
+      ['client', 'client'],
+      ['executable', 'executable'],
+      ['clientVersion', 'clientVersion'],
+      ['clientArtifactSha256', 'clientArtifactSha256'],
+      ['adapterArtifactSha256', 'adapterSha256'],
+      ['requestedModel', 'requestedModel'],
+      ['resolvedModel', 'resolvedModel'],
+      ['modelIdentitySource', 'modelIdentitySource'],
+      ['reasoningEffort', 'reasoningEffort'],
+    ];
+    if (bindings.some(([v3Key, v2Key]) => cell[v3Key] !== bundleCell[v2Key])) {
+      blockers.push(`${stage.id} execution bundle client/model identity differs from the preregistered cell`);
+    }
+    const qualification = bundleCell.toolLoop?.qualificationAttestation;
+    const expectedQualificationPath = qualification ? `${stage.executionBundlePath}/${qualification.path}` : null;
+    if (!qualification || cell.qualification.attestationPath !== expectedQualificationPath || cell.qualification.attestationSha256 !== qualification.sha256) {
+      blockers.push(`${stage.id} qualification does not bind the execution bundle's verifier-checked two-arm capability attestation`);
+    }
+    if (qualification && cell.modelIdentityEvidenceSha256 !== qualification.sha256) {
+      blockers.push(`${stage.id} model identity evidence does not bind the verifier-checked capability attestation`);
+    }
+  }
+  if (protocol.releaseBinding === null ||
+      bundleProtocol.treatment?.engineArtifactSha256 !== protocol.releaseBinding.runtimeArtifactSha256 ||
+      bundleProtocol.treatment?.installedTreeSha256 !== protocol.releaseBinding.installedTreeSha256 ||
+      bundleProtocol.treatment?.artifactProvenance?.sourceCommit !== protocol.releaseBinding.gitCommit) {
+    blockers.push(`${stage.id} execution bundle treatment bytes, installed tree, or source commit differ from the release binding`);
+  }
+  if (bundleProtocol.implementation?.blindedEvaluatorSha256 !== protocol.evaluator.evaluatorArtifactSha256) {
+    blockers.push(`${stage.id} execution bundle does not bind the frozen arm-blind evaluator`);
+  }
+  if (stage.stageType === 'primary-confirmatory') {
+    const manifestPath = `${stage.executionBundlePath}/task-manifest.json`;
+    const sealPath = `${stage.executionBundlePath}/seal.json`;
+    if (protocol.taskPopulation.manifestPath !== manifestPath || protocol.taskPopulation.manifestSha256 !== sha256Bytes(readFileSync(join(root, manifestPath)))) {
+      blockers.push('primary execution bundle manifest differs from the program task-population binding');
+    }
+    if (protocol.artifacts.assignmentSeal.path !== sealPath || protocol.artifacts.assignmentSeal.sha256 !== sha256Bytes(readFileSync(join(root, sealPath)))) {
+      blockers.push('primary execution bundle seal differs from the program assignment/seal binding');
+    }
+  } else {
+    try {
+      const primaryManifest = readJsonFile(root, protocol.taskPopulation.manifestPath, 'primary task-population manifest').value;
+      if (canonicalJson(primaryManifest.repositories) !== canonicalJson(bundleManifest.repositories) || canonicalJson(primaryManifest.tasks) !== canonicalJson(bundleManifest.tasks)) {
+        blockers.push(`${stage.id} task inventory differs from the frozen primary task population`);
+      }
+    } catch (error) {
+      blockers.push(error.message);
+    }
+  }
+  return { bundleRoot, bundle };
+}
+
+function verifyCompletedStageEvidence(root, protocol, stage, blockers) {
+  const execution = verifyStageExecutionBundle(root, protocol, stage, blockers);
+  if (!stage.resultEvidence) {
+    blockers.push(`${stage.id} is complete without public result evidence and an external checkpoint anchor`);
+    return;
+  }
+  if (!execution) return;
+  let resultsRoot;
+  try {
+    resultsRoot = resolveDirectoryInside(root, stage.resultEvidence.resultsPath, `${stage.id} public results`);
+  } catch (error) {
+    blockers.push(error.message);
+    return;
+  }
+  const verifier = resolve(root, 'scripts/verify-model-evaluation-public.mjs');
+  const verification = spawnSync(process.execPath, [verifier, '--bundle', execution.bundleRoot, '--results', resultsRoot], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (verification.status !== 0) {
+    blockers.push(`${stage.id} public result replay refused: ${String(verification.stderr || verification.stdout).trim()}`);
+    return;
+  }
+  try {
+    const summary = readJsonFile(resultsRoot, 'summary.json', `${stage.id} public summary`).value;
+    const expectedTrials = protocol.taskPopulation.pairsPerCell * protocol.arms.length;
+    if (summary.resultSha256 !== stage.resultEvidence.resultSha256 || summary.runDisposition?.status !== 'complete' ||
+        summary.verifiedTrials !== expectedTrials || summary.runDisposition?.plannedTrials !== expectedTrials ||
+        summary.runDisposition?.committedTrials !== expectedTrials || summary.publicReplay?.checkpointHeadSha256 !== stage.resultEvidence.checkpointHeadSha256) {
+      blockers.push(`${stage.id} public result does not bind the full preregistered denominator and checkpoint head`);
+    }
+    requireArtifactDigest(root, stage.resultEvidence.externalAnchorPath, stage.resultEvidence.externalAnchorSha256, `${stage.id} external checkpoint anchor`, blockers);
+    const anchor = readJsonFile(root, stage.resultEvidence.externalAnchorPath, `${stage.id} external checkpoint anchor`).value;
+    const expectedKeys = ['schemaVersion', 'studyId', 'executionStudyId', 'stageId', 'resultSha256', 'checkpointHeadSha256', 'publicUrl', 'anchoredAt', 'anchorSha256'].sort();
+    if (canonicalJson(Object.keys(anchor).sort()) !== canonicalJson(expectedKeys) || anchor.schemaVersion !== '1' ||
+        anchor.studyId !== protocol.studyId || anchor.executionStudyId !== execution.bundle.protocol.studyId || anchor.stageId !== stage.id ||
+        anchor.resultSha256 !== summary.resultSha256 || anchor.checkpointHeadSha256 !== summary.publicReplay?.checkpointHeadSha256 ||
+        !/^https:\/\//.test(anchor.publicUrl ?? '') || !Number.isFinite(Date.parse(anchor.anchoredAt)) ||
+        anchor.anchorSha256 !== sha256Bytes(JSON.stringify(canonical({ ...anchor, anchorSha256: null })))) {
+      blockers.push(`${stage.id} external checkpoint anchor is not a closed self-digested binding to the public result`);
+    }
+  } catch (error) {
+    blockers.push(`${stage.id} completed evidence could not be read: ${error.message}`);
+  }
 }
 
 function readJsonFile(root, path, label) {
@@ -478,6 +655,7 @@ export function validateProtocolV3(root, protocol) {
   if (protocol.taskPopulation.pairsPerCell !== protocol.taskPopulation.repositoryClusters * protocol.taskPopulation.tasksPerRepository) {
     refusals.push('task population pair count must equal repository clusters times tasks per repository');
   }
+  if (protocol.releaseBinding !== null && protocol.releaseBinding.studyId !== protocol.studyId) refusals.push('release binding studyId differs from the protocol');
   const evaluatorBinding = [
     protocol.evaluator.evaluatorId,
     protocol.evaluator.evaluatorArtifactPath,
@@ -502,6 +680,10 @@ export function validateProtocolV3(root, protocol) {
   }
   if (protocol.heldoutAccess.firstAccessAt !== null && !Number.isFinite(Date.parse(protocol.heldoutAccess.firstAccessAt))) refusals.push('heldout first-access timestamp is invalid');
   const completedStages = protocol.stages.filter((stage) => stage.lifecycle === 'complete');
+  for (const stage of protocol.stages) {
+    if (stage.lifecycle === 'complete') verifyCompletedStageEvidence(root, protocol, stage, refusals);
+    else if (stage.resultEvidence !== null) refusals.push(`${stage.id}: only a completed stage may bind claim-bearing result evidence`);
+  }
   let claimsByLifecycle = [CLAIM['no-efficacy-claim']];
   if (!['design-draft', 'frozen-ready-not-run', 'safety-halted'].includes(protocol.lifecycle) && completedStages.length > 0) {
     claimsByLifecycle = [];
@@ -536,7 +718,7 @@ export function validateProtocolV3(root, protocol) {
   if (protocol.lifecycle === 'design-draft') {
     if (protocol.releaseBinding !== null) refusals.push('design draft may not claim a frozen release binding');
     if (protocol.taskPopulation.status !== 'unpopulated') refusals.push('design draft must remain visibly unpopulated');
-    if (protocol.stages.some((stage) => stage.preregistration !== 'draft-unsealed' || stage.lifecycle !== 'design-draft')) refusals.push('design draft stages must remain draft and unsealed');
+    if (protocol.stages.some((stage) => stage.preregistration !== 'draft-unsealed' || stage.lifecycle !== 'design-draft' || stage.executionBundlePath !== null || stage.resultEvidence !== null)) refusals.push('design draft stages must remain draft, unsealed, unexecuted, and result-free');
   } else {
     if (protocol.releaseBinding === null) refusals.push('non-draft study requires an exact release binding');
     if (protocol.taskPopulation.status !== 'frozen' || protocol.taskPopulation.exposure !== 'never-exposed-to-development') refusals.push('non-draft study requires a frozen development-unexposed task population');
@@ -680,6 +862,7 @@ export function studyReadinessBlockers(root, protocol, powerDesign, { stageId } 
   requireArtifactDigest(root, protocol.artifacts.assignmentSeal.path, protocol.artifacts.assignmentSeal.sha256, 'assignment seal', blockers);
   verifyEvaluatorArtifacts(root, protocol, blockers);
   verifyRunIntegrityLock(root, protocol, blockers);
+  for (const stage of targetStages) verifyStageExecutionBundle(root, protocol, stage, blockers);
   if (!targetStage || targetStage.stageType === 'primary-confirmatory') {
     if (protocol.artifacts.rawLedger.headSha256 !== null) blockers.push('not-yet-run primary study may not bind a raw-ledger head');
     if (protocol.artifacts.results.sha256 !== null) blockers.push('not-yet-run primary study may not bind results');

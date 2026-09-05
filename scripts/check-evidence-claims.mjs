@@ -17,6 +17,11 @@ try {
     /\bBCE\s+(?:is|was)\s+proven\s+(?:effective|safer)\b/gi,
   ];
   const negation = /\b(?:no|not|never|cannot|can't|does not|do not|did not|unestablished|ineligible|without)\b/i;
+  const obsoleteForwardStudyClaims = [
+    /\bcanonical\s+(?:four-cell,\s+baseline\/BCE\s+)?600-(?:attempt|trial)\s+confirmatory\b/gi,
+    /\bheld-out,\s+provider-identified\s+600-trial\s+confirmatory study\b/gi,
+    /\bcanonical controlled coding-agent study\b[^.]{0,240}\bresearch:model-eval-readiness\b/gis,
+  ];
   const failures = [];
   const publicFiles = new Set(['README.md', 'STATUS.md', 'PRODUCT.md', 'llms.txt']);
   const collectMarkdown = (path) => {
@@ -45,11 +50,18 @@ try {
         }
       }
     }
+    for (const pattern of obsoleteForwardStudyClaims) {
+      for (const match of content.matchAll(pattern)) {
+        const line = content.slice(0, match.index).split(/\r?\n/).length;
+        failures.push(`${path}:${line}: obsolete v2 study presented as the current forward study`);
+      }
+    }
   }
   if (failures.length > 0) throw new Error(failures.join('\n'));
   process.stdout.write(
     `evidence-claim-policy: PASS (${evidence.matrix.claims.length} claims; v6 ${evidence.summary.verifiedTrials}/` +
-    `${evidence.summary.runDisposition.plannedTrials} retained; product decision ineligible; result ${evidence.study.resultSha256})\n`,
+    `${evidence.summary.runDisposition.plannedTrials} retained; v3 ${evidence.foundryStudy.lifecycle}/not-ready/` +
+    `${evidence.foundryStudy.primaryStage.retainedAttempts}-attempt primary; product decision ineligible; result ${evidence.study.resultSha256})\n`,
   );
 } catch (error) {
   process.stderr.write(`evidence-claim-policy: FAIL\n- ${String(error.message).replaceAll('\n', '\n- ')}\n`);

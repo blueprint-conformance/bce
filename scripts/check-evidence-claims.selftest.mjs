@@ -15,7 +15,7 @@ const paths = new Set([
   matrixPath,
   'llms.txt',
   ...matrix.publicBoundaries.map((entry) => entry.path),
-  ...matrix.studies.flatMap((study) => [study.summary, study.protocol, study.manifest]),
+  ...matrix.studies.flatMap((study) => [study.summary, study.protocol, study.manifest, study.registry, study.powerDesign].filter(Boolean)),
   ...matrix.claims.flatMap((claim) => claim.evidence ?? []),
 ]);
 for (const path of paths) {
@@ -62,6 +62,24 @@ reject('attempt denominator rewritten', () => {
   writeFileSync(join(fixture, path), `${JSON.stringify(value, null, 2)}\n`);
 }, 'summary or analysis self-digest is invalid');
 
+reject('Evidence Foundry lifecycle promoted without results', () => {
+  const value = JSON.parse(originals.get(matrixPath));
+  value.studies.find((study) => study.id === 'evidence-foundry-v3').lifecycle = 'complete';
+  writeFileSync(join(fixture, matrixPath), `${JSON.stringify(value, null, 2)}\n`);
+}, 'lifecycle, readiness, or no-efficacy claim boundary was promoted');
+
+reject('Evidence Foundry primary denominator rewritten', () => {
+  const value = JSON.parse(originals.get(matrixPath));
+  value.studies.find((study) => study.id === 'evidence-foundry-v3').primaryStage.retainedAttempts = 239;
+  writeFileSync(join(fixture, matrixPath), `${JSON.stringify(value, null, 2)}\n`);
+}, 'primary topology differs');
+
+reject('Evidence Foundry protocol digest drift', () => {
+  const value = JSON.parse(originals.get(matrixPath));
+  value.studies.find((study) => study.id === 'evidence-foundry-v3').protocolSha256 = '0'.repeat(64);
+  writeFileSync(join(fixture, matrixPath), `${JSON.stringify(value, null, 2)}\n`);
+}, 'registry, protocol, or power-design digest differs');
+
 reject('public boundary removed', () => {
   const boundary = matrix.publicBoundaries[0];
   writeFileSync(join(fixture, boundary.path), originals.get(boundary.path).replace(boundary.required, 'Evidence is promising.'));
@@ -72,7 +90,12 @@ reject('unqualified efficacy prose introduced', () => {
   writeFileSync(join(fixture, boundary.path), `${originals.get(boundary.path)}\nBCE improves\ncoding-agent outcomes.\n`);
 }, 'unqualified product-efficacy claim');
 
+reject('obsolete v2 study restored as current', () => {
+  const boundary = matrix.publicBoundaries.find((entry) => entry.path === 'PRODUCT.md');
+  writeFileSync(join(fixture, boundary.path), `${originals.get(boundary.path)}\nThe canonical 600-trial confirmatory study is the current forward study.\n`);
+}, 'obsolete v2 study presented as the current forward study');
+
 restore();
 const accepted = execFileSync(process.execPath, [checker, '--root', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`clean evidence claim set did not pass:\n${accepted}`);
-process.stdout.write('evidence-claim-policy self-test: PASS (promotion, eligibility, anchor, denominator, boundary, and prose contradictions rejected)\n');
+process.stdout.write('evidence-claim-policy self-test: PASS (v6 and v3 promotion, eligibility, anchor, denominator, boundary, stale-plan, and prose contradictions rejected)\n');

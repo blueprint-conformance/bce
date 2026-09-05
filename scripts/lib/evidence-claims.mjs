@@ -73,8 +73,8 @@ export function loadEvidenceClaims(rootInput = '.') {
   const root = resolve(rootInput);
   const matrix = readJson(root, MATRIX_PATH);
   exactKeys(matrix, ['schemaVersion', 'studies', 'claims', 'publicBoundaries'], MATRIX_PATH);
-  if (matrix.schemaVersion !== '2') fail(`${MATRIX_PATH} has unsupported schemaVersion`);
-  if (!Array.isArray(matrix.studies) || matrix.studies.length !== 1) fail('studies must contain exactly the v6 public surface');
+  if (matrix.schemaVersion !== '3') fail(`${MATRIX_PATH} has unsupported schemaVersion`);
+  if (!Array.isArray(matrix.studies) || matrix.studies.length !== 2) fail('studies must contain exactly the v6 public result and Evidence Foundry v3 design');
   if (!Array.isArray(matrix.claims) || matrix.claims.length === 0) fail('claims must be a non-empty array');
   if (!Array.isArray(matrix.publicBoundaries) || matrix.publicBoundaries.length === 0) fail('publicBoundaries must be non-empty');
 
@@ -103,7 +103,9 @@ export function loadEvidenceClaims(rootInput = '.') {
     }
   }
 
-  const study = matrix.studies[0];
+  const study = matrix.studies.find((entry) => entry.id === 'accelerated-v6');
+  const foundryStudy = matrix.studies.find((entry) => entry.id === 'evidence-foundry-v3');
+  if (!study || !foundryStudy || study === foundryStudy) fail('the public study index must uniquely identify v6 and Evidence Foundry v3');
   exactKeys(study, ['id', 'label', 'evidenceClass', 'summary', 'protocol', 'manifest', 'studyId', 'resultSha256', 'sealRootSha256', 'eligibility'], 'studies[0]');
   if (study.id !== 'accelerated-v6' || study.evidenceClass !== 'author-operated-instrumentation-pilot') fail('the public study must be accelerated-v6 author-operated instrumentation');
   if (!SHA256.test(study.resultSha256 ?? '') || !SHA256.test(study.sealRootSha256 ?? '')) fail('the public study must carry full result and seal SHA-256 anchors');
@@ -164,6 +166,58 @@ export function loadEvidenceClaims(rootInput = '.') {
   const elapsedRatio = cell.pairedResourceRatios?.endToEndVisibleMs;
   if (safeEffect?.pairs !== 8 || escapedEffect?.pairs !== 8 || elapsedRatio?.observedPairs !== 8) fail('v6 paired results do not retain all eight pairs');
 
+  exactKeys(foundryStudy, [
+    'id', 'label', 'evidenceClass', 'registry', 'protocol', 'powerDesign', 'studyId',
+    'registrySha256', 'protocolSha256', 'powerDesignSha256', 'lifecycle', 'ready',
+    'currentClaimClasses', 'primaryStage', 'prospectiveStageCount',
+  ], 'Evidence Foundry v3 study');
+  if (foundryStudy.evidenceClass !== 'confirmatory-program-design') fail('Evidence Foundry v3 must remain classified as a confirmatory program design');
+  for (const field of ['registry', 'protocol', 'powerDesign']) boundedFile(root, foundryStudy[field], `Evidence Foundry v3.${field}`);
+  for (const field of ['registrySha256', 'protocolSha256', 'powerDesignSha256']) {
+    if (!SHA256.test(foundryStudy[field] ?? '')) fail(`Evidence Foundry v3.${field} must be a full SHA-256 anchor`);
+  }
+  if (sha256(readFileSync(join(root, foundryStudy.registry))) !== foundryStudy.registrySha256 ||
+      sha256(readFileSync(join(root, foundryStudy.protocol))) !== foundryStudy.protocolSha256 ||
+      sha256(readFileSync(join(root, foundryStudy.powerDesign))) !== foundryStudy.powerDesignSha256) {
+    fail('Evidence Foundry v3 registry, protocol, or power-design digest differs from the public claim index');
+  }
+  const foundryRegistry = readJson(root, foundryStudy.registry);
+  const foundryProtocol = readJson(root, foundryStudy.protocol);
+  const foundryPower = readJson(root, foundryStudy.powerDesign);
+  const registryEntry = foundryRegistry.studies?.find((entry) => entry.studyId === foundryStudy.studyId);
+  if (!registryEntry || registryEntry.protocolPath !== foundryStudy.protocol || registryEntry.powerDesignPath !== foundryStudy.powerDesign ||
+      registryEntry.protocolSha256 !== foundryStudy.protocolSha256 || registryEntry.powerDesignSha256 !== foundryStudy.powerDesignSha256) {
+    fail('Evidence Foundry v3 registry entry does not bind the indexed protocol and power design');
+  }
+  if (foundryStudy.lifecycle !== 'design-draft' || foundryStudy.ready !== false ||
+      JSON.stringify(foundryStudy.currentClaimClasses) !== JSON.stringify(['no-efficacy-claim']) ||
+      foundryProtocol.lifecycle !== foundryStudy.lifecycle || registryEntry.lifecycle !== foundryStudy.lifecycle ||
+      JSON.stringify(foundryProtocol.currentClaimClasses) !== JSON.stringify(foundryStudy.currentClaimClasses) ||
+      JSON.stringify(registryEntry.currentClaimClasses) !== JSON.stringify(foundryStudy.currentClaimClasses)) {
+    fail('Evidence Foundry v3 lifecycle, readiness, or no-efficacy claim boundary was promoted');
+  }
+  if (foundryProtocol.releaseBinding !== null || foundryProtocol.taskPopulation?.status !== 'unpopulated' ||
+      foundryProtocol.taskPopulation?.manifestSha256 !== null || foundryProtocol.artifacts?.assignmentSeal?.sha256 !== null ||
+      foundryProtocol.stages?.some((stage) => stage.lifecycle !== 'design-draft' || stage.preregistration !== 'draft-unsealed')) {
+    fail('Evidence Foundry v3 is indexed ready despite unresolved real-input blockers');
+  }
+  exactKeys(foundryStudy.primaryStage, ['stageId', 'repositoryClusters', 'tasksPerRepository', 'pairs', 'retainedAttempts'], 'Evidence Foundry v3 primaryStage');
+  const primaryStage = foundryProtocol.stages?.find((stage) => stage.stageType === 'primary-confirmatory');
+  const primaryPower = foundryPower.stages?.find((stage) => stage.stageId === primaryStage?.id);
+  const expectedPairs = foundryProtocol.taskPopulation.repositoryClusters * foundryProtocol.taskPopulation.tasksPerRepository;
+  if (!primaryStage || primaryStage.id !== foundryStudy.primaryStage.stageId ||
+      foundryStudy.primaryStage.repositoryClusters !== foundryProtocol.taskPopulation.repositoryClusters ||
+      foundryStudy.primaryStage.tasksPerRepository !== foundryProtocol.taskPopulation.tasksPerRepository ||
+      foundryStudy.primaryStage.pairs !== expectedPairs || foundryProtocol.taskPopulation.pairsPerCell !== expectedPairs ||
+      foundryStudy.primaryStage.retainedAttempts !== expectedPairs * foundryProtocol.arms.length ||
+      primaryPower?.plannedPairs !== expectedPairs) {
+    fail('Evidence Foundry v3 primary topology differs from the indexed 40-repository, 120-pair, 240-attempt design');
+  }
+  if (foundryStudy.prospectiveStageCount !== foundryProtocol.stages.length || foundryProtocol.stages.length !== 4 ||
+      foundryProtocol.stages.filter((stage) => stage.stageType === 'transport-confirmatory').length !== 3) {
+    fail('Evidence Foundry v3 prospective stage topology differs from one primary plus three transport cells');
+  }
+
   const directional = matrix.claims.find((claim) => claim.id === 'accelerated-v6-directional-observation');
   if (directional?.status !== 'directional-observation' || directional.studyId !== study.id) fail('v6 claim must remain a directional observation bound to accelerated-v6');
   for (const id of ['heldout-generalization', 'coding-agent-outcomes', 'cost-or-iteration', 'independent-governance']) {
@@ -181,7 +235,7 @@ export function loadEvidenceClaims(rootInput = '.') {
   }
 
   return {
-    root, matrix, study, summary, protocol, manifest, cellId, cell, baseline, bce,
+    root, matrix, study, summary, protocol, manifest, foundryStudy, foundryProtocol, foundryPower, cellId, cell, baseline, bce,
     safeEffect, escapedEffect, elapsedRatio,
     unestablished: matrix.claims.filter((claim) => claim.status === 'unestablished'),
   };

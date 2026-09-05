@@ -57,7 +57,12 @@ npm run research:evidence-foundry-v3-ready -- --stage primary-confirmatory
 The second command currently exits `2` because the real task manifest, release artifact and
 attestation, assignment seal, and exact primary client/model qualification are deliberately absent.
 Those are evidence inputs, not values this repository can truthfully synthesize. The evaluator and
-integrity locks are already byte-bound and verified.
+integrity locks are already byte-bound and verified. A target stage cannot become ready from those
+digests alone: it must also pass the complete sealed v2 confirmatory-bundle verifier, including the
+task/oracle artifacts, regenerated paired assignments, two-arm capability attestation, frozen
+implementation bytes, treatment runtime, and Sigstore pre-run seal. A lifecycle string cannot
+unlock an efficacy claim; completion also requires full-denominator public replay plus an external,
+self-digested checkpoint anchor.
 
 ## Lifecycle
 

@@ -277,6 +277,25 @@ The paired visible elapsed-time ratio was ${evidence.elapsedRatio.median.toFixed
 [${evidence.elapsedRatio.low.toFixed(3)}, ${evidence.elapsedRatio.high.toFixed(3)}]. Cost was not
 measured. ${infrastructureErrors} baseline infrastructure timeout remains in the denominator.
 
+## Next claim-bearing study
+
+**Evidence Foundry v3 is ${evidence.foundryStudy.lifecycle} and not execution-ready. Its current
+claim class is \`${evidence.foundryStudy.currentClaimClasses.join(', ')}\`.** The first stage is
+deliberately bounded so a useful answer does not wait for every transport cell.
+
+| Registered scope | Value |
+| --- | ---: |
+| Repository clusters | ${evidence.foundryStudy.primaryStage.repositoryClusters} |
+| Task shapes per repository | ${evidence.foundryStudy.primaryStage.tasksPerRepository} |
+| Paired tasks | ${evidence.foundryStudy.primaryStage.pairs} |
+| Retained attempts | ${evidence.foundryStudy.primaryStage.retainedAttempts} |
+| Later transport stages | ${evidence.foundryStudy.prospectiveStageCount - 1} |
+
+The real task manifest, exact release and primary client/model cell, assignments, and public
+pre-run seal remain unset. [Inspect the v3 protocol](research/model-evaluation/studies/evidence-foundry-v3/protocol.json)
+or run \`npm run research:evidence-foundry-v3-ready -- --stage primary-confirmatory\` to see every
+current blocker.
+
 ## Verify the public record
 
 From a clean checkout, one command installs the locked verifier dependencies, checks the claim

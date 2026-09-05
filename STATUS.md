@@ -117,10 +117,12 @@ source tree.
 - No controlled study establishes generalizable product efficacy. Accelerated v6 is a completed,
   paired author-operated instrumentation pilot in one exact local model/client cell; it provides
   directional observations only and is permanently ineligible for a product decision.
-- The canonical four-cell, baseline/BCE 600-attempt confirmatory design exists, but its exact
-  provider-identified clients/models, 25 held-out repositories, 75 tasks/reference patches,
-  isolation driver, BCE artifact, assignment proof, and public Sigstore seal are unset. Readiness
-  therefore refuses and no comparative result is claimed.
+- The forward Evidence Foundry v3 design registers a 120-pair, 240-attempt primary stage over 40
+  repository clusters and three task shapes, followed by three separately gated transport cells.
+  It remains `design-draft`: the held-out task manifest, exact release artifact, primary
+  client/model qualification, assignment proof, and public pre-run seal are unset. Primary-stage
+  readiness therefore refuses and no comparative result is claimed. The older four-cell,
+  600-attempt v2 contract remains an executable synthetic apparatus format, not the current study.
 - Accelerated instrumentation pilot v1 was publicly sealed before exposure and retained all eight
   attempts. All eight client invocations exited before a model response or task change was observed
   because the outer sandbox also denied the NVM-installed Codex artifact under the maintainer home;
