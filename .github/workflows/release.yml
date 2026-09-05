@@ -581,7 +581,9 @@ jobs:
             echo "::error::publish job did not provide a safe tarball asset name."
             exit 1
           fi
-          release_json="$(gh release view "$tag" --json isDraft,assets)"
+          # This job deliberately has no checkout. Always name the repository so
+          # gh never tries (and fails) to infer it from a local .git directory.
+          release_json="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,assets)"
           is_draft="$(jq -r .isDraft <<<"$release_json")"
           for asset in \
             release-evidence-record.json \
@@ -615,7 +617,7 @@ jobs:
           # succeeded but the runner lost the response, a retry observes the
           # already-frozen Release and verifies it instead of trying to republish.
           if [ "$is_draft" = "true" ]; then
-            gh release edit "$tag" --draft=false --latest
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest
           fi
           immutable="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" --jq .immutable)"
           if [ "$immutable" != "true" ]; then
