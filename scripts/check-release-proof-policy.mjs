@@ -59,7 +59,8 @@ const signingRequirements = [
   ['staged tarball name crosses the job boundary', /EXPECTED_TARBALL_NAME:\s*\$\{\{ needs\.publish\.outputs\.tarball_name \}\}/],
   ['finalizer requires exact staged asset digests', /\.digest == \$digest/],
   ['finalizer validates the tarball asset name', /EXPECTED_TARBALL_NAME" =~ \^\[A-Za-z0-9\._-\]\+\\\.tgz\$/],
-  ['finalizer safely retries an ambiguous publish response', /if \[ "\$is_draft" = "true" \]; then[\s\S]*gh release edit "\$tag" --draft=false --latest/],
+  ['checkout-free finalizer targets the repository explicitly', /release_json="\$\(gh release view "\$tag" --repo "\$GITHUB_REPOSITORY" --json isDraft,assets\)"/],
+  ['finalizer safely retries an ambiguous publish response', /if \[ "\$is_draft" = "true" \]; then[\s\S]*gh release edit "\$tag" --repo "\$GITHUB_REPOSITORY" --draft=false --latest/],
   ['published Release immutability assertion', /gh api "repos\/\$\{GITHUB_REPOSITORY\}\/releases\/tags\/\$\{tag\}" --jq \.immutable/],
 ];
 missing.push(...signingRequirements.filter(([, pattern]) => !pattern.test(publish)).map(([name]) => name));
@@ -86,7 +87,7 @@ const verifyIndex = publish.indexOf('release evidence and payload-boundary signa
 const stageIndex = publish.indexOf('Stage the evidence assets on a draft GitHub Release');
 const npmPublishIndex = publish.indexOf('npm publish "$RELEASE_TARBALL" --provenance --access public\n');
 const finalizerIndex = publish.indexOf('\n  finalize-github-release:\n');
-const freezeIndex = publish.indexOf('gh release edit "$tag" --draft=false --latest');
+const freezeIndex = publish.indexOf('gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest');
 if (
   [generateIndex, verifyIndex, stageIndex, npmPublishIndex, finalizerIndex, freezeIndex].some((index) => index < 0) ||
   !(generateIndex < verifyIndex && verifyIndex < stageIndex && stageIndex < npmPublishIndex && npmPublishIndex < finalizerIndex && finalizerIndex < freezeIndex)
