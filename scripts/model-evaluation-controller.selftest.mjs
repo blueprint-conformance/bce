@@ -402,7 +402,7 @@ function executeReferenceClientBrokerIsolation() {
     const brokerEvidence = transcript.sealedClientEventVerification?.execBrokerControllerEvidence;
     if (terminal.status !== 'completed' || transcript.sealedClientEventVerification?.passed !== true || transcript.sealedClientEventVerification?.execBrokerError !== null ||
         !Array.isArray(brokerEvidence) || brokerEvidence.length !== 1 || brokerEvidence[0].response.result.processGroupTerminated !== true ||
-        isolation.execBroker?.workspaceReadWriteAllowed !== true || isolation.execBroker?.protectedWriteDenied !== true ||
+        isolation.execBroker?.workspaceReadWriteAllowed !== true || isolation.execBroker?.gitDiagnosticAllowed !== true || isolation.execBroker?.protectedWriteDenied !== true ||
         isolation.execBroker?.toolchainWriteDenied !== true || isolation.execBroker?.controllerCanaryReadDenied !== true ||
         isolation.execBroker?.processForkDenied !== true || isolation.execBroker?.providerNetworkDenied !== true ||
         isolation.execBroker?.externalNetworkDenied !== true || isolation.execBroker?.wrongLoopbackDenied !== true ||

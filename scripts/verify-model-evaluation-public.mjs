@@ -161,7 +161,7 @@ for (let index = 0; index < records.length; index += 1) {
           isolation.execBroker?.driver !== cell.toolLoop.execSandbox.driver ||
           isolation.execBroker?.driverSha256 !== cell.toolLoop.execSandbox.driverSha256 ||
           !/^[0-9a-f]{64}$/.test(isolation.execBroker?.profileSha256 ?? '') ||
-          isolation.execBroker?.workspaceReadWriteAllowed !== true || isolation.execBroker?.protectedWriteDenied !== true ||
+          isolation.execBroker?.workspaceReadWriteAllowed !== true || isolation.execBroker?.gitDiagnosticAllowed !== true || isolation.execBroker?.protectedWriteDenied !== true ||
           isolation.execBroker?.toolchainWriteDenied !== true || isolation.execBroker?.controllerCanaryReadDenied !== true ||
           (task.referencePatch && isolation.execBroker?.referencePatchReadDenied !== true) ||
           (task.shortcutPatch && isolation.execBroker?.shortcutPatchReadDenied !== true) ||

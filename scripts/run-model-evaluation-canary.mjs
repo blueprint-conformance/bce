@@ -324,7 +324,7 @@ try {
     const exactEdit = patchEvidence.changes?.length === 1 && patchEvidence.changes[0].path === 'src/canary.mjs' && terminal.derived.policyAssessmentComplete === true && terminal.derived.policyMutationObserved === false;
     const telemetryUsable = Number.isInteger(terminal.telemetry.agentTurns) && Number.isInteger(terminal.telemetry.inputTokens) && Number.isInteger(terminal.telemetry.outputTokens);
     const bceMcpRunGate = terminal.assignment.arm === 'bce-enabled' ? terminal.mechanism.mcpToolCalls >= 1 && terminal.mechanism.bceGateCalls >= 1 : null;
-    const bceLastVerifiedVerdict = terminal.assignment.arm === 'bce-enabled' ? terminal.mechanism.bceVerdictSequence.at(-1) ?? null : null;
+    const bceLastVerifiedVerdict = terminal.assignment.arm === 'bce-enabled' ? terminal.mechanism.bceVerdictSequence?.at(-1) ?? null : null;
     observations.push({
       trialId: terminal.trialId, arm: terminal.assignment.arm, status: terminal.status, recordSha256: terminal.recordSha256,
       successfulCommands, exactAllowedFileEdit: exactEdit, telemetryUsable, toolRouterErrors, bceMcpRunGate, bceLastVerifiedVerdict, clientEventChainVerified, execBrokerControllerVerified,

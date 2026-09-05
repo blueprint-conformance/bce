@@ -14,6 +14,7 @@ const MAX_FILE_BYTES = 262144;
 const MAX_TOOL_OUTPUT_BYTES = 32768;
 const COMMAND_TIMEOUT_MS = 120000;
 const PROVIDER_TIMEOUT_MS = 180000;
+const MCP_SHUTDOWN_TIMEOUT_MS = 2000;
 if (process.argv.includes('--version')) {
   process.stdout.write(`${VERSION}\n`);
   process.exit(0);
@@ -301,10 +302,10 @@ async function mcpRunGate(dispatchId, args) {
   } finally {
     shutdownRequested = true;
     try { child.stdin.end(); } catch {}
-    if (!childClosed) {
-      try { child.kill('SIGKILL'); } catch {}
-      await closed;
-    }
+    const closedGracefully = childClosed || await Promise.race([
+      closed.then(() => true),
+      new Promise((resolveTimeout) => setTimeout(() => resolveTimeout(false), MCP_SHUTDOWN_TIMEOUT_MS)),
+    ]);
     for (const waiter of pending.values()) {
       clearTimeout(waiter.timer);
       waiter.reject(new Error('MCP request cancelled during controlled shutdown'));
@@ -312,6 +313,7 @@ async function mcpRunGate(dispatchId, args) {
     pending.clear();
     if (protocolFailure) throw protocolFailure;
     if (!protocolCompleted) throw new Error('MCP exchange did not reach a verified run_gate result');
+    if (!closedGracefully) throw new Error('MCP process did not close after its input stream ended');
     if (closeStatus?.code !== null && closeStatus?.code !== 0) throw new Error(`MCP process failed: ${stderr || `exit ${closeStatus.code}`}`);
   }
 }

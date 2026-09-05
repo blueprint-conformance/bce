@@ -314,7 +314,8 @@ function detectBceContamination(workspace) {
 function freshClientEnvironment(stateRoot, cell, runtimeExecutable) {
   const env = {};
   for (const key of ['LANG', 'LC_ALL', 'TERM', 'SSL_CERT_FILE', 'SSL_CERT_DIR']) if (process.env[key]) env[key] = process.env[key];
-  env.PATH = `${dirname(runtimeExecutable)}:/usr/bin:/bin:/usr/sbin:/sbin`;
+  const developerBin = '/Applications/Xcode.app/Contents/Developer/usr/bin';
+  env.PATH = [dirname(runtimeExecutable), existsSync(developerBin) ? developerBin : null, '/usr/bin', '/bin', '/usr/sbin', '/sbin'].filter(Boolean).join(':');
   const clientHome = join(stateRoot, 'home');
   mkdirSync(clientHome, { recursive: true, mode: 0o700 });
   env.HOME = clientHome;
@@ -454,7 +455,8 @@ function sandboxProfile(workspace, clientState, controllerRoot, protectedPattern
 }
 
 function execBrokerSandboxProfile(workspace, clientState, protectedPatterns) {
-  const systemReadRoots = ['/System', '/usr', '/bin', '/sbin', '/Library', '/private/etc', '/private/var/db', '/private/var/run', '/dev']
+  const developerRoot = '/Applications/Xcode.app/Contents/Developer';
+  const systemReadRoots = ['/System', '/usr', '/bin', '/sbin', '/Library', '/private/etc', '/private/var/db', '/private/var/run', '/dev', developerRoot]
     .filter((value) => existsSync(value));
   const readableRoots = [...systemReadRoots, workspace, join(clientState, 'executable')];
   const protectedRoots = new Set([join(workspace, '.git'), join(clientState, 'executable')]);
@@ -471,7 +473,7 @@ function execBrokerSandboxProfile(workspace, clientState, protectedPatterns) {
     }
   }
   const allowReads = readableRoots.map((value) => `(allow file-read* (subpath ${sandboxLiteral(value)}))`);
-  const allowExec = ['/usr', '/bin', '/sbin', join(clientState, 'executable')]
+  const allowExec = ['/usr', '/bin', '/sbin', developerRoot, join(clientState, 'executable')]
     .filter((value) => existsSync(value))
     .map((value) => `(allow process-exec (subpath ${sandboxLiteral(value)}))`);
   const denyWrites = [...protectedRoots].map((value) => `(deny file-write* (subpath ${sandboxLiteral(value)}))`);
@@ -631,6 +633,8 @@ function proveExecBrokerIsolation(profile, controllerRoot, workspace, task, cell
   const readDeniedScript = "const fs=require('fs');try{fs.readFileSync(process.argv[1]);process.exit(1)}catch(error){process.stderr.write(String(error.code??error.message));process.exit(['EPERM','EACCES'].includes(error.code)?0:2)}";
   const forkDeniedScript = "const{spawnSync}=require('child_process');const r=spawnSync('/usr/bin/true');process.stderr.write(String(r.error?.code??r.status));process.exit(['EPERM','EACCES'].includes(r.error?.code)?0:1)";
   const positive = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', positiveScript, workspaceProbe], workspace, { env: clientEnv, timeout: 5000 });
+  const developerGit = '/Applications/Xcode.app/Contents/Developer/usr/bin/git';
+  const gitDiagnostic = run('/usr/bin/sandbox-exec', ['-p', profile, existsSync(developerGit) ? developerGit : '/usr/bin/git', '--version'], workspace, { env: clientEnv, timeout: 5000 });
   const protectedWrite = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeDeniedScript, protectedProbe], workspace, { env: clientEnv, timeout: 5000 });
   const toolchainWrite = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', writeDeniedScript, toolchain.clientExecutable], workspace, { env: clientEnv, timeout: 5000 });
   const canaryRead = run('/usr/bin/sandbox-exec', ['-p', profile, toolchain.runtimeExecutable, '-e', readDeniedScript, canary], workspace, { env: clientEnv, timeout: 5000 });
@@ -651,17 +655,17 @@ function proveExecBrokerIsolation(profile, controllerRoot, workspace, task, cell
   if (existsSync(protectedProbe)) unlinkSync(protectedProbe);
   return {
     driver: '/usr/bin/sandbox-exec', driverSha256: executableDigest('/usr/bin/sandbox-exec'), profileSha256: sha256Bytes(profile),
-    workspaceReadWriteAllowed: positive.status === 0 && positive.stdout === 'ok', protectedWriteDenied: protectedWrite.status === 0,
+    workspaceReadWriteAllowed: positive.status === 0 && positive.stdout === 'ok', gitDiagnosticAllowed: gitDiagnostic.status === 0 && /^git version /.test(gitDiagnostic.stdout), protectedWriteDenied: protectedWrite.status === 0,
     toolchainWriteDenied: toolchainWrite.status === 0, controllerCanaryReadDenied: canaryRead.status === 0,
     referencePatchReadDenied: referenceRead === null ? null : referenceRead.status === 0,
     shortcutPatchReadDenied: shortcutRead === null ? null : shortcutRead.status === 0,
     processForkDenied: fork.status === 0,
     providerNetworkDenied: provider.denied, externalNetworkDenied: external.denied, wrongLoopbackDenied: wrongLoopback.denied,
-    positiveExitCode: positive.status, protectedWriteExitCode: protectedWrite.status, toolchainWriteExitCode: toolchainWrite.status,
+    positiveExitCode: positive.status, gitDiagnosticExitCode: gitDiagnostic.status, protectedWriteExitCode: protectedWrite.status, toolchainWriteExitCode: toolchainWrite.status,
     controllerCanaryReadExitCode: canaryRead.status, referencePatchReadExitCode: referenceRead?.status ?? null, shortcutPatchReadExitCode: shortcutRead?.status ?? null,
     forkExitCode: fork.status,
     providerNetworkProbeExitCode: provider.exitCode, externalNetworkProbeExitCode: external.exitCode, wrongLoopbackProbeExitCode: wrongLoopback.exitCode,
-    positiveStderr: redact(positive.stderr), protectedWriteStderr: redact(protectedWrite.stderr), toolchainWriteStderr: redact(toolchainWrite.stderr),
+    positiveStderr: redact(positive.stderr), gitDiagnosticStderr: redact(gitDiagnostic.stderr), protectedWriteStderr: redact(protectedWrite.stderr), toolchainWriteStderr: redact(toolchainWrite.stderr),
     controllerCanaryReadStderr: redact(canaryRead.stderr), referencePatchReadStderr: redact(referenceRead?.stderr), shortcutPatchReadStderr: redact(shortcutRead?.stderr), forkStderr: redact(fork.stderr),
   };
 }
@@ -1349,7 +1353,7 @@ async function executeAssignment(assignment) {
       execBrokerProof?.driver === cell.toolLoop.execSandbox.driver &&
       execBrokerProof?.driverSha256 === cell.toolLoop.execSandbox.driverSha256 &&
       execBrokerProof?.profileSha256 === sha256Bytes(execBrokerProfile) &&
-      execBrokerProof?.workspaceReadWriteAllowed === true && execBrokerProof?.protectedWriteDenied === true &&
+      execBrokerProof?.workspaceReadWriteAllowed === true && execBrokerProof?.gitDiagnosticAllowed === true && execBrokerProof?.protectedWriteDenied === true &&
       execBrokerProof?.toolchainWriteDenied === true && execBrokerProof?.controllerCanaryReadDenied === true &&
       (!task.referencePatch || execBrokerProof?.referencePatchReadDenied === true) &&
       (!task.shortcutPatch || execBrokerProof?.shortcutPatchReadDenied === true) &&
