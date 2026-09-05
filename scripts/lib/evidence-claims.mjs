@@ -1,6 +1,9 @@
 import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { isAbsolute, join, resolve, sep } from 'node:path';
+import {
+  verifyStudyRegistry,
+} from './evidence-foundry-v3.mjs';
 
 const MATRIX_PATH = 'research/claim-evidence-matrix.json';
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -9,6 +12,10 @@ const EVIDENCE_CLASSES = new Set(['first-party-mechanism-test', 'author-operated
 const V6_BOUNDARY = 'instrumentation-only-development-pilot; never product-efficacy evidence and never a recommendation';
 const V6_SCOPE = 'directional-post-ceiling-first-party-pilot-for-one-exact-qualified-local-model-cell-development-only-no-product-efficacy-default-cost-or-transportability-claim';
 const V6_DECISION = 'ineligible-instrumentation-pilot-no-efficacy-decision';
+const NO_EFFICACY_CLAIM = 'no-efficacy-claim';
+const PRIMARY_CLAIM = 'bounded-primary-causal-effect-exact-cell-release-and-task-population';
+const TRANSPORT_CLAIM = 'bounded-transportability-causal-effect-exact-cell-release-and-task-population';
+const DEFAULT_ADOPTION_CLAIM = 'bounded-default-adoption-decision-all-preregistered-cells-exact-release-and-task-population';
 
 function fail(message) {
   throw new Error(`claim-evidence: ${message}`);
@@ -67,6 +74,22 @@ function sha256(value) {
 
 function sha256Json(value) {
   return sha256(JSON.stringify(canonical(value)));
+}
+
+export function deriveFoundryClaimClasses(protocol) {
+  if (['design-draft', 'frozen-ready-not-run', 'safety-halted'].includes(protocol?.lifecycle)) {
+    return [NO_EFFICACY_CLAIM];
+  }
+  const completed = Array.isArray(protocol?.stages)
+    ? protocol.stages.filter((stage) => stage.lifecycle === 'complete')
+    : [];
+  if (protocol?.lifecycle === 'running' && completed.length === 0) return [NO_EFFICACY_CLAIM];
+  if (!['running', 'complete'].includes(protocol?.lifecycle)) fail('Evidence Foundry v3 lifecycle cannot derive a public claim class');
+  const claims = [];
+  if (completed.some((stage) => stage.stageType === 'primary-confirmatory')) claims.push(PRIMARY_CLAIM);
+  if (completed.some((stage) => stage.stageType === 'transport-confirmatory')) claims.push(TRANSPORT_CLAIM);
+  if (protocol.lifecycle === 'complete' && completed.length === protocol.stages.length) claims.push(DEFAULT_ADOPTION_CLAIM);
+  return claims.length > 0 ? claims : [NO_EFFICACY_CLAIM];
 }
 
 export function loadEvidenceClaims(rootInput = '.') {
@@ -171,7 +194,6 @@ export function loadEvidenceClaims(rootInput = '.') {
     'registrySha256', 'protocolSha256', 'powerDesignSha256', 'lifecycle', 'ready',
     'currentClaimClasses', 'primaryStage', 'prospectiveStageCount',
   ], 'Evidence Foundry v3 study');
-  if (foundryStudy.evidenceClass !== 'confirmatory-program-design') fail('Evidence Foundry v3 must remain classified as a confirmatory program design');
   for (const field of ['registry', 'protocol', 'powerDesign']) boundedFile(root, foundryStudy[field], `Evidence Foundry v3.${field}`);
   for (const field of ['registrySha256', 'protocolSha256', 'powerDesignSha256']) {
     if (!SHA256.test(foundryStudy[field] ?? '')) fail(`Evidence Foundry v3.${field} must be a full SHA-256 anchor`);
@@ -184,23 +206,34 @@ export function loadEvidenceClaims(rootInput = '.') {
   const foundryRegistry = readJson(root, foundryStudy.registry);
   const foundryProtocol = readJson(root, foundryStudy.protocol);
   const foundryPower = readJson(root, foundryStudy.powerDesign);
+  let foundryRegistryReport;
+  try {
+    foundryRegistryReport = verifyStudyRegistry({ root, indexPath: foundryStudy.registry });
+  } catch (error) {
+    fail(`Evidence Foundry v3 full registry and result verification refused: ${error.message}`);
+  }
   const registryEntry = foundryRegistry.studies?.find((entry) => entry.studyId === foundryStudy.studyId);
   if (!registryEntry || registryEntry.protocolPath !== foundryStudy.protocol || registryEntry.powerDesignPath !== foundryStudy.powerDesign ||
       registryEntry.protocolSha256 !== foundryStudy.protocolSha256 || registryEntry.powerDesignSha256 !== foundryStudy.powerDesignSha256) {
     fail('Evidence Foundry v3 registry entry does not bind the indexed protocol and power design');
   }
-  if (foundryStudy.lifecycle !== 'design-draft' || foundryStudy.ready !== false ||
-      JSON.stringify(foundryStudy.currentClaimClasses) !== JSON.stringify(['no-efficacy-claim']) ||
-      foundryProtocol.lifecycle !== foundryStudy.lifecycle || registryEntry.lifecycle !== foundryStudy.lifecycle ||
-      JSON.stringify(foundryProtocol.currentClaimClasses) !== JSON.stringify(foundryStudy.currentClaimClasses) ||
-      JSON.stringify(registryEntry.currentClaimClasses) !== JSON.stringify(foundryStudy.currentClaimClasses)) {
-    fail('Evidence Foundry v3 lifecycle, readiness, or no-efficacy claim boundary was promoted');
+  const expectedEvidenceClass = foundryProtocol.lifecycle === 'design-draft'
+    ? 'confirmatory-program-design'
+    : 'confirmatory-staged-causal-study';
+  if (foundryStudy.evidenceClass !== expectedEvidenceClass || registryEntry.evidenceClass !== expectedEvidenceClass) {
+    fail('Evidence Foundry v3 evidence class differs from its lifecycle');
   }
-  if (foundryProtocol.releaseBinding !== null || foundryProtocol.taskPopulation?.status !== 'unpopulated' ||
-      foundryProtocol.taskPopulation?.manifestSha256 !== null || foundryProtocol.artifacts?.assignmentSeal?.sha256 !== null ||
-      foundryProtocol.stages?.some((stage) => stage.lifecycle !== 'design-draft' || stage.preregistration !== 'draft-unsealed')) {
-    fail('Evidence Foundry v3 is indexed ready despite unresolved real-input blockers');
+  const derivedClaimClasses = deriveFoundryClaimClasses(foundryProtocol);
+  if (foundryProtocol.lifecycle !== foundryStudy.lifecycle || registryEntry.lifecycle !== foundryStudy.lifecycle ||
+      JSON.stringify(foundryProtocol.currentClaimClasses) !== JSON.stringify(derivedClaimClasses) ||
+      JSON.stringify(foundryStudy.currentClaimClasses) !== JSON.stringify(derivedClaimClasses) ||
+      JSON.stringify(registryEntry.currentClaimClasses) !== JSON.stringify(derivedClaimClasses)) {
+    fail('Evidence Foundry v3 lifecycle and exact derived claim classes do not cross-bind');
   }
+  const verifiedStudy = foundryRegistryReport.studies.find((entry) => entry.studyId === foundryStudy.studyId);
+  if (!verifiedStudy) fail('Evidence Foundry v3 full verifier omitted the indexed study');
+  const executionReady = foundryProtocol.lifecycle === 'frozen-ready-not-run' && verifiedStudy.ready === true;
+  if (foundryStudy.ready !== executionReady) fail('Evidence Foundry v3 readiness differs from full preregistered execution readiness');
   exactKeys(foundryStudy.primaryStage, ['stageId', 'repositoryClusters', 'tasksPerRepository', 'pairs', 'retainedAttempts'], 'Evidence Foundry v3 primaryStage');
   const primaryStage = foundryProtocol.stages?.find((stage) => stage.stageType === 'primary-confirmatory');
   const primaryPower = foundryPower.stages?.find((stage) => stage.stageId === primaryStage?.id);

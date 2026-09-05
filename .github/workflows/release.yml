@@ -114,9 +114,6 @@ jobs:
       - name: Cross-document release claims (negative controls + truth check)
         run: node scripts/check-release-claims.selftest.mjs && node scripts/check-release-claims.mjs
 
-      - name: Public evidence claims (negative controls + sealed-result bindings)
-        run: npm run test:evidence-claims
-
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: 22.22.2
@@ -190,6 +187,9 @@ jobs:
       - name: Install (clean, lockfile-exact)
         run: npm ci
 
+      - name: Public evidence claims (negative controls + lifecycle-derived sealed-result bindings)
+        run: npm run test:evidence-claims
+
       - name: Build the distributable engine
         run: npm run build
 
@@ -228,6 +228,9 @@ jobs:
 
       - name: Evidence Foundry v3 registry, staged readiness, power, and archive controls
         run: npm run test:evidence-foundry-v3
+
+      - name: Evidence Foundry v3 public registry verification
+        run: npm run research:evidence-foundry-v3
 
       - name: Sealed first-party Ollama tool-client protocol and spoofing controls
         run: npm run test:model-eval-client
