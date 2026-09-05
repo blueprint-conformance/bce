@@ -99,6 +99,11 @@ jobs:
       dry_run: ${{ steps.mode.outputs.dry_run }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # Historical pilot and halt replay resolves the exact implementation
+          # blobs bound by earlier attestations; a shallow release checkout
+          # makes valid archives unverifiable and must not be treated as drift.
+          fetch-depth: 0
 
       - name: Action supply-chain policy (negative control + full-tree check)
         run: node scripts/check-action-pins.selftest.mjs && node scripts/check-action-pins.mjs
