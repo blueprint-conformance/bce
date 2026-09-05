@@ -1387,6 +1387,11 @@ function diagnosticText(diagnostic: ts.Diagnostic): string {
   return ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
 }
 
+/** TypeScript's config parser compares its normalized SourceFile name byte-for-byte. */
+function typescriptConfigPath(filePath: string): string {
+  return filePath.replace(/\\/g, '/');
+}
+
 /**
  * Full direct-import graph for ordinary TS/JS repositories. Unlike plugin-surface, this provider
  * emits all statically named imports (including type-only imports) before policy is considered.
@@ -1576,10 +1581,17 @@ export class TypeScriptModuleGraphExtractor implements RepositoryFactsExtractor 
     if (real !== root && !real.startsWith(`${root}${path.sep}`)) {
       throw new Error(`typescript-module-graph tsconfig resolves outside repository root: ${this.cfg.tsconfig}`);
     }
-    const read = ts.readConfigFile(real, ts.sys.readFile);
+    const tsConfigPath = typescriptConfigPath(real);
+    const read = ts.readConfigFile(tsConfigPath, ts.sys.readFile);
     if (read.error) throw new Error(`typescript-module-graph tsconfig is invalid: ${diagnosticText(read.error)}`);
     this.assertContainedConfigChain(repoDir, real, read.config);
-    const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, path.dirname(real), undefined, real);
+    const parsed = ts.parseJsonConfigFileContent(
+      read.config,
+      ts.sys,
+      typescriptConfigPath(path.dirname(real)),
+      undefined,
+      tsConfigPath,
+    );
     const errors = parsed.errors.filter((error) => error.code !== 18003);
     if (errors.length > 0) {
       throw new Error(`typescript-module-graph tsconfig is invalid: ${errors.map(diagnosticText).join('; ')}`);
@@ -1627,7 +1639,7 @@ export class TypeScriptModuleGraphExtractor implements RepositoryFactsExtractor 
       if (real.split(path.sep).includes('node_modules')) {
         throw new Error(`typescript-module-graph tsconfig extends must not depend on node_modules: ${entry}`);
       }
-      const read = ts.readConfigFile(real, ts.sys.readFile);
+      const read = ts.readConfigFile(typescriptConfigPath(real), ts.sys.readFile);
       if (read.error) {
         throw new Error(`typescript-module-graph extended tsconfig is invalid: ${diagnosticText(read.error)}`);
       }
