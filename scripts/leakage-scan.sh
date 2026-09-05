@@ -106,7 +106,7 @@ fi
   # other byte in them remains subject to every pattern.
   STEWARD_ALLOWLIST=("NOTICE" "GOVERNANCE.md" "TRADEMARKS.md")
 
-  # Immutable public-pilot evidence has four reviewed collisions. An exception
+  # Immutable public-pilot evidence has five reviewed binary collisions. An exception
   # is accepted only for an exact path+digest pair; changing one byte restores
   # the normal scan.
   PINNED_EVIDENCE=(
@@ -114,6 +114,7 @@ fi
     "research/model-evaluation/pilots/accelerated-v2/artifacts/tasks/boundary-feature/functional-oracle.mjs|ab488713fce71d6272d0d2c1eaf42d0c750ad5873b28122868229db97a9cf1ef"
     "research/model-evaluation/pilots/accelerated-v3/artifacts/tasks/boundary-feature/functional-oracle.mjs|ab488713fce71d6272d0d2c1eaf42d0c750ad5873b28122868229db97a9cf1ef"
     "research/model-evaluation/pilots/accelerated-v3/artifacts/bce-treatment-runtime-v3.tgz|db2a215679f89bdb76cce65f88e88b529a799ec2b880487315d908c78576d4e7"
+    "research/model-evaluation/pilots/accelerated-v4/artifacts/bce-treatment-runtime-v4.tgz|8bed8a6feb499e59d388afb3ef3402e1ed018c2eb016dea61fbd76a380af1bbd"
   )
 
   sha256_file() {
