@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1",
+  "policyId": "bce-confirmatory-run-integrity-v1",
+  "runRegistration": {
+    "requiredBeforeFirstAttempt": true,
+    "bindsProtocolManifestAssignmentRunnerAndDenominator": true
+  },
+  "ledger": {
+    "appendOnly": true,
+    "durableFsyncBeforeNextAttempt": true,
+    "terminalRecordsImmutable": true,
+    "everyRandomizedAttemptRetained": true
+  },
+  "checkpoints": {
+    "requiredAfterEveryTerminal": true,
+    "bindRunRegistrationLedgerHeadAndTerminal": true,
+    "externalAnchorRequiredBeforeEfficacyClaim": true
+  },
+  "replay": {
+    "exactChangedFileBytesRequired": true,
+    "changedFileHashesRequired": true,
+    "publicMachineReplayRequiredBeforeEfficacyClaim": true
+  }
+}

@@ -138,8 +138,9 @@ and cross-platform CI. Those are first-party proofs on author-controlled infrast
 Accelerated pilot v6 retained all 16 paired attempts in one exact local model/client cell. Its
 author-operated record contains useful directional observations, including 2/8 versus 3/8 safe
 successful completions, but it is permanently ineligible for a product decision. One baseline
-infrastructure timeout remains in the intention-to-treat denominator. The held-out 600-trial study
-has not run. We do not claim that BCE makes agents more successful, cheaper, faster, or safer than a baseline.
+infrastructure timeout remains in the intention-to-treat denominator. The Evidence Foundry v3
+primary stage—120 paired tasks and 240 retained attempts—has not run; its later transport stages are
+separately gated. We do not claim that BCE makes agents more successful, cheaper, faster, or safer than a baseline.
 [Inspect and replay the public evidence](https://blueprint-conformance.github.io/bce/trust/),
 [check the public truth ledger](STATUS.md), or
 [inspect the study contract](research/model-evaluation/README.md).

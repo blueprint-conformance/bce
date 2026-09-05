@@ -14,12 +14,13 @@ opportunity, collateral violations, Wilson 95% intervals, and per-defect-class r
 evidence that BCE improves agents. That claim requires the not-yet-run multi-repository controlled
 study described in `study-preregistration.json`.
 
-The canonical controlled-study contract is `model-evaluation/protocol.v2.json` plus its closed task
-manifest, treatment-delta, protected-path, terminal-record, and seal schemas. It defines 600 paired
-attempts across one primary and three transportability client/model cells. Its real repositories,
-tasks, client artifacts, provider-returned model identities, and public Sigstore preseal are
-deliberately unset. `npm run research:model-eval-readiness` therefore refuses; that is the correct
-state before claim-bearing inputs exist.
+The forward controlled-study contract is the Evidence Foundry v3 registry at
+`model-evaluation/studies/index.v3.json`; the v2 contract remains the executable controller and
+historical apparatus format. V3 runs a 120-pair primary cell first (240 retained attempts), then
+three separately gated transport cells. Its real repositories, tasks, release artifact, client
+artifacts, provider-returned model identities, and public pre-run seal are deliberately unset.
+`npm run research:evidence-foundry-v3-ready -- --stage primary-confirmatory` therefore refuses;
+that is the correct state before claim-bearing inputs exist.
 
 Accelerated v6 is directional instrumentation evidence, not product-efficacy evidence. It retained
 16/16 paired attempts across four generated repositories in one exact local qwen3:8b client/model

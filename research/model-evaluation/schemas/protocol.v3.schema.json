@@ -185,7 +185,9 @@
         "agentFinalMessageAuthority",
         "deterministicPrimaryOracles",
         "evaluatorId",
+        "evaluatorArtifactPath",
         "evaluatorArtifactSha256",
+        "rubricPath",
         "rubricSha256"
       ],
       "properties": {
@@ -194,20 +196,38 @@
         "agentFinalMessageAuthority": { "const": "diagnostic-only" },
         "deterministicPrimaryOracles": { "const": true },
         "evaluatorId": { "type": ["string", "null"], "minLength": 3 },
+        "evaluatorArtifactPath": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/relativeFilePath" }] },
         "evaluatorArtifactSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "rubricPath": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/relativeJsonPath" }] },
         "rubricSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
       }
     },
     "attemptPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["appendOnlyRawLedger", "transparentRetryBeforeExposureOnly", "postExposureRetry", "primaryAttemptMayNotBeReplaced", "terminalRecordsImmutable"],
+      "required": [
+        "appendOnlyRawLedger",
+        "transparentRetryBeforeExposureOnly",
+        "postExposureRetry",
+        "primaryAttemptMayNotBeReplaced",
+        "terminalRecordsImmutable",
+        "runRegistrationBeforeFirstAttempt",
+        "durableFsyncBeforeNextAttempt",
+        "checkpointAfterEveryTerminal",
+        "exactReplayBytesRequired",
+        "externalCheckpointAnchorBeforeEfficacyClaim"
+      ],
       "properties": {
         "appendOnlyRawLedger": { "const": true },
         "transparentRetryBeforeExposureOnly": { "const": true },
         "postExposureRetry": { "const": "linked-diagnostic-only-never-replaces-randomized-attempt" },
         "primaryAttemptMayNotBeReplaced": { "const": true },
-        "terminalRecordsImmutable": { "const": true }
+        "terminalRecordsImmutable": { "const": true },
+        "runRegistrationBeforeFirstAttempt": { "const": true },
+        "durableFsyncBeforeNextAttempt": { "const": true },
+        "checkpointAfterEveryTerminal": { "const": true },
+        "exactReplayBytesRequired": { "const": true },
+        "externalCheckpointAnchorBeforeEfficacyClaim": { "const": true }
       }
     },
     "stoppingAndExclusions": {
@@ -225,12 +245,13 @@
     "artifacts": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["powerDesign", "assignmentSeal", "rawLedger", "evaluatorLock", "results"],
+      "required": ["powerDesign", "assignmentSeal", "rawLedger", "evaluatorLock", "integrityLock", "results"],
       "properties": {
         "powerDesign": { "$ref": "#/definitions/artifactRef" },
         "assignmentSeal": { "$ref": "#/definitions/artifactRef" },
         "rawLedger": { "$ref": "#/definitions/ledgerRef" },
         "evaluatorLock": { "$ref": "#/definitions/artifactRef" },
+        "integrityLock": { "$ref": "#/definitions/artifactRef" },
         "results": { "$ref": "#/definitions/artifactRef" }
       }
     }
@@ -241,6 +262,10 @@
     "relativeJsonPath": {
       "type": "string",
       "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[a-zA-Z0-9._/-]+\\.json$"
+    },
+    "relativeFilePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[a-zA-Z0-9._/-]+$"
     },
     "artifactRef": {
       "type": "object",
@@ -274,13 +299,31 @@
     "releaseBinding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["version", "gitCommit", "sourceTreeSha256", "packageArtifactSha256", "installedTreeSha256"],
+      "required": [
+        "packageName",
+        "version",
+        "gitCommit",
+        "sourceTreeSha256",
+        "packageArtifactPath",
+        "packageArtifactSha256",
+        "npmIntegrity",
+        "registryTarballUrl",
+        "installedTreeSha256",
+        "attestationPath",
+        "attestationSha256"
+      ],
       "properties": {
+        "packageName": { "const": "bce-engine" },
         "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
         "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
         "sourceTreeSha256": { "$ref": "#/definitions/sha256" },
+        "packageArtifactPath": { "$ref": "#/definitions/relativeFilePath" },
         "packageArtifactSha256": { "$ref": "#/definitions/sha256" },
-        "installedTreeSha256": { "$ref": "#/definitions/sha256" }
+        "npmIntegrity": { "type": "string", "pattern": "^sha512-[A-Za-z0-9+/]+=*$" },
+        "registryTarballUrl": { "type": "string", "pattern": "^https://registry\\.npmjs\\.org/bce-engine/-/bce-engine-[0-9A-Za-z.-]+\\.tgz$" },
+        "installedTreeSha256": { "$ref": "#/definitions/sha256" },
+        "attestationPath": { "$ref": "#/definitions/relativeJsonPath" },
+        "attestationSha256": { "$ref": "#/definitions/sha256" }
       }
     },
     "qualification": {
@@ -288,7 +331,7 @@
       "additionalProperties": false,
       "required": ["status", "attestationPath", "attestationSha256"],
       "properties": {
-        "status": { "enum": ["unqualified", "qualified-before-heldout-access"] },
+        "status": { "enum": ["unqualified", "qualified-before-stage-exposure"] },
         "attestationPath": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/relativeJsonPath" }] },
         "attestationSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
       }

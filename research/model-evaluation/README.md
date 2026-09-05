@@ -1,4 +1,4 @@
-# BCE product-efficacy study v2
+# BCE product-efficacy studies
 
 This directory is the canonical contract for measuring whether the **BCE adoption bundle** changes
 coding-agent outcomes. The primary outcome is not a BCE invocation or a green BCE report. It is
@@ -35,6 +35,30 @@ A solo maintainer can run a causal comparison inside a frozen task set by using 
 machine oracles outside the agent workspace. A solo maintainer cannot manufacture independent human
 adjudication. Raw blinded human labels remain an optional later evidence layer.
 
+## Evidence Foundry v3: primary answer first
+
+The forward confirmatory program is registered in `studies/index.v3.json`. It starts with one
+bounded primary cell over 40 repository clusters and three task shapes per repository: 120 paired
+tasks, or 240 retained attempts. Three preregistered transport cells follow only after the primary
+stage completes. This staging avoids making the first bounded causal answer wait for all four
+client/model cells; it does not broaden that answer beyond the exact primary cell, release bytes,
+and frozen task population.
+
+The v3 registry binds the arm-blind deterministic evaluator and rubric, the run-registration and
+durability contract, per-terminal checkpoints, exact changed-file replay bytes, immutable legacy
+archives, and the pre-access power calculation. Full-program and primary-stage readiness are
+separate fail-closed checks:
+
+```sh
+npm run research:evidence-foundry-v3
+npm run research:evidence-foundry-v3-ready -- --stage primary-confirmatory
+```
+
+The second command currently exits `2` because the real task manifest, release artifact and
+attestation, assignment seal, and exact primary client/model qualification are deliberately absent.
+Those are evidence inputs, not values this repository can truthfully synthesize. The evaluator and
+integrity locks are already byte-bound and verified.
+
 ## Lifecycle
 
 ```text
@@ -50,7 +74,7 @@ readiness command must refuse that state:
 npm run research:model-eval-readiness
 ```
 
-The protocol self-test drives the same verifier and analyzer through a fully materialized synthetic
+The v2 protocol self-test drives the same verifier and analyzer through a fully materialized synthetic
 600-trial bundle, then proves they reject arm-blocked assignment, missing/modified artifacts,
 self-asserted outcomes, policy weakening, incomplete denominators, and missing telemetry presented
 as zero. Synthetic results are harness tests only and are ineligible for product claims.
@@ -168,9 +192,10 @@ npm run model-eval:canary -- \
 ```
 
 The canary exits `0` only when qualified and `4` when its completed report is non-qualified. The
-sealed study controller exits `0` for ordinary completion or an operator limit, `3` for a valid
-safety halt, `2` for a pre-exposure configuration refusal, and `1` for corruption or an unexpected
-controller failure. A v2 halt binds the seal, protocol, manifest, runner, halt schema, exact ledger
+sealed study controller exits `0` only when the registered denominator is complete, `4` when an
+operator limit leaves a resumable registered run incomplete, `3` for a valid safety halt, `2` for a
+pre-exposure configuration refusal, and `1` for corruption or an unexpected controller failure. A
+v2 halt binds the seal, protocol, manifest, runner, halt schema, exact ledger
 bytes/head, canonical terminal prefix, and the first triggering rule/threshold/trial. Rerunning a
 halted study verifies or materializes that halt and exits `3`; it never resumes the denominator.
 

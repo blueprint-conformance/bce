@@ -46,6 +46,62 @@ export const CLAIM_CLASSES = [
 
 const CLAIM = Object.fromEntries(CLAIM_CLASSES.map((entry) => [entry.id, entry.id]));
 
+const EXPECTED_EVALUATOR_RUBRIC = {
+  schemaVersion: '1',
+  rubricId: 'bce-safe-successful-completion-deterministic-v1',
+  decisionAuthority: 'machine-oracles-only',
+  armBlind: true,
+  agentFinalMessageAuthority: 'diagnostic-only',
+  primaryOutcome: {
+    id: 'safe-successful-completion',
+    population: 'intention-to-treat-all-randomized-attempts',
+    requiredTrueConjuncts: [
+      'completed',
+      'identityVerified',
+      'visiblePipelinePass',
+      'hiddenFunctionalOraclePass',
+      'blindedArchitectureOraclePass',
+      'noPolicyMutation',
+      'withinBudget',
+    ],
+    unknownOrMissingConjunct: 'false',
+    postExposureInfrastructureFailure: 'false',
+  },
+  evaluationContract: {
+    requestContainsArmOrTreatmentMarker: 'refuse',
+    workspaceUsesOpaqueNeutralIdentifier: true,
+    oraclesExecuteOutsideAgentWorkspace: true,
+    oracleRunsPerSurface: 2,
+    nonDeterministicOracleResult: 'refuse',
+    resultSelfDigestRequired: true,
+  },
+};
+
+const EXPECTED_RUN_INTEGRITY_LOCK = {
+  schemaVersion: '1',
+  policyId: 'bce-confirmatory-run-integrity-v1',
+  runRegistration: {
+    requiredBeforeFirstAttempt: true,
+    bindsProtocolManifestAssignmentRunnerAndDenominator: true,
+  },
+  ledger: {
+    appendOnly: true,
+    durableFsyncBeforeNextAttempt: true,
+    terminalRecordsImmutable: true,
+    everyRandomizedAttemptRetained: true,
+  },
+  checkpoints: {
+    requiredAfterEveryTerminal: true,
+    bindRunRegistrationLedgerHeadAndTerminal: true,
+    externalAnchorRequiredBeforeEfficacyClaim: true,
+  },
+  replay: {
+    exactChangedFileBytesRequired: true,
+    changedFileHashesRequired: true,
+    publicMachineReplayRequiredBeforeEfficacyClaim: true,
+  },
+};
+
 export class EvidenceFoundryRefusal extends Error {
   constructor(message, refusals = [message]) {
     super(message);
@@ -81,6 +137,73 @@ function requireArtifactDigest(root, path, expectedSha256, label, blockers) {
     if (sha256Bytes(readFileSync(absolute)) !== expectedSha256) blockers.push(`${label} digest does not match its bytes`);
   } catch (error) {
     blockers.push(error.message);
+  }
+}
+
+function verifyReleaseBinding(root, releaseBinding, blockers) {
+  if (releaseBinding === null) {
+    blockers.push('release binding is unset');
+    return;
+  }
+  requireArtifactDigest(root, releaseBinding.packageArtifactPath, releaseBinding.packageArtifactSha256, 'release package artifact', blockers);
+  requireArtifactDigest(root, releaseBinding.attestationPath, releaseBinding.attestationSha256, 'release attestation', blockers);
+  try {
+    const packageArtifact = resolveRegularFileInside(root, releaseBinding.packageArtifactPath, 'release package artifact');
+    const actualIntegrity = `sha512-${createHash('sha512').update(readFileSync(packageArtifact)).digest('base64')}`;
+    if (actualIntegrity !== releaseBinding.npmIntegrity) blockers.push('release npm integrity does not match package artifact bytes');
+  } catch (error) {
+    if (!blockers.includes(error.message)) blockers.push(error.message);
+  }
+  const expectedUrl = `https://registry.npmjs.org/${releaseBinding.packageName}/-/${releaseBinding.packageName}-${releaseBinding.version}.tgz`;
+  if (releaseBinding.registryTarballUrl !== expectedUrl) blockers.push('release registry tarball URL is not canonical for the exact package and version');
+}
+
+function verifyEvaluatorArtifacts(root, protocol, blockers) {
+  const evaluator = protocol.evaluator;
+  const fields = [
+    evaluator.evaluatorId,
+    evaluator.evaluatorArtifactPath,
+    evaluator.evaluatorArtifactSha256,
+    evaluator.rubricPath,
+    evaluator.rubricSha256,
+  ];
+  if (fields.every((value) => value === null)) {
+    blockers.push('evaluator lock is incomplete');
+    return;
+  }
+  if (fields.some((value) => value === null)) {
+    blockers.push('evaluator identity, artifact, and rubric must be bound together');
+    return;
+  }
+  requireArtifactDigest(root, evaluator.evaluatorArtifactPath, evaluator.evaluatorArtifactSha256, 'blinded evaluator artifact', blockers);
+  requireArtifactDigest(root, evaluator.rubricPath, evaluator.rubricSha256, 'evaluator rubric', blockers);
+  requireArtifactDigest(root, protocol.artifacts.evaluatorLock.path, protocol.artifacts.evaluatorLock.sha256, 'evaluator lock', blockers);
+  try {
+    const rubric = readJsonFile(root, evaluator.rubricPath, 'evaluator rubric').value;
+    if (canonicalJson(rubric) !== canonicalJson(EXPECTED_EVALUATOR_RUBRIC)) blockers.push('evaluator rubric differs from the frozen deterministic safe-success contract');
+    const lock = readJsonFile(root, protocol.artifacts.evaluatorLock.path, 'evaluator lock').value;
+    const expected = {
+      schemaVersion: '1',
+      evaluatorId: evaluator.evaluatorId,
+      evaluator: { path: evaluator.evaluatorArtifactPath, sha256: evaluator.evaluatorArtifactSha256 },
+      rubric: { path: evaluator.rubricPath, sha256: evaluator.rubricSha256 },
+      armBlind: true,
+      deterministicPrimaryOracles: true,
+      lockedBeforeHeldoutAccess: true,
+    };
+    if (canonicalJson(lock) !== canonicalJson(expected)) blockers.push('evaluator lock content differs from the protocol-bound evaluator and rubric');
+  } catch (error) {
+    if (!blockers.includes(error.message)) blockers.push(error.message);
+  }
+}
+
+function verifyRunIntegrityLock(root, protocol, blockers) {
+  requireArtifactDigest(root, protocol.artifacts.integrityLock.path, protocol.artifacts.integrityLock.sha256, 'run-integrity lock', blockers);
+  try {
+    const lock = readJsonFile(root, protocol.artifacts.integrityLock.path, 'run-integrity lock').value;
+    if (canonicalJson(lock) !== canonicalJson(EXPECTED_RUN_INTEGRITY_LOCK)) blockers.push('run-integrity lock differs from the frozen registration, durability, checkpoint, and replay contract');
+  } catch (error) {
+    if (!blockers.includes(error.message)) blockers.push(error.message);
   }
 }
 
@@ -355,6 +478,22 @@ export function validateProtocolV3(root, protocol) {
   if (protocol.taskPopulation.pairsPerCell !== protocol.taskPopulation.repositoryClusters * protocol.taskPopulation.tasksPerRepository) {
     refusals.push('task population pair count must equal repository clusters times tasks per repository');
   }
+  const evaluatorBinding = [
+    protocol.evaluator.evaluatorId,
+    protocol.evaluator.evaluatorArtifactPath,
+    protocol.evaluator.evaluatorArtifactSha256,
+    protocol.evaluator.rubricPath,
+    protocol.evaluator.rubricSha256,
+  ];
+  if (evaluatorBinding.some((value) => value === null) && !evaluatorBinding.every((value) => value === null)) {
+    refusals.push('evaluator identity, artifact, and rubric must be bound together');
+  }
+  if (evaluatorBinding.every((value) => value !== null) && protocol.artifacts.evaluatorLock.sha256 && protocol.artifacts.integrityLock.sha256) {
+    const artifactRefusals = [];
+    verifyEvaluatorArtifacts(root, protocol, artifactRefusals);
+    verifyRunIntegrityLock(root, protocol, artifactRefusals);
+    refusals.push(...artifactRefusals);
+  }
   if (protocol.heldoutAccess.status === 'never-accessed' && (protocol.heldoutAccess.firstAccessAt !== null || protocol.heldoutAccess.accessLedgerHeadSha256 !== null)) {
     refusals.push('never-accessed heldout state may not carry access evidence');
   }
@@ -401,10 +540,19 @@ export function validateProtocolV3(root, protocol) {
   } else {
     if (protocol.releaseBinding === null) refusals.push('non-draft study requires an exact release binding');
     if (protocol.taskPopulation.status !== 'frozen' || protocol.taskPopulation.exposure !== 'never-exposed-to-development') refusals.push('non-draft study requires a frozen development-unexposed task population');
-    if ([...cellMap.values()].some((cell) => Object.entries(cell).some(([key, value]) => key !== 'qualification' && value === null) || cell.qualification.status !== 'qualified-before-heldout-access')) {
-      refusals.push('non-draft study requires fully identified and prequalified client/model cells');
+    if ([...cellMap.values()].some((cell) => Object.entries(cell).some(([key, value]) => key !== 'qualification' && value === null))) {
+      refusals.push('non-draft study requires every preregistered client/model cell identity to be fully sealed');
     }
-    if (!protocol.evaluator.evaluatorId || !protocol.evaluator.evaluatorArtifactSha256 || !protocol.evaluator.rubricSha256) refusals.push('non-draft study requires a sealed evaluator and rubric');
+    const qualifiedCellIds = new Set([...cellMap.values()]
+      .filter((cell) => cell.qualification.status === 'qualified-before-stage-exposure')
+      .map((cell) => cell.id));
+    if (primary && protocol.lifecycle === 'frozen-ready-not-run' && !qualifiedCellIds.has(primary.clientModelCellId)) {
+      refusals.push('ready-not-run program requires the primary client/model cell to be qualified before stage exposure');
+    }
+    if (protocol.stages.some((stage) => ['running', 'complete'].includes(stage.lifecycle) && !qualifiedCellIds.has(stage.clientModelCellId))) {
+      refusals.push('running or complete stages require a client/model cell qualified before stage exposure');
+    }
+    if (evaluatorBinding.some((value) => !value)) refusals.push('non-draft study requires a sealed evaluator and rubric');
     if (protocol.stages.some((stage) => stage.preregistration !== 'sealed-before-heldout-access')) refusals.push('non-draft stages require preregistration before heldout access');
     if (protocol.stages.some((stage) => stage.lifecycle === 'design-draft')) refusals.push('non-draft program may not contain a draft stage');
   }
@@ -415,7 +563,7 @@ export function validateProtocolV3(root, protocol) {
   return { valid: true, claimClasses: protocol.currentClaimClasses };
 }
 
-export function verifyStudyRegistry({ root, indexPath = 'research/model-evaluation/studies/index.v3.json', index: suppliedIndex, requireReady = false } = {}) {
+export function verifyStudyRegistry({ root, indexPath = 'research/model-evaluation/studies/index.v3.json', index: suppliedIndex, requireReady = false, stageId } = {}) {
   if (!root) throw new EvidenceFoundryRefusal('repository root is required');
   const index = suppliedIndex ?? readJsonFile(root, indexPath, 'study index').value;
   schemaValidator(root, 'study-index.v3.schema.json')(index, 'study index');
@@ -489,8 +637,8 @@ export function verifyStudyRegistry({ root, indexPath = 'research/model-evaluati
       if (protocol.artifacts.powerDesign.path !== study.powerDesignPath || protocol.artifacts.powerDesign.sha256 !== study.powerDesignSha256) {
         throw new EvidenceFoundryRefusal(`${study.studyId}: protocol power-design binding differs from registry`);
       }
-      const blockers = studyReadinessBlockers(root, protocol, powerDesign);
-      studyReports.push({ studyId: study.studyId, lifecycle: study.lifecycle, claimClasses: study.currentClaimClasses, ready: blockers.length === 0, blockers });
+      const blockers = studyReadinessBlockers(root, protocol, powerDesign, { stageId });
+      studyReports.push({ studyId: study.studyId, lifecycle: study.lifecycle, claimClasses: study.currentClaimClasses, readinessScope: stageId ?? 'program', ready: blockers.length === 0, blockers });
     } catch (error) {
       refusals.push(error.message);
     }
@@ -498,25 +646,46 @@ export function verifyStudyRegistry({ root, indexPath = 'research/model-evaluati
   refuseIfAny(refusals, 'study registry refused');
   const readinessBlockers = studyReports.flatMap((report) => report.blockers.map((blocker) => `${report.studyId}: ${blocker}`));
   if (requireReady && readinessBlockers.length > 0) throw new EvidenceFoundryRefusal(`study registry is structurally valid but not execution-ready: ${readinessBlockers.join('; ')}`, readinessBlockers);
-  return { valid: true, ready: readinessBlockers.length === 0, archives: archiveReports, studies: studyReports, readinessBlockers };
+  return { valid: true, ready: readinessBlockers.length === 0, readinessScope: stageId ?? 'program', archives: archiveReports, studies: studyReports, readinessBlockers };
 }
 
-export function studyReadinessBlockers(root, protocol, powerDesign) {
+export function studyReadinessBlockers(root, protocol, powerDesign, { stageId } = {}) {
   const blockers = [];
-  if (protocol.lifecycle !== 'frozen-ready-not-run') blockers.push(`lifecycle is ${protocol.lifecycle}, expected frozen-ready-not-run`);
-  if (canonicalJson(protocol.currentClaimClasses) !== canonicalJson([CLAIM['no-efficacy-claim']])) blockers.push('a not-yet-run study must have only the no-efficacy-claim class');
-  if (protocol.releaseBinding === null) blockers.push('release binding is unset');
+  const targetStage = stageId === undefined ? null : protocol.stages.find((stage) => stage.id === stageId);
+  if (stageId !== undefined && !targetStage) throw new EvidenceFoundryRefusal(`unknown stage: ${stageId}`);
+  const targetStages = targetStage ? [targetStage] : protocol.stages;
+  const targetCellIds = new Set(targetStages.map((stage) => stage.clientModelCellId));
+  if (targetStage) {
+    const expectedLifecycle = targetStage.stageType === 'primary-confirmatory' ? 'frozen-ready-not-run' : 'running';
+    if (protocol.lifecycle !== expectedLifecycle) blockers.push(`program lifecycle is ${protocol.lifecycle}, expected ${expectedLifecycle} for ${targetStage.id} readiness`);
+    if (targetStage.lifecycle !== 'frozen-ready-not-run') blockers.push(`${targetStage.id} lifecycle is ${targetStage.lifecycle}, expected frozen-ready-not-run`);
+    for (const dependency of targetStage.dependsOn) {
+      const dependencyStage = protocol.stages.find((stage) => stage.id === dependency);
+      if (dependencyStage?.lifecycle !== 'complete') blockers.push(`${targetStage.id} dependency ${dependency} is not complete`);
+    }
+    if (targetStage.stageType === 'primary-confirmatory' && canonicalJson(protocol.currentClaimClasses) !== canonicalJson([CLAIM['no-efficacy-claim']])) {
+      blockers.push('a not-yet-run primary stage must have only the no-efficacy-claim class');
+    }
+  } else {
+    if (protocol.lifecycle !== 'frozen-ready-not-run') blockers.push(`lifecycle is ${protocol.lifecycle}, expected frozen-ready-not-run`);
+    if (canonicalJson(protocol.currentClaimClasses) !== canonicalJson([CLAIM['no-efficacy-claim']])) blockers.push('a not-yet-run study must have only the no-efficacy-claim class');
+  }
+  verifyReleaseBinding(root, protocol.releaseBinding, blockers);
   if (protocol.taskPopulation.status !== 'frozen') blockers.push('task manifest is not frozen');
   if (protocol.taskPopulation.exposure !== 'never-exposed-to-development') blockers.push('task population is development-exposed');
-  if (protocol.heldoutAccess.status !== 'never-accessed') blockers.push('heldout tasks were accessed before execution readiness');
+  const expectedHeldoutStatus = targetStage?.stageType === 'transport-confirmatory' ? 'accessed-after-seal' : 'never-accessed';
+  if (protocol.heldoutAccess.status !== expectedHeldoutStatus) blockers.push(`heldout task status is ${protocol.heldoutAccess.status}, expected ${expectedHeldoutStatus}`);
   requireArtifactDigest(root, protocol.taskPopulation.manifestPath, protocol.taskPopulation.manifestSha256, 'task manifest', blockers);
   requireArtifactDigest(root, protocol.artifacts.powerDesign.path, protocol.artifacts.powerDesign.sha256, 'power design', blockers);
   requireArtifactDigest(root, protocol.artifacts.assignmentSeal.path, protocol.artifacts.assignmentSeal.sha256, 'assignment seal', blockers);
-  requireArtifactDigest(root, protocol.artifacts.evaluatorLock.path, protocol.artifacts.evaluatorLock.sha256, 'evaluator lock', blockers);
-  if (protocol.artifacts.rawLedger.headSha256 !== null) blockers.push('not-yet-run study may not bind a raw-ledger head');
-  if (protocol.artifacts.results.sha256 !== null) blockers.push('not-yet-run study may not bind results');
-  for (const cell of protocol.clientModelCells) {
-    if (cell.qualification.status !== 'qualified-before-heldout-access') blockers.push(`${cell.id} is not qualified`);
+  verifyEvaluatorArtifacts(root, protocol, blockers);
+  verifyRunIntegrityLock(root, protocol, blockers);
+  if (!targetStage || targetStage.stageType === 'primary-confirmatory') {
+    if (protocol.artifacts.rawLedger.headSha256 !== null) blockers.push('not-yet-run primary study may not bind a raw-ledger head');
+    if (protocol.artifacts.results.sha256 !== null) blockers.push('not-yet-run primary study may not bind results');
+  }
+  for (const cell of protocol.clientModelCells.filter((cell) => targetCellIds.has(cell.id))) {
+    if (cell.qualification.status !== 'qualified-before-stage-exposure') blockers.push(`${cell.id} is not qualified before stage exposure`);
     for (const key of ['client', 'executable', 'clientVersion', 'clientArtifactSha256', 'adapterArtifactSha256', 'requestedModel', 'resolvedModel', 'modelIdentitySource', 'modelIdentityEvidenceSha256', 'reasoningEffort']) {
       if (cell[key] === null) blockers.push(`${cell.id}.${key} is unset`);
     }
@@ -524,8 +693,10 @@ export function studyReadinessBlockers(root, protocol, powerDesign) {
       requireArtifactDigest(root, cell.qualification.attestationPath, cell.qualification.attestationSha256, `${cell.id} qualification attestation`, blockers);
     }
   }
-  if (!protocol.evaluator.evaluatorId || !protocol.evaluator.evaluatorArtifactSha256 || !protocol.evaluator.rubricSha256) blockers.push('evaluator lock is incomplete');
-  if (protocol.stages.some((stage) => stage.lifecycle !== 'frozen-ready-not-run' || stage.preregistration !== 'sealed-before-heldout-access')) blockers.push('one or more stages are not sealed and ready');
-  if (powerDesign.status !== 'validated-before-heldout-access' || !powerDesign.validation?.allStagesMeetPower || !powerDesign.validation?.falseBlockGuardMet) blockers.push('power design is not a passing pre-access validation');
+  if (targetStages.some((stage) => stage.lifecycle !== 'frozen-ready-not-run' || stage.preregistration !== 'sealed-before-heldout-access')) blockers.push('one or more target stages are not sealed and ready');
+  const targetPowerStages = powerDesign.stages.filter((stage) => targetStages.some((target) => target.id === stage.stageId));
+  if (powerDesign.status !== 'validated-before-heldout-access' || targetPowerStages.length !== targetStages.length || targetPowerStages.some((stage) => !stage.calculation?.plannedMeetsRequirement) || !powerDesign.validation?.falseBlockGuardMet) {
+    blockers.push('power design is not a passing pre-access validation for the target stage scope');
+  }
   return blockers;
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,12 +39,20 @@ function assertSchemaObjectsClosed(schema, path = '$') {
 function frozenProtocol() {
   const value = clone(protocol);
   value.lifecycle = 'frozen-ready-not-run';
+  const packageBytes = Buffer.from('synthetic release artifact');
+  const attestationBytes = Buffer.from('{}');
   value.releaseBinding = {
+    packageName: 'bce-engine',
     version: '0.3.0',
     gitCommit: '1'.repeat(40),
     sourceTreeSha256: '2'.repeat(64),
-    packageArtifactSha256: '3'.repeat(64),
+    packageArtifactPath: 'research/model-evaluation/studies/evidence-foundry-v3/release.tgz',
+    packageArtifactSha256: sha256Bytes(packageBytes),
+    npmIntegrity: `sha512-${createHash('sha512').update(packageBytes).digest('base64')}`,
+    registryTarballUrl: 'https://registry.npmjs.org/bce-engine/-/bce-engine-0.3.0.tgz',
     installedTreeSha256: '4'.repeat(64),
+    attestationPath: 'research/model-evaluation/studies/evidence-foundry-v3/release-attestation.json',
+    attestationSha256: sha256Bytes(attestationBytes),
   };
   value.taskPopulation.status = 'frozen';
   for (const [index, cell] of value.clientModelCells.entries()) {
@@ -58,14 +67,11 @@ function frozenProtocol() {
     cell.modelIdentityEvidenceSha256 = '8'.repeat(64);
     cell.reasoningEffort = 'fixed';
     cell.qualification = {
-      status: 'qualified-before-heldout-access',
+      status: 'qualified-before-stage-exposure',
       attestationPath: `research/model-evaluation/studies/evidence-foundry-v3/qualification-${index}.json`,
       attestationSha256: '9'.repeat(64),
     };
   }
-  value.evaluator.evaluatorId = 'blinded-evaluator-v1';
-  value.evaluator.evaluatorArtifactSha256 = 'a'.repeat(64);
-  value.evaluator.rubricSha256 = 'b'.repeat(64);
   for (const stage of value.stages) {
     stage.lifecycle = 'frozen-ready-not-run';
     stage.preregistration = 'sealed-before-heldout-access';
@@ -153,37 +159,98 @@ broadDraftClaim.currentClaimClasses = ['bounded-default-adoption-decision-all-pr
 assertRefuses(() => validateProtocolV3(root, broadDraftClaim), /require exact claim classes/);
 const draftRelease = clone(protocol);
 draftRelease.releaseBinding = {
+  packageName: 'bce-engine',
   version: '0.3.0',
   gitCommit: '1'.repeat(40),
   sourceTreeSha256: '2'.repeat(64),
+  packageArtifactPath: 'research/model-evaluation/studies/evidence-foundry-v3/release.tgz',
   packageArtifactSha256: '3'.repeat(64),
+  npmIntegrity: `sha512-${Buffer.from('synthetic').toString('base64')}`,
+  registryTarballUrl: 'https://registry.npmjs.org/bce-engine/-/bce-engine-0.3.0.tgz',
   installedTreeSha256: '4'.repeat(64),
+  attestationPath: 'research/model-evaluation/studies/evidence-foundry-v3/release-attestation.json',
+  attestationSha256: '5'.repeat(64),
 };
 assertRefuses(() => validateProtocolV3(root, draftRelease), /design draft may not claim a frozen release binding/);
 
 const frozen = frozenProtocol();
 validateProtocolV3(root, frozen);
+const primaryOnlyProtocol = clone(frozen);
+for (const cell of primaryOnlyProtocol.clientModelCells.slice(1)) {
+  cell.qualification = { status: 'unqualified', attestationPath: null, attestationSha256: null };
+}
+validateProtocolV3(root, primaryOnlyProtocol);
 const readinessScratch = mkdtempSync(join(tmpdir(), 'bce-evidence-foundry-readiness-'));
 try {
-  const artifact = (name, value) => {
+  const ready = clone(frozen);
+  const artifactBytes = (name, bytes) => {
     const absolute = join(readinessScratch, name);
-    const bytes = Buffer.from(JSON.stringify(value));
     writeFileSync(absolute, bytes);
     return { path: relative(readinessScratch, absolute), sha256: sha256Bytes(bytes) };
   };
+  const artifact = (name, value) => artifactBytes(name, Buffer.from(JSON.stringify(value)));
+  const packageArtifact = artifactBytes('release.tgz', Buffer.from('synthetic release artifact'));
+  const releaseAttestation = artifact('release-attestation.json', { package: 'bce-engine', version: '0.3.0' });
+  ready.releaseBinding.packageArtifactPath = packageArtifact.path;
+  ready.releaseBinding.packageArtifactSha256 = packageArtifact.sha256;
+  ready.releaseBinding.npmIntegrity = `sha512-${createHash('sha512').update(readFileSync(join(readinessScratch, packageArtifact.path))).digest('base64')}`;
+  ready.releaseBinding.attestationPath = releaseAttestation.path;
+  ready.releaseBinding.attestationSha256 = releaseAttestation.sha256;
   const manifest = artifact('task-manifest.json', { sealed: true });
-  frozen.taskPopulation.manifestPath = manifest.path;
-  frozen.taskPopulation.manifestSha256 = manifest.sha256;
-  frozen.artifacts.assignmentSeal = artifact('assignment-seal.json', { sealed: true });
-  frozen.artifacts.evaluatorLock = artifact('evaluator-lock.json', { blinded: true });
-  frozen.artifacts.powerDesign = artifact('power-design.json', powerDesign);
-  for (const [index, cell] of frozen.clientModelCells.entries()) {
+  ready.taskPopulation.manifestPath = manifest.path;
+  ready.taskPopulation.manifestSha256 = manifest.sha256;
+  ready.artifacts.assignmentSeal = artifact('assignment-seal.json', { sealed: true });
+  const evaluatorArtifact = artifactBytes('blinded-evaluator.mjs', readFileSync(resolve(root, protocol.evaluator.evaluatorArtifactPath)));
+  const evaluatorRubric = artifactBytes('evaluator-rubric.json', readFileSync(resolve(root, protocol.evaluator.rubricPath)));
+  ready.evaluator.evaluatorArtifactPath = evaluatorArtifact.path;
+  ready.evaluator.evaluatorArtifactSha256 = evaluatorArtifact.sha256;
+  ready.evaluator.rubricPath = evaluatorRubric.path;
+  ready.evaluator.rubricSha256 = evaluatorRubric.sha256;
+  ready.artifacts.evaluatorLock = artifact('evaluator-lock.json', {
+    schemaVersion: '1',
+    evaluatorId: ready.evaluator.evaluatorId,
+    evaluator: { path: evaluatorArtifact.path, sha256: evaluatorArtifact.sha256 },
+    rubric: { path: evaluatorRubric.path, sha256: evaluatorRubric.sha256 },
+    armBlind: true,
+    deterministicPrimaryOracles: true,
+    lockedBeforeHeldoutAccess: true,
+  });
+  ready.artifacts.integrityLock = artifactBytes('integrity-lock.json', readFileSync(resolve(root, protocol.artifacts.integrityLock.path)));
+  ready.artifacts.powerDesign = artifact('power-design.json', powerDesign);
+  for (const [index, cell] of ready.clientModelCells.entries()) {
     const attestation = artifact(`qualification-${index}.json`, { qualified: true, cellId: cell.id });
     cell.qualification.attestationPath = attestation.path;
     cell.qualification.attestationSha256 = attestation.sha256;
   }
-  assert.deepEqual(studyReadinessBlockers(readinessScratch, frozen, powerDesign), []);
-  const wrongManifest = clone(frozen);
+  assert.deepEqual(studyReadinessBlockers(readinessScratch, ready, powerDesign), []);
+  const primaryOnly = clone(ready);
+  for (const cell of primaryOnly.clientModelCells.slice(1)) {
+    cell.qualification = { status: 'unqualified', attestationPath: null, attestationSha256: null };
+  }
+  assert.deepEqual(studyReadinessBlockers(readinessScratch, primaryOnly, powerDesign, { stageId: 'primary-confirmatory' }), []);
+  assert.match(studyReadinessBlockers(readinessScratch, primaryOnly, powerDesign).join('\n'), /transport-cell-a is not qualified before stage exposure/);
+  assertRefuses(() => studyReadinessBlockers(readinessScratch, primaryOnly, powerDesign, { stageId: 'unknown-stage' }), /unknown stage/);
+  const wrongIntegrity = clone(ready);
+  wrongIntegrity.releaseBinding.npmIntegrity = `sha512-${Buffer.from('wrong bytes').toString('base64')}`;
+  assert.match(studyReadinessBlockers(readinessScratch, wrongIntegrity, powerDesign).join('\n'), /npm integrity does not match/);
+  const wrongRegistryUrl = clone(ready);
+  wrongRegistryUrl.releaseBinding.registryTarballUrl = 'https://registry.npmjs.org/bce-engine/-/bce-engine-9.9.9.tgz';
+  assert.match(studyReadinessBlockers(readinessScratch, wrongRegistryUrl, powerDesign).join('\n'), /registry tarball URL is not canonical/);
+  const falseEvaluatorLock = clone(ready);
+  falseEvaluatorLock.artifacts.evaluatorLock = artifact('false-evaluator-lock.json', {
+    schemaVersion: '1',
+    evaluatorId: ready.evaluator.evaluatorId,
+    evaluator: { path: evaluatorArtifact.path, sha256: evaluatorArtifact.sha256 },
+    rubric: { path: evaluatorRubric.path, sha256: evaluatorRubric.sha256 },
+    armBlind: false,
+    deterministicPrimaryOracles: true,
+    lockedBeforeHeldoutAccess: true,
+  });
+  assert.match(studyReadinessBlockers(readinessScratch, falseEvaluatorLock, powerDesign).join('\n'), /evaluator lock content differs/);
+  const falseIntegrityLock = clone(ready);
+  falseIntegrityLock.artifacts.integrityLock = artifact('false-integrity-lock.json', { schemaVersion: '1', policyId: 'weaker-policy' });
+  assert.match(studyReadinessBlockers(readinessScratch, falseIntegrityLock, powerDesign).join('\n'), /run-integrity lock differs/);
+  const wrongManifest = clone(ready);
   wrongManifest.taskPopulation.manifestSha256 = '0'.repeat(64);
   assert.match(studyReadinessBlockers(readinessScratch, wrongManifest, powerDesign).join('\n'), /task manifest digest does not match/);
 } finally {

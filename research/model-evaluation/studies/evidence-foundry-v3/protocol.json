@@ -208,16 +208,23 @@
     "blindedToArm": true,
     "agentFinalMessageAuthority": "diagnostic-only",
     "deterministicPrimaryOracles": true,
-    "evaluatorId": null,
-    "evaluatorArtifactSha256": null,
-    "rubricSha256": null
+    "evaluatorId": "bce-arm-blind-deterministic-evaluator-v1",
+    "evaluatorArtifactPath": "scripts/model-evaluation-blinded-evaluator.mjs",
+    "evaluatorArtifactSha256": "4092e96c5d94028da827bd097623d06eea8fabdf9052c1ac6f0d008d1059f598",
+    "rubricPath": "research/model-evaluation/studies/evidence-foundry-v3/evaluator-rubric.json",
+    "rubricSha256": "f7e57badaf4fbd99d27e636ce7800147a30e257b084a6557c8664b4457f6efa5"
   },
   "attemptPolicy": {
     "appendOnlyRawLedger": true,
     "transparentRetryBeforeExposureOnly": true,
     "postExposureRetry": "linked-diagnostic-only-never-replaces-randomized-attempt",
     "primaryAttemptMayNotBeReplaced": true,
-    "terminalRecordsImmutable": true
+    "terminalRecordsImmutable": true,
+    "runRegistrationBeforeFirstAttempt": true,
+    "durableFsyncBeforeNextAttempt": true,
+    "checkpointAfterEveryTerminal": true,
+    "exactReplayBytesRequired": true,
+    "externalCheckpointAnchorBeforeEfficacyClaim": true
   },
   "stoppingAndExclusions": {
     "outcomeDependentStopping": false,
@@ -241,7 +248,11 @@
     },
     "evaluatorLock": {
       "path": "research/model-evaluation/studies/evidence-foundry-v3/evaluator-lock.json",
-      "sha256": null
+      "sha256": "17fd07c56c644dea2b0e8a2cf024dc72c912c641d4102c1e006525994f76624e"
+    },
+    "integrityLock": {
+      "path": "research/model-evaluation/studies/evidence-foundry-v3/integrity-lock.json",
+      "sha256": "956aa7c732c545f0ffde46362faff49fbc10acc33982c1968add2c8a6cb785fa"
     },
     "results": {
       "path": "research/model-evaluation/studies/evidence-foundry-v3/results/summary.json",

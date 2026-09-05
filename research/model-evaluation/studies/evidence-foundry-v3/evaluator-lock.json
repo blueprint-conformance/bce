@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1",
+  "evaluatorId": "bce-arm-blind-deterministic-evaluator-v1",
+  "evaluator": {
+    "path": "scripts/model-evaluation-blinded-evaluator.mjs",
+    "sha256": "4092e96c5d94028da827bd097623d06eea8fabdf9052c1ac6f0d008d1059f598"
+  },
+  "rubric": {
+    "path": "research/model-evaluation/studies/evidence-foundry-v3/evaluator-rubric.json",
+    "sha256": "f7e57badaf4fbd99d27e636ce7800147a30e257b084a6557c8664b4457f6efa5"
+  },
+  "armBlind": true,
+  "deterministicPrimaryOracles": true,
+  "lockedBeforeHeldoutAccess": true
+}

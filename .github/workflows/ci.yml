@@ -97,6 +97,12 @@ jobs:
       - name: Synthetic sealed terminal-v3 model-evaluation replay + causal-integrity controls (not efficacy evidence)
         run: npm run test:model-eval-protocol
 
+      - name: Arm-blind deterministic evaluator + tamper controls
+        run: npm run test:model-eval-evaluator
+
+      - name: Evidence Foundry v3 registry, staged readiness, power, and archive controls
+        run: npm run test:evidence-foundry-v3
+
       - name: Sealed first-party Ollama tool-client protocol and spoofing controls
         run: npm run test:model-eval-client
 
