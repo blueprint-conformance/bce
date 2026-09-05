@@ -17,15 +17,19 @@ back to the standing cadence in [GOVERNANCE.md](../../GOVERNANCE.md).
 ## Label taxonomy
 
 `bug` · `false-verdict` (subclass of bug; always asks for the two-tree
-repro) · `quickstart` · `docs` · `corpus-candidate` (a real drift class the
+repro) · `quickstart` · `documentation` · `corpus-candidate` (a real drift class the
 corpus misses — the most valuable inbound) · `extractor-python` (the named
 community target) · `spec` (routes to the RFC process) · `question` ·
 `wontfix-scope` (outside the deliberately-narrow scope; close with a
 pointer to docs/comparison.md).
 
-## Auto-close / escalate
+The source of truth is [`.github/labels.json`](https://github.com/blueprint-conformance/bce/blob/main/.github/labels.json); required CI verifies every
+label named by issue forms and Dependabot, and the read-only maintainer-operations workflow compares
+the catalog with live GitHub state.
 
-- **Auto-close** (polite template, after one warning): hype-war threads,
+## Close with rationale / escalate
+
+- **Close manually with a public rationale** (after one warning): hype-war threads,
   "compare yourself to X" without a concrete scenario (point to
   docs/comparison.md and invite a PR), drive-by feature lists.
 - **Escalate to maintainer immediately**: any security report; any
@@ -36,5 +40,5 @@ pointer to docs/comparison.md).
 ## Rotation
 
 Week 1 is staffed by the maintainer (generic: whoever holds the
-`maintainer` role in GOVERNANCE.md), checking inbound at least twice daily.
+`maintainer` role in GOVERNANCE.md), checking inbound at least twice daily. Nothing is auto-closed.
 A missed SLA is logged in the issue thread honestly — no silent lateness.

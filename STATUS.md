@@ -146,6 +146,10 @@ source tree.
   reviewer because the project currently has one human maintainer; configuring a second-person gate
   would deadlock it. Independent review is not claimed. Adopters must configure policy owners
   appropriate to their own team size.
+- Contributor operations are explicit for that one-human state: issue forms enter a canonical queue,
+  required CI verifies every referenced label, and a read-only daily workflow reports external items
+  with no maintainer response after 168 hours. This measures queue state; it is not independent
+  review, a resolution guarantee, or a support SLA.
 
 ## Claim-change rule
 

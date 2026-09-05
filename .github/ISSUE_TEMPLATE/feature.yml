@@ -1,0 +1,52 @@
+name: Architecture capability or adoption improvement
+description: Propose one boundary BCE should express, observe, or make easier to adopt.
+title: "proposal: <boundary or adoption outcome>"
+labels: ["enhancement", "status:needs-triage"]
+body:
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Boundary that must hold
+      description: State the architecture invariant or adoption outcome, not a feature list.
+      placeholder: "Every tenant export must call the access guard before reading secrets."
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: Concrete failure to prevent
+      description: Describe one conforming tree and one drifted tree that should receive opposite verdicts.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence available to a deterministic engine
+      description: Name files, imports, calls, relationships, content, runtime observations, or other bounded evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround and its cost
+      description: Explain why tests, lint, review, or an existing BCE constraint is insufficient.
+    validations:
+      required: true
+  - type: dropdown
+    id: change_class
+    attributes:
+      label: Likely change class
+      options:
+        - Existing capability or documentation
+        - Extractor or evaluator implementation
+        - Normative specification change (requires an RFC)
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: Smallest credible proof
+      description: Define the RED/GREEN fixture, refusal case, consumer proof, or adoption measure that would make this real.
+    validations:
+      required: true

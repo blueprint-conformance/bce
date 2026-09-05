@@ -1,7 +1,7 @@
 name: Witness attestation
 description: You ran the RED → fix → GREEN loop yourself. Tell us what you saw.
 title: "witness attestation: <your name or handle>"
-labels: ["witness-attestation"]
+labels: ["witness-attestation", "status:needs-triage"]
 body:
   - type: markdown
     attributes:

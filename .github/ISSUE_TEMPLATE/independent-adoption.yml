@@ -1,7 +1,7 @@
 name: Independent adoption journey
 description: Record a full BCE onboarding attempt, including failures or abandonment.
 title: "independent adoption: <success, failure, or abandoned>"
-labels: ["independent-adoption"]
+labels: ["independent-adoption", "status:needs-triage"]
 body:
   - type: markdown
     attributes:

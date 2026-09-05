@@ -60,6 +60,7 @@ no skip flags — a refusal is a red, not a pass.
 
 - [Contributing](CONTRIBUTING.md): DCO sign-off, agent-authored-PR conventions, the violation-message style guide.
 - [Governance](GOVERNANCE.md): solo maintainer, AI-driven operations, no board, no SLA, Apache-2.0 open core.
+- [Maintainer operations](docs/maintainer-operations.md): intent-shaped intake, canonical queue labels, the read-only 168-hour response audit, and the no-phantom-review boundary.
 - [RFC process](rfcs/RFC-0001-process.md): how the format changes — the widen-only ratchet.
 - [Security policy](SECURITY.md): private vulnerability reporting.
 - [Working on bce itself](AGENTS.md): the repository map for an agent contributing to the engine.

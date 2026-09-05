@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "effectiveFrom": "2026-09-05T07:00:00Z",
+  "maxFirstResponseHours": 168,
+  "maintainerActorIds": [243248197],
+  "queueLabels": {
+    "new": "status:needs-triage",
+    "accepted": "status:accepted",
+    "waitingForAuthor": "status:needs-author",
+    "blocked": "status:blocked",
+    "declined": "status:declined"
+  },
+  "responseDefinition": "A public issue comment or submitted pull-request review authored by a configured human maintainer actor ID. Automatic labels and bot comments do not count."
+}

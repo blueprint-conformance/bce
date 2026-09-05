@@ -1,7 +1,7 @@
 name: External implementation report
 description: Submit independently maintained implementation results against the frozen vector set.
 title: "external implementation: <name>"
-labels: ["external-implementation"]
+labels: ["external-implementation", "status:needs-triage"]
 body:
   - type: markdown
     attributes:
