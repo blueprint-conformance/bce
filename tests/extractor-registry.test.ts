@@ -12,12 +12,14 @@ import { parseBlueprint, type EngineeringBlueprint } from '../src/schema.js';
 import {
   AstExtractor,
   LineScanExtractor,
+  TypeScriptModuleGraphExtractor,
   resolveExtraction,
   makeExtractor as legacyMakeExtractor,
   type ResolvedExtraction,
 } from '../src/extractors.js';
 import { makeExtractor, EXTRACTOR_PROVIDERS } from '../src/extractor-registry.js';
 import { PythonImportExtractor } from '../src/python-extractor.js';
+import { ExtractionProfileSchema } from '../src/schema.js';
 import { evaluate } from '../src/report.js';
 
 const FIXROOT = path.join(__dirname, '..', 'fixtures');
@@ -56,6 +58,13 @@ describe('verdict stability — registry vs legacy constructor, byte-identical T
 });
 
 describe('registry dispatch contract', () => {
+  it('typescript-module-graph routes only to its policy-independent AST provider', () => {
+    const moduleBlueprint = readBp('typescript-module-layering.blueprint.json');
+    const cfg = resolveExtraction(moduleBlueprint.extraction, moduleBlueprint.constraints);
+    expect(makeExtractor('ast', cfg)).toBeInstanceOf(TypeScriptModuleGraphExtractor);
+    expect(() => makeExtractor('line-scan', cfg)).toThrow(/requires --extractor ast/);
+  });
+
   it('python-import-surface routes to PythonImportExtractor under EITHER kind flag (disclosed kindNote)', () => {
     const py = readBp('python-service.blueprint.json');
     const cfg = resolveExtraction(py.extraction, py.constraints);
@@ -71,7 +80,7 @@ describe('registry dispatch contract', () => {
   });
 
   it('every ExtractionProfile enum value has exactly one registry row', () => {
-    const profiles = ['next-route-handler', 'plugin-surface', 'python-import-surface'] as const;
+    const profiles = ExtractionProfileSchema.options;
     for (const p of profiles) {
       expect(EXTRACTOR_PROVIDERS.filter((r) => r.profiles.includes(p)).length, p).toBe(1);
     }

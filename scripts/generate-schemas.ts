@@ -8,7 +8,7 @@
  *     Zod schemas in `src/schema.ts` as their single source of truth. These are converted
  *     mechanically via `zod-to-json-schema` (draft-07). NOTE (honest limit): Zod refinements
  *     (`superRefine` — e.g. "a forbiddenPattern constraint MUST carry a compiling, non-ReDoS
- *     `pattern`") are NOT expressible in the mechanical conversion, so the JSON Schema is the
+ *     `pattern`" and profile-specific cross-field contracts) are NOT expressible in the mechanical conversion, so the JSON Schema is the
  *     STRUCTURAL floor; the Zod schema remains normative where the two diverge (see
  *     spec/SPEC.md §"Schema publication"). The schema-parity test keeps the two from drifting
  *     structurally: regeneration must be byte-identical, and both validators must agree on the
@@ -91,8 +91,8 @@ function engineeringBlueprintSchema(): Record<string, unknown> {
     'EngineeringBlueprint',
     'The authored per-repository blueprint artifact (apiVersion blueprint-conformance/v1alpha1). ' +
       'Mechanically derived from the normative Zod schema in src/schema.ts. STRUCTURAL floor only: ' +
-      'Zod refinements (e.g. forbiddenPattern constraints MUST declare a compiling, non-catastrophic ' +
-      'regex `pattern`) are enforced by the engine but not expressible here — where the two diverge, ' +
+      'Zod refinements (e.g. forbiddenPattern regex safety and the TypeScript module profile\'s ' +
+      'engine-floor/selector contract) are enforced by the engine but not expressible here — where the two diverge, ' +
       'the engine schema is normative (spec/SPEC.md).',
     body,
   );
@@ -110,7 +110,9 @@ function portfolioBlueprintSchema(): Record<string, unknown> {
     'PortfolioBlueprint',
     'The authored fleet-level blueprint artifact (apiVersion blueprint-conformance/v1alpha1), ' +
       'lowered by `bce portfolio compile` into per-member EngineeringBlueprint overlays. ' +
-      'Mechanically derived from the normative Zod schema in src/schema.ts.',
+      'Mechanically derived from the structural Zod schema in src/schema.ts. Profile-specific ' +
+      'cross-field refinements are enforced by the engine parser and pinned as documented ' +
+      'structural-floor divergences in spec/SPEC.md.',
     body,
   );
 }
@@ -158,6 +160,19 @@ const violationSchema: Record<string, unknown> = {
     evidenceRef: { type: 'string' },
     observed: { type: 'string' },
     expected: { type: 'string' },
+  },
+};
+
+const unresolvedImportSchema: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['from', 'specifier', 'kind', 'ref', 'reason'],
+  properties: {
+    from: { type: 'string' },
+    specifier: { type: 'string' },
+    kind: { type: 'string' },
+    ref: { type: 'string' },
+    reason: { type: 'string' },
   },
 };
 
@@ -211,6 +226,11 @@ function complianceReportSchema(): Record<string, unknown> {
             extractor: { type: 'string', enum: ['ast', 'line-scan'] },
             filesScanned: { type: 'integer', minimum: 0 },
             unsupported: { type: 'array', items: { type: 'string' } },
+            unresolvedImports: {
+              type: 'array',
+              items: unresolvedImportSchema,
+              description: 'OPTIONAL located unresolved imports from the TypeScript module graph; relevant boundaries fail closed on these facts',
+            },
           },
         },
         repo: {
@@ -374,6 +394,20 @@ function architectureGraphSchema(): Record<string, unknown> {
                 },
               },
               description: 'OPTIONAL (widen-only addition): the deterministic content-pattern scan a forbiddenPattern constraint evaluates; absent when no forbiddenPattern constraint is declared',
+            },
+            unresolvedEgress: {
+              type: 'array',
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['callee', 'ref'],
+                properties: { callee: { type: 'string' }, ref: { type: 'string' } },
+              },
+            },
+            unresolvedImports: {
+              type: 'array',
+              items: unresolvedImportSchema,
+              description: 'OPTIONAL located unresolved imports from the TypeScript module graph; relevant boundaries fail closed on these facts',
             },
           },
         },

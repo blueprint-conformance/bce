@@ -333,6 +333,11 @@ export type BlueprintArchitecture = z.infer<typeof BlueprintArchitectureSchema>;
  *    extension factory (or a `pi.registerTool({...})` call) is a component; symbols in
  *    `requiredSymbols` called in the factory body are `provides` edges; `forbiddenImports`
  *    modules imported are `imports` edges (used by a forbiddenDependency constraint).
+ *  - `profile: 'typescript-module-graph'` (widen-only, additive) — every scanned TS/JS module is
+ *    a component and every statically named import is an `imports` edge. Constraints address
+ *    targets with `module:<repo-path-or-glob>`, `package:<npm-root>`, or `builtin:<node-name>`.
+ *    This profile is AST-only and fails closed on unresolved/computed imports that intersect a
+ *    governed boundary; it does not claim transitive reachability or cycle detection.
  *  - `profile: 'python-import-surface'` (widen-only, additive) — a Python module surface: every
  *    scanned `.py` file is a `module:<dotted.path>` component of type `pythonModule`; absolute
  *    and relative import statements matching `forbiddenImports` (∪ every forbiddenDependency.to)
@@ -342,8 +347,15 @@ export type BlueprintArchitecture = z.infer<typeof BlueprintArchitectureSchema>;
  *    refuse loudly. Single line-scan provider; see python-extractor.ts for the detected/missed
  *    import forms.
  */
-export const ExtractionProfileSchema = z.enum(['next-route-handler', 'plugin-surface', 'python-import-surface']);
+export const ExtractionProfileSchema = z.enum([
+  'next-route-handler',
+  'plugin-surface',
+  'typescript-module-graph',
+  'python-import-surface',
+]);
 export type ExtractionProfile = z.infer<typeof ExtractionProfileSchema>;
+/** First engine release whose parser/evaluator understands typescript-module-graph. */
+export const TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION = '0.3.0';
 
 export const BlueprintExtractionSchema = z
   .object({
@@ -391,9 +403,117 @@ export const BlueprintExtractionSchema = z
      * for plugin-surface, or the historical route-file count for next-route-handler.
      */
     minFiles: z.number().int().positive().optional(),
+    /**
+     * (typescript-module-graph only) repository-relative tsconfig used for TypeScript module
+     * resolution, including `baseUrl`/`paths` and `extends`. Absent means deterministic lexical
+     * relative resolution; aliases, package imports (`#...`), and URLs are then unresolved facts.
+     */
+    tsconfig: RepoRelativePathPatternSchema.superRefine((value, ctx) => {
+      if (/[*?]/.test(value)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'tsconfig must be one repository-relative file, not a glob' });
+      }
+    }).optional(),
   })
   .strict();
 export type BlueprintExtraction = z.infer<typeof BlueprintExtractionSchema>;
+
+function validModuleTargetSelector(value: string | undefined): boolean {
+  if (!value) return false;
+  if (value.startsWith('module:')) {
+    const target = value.slice('module:'.length).replace(/\\/g, '/');
+    return target.length > 0 && !target.startsWith('/') && !/^[A-Za-z]:\//.test(target) &&
+      !target.split('/').includes('..') && !target.includes('\0');
+  }
+  if (value.startsWith('package:')) {
+    const target = value.slice('package:'.length);
+    return /^(?:@[a-z0-9._~-]+\/[a-z0-9._~-]+|[a-z0-9._~-]+)$/.test(target);
+  }
+  if (value.startsWith('builtin:')) {
+    return /^[a-z0-9_./-]+$/.test(value.slice('builtin:'.length));
+  }
+  return false;
+}
+
+/** Profile-specific fail-closed authoring rules for the policy-independent TS/JS graph. */
+export function refineModuleGraphBlueprint(
+  value: {
+    extraction?: BlueprintExtraction | undefined;
+    constraints: readonly Constraint[];
+    minEngineVersion?: string | undefined;
+  },
+  ctx: z.RefinementCtx,
+  requireMinimumEngineVersion = true,
+): void {
+  const extraction = value.extraction;
+  const issue = (path: Array<string | number>, message: string): void => {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+  };
+  if (extraction?.profile !== 'typescript-module-graph') {
+    if (extraction?.tsconfig !== undefined) {
+      issue(['extraction', 'tsconfig'], 'tsconfig is only valid with typescript-module-graph');
+    }
+    return;
+  }
+
+  if (!extraction.paths || extraction.paths.length === 0) {
+    issue(['extraction', 'paths'], 'typescript-module-graph requires at least one path glob');
+  }
+  if (typeof extraction.minFiles !== 'number') {
+    issue(['extraction', 'minFiles'], 'typescript-module-graph requires an explicit floor');
+  }
+  if (requireMinimumEngineVersion) {
+    const actual = value.minEngineVersion?.split('.').map(Number);
+    const floor = TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION.split('.').map(Number);
+    const belowFloor = !actual || floor.some((part, index) => {
+      const priorEqual = floor.slice(0, index).every((prior, priorIndex) => prior === actual[priorIndex]);
+      return priorEqual && (actual[index] ?? 0) < part;
+    });
+    if (belowFloor) {
+      issue(
+        ['minEngineVersion'],
+        `typescript-module-graph requires minEngineVersion >=${TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION}`,
+      );
+    }
+  }
+  for (const field of ['guardSymbols', 'forbiddenImports', 'forbiddenEgressHosts', 'governedModules'] as const) {
+    if ((extraction[field] ?? []).length > 0) {
+      issue(['extraction', field], 'component-profile policy must be absent or empty for typescript-module-graph');
+    }
+  }
+
+  value.constraints.forEach((constraint, index) => {
+    if (constraint.type === 'forbiddenEgress') {
+      issue(
+        ['constraints', index, 'type'],
+        'forbiddenEgress is not supported by typescript-module-graph; use a framework AST profile',
+      );
+      return;
+    }
+    if (constraint.type === 'requiredComponent' && constraint.component !== 'typescriptModule') {
+      issue(['constraints', index, 'component'], 'requiredComponent must declare typescriptModule');
+      return;
+    }
+    if (constraint.type !== 'requiredDependency' && constraint.type !== 'forbiddenDependency') return;
+    if (constraint.type === 'requiredDependency' && constraint.component !== 'typescriptModule') {
+      issue(['constraints', index, 'component'], 'requiredDependency must declare typescriptModule');
+    }
+    if (constraint.type === 'forbiddenDependency' && constraint.from && constraint.from !== '*') {
+      issue(
+        ['constraints', index, 'from'],
+        "forbiddenDependency source selection uses scopePaths; from must be absent or '*'",
+      );
+    }
+    if (!validModuleTargetSelector(constraint.to)) {
+      issue(
+        ['constraints', index, 'to'],
+        'target must be module:<path-or-glob>, package:<npm-root>, or builtin:<node-name>',
+      );
+    }
+    if (!constraint.scopePaths || constraint.scopePaths.length === 0) {
+      issue(['constraints', index, 'scopePaths'], 'dependency constraints require non-empty source paths');
+    }
+  });
+}
 
 /**
  * The authored EngineeringBlueprint. `.strict()` mirrors the json-schema's top-level
@@ -436,11 +556,14 @@ export const EngineeringBlueprintSchema = z
   })
   .strict();
 
+/** Normative cross-field validator; the public ZodObject above remains API-compatible. */
+export const ValidatedEngineeringBlueprintSchema = EngineeringBlueprintSchema.superRefine(refineModuleGraphBlueprint);
+
 export type EngineeringBlueprint = z.infer<typeof EngineeringBlueprintSchema>;
 
 /** Parse + validate an authored blueprint. Throws a ZodError on any violation. */
 export function parseBlueprint(input: unknown): EngineeringBlueprint {
-  return EngineeringBlueprintSchema.parse(input);
+  return ValidatedEngineeringBlueprintSchema.parse(input);
 }
 
 /** The result of a GATE-MODE tolerant parse (see parseBlueprintTolerant). */
@@ -474,8 +597,10 @@ export interface TolerantBlueprintParse {
  * pinned-engine gate gets the narrow tolerance.
  */
 export function parseBlueprintTolerant(input: unknown): TolerantBlueprintParse {
-  const strict = EngineeringBlueprintSchema.safeParse(input);
-  if (strict.success) return { blueprint: strict.data, unknownConstraintsSkipped: [] };
+  const strict = ValidatedEngineeringBlueprintSchema.safeParse(input);
+  if (strict.success) {
+    return { blueprint: strict.data, unknownConstraintsSkipped: [] };
+  }
 
   // The failure must be unknown-constraint-shaped to earn tolerance; anything else rethrows.
   if (typeof input !== 'object' || input === null) throw strict.error;
@@ -505,7 +630,7 @@ export function parseBlueprintTolerant(input: unknown): TolerantBlueprintParse {
     );
   }
   // Re-validate the remainder STRICTLY — real corruption elsewhere still throws.
-  const blueprint = EngineeringBlueprintSchema.parse({ ...raw, constraints: kept });
+  const blueprint = ValidatedEngineeringBlueprintSchema.parse({ ...raw, constraints: kept });
   return { blueprint, unknownConstraintsSkipped: skipped };
 }
 
@@ -590,11 +715,36 @@ export const PortfolioBlueprintSchema = z
       .strict(),
   })
   .strict();
+
+/** Normative portfolio cross-field validator; keeps PortfolioBlueprintSchema a public ZodObject. */
+export const ValidatedPortfolioBlueprintSchema = PortfolioBlueprintSchema.superRefine((value, ctx) => {
+    refineModuleGraphBlueprint(
+      { extraction: value.extraction, constraints: value.fleetConstraints },
+      ctx,
+      false,
+    );
+    if (value.extraction.profile !== 'typescript-module-graph') return;
+    value.members.forEach((member, index) => {
+      const actual = member.enginePin.split('.').map(Number);
+      const floor = TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION.split('.').map(Number);
+      const belowFloor = floor.some((part, partIndex) => {
+        const priorEqual = floor.slice(0, partIndex).every((prior, priorIndex) => prior === actual[priorIndex]);
+        return priorEqual && (actual[partIndex] ?? 0) < part;
+      });
+      if (belowFloor) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['members', index, 'enginePin'],
+          message: `typescript-module-graph requires member enginePin >=${TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION}`,
+        });
+      }
+    });
+  });
 export type PortfolioBlueprint = z.infer<typeof PortfolioBlueprintSchema>;
 
 /** Parse + validate an authored portfolio. Throws a ZodError on any violation. */
 export function parsePortfolioBlueprint(input: unknown): PortfolioBlueprint {
-  return PortfolioBlueprintSchema.parse(input);
+  return ValidatedPortfolioBlueprintSchema.parse(input);
 }
 
 /** The discriminated result of parsing an artifact whose kind is not known up front. */
@@ -611,10 +761,10 @@ export function parseAnyBlueprint(input: unknown): AnyBlueprintParse {
   const kind =
     typeof input === 'object' && input !== null ? (input as Record<string, unknown>).kind : undefined;
   if (kind === 'EngineeringBlueprint') {
-    return { kind: 'EngineeringBlueprint', value: EngineeringBlueprintSchema.parse(input) };
+    return { kind: 'EngineeringBlueprint', value: parseBlueprint(input) };
   }
   if (kind === 'PortfolioBlueprint') {
-    return { kind: 'PortfolioBlueprint', value: PortfolioBlueprintSchema.parse(input) };
+    return { kind: 'PortfolioBlueprint', value: parsePortfolioBlueprint(input) };
   }
   throw new Error(
     `parseAnyBlueprint: unknown blueprint kind ${JSON.stringify(kind)} — fail closed ` +

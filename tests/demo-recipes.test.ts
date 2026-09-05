@@ -29,6 +29,7 @@ const RECIPE_IDS = [
   'tenant-route-guard',
   'governed-egress',
   'python-provider-import',
+  'module-layering',
   'configuration-allowlist',
 ] as const;
 
@@ -44,7 +45,7 @@ describe('packaged architecture demo recipes', () => {
     );
   });
 
-  it('lists the five executable recipes with honest maturity labels', () => {
+  it('lists the executable recipes with honest maturity labels', () => {
     const result = run(['demo', '--list']);
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
@@ -53,6 +54,7 @@ describe('packaged architecture demo recipes', () => {
     expect(result.stdout).toContain('TypeScript/JavaScript · mature AST');
     expect(result.stdout).toContain('Next.js TypeScript · mature AST');
     expect(result.stdout).toContain('Python · MVP import graph');
+    expect(result.stdout).toContain('TypeScript/JavaScript · direct module graph');
     expect(result.stdout).toContain('JSON/Markdown · real-source pattern pair');
     expect(result.stdout).toContain('run all: bce demo --recipe all');
 
@@ -69,6 +71,8 @@ describe('packaged architecture demo recipes', () => {
     expect(result.stdout.match(/^recipe /gm)).toHaveLength(RECIPE_IDS.length);
     expect(result.stdout.match(/^GREEN conformant: score 100, exit 0$/gm)).toHaveLength(RECIPE_IDS.length);
     expect(result.stdout.match(/^RED drift: score \d+, would exit 1, violation [a-z0-9-]+$/gm)).toHaveLength(RECIPE_IDS.length);
+    expect(result.stdout.match(/^  observed /gm)).toHaveLength(RECIPE_IDS.length);
+    expect(result.stdout.match(/^  evidence .+#L\d+$/gm)).toHaveLength(RECIPE_IDS.length);
     for (const id of RECIPE_IDS) {
       expect(result.stdout).toContain(`bce demo: ${id} discriminates GREEN from RED`);
     }

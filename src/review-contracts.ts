@@ -13,6 +13,7 @@ import {
   BlueprintMetadataSchema,
   ConstraintSchema,
   EngineeringBlueprintSchema,
+  refineModuleGraphBlueprint,
   EvidenceRequirementSchema,
   ExtractionProfileSchema,
 } from './schema.js';
@@ -188,7 +189,7 @@ export const BlueprintProposalSchema = z
     plan: BlueprintDraftPlanSchema,
     candidate: EngineeringBlueprintSchema.extend({
       metadata: BlueprintMetadataSchema.extend({ status: z.literal('draft') }),
-    }),
+    }).superRefine(refineModuleGraphBlueprint),
     digests: z
       .object({
         context: ReviewDigestSchema,

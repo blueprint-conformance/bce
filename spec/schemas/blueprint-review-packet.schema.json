@@ -332,8 +332,13 @@
                           "enum": [
                             "next-route-handler",
                             "plugin-surface",
+                            "typescript-module-graph",
                             "python-import-surface"
                           ],
+                          "type": "string"
+                        },
+                        "tsconfig": {
+                          "minLength": 1,
                           "type": "string"
                         }
                       },
@@ -903,8 +908,13 @@
                           "enum": [
                             "next-route-handler",
                             "plugin-surface",
+                            "typescript-module-graph",
                             "python-import-surface"
                           ],
+                          "type": "string"
+                        },
+                        "tsconfig": {
+                          "minLength": 1,
                           "type": "string"
                         }
                       },
@@ -1572,8 +1582,13 @@
                           "enum": [
                             "next-route-handler",
                             "plugin-surface",
+                            "typescript-module-graph",
                             "python-import-surface"
                           ],
+                          "type": "string"
+                        },
+                        "tsconfig": {
+                          "minLength": 1,
                           "type": "string"
                         }
                       },
@@ -2280,6 +2295,7 @@
                   "enum": [
                     "next-route-handler",
                     "plugin-surface",
+                    "typescript-module-graph",
                     "python-import-surface"
                   ],
                   "type": "string"

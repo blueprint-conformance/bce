@@ -41,7 +41,7 @@
 
 import type { EngineeringBlueprint, Constraint, ConstraintType, ExtractionProfile } from './schema.js';
 import type { ArchitectureGraph, ObservedComponent, ObservedEdge } from './graph.js';
-import { evaluate } from './report.js';
+import { evaluate, moduleTargetMatches, pathGlobToRe } from './report.js';
 
 /** Per-constraint refutability verdict. */
 export enum ConstraintTeeth {
@@ -102,6 +102,7 @@ export interface TeethReport {
   /** Enforcement-readiness decision, populated by the CLI when strict readiness is requested. */
   readiness?: {
     status: 'ready' | 'waived' | 'refusal';
+    /** `extractor-real` means every constraint has an extractor-real witness, not merely one. */
     proof: 'extractor-real' | 'reviewed-evaluator-waiver' | 'insufficient';
     waiver?: { reviewer: string; rationale: string; evidenceRef: string };
   };
@@ -195,6 +196,23 @@ function reddeningMutation(
       // evidenceType:'tenantGuard' must NOT retarget to 'guards' (report.ts finding #3), or teeth
       // removes the wrong edge type (a no-op on the count) and mislabels a genuinely-toothed
       // constraint TRIVIALLY_GREEN → a spurious toothless REJECT. Thread the real profile through.
+      if (profile === 'typescript-module-graph') {
+        const scopeMatchers = (c.scopePaths ?? []).map(pathGlobToRe);
+        const sourceIds = new Set(
+          g.components
+            .filter((component) => component.type === 'typescriptModule' && scopeMatchers.some((re) => re.test(component.path)))
+            .map((component) => component.id),
+        );
+        const satisfying = g.guardEdges.filter(
+          (edge) => edge.type === 'imports' && sourceIds.has(edge.from) && moduleTargetMatches(edge.to, c.to),
+        );
+        if (satisfying.length === 0) return null;
+        const removed = new Set(satisfying);
+        return {
+          g2: withGraph(g, { guardEdges: g.guardEdges.filter((edge) => !removed.has(edge)) }),
+          mutation: `remove ${satisfying.length} matching direct import edge(s) — dropping the required module dependency reddens this boundary`,
+        };
+      }
       const isHistoricalD6 =
         profile === 'next-route-handler' && (c.evidenceType === 'tenantGuard' || c.component === 'apiRouteHandler');
       const edgeType = isHistoricalD6 ? 'guards' : 'provides';
@@ -209,7 +227,14 @@ function reddeningMutation(
       // Reddens by ADDING the exact forbidden edge a bad PR would introduce.
       const to = c.to;
       if (!to) return null;
-      const from = !c.from || c.from === '*' ? (g.components[0]?.id ?? 'file:injected') : c.from;
+      const moduleSource = profile === 'typescript-module-graph'
+        ? g.components.find(
+            (component) =>
+              component.type === 'typescriptModule' &&
+              (c.scopePaths ?? []).some((scope) => pathGlobToRe(scope).test(component.path)),
+          )
+        : undefined;
+      const from = moduleSource?.id ?? (!c.from || c.from === '*' ? (g.components[0]?.id ?? 'file:injected') : c.from);
       // 0.9.0 scopePaths-awareness (found by self-hosting — the engine gating its own tree): a
       // scopePaths-narrowed constraint only counts an edge whose from-FILE (evidenceRef relPath)
       // glob-matches a scope entry (see evaluate() in report.ts). The historical synthetic
@@ -219,7 +244,10 @@ function reddeningMutation(
       // exact in-scope file a real bad PR would edit.
       const scope0 = c.scopePaths?.[0];
       const injectedPath = scope0 ? concretePathForGlob(scope0) : 'teeth:injected';
-      const injected: ObservedEdge = { from, to, type: 'imports', evidenceRef: `${injectedPath}#L1` };
+      const injectedTarget = profile === 'typescript-module-graph' && to.startsWith('module:')
+        ? `module:${concretePathForGlob(to.slice('module:'.length))}`
+        : to;
+      const injected: ObservedEdge = { from, to: injectedTarget, type: 'imports', evidenceRef: `${injectedPath}#L1` };
       return {
         g2: withGraph(g, { guardEdges: [...g.guardEdges, injected] }),
         mutation: `add a forbidden edge ${from} -> ${to} — the exact drift a real bad PR introduces`,

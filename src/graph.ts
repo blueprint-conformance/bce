@@ -75,6 +75,18 @@ export interface CoverageReport {
    * proof is not proof that the destination is governed.
    */
   unresolvedEgress?: Array<{ callee: string; ref: string }>;
+  /**
+   * Statically observed imports whose target could not be classified or resolved by the
+   * TypeScript module-graph provider. Located uncertainty is evidence: relevant C2/C3 boundary
+   * constraints fail closed on these items instead of treating an unknown edge as absent.
+   */
+  unresolvedImports?: Array<{
+    from: string;
+    specifier: string;
+    kind: string;
+    ref: string;
+    reason: string;
+  }>;
 }
 
 /** The persisted observed architecture graph. */

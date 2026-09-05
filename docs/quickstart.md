@@ -60,9 +60,10 @@ can — and that a green verdict therefore means something.
 
 ## Then
 
-- **Choose the boundary that must hold** — [`first-win.md`](first-win.md) runs five packaged
-  architecture recipes across extension, route, egress, Python, and configuration surfaces, then
-  links four measured layout walkthroughs where you author the contract yourself.
+- **Choose the boundary that must hold** — [`first-win.md`](first-win.md) runs the six packaged
+  recipes in the `v0.3.0` source candidate across extension, route, egress, module, Python, and
+  configuration surfaces, then links five measured layout walkthroughs where you author the
+  contract yourself. The page keeps these separate from the current `v0.2.0` registry release.
 - **Gate your own repository** — [`adopt-existing-repo.md`](adopt-existing-repo.md) is the honest
   brownfield path: advisory → baseline → graduate → enforced.
 - **Run bce inside an agent loop** — [`agent-loop.md`](agent-loop.md) wires the gate into Claude Code,

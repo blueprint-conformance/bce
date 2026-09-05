@@ -280,8 +280,13 @@
               "enum": [
                 "next-route-handler",
                 "plugin-surface",
+                "typescript-module-graph",
                 "python-import-surface"
               ],
+              "type": "string"
+            },
+            "tsconfig": {
+              "minLength": 1,
               "type": "string"
             }
           },
@@ -387,6 +392,6 @@
       "type": "object"
     }
   },
-  "description": "The authored per-repository blueprint artifact (apiVersion blueprint-conformance/v1alpha1). Mechanically derived from the normative Zod schema in src/schema.ts. STRUCTURAL floor only: Zod refinements (e.g. forbiddenPattern constraints MUST declare a compiling, non-catastrophic regex `pattern`) are enforced by the engine but not expressible here — where the two diverge, the engine schema is normative (spec/SPEC.md).",
+  "description": "The authored per-repository blueprint artifact (apiVersion blueprint-conformance/v1alpha1). Mechanically derived from the normative Zod schema in src/schema.ts. STRUCTURAL floor only: Zod refinements (e.g. forbiddenPattern regex safety and the TypeScript module profile's engine-floor/selector contract) are enforced by the engine but not expressible here — where the two diverge, the engine schema is normative (spec/SPEC.md).",
   "title": "EngineeringBlueprint"
 }

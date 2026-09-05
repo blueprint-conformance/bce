@@ -111,6 +111,26 @@ describe('quickstart README — the guaranteed path is proven, command by comman
     }
   });
 
+  it('never lets one real witness certify a mixed blueprint as entirely extractor-real', () => {
+    const outDir = mkdtempSync(join(tmpdir(), 'bce-mixed-teeth-'));
+    const out = join(outDir, 'teeth.json');
+    try {
+      const r = runCli([
+        'teeth',
+        '--blueprint', join(HERE, '..', 'fixtures', 'typescript-module-layering.blueprint.json'),
+        '--ct-repo', join(HERE, '..', 'fixtures', 'typescript-module-surface', 'conformant'),
+        '--no-pin', '--extractor', 'ast', '--require-extractor-real', '--out', out,
+      ]);
+      expect(r.code).toBe(2);
+      expect(r.out).toContain('enforcement readiness requires extractor-real teeth for every constraint; 1/2 proven');
+      expect(JSON.parse(readFileSync(out, 'utf8')).readiness).toMatchObject({
+        status: 'refusal', proof: 'insufficient',
+      });
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
   it('step 2: gate on the clean tree passes with 1/1 evaluated, 0 failing', () => {
     const r = runCli(['gate', '--repo', join(QUICKSTART, 'clean'), '--blueprint-dir', join(QUICKSTART, 'blueprint'), '--extractor', 'ast']);
     expect(r.code).toBe(0);

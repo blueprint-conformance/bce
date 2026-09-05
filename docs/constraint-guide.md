@@ -6,6 +6,10 @@ exist, and does an extracted component live under a prohibited path? This is a v
 the [constraint taxonomy in the specification](../spec/SPEC.md#3-constraint-taxonomy--11-types) is
 normative.
 
+The module-graph notes on C2 and C3 describe the unpublished `v0.3.0` source candidate. The current
+`bce-engine@0.2.0` registry release supports the framework-specific semantics shown in the diagrams,
+not `typescript-module-graph`.
+
 | Constraint | Question BCE answers | Evidence graded |
 |---|---|---|
 | C1 `requiredComponent` | Does at least one component of this type exist? | observed component set |
@@ -39,6 +43,10 @@ C2 is universal over the target component set: every matching component needs a 
 edge. A missing edge produces a violation anchored to that component. An empty target set also
 produces a violation, because “nothing existed to check” cannot prove a governed registration path.
 
+Under `typescript-module-graph`, C2 uses `scopePaths` for importer modules and a `to` selector for
+the required direct target. The component is always `typescriptModule`. A matching source with no
+such edge fails; unresolved imports cannot be used as proof of the required edge.
+
 ## C3 — `forbiddenDependency`
 
 <p align="center">
@@ -51,6 +59,11 @@ produces a violation, because “nothing existed to check” cannot prove a gove
 C3 inspects real import edges. `from` may name one component or use `*` for any importer; optional
 `scopePaths` narrow which importer files count. Every matching edge to `to` is a separate violation,
 including an import from a file the extractor could not attribute to a recognized component.
+
+Under `typescript-module-graph`, C3 filters only `imports` edges, uses `scopePaths` for importer
+modules, and accepts `module:`, `package:`, or `builtin:` targets; `from` is absent or `*`. An unresolved import inside the
+source scope fails closed because BCE cannot prove that it avoids the forbidden target. See the
+[module-graph guide](typescript-module-graph.md).
 
 ## C4 — `forbiddenPath`
 

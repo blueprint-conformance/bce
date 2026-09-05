@@ -9,8 +9,9 @@ The shortest safe path from “new repository” to a self-correcting BCE gate i
    agent-context, and MCP wiring. The lower-level `bce adopt` command remains available for
    policy-only adoption with an exact published `bce-engine@X.Y.Z` pin.
    Adoption is advisory and proposal-only; generated CI has read-only permissions.
-3. Fix scope and teeth findings. `bce teeth ... --require-extractor-real` requires a real extractor
-   mutation. Evaluator-only policy needs a committed, exact-reference reviewed waiver.
+3. Fix scope and teeth findings. `bce teeth ... --require-extractor-real` marks a blueprint ready
+   only when every constraint has extractor-real teeth. Any evaluator-only remainder needs a
+   committed, exact-reference reviewed waiver; trivial or indeterminate constraints still refuse.
 4. A human steward reviews the exact packet in a pull request. `bce review decide` resolves identity,
    current maintain/admin permission, rationale, time, commit, and review state from GitHub; `bce
    ratify` re-authenticates that decision, digest-checks the inputs, bumps the version, and appends

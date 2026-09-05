@@ -7,8 +7,8 @@ source tree.
 
 | Surface | Status | What a user may rely on |
 |---|---|---|
-| Source checkout | Working, internally tested | Node 22.22.2, `npm ci`, `npm run build`, then `node dist/cli.js`; published runtime remains Node 22+ |
-| Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree, preserves the zero-argument `bce demo` contract, and executes all five packaged architecture recipes |
+| Source checkout | Working, internally tested candidate | `v0.3.0` candidate; Node 22.22.2, `npm ci`, `npm run build`, then `node dist/cli.js`; it is not the registry release |
+| Packed local tarball | Working, clean-room tested candidate | `npm run test:package` installs the candidate tarball outside the source tree, preserves the zero-argument `bce demo` contract, and executes all six packaged architecture recipes; this does not establish registry availability |
 | npm | Released | [`bce-engine@0.2.0`](https://www.npmjs.com/package/bce-engine/v/0.2.0) is public with SLSA provenance and integrity `sha512-hFKOHO+EYgQbp+jaOW7/WTBGEqjHDEEKfB+O1ALo8KLnmIAr708mQWeXxRUMi3YAmWxz1RhfiAY1Rdpk81NNrA==`; install the exact version on Node 22+ |
 | Git tag / GitHub Release | Released, immutable | [`v0.2.0`](https://github.com/blueprint-conformance/bce/releases/tag/v0.2.0) is immutable at source `14716bf655d8dd6020b9dcf8905678ef2abe2760`; it froze before asset upload, so the exact signed record is preserved in the separate [`evidence-v0.2.0`](https://github.com/blueprint-conformance/bce/releases/tag/evidence-v0.2.0) immutable release ([verification record](docs/release-v0.2.0.md)) |
 | GitHub Action | Released | Pin `blueprint-conformance/bce@14716bf655d8dd6020b9dcf8905678ef2abe2760` (the v0.2.0 source commit), never a tag; the creator-maintained external RED/GREEN witness below remains evidence for its recorded v0.1.5 Action pin, not v0.2.0 |
@@ -19,9 +19,10 @@ source tree.
 
 - For supported extractor/constraint combinations, it can discriminate committed conformant and
   seeded-drift fixtures and produce deterministic reports.
-- The packaged First Win catalog executes five GREEN/named-RED architecture recipes across the
-  mature TypeScript/JavaScript AST path, Python import-graph MVP, and a real-source configuration
-  pattern pair. These are mechanism demonstrations; their breadth does not establish efficacy.
+- The `v0.3.0` source-candidate First Win catalog executes six GREEN/named-RED architecture recipes
+  across the mature TypeScript/JavaScript AST path, the direct TypeScript/JavaScript module graph,
+  Python import-graph MVP, and a real-source configuration pattern pair. These are mechanism
+  demonstrations; their breadth does not establish efficacy or registry availability.
 - Gate outcomes are three-state: pass (exit 0), violation (exit 1), and structural refusal
   (exit 2). A missing blueprint set, unsupported critical analysis, unknown constraint, unbound
   runtime constraint, unsafe evidence path, or unresolved allowlist destination cannot pass.

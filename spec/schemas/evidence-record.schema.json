@@ -84,6 +84,7 @@
               "enum": [
                 "next-route-handler",
                 "plugin-surface",
+                "typescript-module-graph",
                 "python-import-surface"
               ],
               "type": "string"

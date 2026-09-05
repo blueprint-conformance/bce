@@ -11,15 +11,16 @@
 `EngineeringBlueprint` into the repository; each change must conform or return an exact reason it
 cannot merge.
 
-**Support:** TypeScript/JavaScript AST extraction is mature; Python import-graph extraction is MVP;
-Node 22+ is required; the contract remains pre-1.0.
+**Released support (`v0.2.0`):** mature TypeScript/JavaScript framework-surface AST extraction and
+Python import-graph MVP. **Source candidate (`v0.3.0`):** adds direct TypeScript/JavaScript module
+boundaries. Node 22+ is required; the contract remains pre-1.0.
 
 <!-- award-slot: reserved. Activate only in a PR that links an award actually won. -->
 
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 871">
+  <img src="assets/badges/tests.svg" alt="tests: 886">
 </p>
 
 ## Run a real gate
@@ -32,9 +33,17 @@ npm install --save-dev --save-exact bce-engine@0.2.0
 npx --no-install bce demo
 ```
 
-The packaged demo runs one conforming tree and one drifted tree. Then choose the architecture
-boundary you need to protect—extension registration, tenant access, egress, Python imports, or
-configuration widening—in the [executable recipe catalog](docs/first-win.md).
+The released demo runs one conforming tree and one drifted tree. The `v0.3.0` source candidate adds
+six targeted recipes for extension registration, tenant access, egress, module layering, Python
+imports, and configuration widening. It is not published yet; the registry preflight below must
+succeed before anyone installs or describes it as released:
+
+```bash
+npm view bce-engine@0.3.0 version dist.integrity
+```
+
+[Run the candidate recipes from source](docs/first-win.md), or stay on the immutable `v0.2.0`
+release for the zero-argument proof above.
 
 ## The architecture package
 
@@ -138,10 +147,11 @@ successful, cheaper, faster, or safer than a baseline. [Check the public truth l
 
 ## Start with your repository
 
-Run one of five packaged architecture recipes, then adapt it with a measured authoring walkthrough
-for an empty repository, plain JavaScript, TypeScript, or a monorepo: **[choose the boundary that
-must hold](docs/first-win.md)**. The measured test keeps every layout's author → RED → fix → GREEN
-first win in under 30 seconds.
+The `v0.3.0` source candidate contains six packaged architecture recipes. Run one from a checkout,
+then adapt it with a measured authoring walkthrough for an empty repository, plain JavaScript,
+TypeScript, a monorepo, or direct module layering: **[choose the boundary that must
+hold](docs/first-win.md)**. The measured test keeps every layout's author → RED → fix → GREEN first
+win in under 60 seconds, including loaded-runner contention.
 
 Specification: [blueprint-conformance/v1alpha1](spec/SPEC.md) · Agent loop:
 [MCP and agent workflow](docs/agent-loop.md) · Documentation:

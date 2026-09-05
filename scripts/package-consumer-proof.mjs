@@ -22,6 +22,40 @@ npm(['init', '-y'], { cwd: scratch, stdio: 'ignore' });
 npm(['install', '--ignore-scripts', tarball], { cwd: scratch, stdio: 'inherit' });
 const installedRoot = join(scratch, 'node_modules', 'bce-engine');
 const installedCli = join(installedRoot, 'dist', 'cli.js');
+const installedMcp = join(installedRoot, 'dist', 'mcp-server.js');
+
+function callInstalledRunGate(repoDir, blueprintDir) {
+  const input = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25' } },
+    {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'run_gate', arguments: { repoDir, blueprintDir, extractor: 'ast' } },
+    },
+  ].map((request) => JSON.stringify(request)).join('\n') + '\n';
+  const run = spawnSync(process.execPath, [installedMcp], {
+    cwd: repoDir,
+    input,
+    encoding: 'utf8',
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  if (run.error) throw run.error;
+  if (run.status !== 0) {
+    throw new Error(`installed MCP exited ${run.status}; stderr:\n${run.stderr}`);
+  }
+  const responses = run.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  const response = responses.find((item) => item.id === 2);
+  if (!response || response.error || response.result?.isError || !response.result?.structuredContent) {
+    throw new Error(`installed MCP run_gate failed: ${JSON.stringify(response)}`);
+  }
+  return response.result.structuredContent;
+}
+
 const output = execFileSync(process.execPath, [installedCli, 'demo'], { cwd: scratch, encoding: 'utf8' });
 
 for (const marker of [
@@ -43,9 +77,32 @@ for (const marker of [
   'recipe governed-egress',
   'recipe python-provider-import',
   'recipe configuration-allowlist',
-  'bce demo: 5/5 packaged recipes discriminate GREEN from RED',
+  'recipe module-layering',
+  'bce demo: 6/6 packaged recipes discriminate GREEN from RED',
 ]) {
   if (!recipeOutput.includes(marker)) throw new Error(`packed recipe proof missing marker: ${marker}`);
+}
+
+// Prove the installed MCP bin, not only source imports or CLI recipes, can drive the new module
+// profile through its normal zero-mutation run_gate surface. This is the actual agent setup path.
+const moduleBlueprintDir = join(scratch, 'module-blueprints');
+mkdirSync(moduleBlueprintDir, { recursive: true });
+writeFileSync(
+  join(moduleBlueprintDir, 'typescript-module-layering.blueprint.json'),
+  readFileSync(join(installedRoot, 'fixtures', 'typescript-module-layering.blueprint.json')),
+);
+const moduleTrees = join(installedRoot, 'fixtures', 'typescript-module-surface');
+const mcpGreen = callInstalledRunGate(join(moduleTrees, 'conformant'), moduleBlueprintDir);
+const mcpRed = callInstalledRunGate(join(moduleTrees, 'drift-reverse-layer'), moduleBlueprintDir);
+if (mcpGreen.gateFailed !== false || mcpGreen.outcome !== 'pass' || mcpGreen.exitCode !== 0) {
+  throw new Error(`packed MCP module GREEN contract failed: ${JSON.stringify(mcpGreen)}`);
+}
+if (mcpRed.gateFailed !== true || mcpRed.outcome !== 'violation' || mcpRed.exitCode !== 1) {
+  throw new Error(`packed MCP module RED contract failed: ${JSON.stringify(mcpRed)}`);
+}
+if (!JSON.stringify(mcpRed).includes('domain-cannot-import-app') ||
+    !JSON.stringify(mcpRed).includes('packages/domain/order.ts#L1')) {
+  throw new Error('packed MCP module RED omitted the named reverse edge and source line');
 }
 
 const installed = JSON.parse(readFileSync(join(scratch, 'node_modules', 'bce-engine', 'package.json'), 'utf8'));
@@ -194,4 +251,5 @@ for (const rel of [
   }
 }
 process.stdout.write(output);
+process.stdout.write('packed MCP module-layering run_gate: GREEN/RED PASS\n');
 process.stdout.write(`packed consumer proof: PASS (${packed[0].filename})\n`);

@@ -237,6 +237,40 @@ describe('bce author — model-agnostic scaffold generator', () => {
     expect(bp.extraction?.minFiles).toBe(1);
   }, 60000);
 
+  it('authors a scoped TypeScript module boundary with an optional tsconfig', () => {
+    const repo = join(tmp, 'repo');
+    mkdirSync(join(repo, 'src', 'domain'), { recursive: true });
+    writeFileSync(join(repo, 'src', 'domain', 'model.ts'), 'export const model = true;\n');
+    writeFileSync(join(repo, 'tsconfig.json'), '{"compilerOptions":{"baseUrl":"."}}\n');
+    const out = join(tmp, 'module.blueprint.json');
+    const r = runCli([
+      'author',
+      '--id', 'domain-no-node-fs',
+      '--intent-ref', 'policy/runtime-separation',
+      '--repo', repo,
+      '--scope-paths', 'src/**/*.ts',
+      '--extraction-profile', 'typescript-module-graph',
+      '--tsconfig', 'tsconfig.json',
+      '--constraint', 'forbiddenDependency:builtin:fs:critical',
+      '--constraint', 'requiredDependency:typescriptModule->module:src/domain/**:high',
+      '--out', out,
+    ]);
+    expect(r.code).toBe(0);
+    const bp = parseBlueprint(JSON.parse(readFileSync(out, 'utf8')));
+    expect(bp.extraction).toMatchObject({
+      profile: 'typescript-module-graph',
+      paths: ['src/**/*.ts'],
+      minFiles: 1,
+      tsconfig: 'tsconfig.json',
+    });
+    expect(bp.minEngineVersion).toBe('0.3.0');
+    for (const constraint of bp.constraints) expect(constraint.scopePaths).toEqual(['src/**/*.ts']);
+    expect(bp.constraints[1]).toMatchObject({
+      component: 'typescriptModule',
+      to: 'module:src/domain/**',
+    });
+  }, 60000);
+
   it('scan sanity FAILS CLOSED (exit 2) when the scope matches 0 files — draft left for editing', () => {
     const repo = join(tmp, 'empty-repo');
     mkdirSync(repo, { recursive: true });

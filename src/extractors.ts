@@ -4,7 +4,7 @@
  *
  * The engine is no longer hardcoded to one subsystem. The scan targets (globs) and the
  * symbols it treats as component-defining / guard-defining come from the blueprint's
- * optional `extraction` block. Two profiles ship:
+ * optional `extraction` block. Four profiles ship:
  *
  *  - `next-route-handler` (the ORIGINAL walking-skeleton behavior): exported HTTP-verb
  *    handlers in Next.js `route.ts` files are components; bare-identifier `requireTenant*`
@@ -19,15 +19,29 @@
  *    is a component; a bare-identifier call to any `provideSymbols` symbol (e.g.
  *    `registerTool`) INSIDE the factory body is a `provides` edge; a forbidden module
  *    IMPORT (from the blueprint's `forbiddenImports`) is a forbidden `imports` edge.
+ *  - `typescript-module-graph` (NEW): every scanned TS/JS file is a `typescriptModule`
+ *    component and every statically named dependency is an `imports` edge. Resolution is
+ *    policy-independent; constraints select the edges later in report.ts.
+ *  - `python-import-surface`: every scanned Python file is a module component and matching
+ *    imports are edges (see python-extractor.ts for the explicit MVP envelope).
  *
- * Both profiles emit the SAME ArchitectureGraph shape → the diff/report never knows which
+ * All profiles emit the SAME ArchitectureGraph shape → the diff/report never knows which
  * ran. Each extractor honestly declares its fidelity limits in `coverage.unsupported`.
  *
  * Determinism: no wall-clock, all arrays sorted before return; glob resolution is sorted.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Project, SyntaxKind, ts, type CallExpression, type FunctionDeclaration, type NewExpression, type Node } from 'ts-morph';
+import {
+  Project,
+  SyntaxKind,
+  ts,
+  type CallExpression,
+  type FunctionDeclaration,
+  type ImportTypeNode,
+  type NewExpression,
+  type Node,
+} from 'ts-morph';
 import type {
   ArchitectureGraph,
   ObservedComponent,
@@ -99,6 +113,8 @@ export interface ResolvedExtraction {
    * and `coverage.patternScan` is OMITTED (pre-0.9.0 graphs serialize byte-unchanged).
    */
   patterns: readonly string[];
+  /** optional repo-relative tsconfig for the typescript-module-graph resolver */
+  tsconfig?: string;
 }
 
 /**
@@ -216,6 +232,7 @@ export function resolveExtraction(
     governedHosts,
     egressCallees: egressEnabled ? egressCallees : ['fetch'],
     patterns,
+    ...(extraction.tsconfig ? { tsconfig: extraction.tsconfig } : {}),
   };
 }
 
@@ -1186,8 +1203,9 @@ export class AstExtractor implements RepositoryFactsExtractor {
         const arg = call.getArguments()[0];
         // accept a plain string OR a no-substitution template literal (backtick) — `require(`openai`)`
         // is a valid runtime import and must not evade the detector (finding: template-literal bypass).
-        // A TemplateExpression WITH substitutions is a computed specifier (honestly un-analyzable) —
-        // it is NOT silently passed: it surfaces in coverage.unsupported instead.
+        // A TemplateExpression WITH substitutions is a computed specifier. The component-specific
+        // plugin profile intentionally does not classify it; use typescript-module-graph when a
+        // governed boundary must locate unresolved/computed imports and fail closed on uncertainty.
         if (arg && (arg.getKind() === SyntaxKind.StringLiteral || arg.getKind() === SyntaxKind.NoSubstitutionTemplateLiteral)) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const spec = (arg as any).getLiteralText?.() ?? arg.getText().replace(/^['"`]|['"`]$/g, '');
@@ -1331,12 +1349,477 @@ export class AstExtractor implements RepositoryFactsExtractor {
 }
 
 /* -------------------------------------------------------------------------- */
+/* TYPESCRIPT/JAVASCRIPT MODULE GRAPH: policy-independent AST facts            */
+/* -------------------------------------------------------------------------- */
+
+const MODULE_SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs']);
+const NPM_PACKAGE_ROOT_RE = /^(?:@[a-z0-9._~-]+\/[a-z0-9._~-]+|[a-z0-9._~-]+)$/;
+/**
+ * Node 22 baseline built-ins accepted without the `node:` prefix. Keep this list source-pinned:
+ * consulting the running process makes the same repository produce a different graph on Node 22
+ * and Node 24 when a new built-in is added. A syntactically valid `node:<name>` is authoritative
+ * and handled separately, including mandatory-prefix modules such as `node:test` and `node:sqlite`.
+ */
+const NODE22_UNPREFIXED_BUILTINS = new Set([
+  'assert', 'assert/strict', 'async_hooks', 'buffer', 'child_process', 'cluster', 'console',
+  'constants', 'crypto', 'dgram', 'diagnostics_channel', 'dns', 'dns/promises', 'domain',
+  'events', 'fs', 'fs/promises', 'http', 'http2', 'https', 'inspector', 'inspector/promises',
+  'module', 'net', 'os', 'path', 'path/posix', 'path/win32', 'perf_hooks', 'process',
+  'punycode', 'querystring', 'readline', 'readline/promises', 'repl', 'stream',
+  'stream/consumers', 'stream/promises', 'stream/web', 'string_decoder', 'sys', 'timers',
+  'timers/promises', 'tls', 'trace_events', 'tty', 'url', 'util', 'util/types', 'v8', 'vm',
+  'wasi', 'worker_threads', 'zlib',
+]);
+const NODE_PREFIXED_BUILTIN_RE = /^node:([a-z_][a-z0-9_]*(?:\/[a-z_][a-z0-9_-]*)*)$/;
+
+type UnresolvedImport = NonNullable<ArchitectureGraph['coverage']['unresolvedImports']>[number];
+
+function moduleId(relPath: string): string {
+  return `module:${relPath}`;
+}
+
+function npmPackageRoot(specifier: string): string {
+  const parts = specifier.split('/');
+  return specifier.startsWith('@') ? parts.slice(0, 2).join('/') : (parts[0] ?? specifier);
+}
+
+function diagnosticText(diagnostic: ts.Diagnostic): string {
+  return ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+}
+
+/** TypeScript's config parser compares its normalized SourceFile name byte-for-byte. */
+function typescriptConfigPath(filePath: string): string {
+  return filePath.replace(/\\/g, '/');
+}
+
+/**
+ * Full direct-import graph for ordinary TS/JS repositories. Unlike plugin-surface, this provider
+ * emits all statically named imports (including type-only imports) before policy is considered.
+ * It deliberately does not infer transitive reachability, cycles, package ownership, or runtime
+ * execution. Unknown targets are located in coverage and the evaluator fails relevant boundaries
+ * closed; absence of a resolved edge is never treated as proof that an unknown import is safe.
+ */
+export class TypeScriptModuleGraphExtractor implements RepositoryFactsExtractor {
+  readonly kind = 'ast' as const;
+  private readonly packageRootCache = new Map<string, ReadonlySet<string>>();
+  constructor(private readonly cfg: ResolvedExtraction) {
+    if (cfg.profile !== 'typescript-module-graph') {
+      throw new Error(`TypeScriptModuleGraphExtractor requires profile 'typescript-module-graph'`);
+    }
+  }
+
+  extract(repoDir: string, revision: string): ArchitectureGraph {
+    const files = resolveFiles(repoDir, this.cfg.paths);
+    const unsupportedFiles = files.filter((file) => !MODULE_SOURCE_EXTENSIONS.has(path.extname(file).toLowerCase()));
+    if (unsupportedFiles.length > 0) {
+      throw new Error(
+        `typescript-module-graph only scans TS/JS module files; unsupported path(s): ${toRelSorted(repoDir, unsupportedFiles).join(', ')}`,
+      );
+    }
+
+    const compilerOptions = this.loadCompilerOptions(repoDir);
+    const project = new Project({
+      useInMemoryFileSystem: false,
+      skipAddingFilesFromTsConfig: true,
+      compilerOptions: compilerOptions ?? {},
+    });
+    const components: ObservedComponent[] = [];
+    const guardEdges: ObservedEdge[] = [];
+    const unresolvedImports: UnresolvedImport[] = [];
+
+    for (const absPath of files) {
+      const relPath = this.repoRelative(repoDir, absPath);
+      const sourceText = fs.readFileSync(absPath, 'utf8');
+      const parseErrors = sourceSyntaxDiagnostics(relPath, sourceText);
+      if (parseErrors.length > 0) {
+        throw new Error(
+          `typescript-module-graph could not parse ${relPath}: ${parseErrors.join('; ')}`,
+        );
+      }
+      const source = project.addSourceFileAtPath(absPath);
+      const from = moduleId(relPath);
+      components.push({ id: from, type: 'typescriptModule', path: relPath, line: 1 });
+
+      const record = (specifier: string, kind: string, line: number): void => {
+        const ref = `${relPath}#L${line}`;
+        const resolved = this.resolveTarget(repoDir, absPath, specifier, compilerOptions);
+        if (resolved.target) {
+          guardEdges.push({ from, to: resolved.target, type: 'imports', evidenceRef: ref });
+        } else {
+          unresolvedImports.push({ from, specifier, kind, ref, reason: resolved.reason });
+        }
+      };
+      const recordComputed = (kind: string, line: number): void => {
+        unresolvedImports.push({
+          from,
+          specifier: '<computed>',
+          kind,
+          ref: `${relPath}#L${line}`,
+          reason: 'import specifier is computed; static target cannot be proven',
+        });
+      };
+
+      for (const declaration of source.getImportDeclarations()) {
+        record(declaration.getModuleSpecifierValue(), declaration.isTypeOnly() ? 'import-type' : 'import', declaration.getStartLineNumber());
+      }
+      for (const declaration of source.getExportDeclarations()) {
+        const specifier = declaration.getModuleSpecifierValue();
+        if (specifier) record(specifier, 're-export', declaration.getStartLineNumber());
+      }
+      for (const declaration of source.getDescendantsOfKind(SyntaxKind.ImportEqualsDeclaration)) {
+        // TypeScript also has internal aliases (`import X = Namespace.Member`); those are not
+        // module loads. An ExternalModuleReference whose argument is not literal is uncertainty.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const moduleReference = (declaration as any).getModuleReference?.();
+        if (moduleReference?.getKind?.() === SyntaxKind.ExternalModuleReference) {
+          const expression = moduleReference.getExpression?.();
+          if (expression?.getKind?.() === SyntaxKind.StringLiteral) {
+            record(expression.getLiteralText(), 'import-equals', declaration.getStartLineNumber());
+          } else {
+            recordComputed('import-equals', declaration.getStartLineNumber());
+          }
+        }
+      }
+      for (const tag of source.getDescendantsOfKind(SyntaxKind.JSDocImportTag)) {
+        // ts-morph currently wraps JSDocImportTag as a generic Node even though the compiler node
+        // is the narrower TypeScript shape.
+        const moduleSpecifier = (tag.compilerNode as ts.JSDocImportTag).moduleSpecifier;
+        if (moduleSpecifier && ts.isStringLiteral(moduleSpecifier)) {
+          record(moduleSpecifier.text, 'jsdoc-import', tag.getStartLineNumber());
+        } else {
+          recordComputed('jsdoc-import', tag.getStartLineNumber());
+        }
+      }
+      for (const importType of source.getDescendantsOfKind(SyntaxKind.ImportType) as ImportTypeNode[]) {
+        const argument = importType.getArgument();
+        // Do not fish for any descendant literal: `import('a' | 'b')` is syntactically accepted
+        // by TypeScript but is not a statically singular target.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const literal = argument.getKind() === SyntaxKind.LiteralType ? (argument as any).getLiteral?.() : undefined;
+        if (literal?.getKind?.() === SyntaxKind.StringLiteral) {
+          record(literal.getLiteralText(), 'import-type', importType.getStartLineNumber());
+        } else {
+          recordComputed('import-type', importType.getStartLineNumber());
+        }
+      }
+      for (const call of source.getDescendantsOfKind(SyntaxKind.CallExpression) as CallExpression[]) {
+        const expression = call.getExpression();
+        let kind: 'dynamic-import' | 'require' | 'require.resolve' | null = null;
+        if (expression.getKind() === SyntaxKind.ImportKeyword) {
+          kind = 'dynamic-import';
+        } else if (expression.getKind() === SyntaxKind.Identifier && expression.getText() === 'require') {
+          if (this.isUnshadowedGlobal(expression, source.getFilePath())) kind = 'require';
+        } else if (expression.getKind() === SyntaxKind.PropertyAccessExpression) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const receiver = (expression as any).getExpression?.();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const name = (expression as any).getName?.();
+          if (
+            name === 'resolve' &&
+            receiver?.getKind?.() === SyntaxKind.Identifier &&
+            receiver.getText?.() === 'require' &&
+            this.isUnshadowedGlobal(receiver, source.getFilePath())
+          ) {
+            kind = 'require.resolve';
+          }
+        }
+        if (!kind) continue;
+        const arg = call.getArguments()[0];
+        if (arg && (arg.getKind() === SyntaxKind.StringLiteral || arg.getKind() === SyntaxKind.NoSubstitutionTemplateLiteral)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          record((arg as any).getLiteralText?.() ?? arg.getText().slice(1, -1), kind, call.getStartLineNumber());
+        } else {
+          recordComputed(kind, call.getStartLineNumber());
+        }
+      }
+      project.removeSourceFile(source);
+    }
+
+    components.sort(compareComponents);
+    guardEdges.sort(compareEdges);
+    unresolvedImports.sort((a, b) => {
+      const ka = `${a.from}\0${a.ref}\0${a.kind}\0${a.specifier}\0${a.reason}`;
+      const kb = `${b.from}\0${b.ref}\0${b.kind}\0${b.specifier}\0${b.reason}`;
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+    return {
+      schemaVersion: '1',
+      ctRepoRevision: revision,
+      components,
+      guardEdges,
+      coverage: {
+        extractor: 'ast',
+        filesScanned: files.length,
+        unsupported: [
+          'direct statically named imports only; no transitive reachability or cycle analysis',
+          'runtime-constructed module specifiers cannot be resolved statically and fail relevant boundaries closed',
+          ...(compilerOptions
+            ? []
+            : ['no tsconfig supplied: aliases, package imports (#...), and URL imports are unresolved']),
+        ],
+        scannedFiles: toRelSorted(repoDir, files),
+        ...(unresolvedImports.length > 0 ? { unresolvedImports } : {}),
+        ...(() => {
+          const patternScan = scanPatterns(repoDir, files, this.cfg.patterns);
+          return patternScan ? { patternScan } : {};
+        })(),
+      },
+    };
+  }
+
+  private loadCompilerOptions(repoDir: string): ts.CompilerOptions | undefined {
+    if (!this.cfg.tsconfig) return undefined;
+    const root = fs.realpathSync(repoDir);
+    const candidate = path.resolve(repoDir, this.cfg.tsconfig);
+    if (candidate !== path.resolve(repoDir) && !candidate.startsWith(`${path.resolve(repoDir)}${path.sep}`)) {
+      throw new Error(`typescript-module-graph tsconfig escapes repository root: ${this.cfg.tsconfig}`);
+    }
+    if (!fs.existsSync(candidate) || !fs.statSync(candidate).isFile()) {
+      throw new Error(`typescript-module-graph tsconfig not found: ${this.cfg.tsconfig}`);
+    }
+    const real = fs.realpathSync(candidate);
+    if (real !== root && !real.startsWith(`${root}${path.sep}`)) {
+      throw new Error(`typescript-module-graph tsconfig resolves outside repository root: ${this.cfg.tsconfig}`);
+    }
+    const tsConfigPath = typescriptConfigPath(real);
+    const read = ts.readConfigFile(tsConfigPath, ts.sys.readFile);
+    if (read.error) throw new Error(`typescript-module-graph tsconfig is invalid: ${diagnosticText(read.error)}`);
+    this.assertContainedConfigChain(repoDir, real, read.config);
+    const parsed = ts.parseJsonConfigFileContent(
+      read.config,
+      ts.sys,
+      typescriptConfigPath(path.dirname(real)),
+      undefined,
+      tsConfigPath,
+    );
+    const errors = parsed.errors.filter((error) => error.code !== 18003);
+    if (errors.length > 0) {
+      throw new Error(`typescript-module-graph tsconfig is invalid: ${errors.map(diagnosticText).join('; ')}`);
+    }
+    return {
+      ...parsed.options,
+      allowJs: true,
+      moduleResolution: parsed.options.moduleResolution ?? ts.ModuleResolutionKind.Node10,
+    };
+  }
+
+  private assertContainedConfigChain(
+    repoDir: string,
+    configPath: string,
+    config: unknown,
+    seen = new Set<string>(),
+  ): void {
+    const root = fs.realpathSync(repoDir);
+    if (seen.has(configPath)) return;
+    seen.add(configPath);
+    if (!config || typeof config !== 'object' || Array.isArray(config)) return;
+    const rawExtends = (config as Record<string, unknown>).extends;
+    if (rawExtends === undefined) return;
+    const values = Array.isArray(rawExtends) ? rawExtends : [rawExtends];
+    for (const entry of values) {
+      if (typeof entry !== 'string' || entry.length === 0) {
+        throw new Error(`typescript-module-graph tsconfig is invalid: extends must contain file paths`);
+      }
+      if (!entry.startsWith('.')) {
+        throw new Error(
+          `typescript-module-graph tsconfig extends must be repository-owned relative files, not '${entry}'`,
+        );
+      }
+      const lexical = path.resolve(path.dirname(configPath), entry);
+      this.assertCanonicalInside(repoDir, lexical, `tsconfig extends ${entry}`);
+      const candidate = fs.existsSync(lexical) && fs.statSync(lexical).isFile()
+        ? lexical
+        : `${lexical}.json`;
+      this.assertCanonicalInside(repoDir, candidate, `tsconfig extends ${entry}`);
+      if (!fs.existsSync(candidate)) continue; // the TypeScript parser emits the canonical missing-file error
+      const real = fs.realpathSync(candidate);
+      if (real !== root && !real.startsWith(`${root}${path.sep}`)) {
+        throw new Error(`typescript-module-graph tsconfig extends resolves outside repository root: ${entry}`);
+      }
+      if (real.split(path.sep).includes('node_modules')) {
+        throw new Error(`typescript-module-graph tsconfig extends must not depend on node_modules: ${entry}`);
+      }
+      const read = ts.readConfigFile(typescriptConfigPath(real), ts.sys.readFile);
+      if (read.error) {
+        throw new Error(`typescript-module-graph extended tsconfig is invalid: ${diagnosticText(read.error)}`);
+      }
+      this.assertContainedConfigChain(repoDir, real, read.config, seen);
+    }
+  }
+
+  private resolveTarget(
+    repoDir: string,
+    containingFile: string,
+    specifier: string,
+    compilerOptions: ts.CompilerOptions | undefined,
+  ): { target: string; reason: '' } | { target: null; reason: string } {
+    const prefixedBuiltin = NODE_PREFIXED_BUILTIN_RE.exec(specifier);
+    if (prefixedBuiltin) {
+      return { target: `builtin:${prefixedBuiltin[1]}`, reason: '' };
+    }
+    if (NODE22_UNPREFIXED_BUILTINS.has(specifier)) {
+      return { target: `builtin:${specifier}`, reason: '' };
+    }
+    if (specifier.startsWith('/') || /^[A-Za-z]:[\\/]/.test(specifier)) {
+      throw new Error(`typescript-module-graph import target escapes repository root: ${specifier}`);
+    }
+    if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(specifier)) {
+      return { target: null, reason: `URL or non-Node scheme '${specifier.split(':')[0]}:' is not a supported module target` };
+    }
+
+    const relative = specifier.startsWith('./') || specifier.startsWith('../');
+    if (relative) {
+      const lexical = path.resolve(path.dirname(containingFile), specifier);
+      this.assertLexicallyInside(repoDir, lexical, specifier);
+      const resolved = compilerOptions
+        ? ts.resolveModuleName(specifier, containingFile, compilerOptions, ts.sys).resolvedModule?.resolvedFileName
+        : this.resolveLexicalRelative(lexical);
+      if (!resolved) return { target: null, reason: 'relative module target was not found' };
+      return { target: moduleId(this.resolvedRepoPath(repoDir, resolved, specifier)), reason: '' };
+    }
+    if (compilerOptions) {
+      const resolved = ts.resolveModuleName(specifier, containingFile, compilerOptions, ts.sys).resolvedModule?.resolvedFileName;
+      if (resolved && !resolved.split(path.sep).includes('node_modules')) {
+        return { target: moduleId(this.resolvedRepoPath(repoDir, resolved, specifier)), reason: '' };
+      }
+      const pathAliases = Object.keys(compilerOptions.paths ?? {});
+      const matchesAlias = pathAliases.some((pattern) => {
+        const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+        return new RegExp(`^${escaped}$`).test(specifier);
+      });
+      if (matchesAlias || specifier.startsWith('#') || specifier.startsWith('@/') || specifier.startsWith('~/')) {
+        return { target: null, reason: 'configured project alias did not resolve to a repository module' };
+      }
+    } else if (specifier.startsWith('#') || specifier.startsWith('@/') || specifier.startsWith('~/')) {
+      return { target: null, reason: 'project alias requires extraction.tsconfig for deterministic resolution' };
+    }
+
+    const root = npmPackageRoot(specifier);
+    if (!NPM_PACKAGE_ROOT_RE.test(root)) {
+      return { target: null, reason: 'bare specifier could not be normalized to an npm package root' };
+    }
+    if (!this.declaredPackageRoots(repoDir, containingFile).has(root)) {
+      return {
+        target: null,
+        reason: `bare specifier root '${root}' is not declared in an enclosing package.json; it may be a project alias`,
+      };
+    }
+    return { target: `package:${root}`, reason: '' };
+  }
+
+  private declaredPackageRoots(repoDir: string, containingFile: string): ReadonlySet<string> {
+    const root = path.resolve(repoDir);
+    const cacheKey = `${root}\0${path.dirname(containingFile)}`;
+    const cached = this.packageRootCache.get(cacheKey);
+    if (cached) return cached;
+    const declared = new Set<string>();
+    let dir = path.dirname(containingFile);
+    for (;;) {
+      const manifest = path.join(dir, 'package.json');
+      if (fs.existsSync(manifest)) {
+        const realManifest = fs.realpathSync(manifest);
+        const realRoot = fs.realpathSync(repoDir);
+        if (realManifest !== realRoot && !realManifest.startsWith(`${realRoot}${path.sep}`)) {
+          throw new Error(
+            `typescript-module-graph package manifest resolves outside repository root: ${this.repoRelative(repoDir, manifest)}`,
+          );
+        }
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = JSON.parse(fs.readFileSync(realManifest, 'utf8')) as Record<string, unknown>;
+        } catch (error) {
+          throw new Error(
+            `typescript-module-graph package manifest is invalid: ${this.repoRelative(repoDir, manifest)}: ${(error as Error).message}`,
+          );
+        }
+        if (typeof parsed.name === 'string' && NPM_PACKAGE_ROOT_RE.test(parsed.name)) declared.add(parsed.name);
+        for (const field of ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'] as const) {
+          const dependencies = parsed[field];
+          if (!dependencies || typeof dependencies !== 'object' || Array.isArray(dependencies)) continue;
+          for (const name of Object.keys(dependencies as Record<string, unknown>)) {
+            if (NPM_PACKAGE_ROOT_RE.test(name)) declared.add(name);
+          }
+        }
+      }
+      if (dir === root) break;
+      const parent = path.dirname(dir);
+      if (parent === dir || (parent !== root && !parent.startsWith(`${root}${path.sep}`))) break;
+      dir = parent;
+    }
+    this.packageRootCache.set(cacheKey, declared);
+    return declared;
+  }
+
+  private resolveLexicalRelative(base: string): string | null {
+    const ext = path.extname(base).toLowerCase();
+    const candidates: string[] = [];
+    const substitutions: Record<string, string[]> = {
+      '.js': ['.ts', '.tsx', '.js'],
+      '.jsx': ['.tsx', '.jsx'],
+      '.mjs': ['.mts', '.mjs'],
+      '.cjs': ['.cts', '.cjs'],
+    };
+    if (ext) {
+      for (const next of substitutions[ext] ?? [ext]) candidates.push(base.slice(0, -ext.length) + next);
+    } else {
+      const extensions = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'];
+      candidates.push(...extensions.map((next) => base + next));
+      candidates.push(...extensions.map((next) => path.join(base, `index${next}`)));
+    }
+    return candidates.find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile()) ?? null;
+  }
+
+  private assertLexicallyInside(repoDir: string, candidate: string, specifier: string): void {
+    const root = path.resolve(repoDir);
+    if (candidate !== root && !candidate.startsWith(`${root}${path.sep}`)) {
+      throw new Error(`typescript-module-graph import target escapes repository root: ${specifier}`);
+    }
+  }
+
+  private assertCanonicalInside(repoDir: string, candidate: string, subject: string): void {
+    const root = fs.realpathSync(repoDir);
+    const resolved = path.resolve(candidate);
+    if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+      throw new Error(`typescript-module-graph ${subject} escapes repository root`);
+    }
+  }
+
+  private resolvedRepoPath(repoDir: string, candidate: string, specifier: string): string {
+    if (!fs.existsSync(candidate)) throw new Error(`typescript-module-graph resolver returned a missing target: ${specifier}`);
+    const root = fs.realpathSync(repoDir);
+    const real = fs.realpathSync(candidate);
+    if (real !== root && !real.startsWith(`${root}${path.sep}`)) {
+      throw new Error(`typescript-module-graph import target resolves outside repository root: ${specifier}`);
+    }
+    return path.relative(root, real).split(path.sep).join('/');
+  }
+
+  private repoRelative(repoDir: string, candidate: string): string {
+    return path.relative(path.resolve(repoDir), path.resolve(candidate)).split(path.sep).join('/');
+  }
+
+  private isUnshadowedGlobal(identifier: { getSymbol?: () => unknown }, sourcePath: string): boolean {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const declarations: Array<any> = (identifier as any).getSymbol?.()?.getDeclarations?.() ?? [];
+      return !declarations.some((declaration) => declaration.getSourceFile?.()?.getFilePath?.() === sourcePath);
+    } catch {
+      return false;
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /* FALLBACK: zero-dependency line-scan extractor (both profiles)              */
 /* -------------------------------------------------------------------------- */
 
 export class LineScanExtractor implements RepositoryFactsExtractor {
   readonly kind = 'line-scan' as const;
-  constructor(private readonly cfg: ResolvedExtraction = resolveExtraction(undefined)) {}
+  constructor(private readonly cfg: ResolvedExtraction = resolveExtraction(undefined)) {
+    if (cfg.profile === 'typescript-module-graph') {
+      throw new Error(`typescript-module-graph requires --extractor ast; line-scan cannot resolve module targets`);
+    }
+  }
 
   extract(repoDir: string, revision: string): ArchitectureGraph {
     const files = resolveFiles(repoDir, this.cfg.paths);
@@ -1559,5 +2042,9 @@ export function makeExtractor(
   kind: 'ast' | 'line-scan',
   cfg: ResolvedExtraction,
 ): RepositoryFactsExtractor {
+  if (cfg.profile === 'typescript-module-graph') {
+    if (kind === 'line-scan') throw new Error(`typescript-module-graph requires the ast extractor`);
+    return new TypeScriptModuleGraphExtractor(cfg);
+  }
   return kind === 'line-scan' ? new LineScanExtractor(cfg) : new AstExtractor(cfg);
 }
