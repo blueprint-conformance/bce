@@ -186,7 +186,15 @@ try {
   if (error.status !== 1 || !String(error.stderr).includes('finalizer requires exact staged asset digests')) throw error;
 }
 
-writeFileSync(fixture, source.replace('          if [ "$is_draft" = "true" ]; then\n            gh release edit "$tag" --draft=false --latest\n          fi\n', '          gh release edit "$tag" --draft=false --latest\n'));
+writeFileSync(fixture, source.replace('          release_json="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,assets)"\n', '          release_json="$(gh release view "$tag" --json isDraft,assets)"\n'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a checkout-free finalizer that relies on local repository inference');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('checkout-free finalizer targets the repository explicitly')) throw error;
+}
+
+writeFileSync(fixture, source.replace('          if [ "$is_draft" = "true" ]; then\n            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest\n          fi\n', '          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest\n'));
 try {
   execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   throw new Error('release policy accepted a finalizer that cannot safely retry an ambiguous publish response');
@@ -206,4 +214,4 @@ writeFileSync(fixture, source);
 const accepted = execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`intact release policy did not pass:\n${accepted}`);
 
-process.stdout.write('release-proof-policy self-test: PASS (shallow history, missing adoption/archive-replay/source-mutation/controller/toolchain/leakage/payload proof, tarball rebuild/substitution, divergent leakage policy, in-place npm upgrade, wrong issuer, unsafe immutable-Release construction, uncoupled or non-retry-safe finalization, and publish-before-staging ordering rejected; intact gate accepted)\n');
+process.stdout.write('release-proof-policy self-test: PASS (shallow history, missing adoption/archive-replay/source-mutation/controller/toolchain/leakage/payload proof, tarball rebuild/substitution, divergent leakage policy, in-place npm upgrade, wrong issuer, unsafe immutable-Release construction, uncoupled, repository-inferred, or non-retry-safe finalization, and publish-before-staging ordering rejected; intact gate accepted)\n');
