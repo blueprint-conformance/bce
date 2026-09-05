@@ -23,12 +23,24 @@
  *   2 — harness failure (cannot stage the tree, cannot run the build).
  */
 import * as fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const V6_SUMMARY = 'research/model-evaluation/pilots/accelerated-v6/results/summary.json';
+const CLAIM_MATRIX = 'research/claim-evidence-matrix.json';
+
+const canonical = (value) => {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+  }
+  return value;
+};
+const sha256Json = (value) => createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
 
 // The WHOLE tree is staged, minus build output and history. The build resolves
 // every documentation link against the real tree — a doc may legitimately link
@@ -146,11 +158,9 @@ const PROBES = [
     exit: 0,
     expect: '',
   },
-  // The trust page's two state claims are tethered to the records they
-  // describe, not restated beside them. Three probes prove the tether has
-  // teeth in both directions: the count moves WITH the ledger, an unreadable
-  // ledger is refused rather than guessed at, and a citation record that has
-  // gains a provisional identifier and turns the build red instead of publishing it.
+  // The trust page's state claims are tethered to the records they describe,
+  // not restated beside them. These probes prove the witness derivation and
+  // the v6 denominator/eligibility/observation bindings have teeth.
   {
     name: 'trust page derives the witness count from the ledger',
     plant: (dir) => {
@@ -166,6 +176,55 @@ const PROBES = [
         : 'the staged ledger says Count: 3 but the built /trust page does not say ' +
           '"Independent witnesses: 3." — the count is a second hand-written copy, not a derivation';
     },
+  },
+  {
+    name: 'trust page derives the v6 observation from the sealed result index',
+    plant: (dir) => {
+      const summaryPath = path.join(dir, V6_SUMMARY);
+      const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+      const baseline = summary.analysis.cells['bce-reference-ollama-qwen3-8b'].arms['baseline-no-bce'];
+      baseline.safeSuccessfulCompletion.successes = 1;
+      baseline.safeSuccessfulCompletion.estimate = 0.125;
+      summary.analysis.resultSha256 = sha256Json({ ...summary.analysis, resultSha256: null });
+      summary.resultSha256 = sha256Json({ ...summary, resultSha256: null });
+      fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
+      const matrixPath = path.join(dir, CLAIM_MATRIX);
+      const matrix = JSON.parse(fs.readFileSync(matrixPath, 'utf8'));
+      matrix.studies[0].resultSha256 = summary.resultSha256;
+      fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`);
+    },
+    exit: 0,
+    expect: '',
+    verify: (dir) => {
+      const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
+      const css = fs.readFileSync(path.join(dir, '_site/assets/site.css'), 'utf8');
+      return page.includes('<td class="align-right">1/8 (12.5%)</td>') &&
+        css.includes('.anchor:focus-visible')
+        ? null
+        : 'the staged v6 result did not render as a derived, aligned observation with keyboard-visible permalinks';
+    },
+  },
+  {
+    name: 'trust page refuses a tampered v6 denominator',
+    plant: (dir) => {
+      const summaryPath = path.join(dir, V6_SUMMARY);
+      const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+      summary.verifiedTrials = 15;
+      fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
+    },
+    exit: 2,
+    expect: 'summary or analysis self-digest is invalid',
+  },
+  {
+    name: 'trust page refuses fabricated v6 product eligibility',
+    plant: (dir) => {
+      const matrixPath = path.join(dir, CLAIM_MATRIX);
+      const matrix = JSON.parse(fs.readFileSync(matrixPath, 'utf8'));
+      matrix.studies[0].eligibility.productEfficacy = true;
+      fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`);
+    },
+    exit: 2,
+    expect: 'ineligible for every product claim class',
   },
   {
     name: 'footer derives the public version from release state',

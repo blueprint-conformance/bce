@@ -40,6 +40,11 @@ on:
       - 'README.md'
       - 'scripts/build-docs-site.mjs'
       - 'scripts/docs-site-selftest.mjs'
+      - 'scripts/check-evidence-claims.mjs'
+      - 'scripts/check-evidence-claims.selftest.mjs'
+      - 'scripts/lib/evidence-claims.mjs'
+      - 'research/claim-evidence-matrix.json'
+      - 'research/model-evaluation/pilots/accelerated-v6/**'
       - 'scripts/gen-fleet-evidence.mjs'
       - 'scripts/verify-public-release.mjs'
       - 'scripts/verify-public-release.selftest.mjs'
@@ -74,6 +79,9 @@ jobs:
       # ----------------------------------------------------------------------
       - name: Self-test — every check must refuse its own probe
         run: node scripts/docs-site-selftest.mjs
+
+      - name: Public evidence claims remain bounded
+        run: npm run test:evidence-claims
 
       - name: Public-release verifier refuses false registry metadata
         run: node scripts/verify-public-release.selftest.mjs
@@ -118,6 +126,7 @@ jobs:
           require _site/agents/index.html
           require _site/rfcs/index.html
           require _site/paper/index.html
+          require _site/trust/index.html
 
           # Every schema in the tree is published, at the exact path its `$id`
           # names, byte-for-byte. This is the pre-existing behaviour of

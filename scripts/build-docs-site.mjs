@@ -51,10 +51,10 @@
  *      blurbs, the paper placeholder), and a single literal NUL would make
  *      grep classify the file as binary, silently exempting that prose from
  *      the banned-phrase gate's sweep (`--binary-files=without-match`).
- *   7. The trust page's two state claims stay tethered to their records: the
- *      witness count is read from ATTESTATIONS.md's own headline, and the
- *      "pending, and ship-blocked" citation claim is asserted against
- *      CITATION.cff's actual placeholder tokens.
+ *   7. The trust page stays tethered to its records: the witness count is read
+ *      from ATTESTATIONS.md, citation state from CITATION.cff, and every v6
+ *      identity, denominator, observation, decision boundary, and digest from
+ *      the strict claim index plus sealed public result.
  *
  * Usage:
  *   node scripts/build-docs-site.mjs [--out <dir>] [--quiet]
@@ -66,6 +66,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadEvidenceClaims } from './lib/evidence-claims.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let RELEASE_STATE;
@@ -170,16 +171,12 @@ const PAGES = [
 
 // ---------------------------------------------------------------------------
 // The Trust / Evidence page. GENERATED, not a mapped source: the substance
-// lives in the records it links to — the witness ledger, the citation file,
-// the landing page's Evidence and limits section — and duplicating any of it here
-// would create a second copy to drift. This page only says where each record
-// is and the state each is honestly in — and neither state claim is
-// hand-written: the witness count is READ from ATTESTATIONS.md's own
-// headline at build time (the same one-source discipline as
-// blurbsFromLlmsTxt), and the citation claim is ASSERTED against
-// CITATION.cff's actual placeholder tokens, so the first witness row updates
-// this page and a landed DOI turns the build red until the copy is rewritten
-// deliberately — never a silently-false page. The page is rendered through
+// lives in the records it links to: the claim matrix and sealed v6 result,
+// witness ledger, citation file, and landing page's evidence boundary. The v6
+// observation table is derived from the sealed result; its topology, identity,
+// eligibility, denominators, and digests are cross-bound by evidence-claims.mjs.
+// The witness count is read from ATTESTATIONS.md, and the citation claim is
+// asserted against CITATION.cff's actual placeholder tokens. The page is rendered through
 // the same pipeline as every mapped document, so every link is validated by
 // the build's own checks — including the #evidence-and-limits anchor on the landing
 // page, which turns "the README dropped its evidence boundary" into a red
@@ -220,10 +217,95 @@ function trustMd() {
     }
   }
 
+  let evidence;
+  try {
+    evidence = loadEvidenceClaims(repoRoot);
+  } catch (error) {
+    harness(`trust page evidence source is invalid: ${error.message}`);
+  }
+
+  const pct = (value) => `${Number((value * 100).toFixed(1))}%`;
+  const pp = (value, sign = false) => `${sign && value > 0 ? '+' : ''}${Number((value * 100).toFixed(1))} pp`;
+  const rate = (value) => `${value.successes}/${value.total} (${pct(value.estimate)})`;
+  const interval = (value, direction) => `${direction}${pp(value.estimate)} [${pp(value.low)}, ${pp(value.high)}]`;
+  const model = evidence.cell.identity.resolvedModel;
+  const infrastructureErrors = evidence.baseline.statuses?.['infrastructure-error'] ?? 0;
+  const unestablished = evidence.unestablished.map((claim) => `- ${claim.claim}.`).join('\n');
+  const statusLabel = {
+    'product-test-supported': 'Product-test supported',
+    'directional-observation': 'Directional only',
+  };
+  const classLabel = {
+    'first-party-mechanism-test': 'First-party mechanism tests',
+    'author-operated-instrumentation-pilot': 'Author-operated instrumentation pilot',
+  };
+  const supportedRows = evidence.matrix.claims
+    .filter((claim) => claim.status !== 'unestablished')
+    .map((claim) => `| ${claim.claim} | ${statusLabel[claim.status]} | ${classLabel[claim.evidenceClass]} |`)
+    .join('\n');
+
   return `# Trust and evidence
 
-Where this project's credibility records live, and the state each one is in
-today. The records are the substance — this page only points at them.
+> **Current decision: no product-efficacy claim.** Accelerated v6 is a completed
+> author-operated instrumentation pilot. Its observations are useful for designing
+> the next study; they are not a recommendation to adopt BCE.
+
+## What the records support
+
+| Claim | State | Evidence |
+| --- | --- | --- |
+${supportedRows}
+
+## What v6 observed
+
+- **Design:** ${evidence.protocol.matrix.repositories} generated repositories,
+  ${evidence.manifest.tasks.length} repair/refactor tasks, ${evidence.summary.verifiedTrials} paired
+  attempts; every randomized attempt remains in the result.
+- **Cell:** \`${model}\` through \`${evidence.cell.identity.clientVersion}\`.
+- **Authority:** tasks and machine oracles were written by the maintainer; execution was
+  author-operated and machine-adjudicated.
+
+| Recorded outcome | Baseline | BCE enabled | Paired record |
+| --- | ---: | ---: | ---: |
+| Safe successful completion | ${rate(evidence.baseline.safeSuccessfulCompletion)} | ${rate(evidence.bce.safeSuccessfulCompletion)} | ${interval(evidence.safeEffect, '+')} |
+| Escaped defect, intention-to-treat | ${rate(evidence.baseline.escapedDefectItt)} | ${rate(evidence.bce.escapedDefectItt)} | ${interval(evidence.escapedEffect, 'reduction ')} |
+| Architecture conformance | ${rate(evidence.baseline.architectureConformance)} | ${rate(evidence.bce.architectureConformance)} | descriptive only |
+| Task success | ${rate(evidence.baseline.taskSuccess)} | ${rate(evidence.bce.taskSuccess)} | descriptive only |
+| Policy mutation | ${rate(evidence.baseline.policyMutation)} | ${rate(evidence.bce.policyMutation)} | ${pp(evidence.cell.pairedEffects.policyMutation.estimate, true)} |
+
+The paired visible elapsed-time ratio was ${evidence.elapsedRatio.median.toFixed(3)}×
+[${evidence.elapsedRatio.low.toFixed(3)}, ${evidence.elapsedRatio.high.toFixed(3)}]. Cost was not
+measured. ${infrastructureErrors} baseline infrastructure timeout remains in the denominator.
+
+## Verify the public record
+
+From a clean checkout, one command installs the locked verifier dependencies, checks the claim
+boundary, re-derives the sealed input bundle, and replays the public result:
+
+\`\`\`sh
+npm ci --ignore-scripts && npm run evidence:verify
+\`\`\`
+
+The command is local and requires no model, Ollama service, API key, or paid credential. It verifies
+the published record; it does not rerun model inference or make the pilot independent.
+
+## Integrity anchors
+
+This page is generated from the public claim index and sealed v6 result. Change a
+denominator, model identity, eligibility flag, or digest without changing its source
+record and the docs build turns red. The machine-readable source is
+[research/claim-evidence-matrix.json](research/claim-evidence-matrix.json).
+
+- **Study:** \`${evidence.study.studyId}\`
+- **Result SHA-256:** \`${evidence.study.resultSha256}\`
+- **Sealed-input root:** \`${evidence.study.sealRootSha256}\`
+- **Full record:** [accelerated-v6/RESULTS.md](research/model-evaluation/pilots/accelerated-v6/RESULTS.md)
+
+## What remains unestablished
+
+${unestablished}
+
+## Other trust records
 
 - **What is measured, and by whom** — the landing page's
   [Evidence and limits](README.md#evidence-and-limits) section states the position in full:
@@ -598,14 +680,25 @@ function renderMarkdown(md, sourceFile, fromRoute, ctx, hrefSink) {
       flushParagraph();
       const cells = (row) => row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
       const header = cells(line);
+      const delimiters = cells(lines[i + 1]);
+      if (delimiters.length !== header.length) {
+        harness(`${sourceFile}:${i + 2}: table delimiter count differs from its header`);
+      }
+      const alignment = delimiters.map((cell) => {
+        const value = cell.trim();
+        if (value.startsWith(':') && value.endsWith(':')) return 'center';
+        if (value.endsWith(':')) return 'right';
+        return value.startsWith(':') ? 'left' : null;
+      });
+      const cellAttr = (index) => alignment[index] ? ` class="align-${alignment[index]}"` : '';
       i += 2;
       const body = [];
       while (i < lines.length && lines[i].trim().startsWith('|')) {
         body.push(cells(lines[i]));
         i += 1;
       }
-      const th = header.map((c) => `<th>${inline(c)}</th>`).join('');
-      const rows = body.map((r) => `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`).join('');
+      const th = header.map((c, index) => `<th${cellAttr(index)}>${inline(c)}</th>`).join('');
+      const rows = body.map((r) => `<tr>${r.map((c, index) => `<td${cellAttr(index)}>${inline(c)}</td>`).join('')}</tr>`).join('');
       out.push(`<div class="table-wrap"><table><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table></div>`);
       continue;
     }
@@ -1000,6 +1093,7 @@ code {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: .88em; background: var(--code-bg); padding: .1em .35em; border-radius: 3px;
 }
+p code, li code, td code { overflow-wrap: anywhere; word-break: break-word; }
 pre {
   background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px;
   padding: .85rem 1rem; overflow-x: auto;
@@ -1022,12 +1116,17 @@ blockquote > :last-child { margin-bottom: 0; }
 table { border-collapse: collapse; width: 100%; font-size: .93rem; }
 th, td { text-align: left; vertical-align: top; padding: .45rem .7rem; border: 1px solid var(--line); }
 th { background: var(--code-bg); font-weight: 600; }
+.align-center { text-align: center; }
+.align-right { text-align: right; font-variant-numeric: tabular-nums; }
 hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
 .anchor {
   margin-left: .4rem; opacity: 0; text-decoration: none; font-weight: 400; color: var(--muted);
 }
 h1:hover .anchor, h2:hover .anchor, h3:hover .anchor,
 h4:hover .anchor, h5:hover .anchor, h6:hover .anchor { opacity: 1; }
+.anchor:focus-visible {
+  opacity: 1; outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px;
+}
 .toc {
   border: 1px solid var(--line); border-radius: 6px; padding: .85rem 1rem;
   margin: 0 0 2rem; background: var(--code-bg); font-size: .92rem;

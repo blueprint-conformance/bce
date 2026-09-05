@@ -1,7 +1,7 @@
 # BCE research workspace
 
-Status: **evaluation infrastructure plus development-only pilot inputs; no claim-bearing held-out
-experiment or comparative efficacy study has been run**.
+Status: **evaluation infrastructure plus completed development-only pilots; no claim-bearing
+held-out efficacy study has been run**.
 
 This directory separates product tests from publishable empirical evidence. Development fixtures
 may be used to debug the harness but never to estimate held-out performance. Before looking at a
@@ -15,11 +15,19 @@ evidence that BCE improves agents. That claim requires the not-yet-run multi-rep
 study described in `study-preregistration.json`.
 
 The canonical controlled-study contract is `model-evaluation/protocol.v2.json` plus its closed task
-manifest, treatment-delta, protected-path, terminal-record, and seal schemas. It defines 240 paired
+manifest, treatment-delta, protected-path, terminal-record, and seal schemas. It defines 600 paired
 attempts across one primary and three transportability client/model cells. Its real repositories,
 tasks, client artifacts, provider-returned model identities, and public Sigstore preseal are
 deliberately unset. `npm run research:model-eval-readiness` therefore refuses; that is the correct
 state before claim-bearing inputs exist.
+
+Accelerated v6 is directional instrumentation evidence, not product-efficacy evidence. It retained
+16/16 paired attempts across four generated repositories in one exact local qwen3:8b client/model
+cell. The public export binds the frozen inputs, model/client identity, terminal ledger, machine
+oracles, and aggregate result; `npm run evidence:verify` replays those bindings. Because the author
+selected the tasks and wrote the oracles, the result cannot establish generalization, default
+adoption, cost benefit, transportability, or independent replication. See
+`model-evaluation/pilots/accelerated-v6/RESULTS.md`.
 
 `model-evaluation/pilots/accelerated-v1/` is a separate eight-attempt, development-exposed
 instrumentation pilot. It exists to exercise the real ordered controller, OS isolation, independent

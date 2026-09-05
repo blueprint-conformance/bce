@@ -44,6 +44,7 @@ no skip flags — a refusal is a red, not a pass.
 - [Exit codes](docs/exit-codes.md): 0 = green, 1 = red/user-error, 2 = fail-closed refusal.
 - [Report contract](docs/report-contract.md): the deterministic compliance report; determinism and canonical serialization.
 - [Evidence format](docs/evidence-format.md): the hash-chained evidence record + the zero-dependency verifier.
+- [Public evidence](research/model-evaluation/pilots/accelerated-v6/RESULTS.md): the completed v6 directional instrumentation record, its explicit claim boundary, and `npm run evidence:verify` replay command.
 - [Published schemas](spec/schemas): generated JSON Schemas (draft-07).
 - [Conformance vectors](spec/conformance-vectors/README.md): input→expected-verdict data (no runner, no levels at v1alpha1).
 
