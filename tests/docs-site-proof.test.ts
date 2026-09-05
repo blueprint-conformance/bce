@@ -177,7 +177,7 @@ describe('the post-flip deploy activation is intact', () => {
     // family whose transitive artifact upload is also immutable, with the reviewed
     // 40-hex commit here and the release family retained as a trailing comment.
     expect(publishWf).toMatch(/uses: actions\/upload-pages-artifact@[0-9a-f]{40}\s+# v5/);
-    expect(publishWf).toMatch(/uses: actions\/deploy-pages@(v4\b|[0-9a-f]{40}\s+# v4)/);
+    expect(publishWf).toMatch(/uses: actions\/deploy-pages@[0-9a-f]{40}\s+# v5/);
     // The deploy steps still belong to a real job with a steps block.
     const stepsAt = publishWf.indexOf('    steps:');
     expect(stepsAt).toBeGreaterThan(-1);
