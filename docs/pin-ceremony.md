@@ -35,10 +35,12 @@ the engine it is replacing**:
    refuses unless the full suite + corpus/recall + self-gate + leakage-gate + the RED/GREEN dist pair
    are all green **at the tag** (re-run in the workflow, never trusted from a prior run).
 2. Open a PR that **only** bumps `.engine-pin.json` `pin` from the old value to the new one.
-3. That PR is graded by Lane A running the **OLD** pin (the pin change takes effect only after merge, so
-   the required Lane-A check on the PR still installs the predecessor). The new engine must be admitted
-   by the engine it is replacing — a monotone trust ratchet: *every release since 0.1.0 was admitted by
-   its predecessor.* This is the honest claim, not "every commit ever."
+3. That PR is graded by Lane A running the **OLD** pin. On `pull_request`, the workflow resolves
+   `.engine-pin.json` from the event's exact base SHA; it never trusts the merge/head checkout for the
+   grader selection. On `push`, it reads the merged tree, so the new pin takes effect only after merge.
+   The executable negative control in `scripts/lane-a-pin-guard-selftest.mjs` proves both directions.
+   The new engine must be admitted by the engine it is replacing — a monotone trust ratchet: *every
+   release since 0.1.0 was admitted by its predecessor.* This is the honest claim, not "every commit ever."
 4. Merge only when Lane A (old pin) and every other required check are green. After merge, Lane A
    installs the new pin for all subsequent PRs.
 

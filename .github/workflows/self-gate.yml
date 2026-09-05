@@ -107,9 +107,11 @@ jobs:
         run: cat extractor-teeth-report.json
 
   # Lane A — the last PUBLISHED engine at an EXACT pin gates this tree,
-  # independent of the code under review. Current state is LIVE at 0.1.5. The
-  # published-state and registry-resolution guard is retained so a contradictory
-  # pin fails instead of producing a green job that graded nothing.
+  # independent of the code under review. On pull requests the pin is read from
+  # the PR BASE commit, not the merge/head checkout: a pin-bump PR is therefore
+  # admitted by its predecessor. On push, the merged tree's pin takes effect.
+  # The published-state and registry-resolution guard is retained so a
+  # contradictory pin fails instead of producing a green job that graded nothing.
   lane-a-pinned-gate:
     name: lane-a-pinned-gate
     runs-on: ubuntu-latest
@@ -122,20 +124,57 @@ jobs:
         with:
           node-version: 22.22.2
 
-      - name: Resolve and verify the live Lane-A pin
-        id: pin
+      - name: Negative control — PRs use the predecessor pin; pushes use the merged pin
+        run: node scripts/lane-a-pin-guard-selftest.mjs
+
+      - name: Select the Lane-A pin source
+        id: pin-source
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          pinfile=".engine-pin.json"
+          pinfile="${RUNNER_TEMP}/lane-a-pin.json"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            case "$PR_BASE_SHA" in
+              ''|*[!0-9a-fA-F]*)
+                echo "::error::pull_request base SHA is missing or malformed; cannot resolve the predecessor Lane-A pin"
+                exit 1 ;;
+            esac
+            if [ "${#PR_BASE_SHA}" -ne 40 ]; then
+              echo "::error::pull_request base SHA must be exactly 40 hexadecimal characters"
+              exit 1
+            fi
+            git fetch --no-tags --depth=1 origin "$PR_BASE_SHA"
+            git show "${PR_BASE_SHA}:.engine-pin.json" > "$pinfile"
+            echo "source_kind=predecessor" >> "$GITHUB_OUTPUT"
+            echo "source_revision=$PR_BASE_SHA" >> "$GITHUB_OUTPUT"
+            echo "→ Lane A pin source: PR base ${PR_BASE_SHA} (predecessor)"
+          else
+            cp .engine-pin.json "$pinfile"
+            echo "source_kind=merged-tree" >> "$GITHUB_OUTPUT"
+            echo "source_revision=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "→ Lane A pin source: current ${GITHUB_SHA} (merged tree)"
+          fi
+          echo "pinfile=$pinfile" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve the Lane-A pin and decide dormant vs live
+        id: pin
+        shell: bash
+        env:
+          LANE_A_PINFILE: ${{ steps.pin-source.outputs.pinfile }}
+        run: |
+          set -euo pipefail
+          pinfile="${LANE_A_PINFILE:-.engine-pin.json}"
           if [ ! -f "$pinfile" ]; then
-            echo "::error::${pinfile} is missing — the Lane-A pin contract is required (docs/pin-ceremony.md)"
+            echo "::error::Lane-A pin source ${pinfile} is missing — the pin contract is required (docs/pin-ceremony.md)"
             exit 1
           fi
-          pkg="$(node -p "require('./.engine-pin.json').package")"
-          pin="$(node -p "require('./.engine-pin.json').pin")"
-          published="$(node -p "String(require('./.engine-pin.json').published === true)")"
-          rng="$(node -p "String(require('./.engine-pin.json').range === true)")"
+          pkg="$(node -p "require(process.argv[1]).package" "$pinfile")"
+          pin="$(node -p "require(process.argv[1]).pin" "$pinfile")"
+          published="$(node -p "String(require(process.argv[1]).published === true)" "$pinfile")"
+          rng="$(node -p "String(require(process.argv[1]).range === true)" "$pinfile")"
           # Fail-closed: the pin MUST be exact — a range is forbidden (the caret-0.x incident).
           if [ "$rng" = "true" ]; then
             echo "::error::.engine-pin.json declares range:true — Lane A must install an EXACT version, never a range (docs/pin-ceremony.md)"

@@ -34,12 +34,13 @@
  * Exit 0 = every case behaved. Exit 1 = a case did not (or the baseline refused).
  */
 
-import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const STEP_NAME = 'Resolve the Lane-A pin and decide dormant vs live';
+const SOURCE_STEP_NAME = 'Select the Lane-A pin source';
 const MARKER = '.engine-pin.json';
 
 const argAgainst = process.argv.indexOf('--against');
@@ -86,14 +87,64 @@ function runCase({ pkg, pin, published, range = false }, script) {
   const r = spawnSync('bash', [scriptFile], {
     cwd: dir,
     encoding: 'utf8',
-    env: { ...process.env, GITHUB_OUTPUT: outFile },
+    env: { ...process.env, GITHUB_OUTPUT: outFile, LANE_A_PINFILE: join(dir, '.engine-pin.json') },
   });
   const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
   const live = (readFileSync(outFile, 'utf8').match(/^live=(\S+)$/m) ?? [])[1] ?? '(unset)';
   return { code: r.status, out, live };
 }
 
+function git(cwd, args) {
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  if (r.status !== 0) {
+    throw new Error(`git ${args.join(' ')} failed: ${r.stderr || r.stdout}`);
+  }
+  return r.stdout.trim();
+}
+
+/** Execute the shipped source-selector against a real two-commit repository. */
+function runSourceCase(eventName, sourceScript) {
+  const dir = mkdtempSync(join(tmpdir(), 'lane-a-source-'));
+  const runnerTemp = join(dir, 'runner');
+  mkdirSync(runnerTemp);
+  git(dir, ['init', '-q']);
+  git(dir, ['config', 'user.name', 'Lane A self-test']);
+  git(dir, ['config', 'user.email', 'lane-a-selftest@example.invalid']);
+  writeFileSync(join(dir, '.engine-pin.json'), JSON.stringify({ package: 'bce-engine', pin: '0.1.5', published: true, range: false }));
+  git(dir, ['add', '.engine-pin.json']);
+  git(dir, ['commit', '-qm', 'base pin']);
+  const baseSha = git(dir, ['rev-parse', 'HEAD']);
+  writeFileSync(join(dir, '.engine-pin.json'), JSON.stringify({ package: 'bce-engine', pin: '0.2.0', published: true, range: false }));
+  git(dir, ['add', '.engine-pin.json']);
+  git(dir, ['commit', '-qm', 'head pin']);
+  const headSha = git(dir, ['rev-parse', 'HEAD']);
+  git(dir, ['remote', 'add', 'origin', dir]);
+
+  const outFile = join(dir, 'gh-output');
+  const scriptFile = join(dir, 'source.sh');
+  writeFileSync(outFile, '');
+  writeFileSync(scriptFile, sourceScript);
+  const r = spawnSync('bash', [scriptFile], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      EVENT_NAME: eventName,
+      PR_BASE_SHA: eventName === 'pull_request' ? baseSha : '',
+      GITHUB_OUTPUT: outFile,
+      GITHUB_SHA: headSha,
+      RUNNER_TEMP: runnerTemp,
+    },
+  });
+  const outputs = readFileSync(outFile, 'utf8');
+  const pinfile = (outputs.match(/^pinfile=(.+)$/m) ?? [])[1];
+  const sourceKind = (outputs.match(/^source_kind=(.+)$/m) ?? [])[1];
+  const pin = pinfile ? JSON.parse(readFileSync(pinfile, 'utf8')).pin : '(missing)';
+  return { code: r.status, pin, sourceKind, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
+}
+
 const script = extractRunBlock(YML, STEP_NAME);
+const sourceScript = extractRunBlock(YML, SOURCE_STEP_NAME);
 
 // ---- BASELINE: refuse to report on anything if the extraction did not work. -------------------
 if (!script || !script.includes(MARKER)) {
@@ -104,7 +155,30 @@ if (!script || !script.includes(MARKER)) {
   );
   process.exit(1);
 }
+if (!sourceScript || !sourceScript.includes('PR_BASE_SHA') || !sourceScript.includes('git show')) {
+  console.error(
+    `baseline REFUSED: could not extract a predecessor-aware '${SOURCE_STEP_NAME}' run block from ${YML}.`,
+  );
+  process.exit(1);
+}
 console.log(`baseline: extracted ${script.split('\n').length} lines of the shipped guard from ${YML}\n`);
+
+const SOURCE_CASES = [
+  { event: 'pull_request', wantPin: '0.1.5', wantKind: 'predecessor' },
+  { event: 'push', wantPin: '0.2.0', wantKind: 'merged-tree' },
+];
+for (const c of SOURCE_CASES) {
+  const got = runSourceCase(c.event, sourceScript);
+  if (got.code !== 0 || got.pin !== c.wantPin || got.sourceKind !== c.wantKind) {
+    console.error(
+      `pin-source control FAIL: event=${c.event}; got exit=${got.code} pin=${got.pin} source=${got.sourceKind}; ` +
+      `want exit=0 pin=${c.wantPin} source=${c.wantKind}\n${got.out}`,
+    );
+    process.exit(1);
+  }
+  console.log(`  OK    pin source ${c.event}: ${got.pin} (${got.sourceKind})`);
+}
+console.log();
 
 // bce-engine@0.1.0 IS published; @999999.0.0 is not. Real registry answers. Keeping the live
 // control on the current trust anchor also makes this self-test exercise the release transition.

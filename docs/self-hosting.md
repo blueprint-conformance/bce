@@ -107,8 +107,9 @@ of the lane. Lane A must be independent of the code under review, so it installs
   the branch.
 
 The exact steps are written up in [`docs/pin-ceremony.md`](./pin-ceremony.md), and the live exact pin
-is recorded in [`.engine-pin.json`](../.engine-pin.json). `v0.1.0` completed bootstrap; subsequent pin
-bumps are admitted by the previously published Lane-A engine.
+is recorded in [`.engine-pin.json`](../.engine-pin.json). On a pull request, Lane A selects that file
+from the event's exact base SHA; on push, it selects the merged tree. `v0.1.0` completed bootstrap;
+subsequent pin bumps are therefore admitted by the previously published Lane-A engine.
 
 ## Branch-protection incident policy (attended recovery, not a skip flag)
 
