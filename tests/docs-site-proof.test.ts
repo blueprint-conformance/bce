@@ -22,11 +22,11 @@
  *     spec/schemas/ — complete, nothing extra (the `$id` URLs keep naming
  *     exactly these bytes);
  *   - llms.txt is served verbatim at the site root;
- *   - the deploy dormancy is intact: publish-schemas.yml still carries the
- *     job-level `if: false` guard and both deploy steps, and the build-only
- *     docs-site-check workflow has grown no deploy machinery. The guard's
- *     removal is a deliberate flip-day ceremony
- *     (docs/launch/public-flip-checklist.md Phase 2), never a side effect.
+ *   - the post-flip publisher remains active, runs for every main commit, and
+ *     still owns both deploy steps, while the build-only docs-site-check
+ *     workflow has grown no deploy machinery. An active publisher with a
+ *     schemas-only path filter would silently strand README, docs, and brand
+ *     changes on the previous Pages artifact.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
@@ -150,7 +150,7 @@ describe('the post-flip deploy activation is intact', () => {
   const publishWf = readFileSync(path.join(wfDir, 'publish-schemas.yml'), 'utf8');
   const checkWf = readFileSync(path.join(wfDir, 'docs-site-check.yml'), 'utf8');
 
-  it('publish-schemas.yml carries no job-level if: false and still has both deploy steps', () => {
+  it('publish-schemas.yml stays active for every main commit and retains both deploy steps', () => {
     // Before the flip this asserted the guard was PRESENT: publishing could not be
     // activated by accident while the $id base could not resolve. The flip happened
     // and Pages is enabled, so the assertion inverts rather than disappears — the
@@ -158,6 +158,12 @@ describe('the post-flip deploy activation is intact', () => {
     // and strands every schema $id at 404. The guard is a 4-space-indented job-level
     // key, so this matches the authored shape exactly and ignores prose mentions.
     expect(publishWf).not.toMatch(/^    if: false$/m);
+    // The deployed artifact now includes the whole docs site and branded assets,
+    // while its links resolve against the wider repository. A push path filter
+    // would let a green merge leave the public site stale. Keep the main trigger
+    // broad and let the dependency-free builder decide the actual payload.
+    expect(publishWf).toMatch(/^  push:\n    branches: \[main\]$/m);
+    expect(publishWf).not.toMatch(/^    paths:$/m);
     // The repo enforces actions/permissions.sha_pinning_required. Require the v5
     // family whose transitive artifact upload is also immutable, with the reviewed
     // 40-hex commit here and the release family retained as a trailing comment.
