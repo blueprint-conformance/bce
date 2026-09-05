@@ -25,11 +25,13 @@ name: publish-schemas
 # a local `_site/` directory. Only the two steps after it publish.
 
 on:
+  # The payload is the whole documentation site, not schemas alone. It renders
+  # README/docs content, copies branded assets, and validates links into the
+  # wider tree, so a path filter here can leave Pages stale after a green merge.
+  # Publish every main commit; the dependency-free assembly remains the source
+  # of truth for whether the public artifact changed.
   push:
     branches: [main]
-    paths:
-      - 'spec/schemas/**'
-      - '.github/workflows/publish-schemas.yml'
   workflow_dispatch:
 
 permissions:
