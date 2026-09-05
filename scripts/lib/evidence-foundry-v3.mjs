@@ -12,6 +12,9 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { verifyBundle } from './model-evaluation.mjs';
 
 export const EVIDENCE_FOUNDRY_VALIDATOR_VERSION = 'bce-evidence-foundry-v3-foundation-1';
+export const RUNTIME_DERIVATION_CERTIFICATE_ISSUER = 'https://token.actions.githubusercontent.com';
+export const RUNTIME_DERIVATION_CERTIFICATE_IDENTITY =
+  'https://github.com/blueprint-conformance/bce/.github/workflows/evidence-foundry-runtime-derivation.yml@refs/heads/main';
 
 export const CLAIM_CLASSES = [
   {
@@ -266,6 +269,72 @@ export function registryReleaseEvidenceRefusals(root, releaseBinding, { verifySi
   return blockers;
 }
 
+export function validateRuntimeDerivationStatement(root, statement) {
+  schemaValidator(root, 'runtime-derivation.v1.schema.json')(statement, 'runtime derivation statement');
+  const refusals = [];
+  if (!Number.isFinite(Date.parse(statement.createdAt))) refusals.push('runtime derivation statement timestamp is invalid');
+  if (statement.statementSha256 !== sha256Bytes(JSON.stringify(canonical({ ...statement, statementSha256: null })))) {
+    refusals.push('runtime derivation statement self-digest is invalid');
+  }
+  refuseIfAny(refusals, 'runtime derivation statement refused');
+  return { valid: true };
+}
+
+export function runtimeDerivationEvidenceRefusals(root, releaseBinding, { verifySigstore = defaultSigstoreVerifier } = {}) {
+  const blockers = [];
+  const reference = releaseBinding?.runtimeDerivation;
+  if (!reference) return ['signed registry-to-runtime derivation is unset'];
+  requireArtifactDigest(root, releaseBinding.runtimeArtifactPath, releaseBinding.runtimeArtifactSha256, 'derived runtime archive', blockers);
+  requireArtifactDigest(root, reference.statementPath, reference.statementSha256, 'runtime derivation statement', blockers);
+  requireArtifactDigest(root, reference.bundlePath, reference.bundleSha256, 'runtime derivation Sigstore bundle', blockers);
+  let statementFile;
+  let bundleFile;
+  try {
+    statementFile = readJsonFile(root, reference.statementPath, 'runtime derivation statement');
+    bundleFile = readJsonFile(root, reference.bundlePath, 'runtime derivation Sigstore bundle');
+    validateRuntimeDerivationStatement(root, statementFile.value);
+  } catch (error) {
+    blockers.push(error.message);
+    return blockers;
+  }
+  const statement = statementFile.value;
+  const expectedPackage = {
+    name: releaseBinding.packageName,
+    version: releaseBinding.version,
+    sourceCommit: releaseBinding.gitCommit,
+    registryTarballUrl: releaseBinding.registryTarballUrl,
+    artifactPath: releaseBinding.packageArtifactPath,
+    artifactSha256: releaseBinding.packageArtifactSha256,
+    npmIntegrity: releaseBinding.npmIntegrity,
+    registryVerificationPath: releaseBinding.registryVerification?.recordPath,
+    registryVerificationSha256: releaseBinding.registryVerification?.recordSha256,
+  };
+  if (canonicalJson(statement.package) !== canonicalJson(expectedPackage)) {
+    blockers.push('runtime derivation statement does not bind the exact registry package and provenance record');
+  }
+  if (statement.runtime?.artifactSha256 !== releaseBinding.runtimeArtifactSha256 ||
+      statement.runtime?.installedTreeSha256 !== releaseBinding.installedTreeSha256) {
+    blockers.push('runtime derivation statement does not bind the exact executed runtime archive and installed tree');
+  }
+  if (reference.certificateIssuer !== RUNTIME_DERIVATION_CERTIFICATE_ISSUER ||
+      reference.certificateIdentityURI !== RUNTIME_DERIVATION_CERTIFICATE_IDENTITY) {
+    blockers.push('runtime derivation signer is not the fixed BCE GitHub workflow identity');
+  }
+  const payload = decodeDssePayload(bundleFile.value, 'runtime derivation Sigstore bundle', blockers);
+  if (payload && !payload.bytes.equals(readFileSync(statementFile.absolute))) {
+    blockers.push('runtime derivation Sigstore payload differs from the exact statement bytes');
+  }
+  try {
+    verifySigstore(root, bundleFile.absolute, {
+      issuer: RUNTIME_DERIVATION_CERTIFICATE_ISSUER,
+      identity: RUNTIME_DERIVATION_CERTIFICATE_IDENTITY,
+    });
+  } catch (error) {
+    blockers.push(`runtime derivation cryptographic verification failed: ${error.message}`);
+  }
+  return blockers;
+}
+
 function verifyReleaseBinding(root, releaseBinding, blockers, hooks = {}) {
   if (releaseBinding === null) {
     blockers.push('release binding is unset');
@@ -275,6 +344,7 @@ function verifyReleaseBinding(root, releaseBinding, blockers, hooks = {}) {
   requireArtifactDigest(root, releaseBinding.releaseStatePath, releaseBinding.releaseStateSha256, 'public release state', blockers);
   requireArtifactDigest(root, releaseBinding.attestationPath, releaseBinding.attestationSha256, 'release attestation', blockers);
   blockers.push(...registryReleaseEvidenceRefusals(root, releaseBinding, hooks));
+  blockers.push(...runtimeDerivationEvidenceRefusals(root, releaseBinding, hooks));
   try {
     const packageArtifact = resolveRegularFileInside(root, releaseBinding.packageArtifactPath, 'release package artifact');
     const actualIntegrity = `sha512-${createHash('sha512').update(readFileSync(packageArtifact)).digest('base64')}`;
@@ -299,6 +369,8 @@ function verifyReleaseBinding(root, releaseBinding, blockers, hooks = {}) {
       runtimeArtifactSha256: releaseBinding.runtimeArtifactSha256,
       installedTreeSha256: releaseBinding.installedTreeSha256,
       registryVerificationSha256: releaseBinding.registryVerification.recordSha256,
+      runtimeDerivationStatementSha256: releaseBinding.runtimeDerivation.statementSha256,
+      runtimeDerivationBundleSha256: releaseBinding.runtimeDerivation.bundleSha256,
       releaseStateSha256: releaseBinding.releaseStateSha256,
     };
     if (canonicalJson(attestation) !== canonicalJson(expected)) blockers.push('release attestation content differs from the exact source, package, registry, runtime, and installed-tree binding');
@@ -442,6 +514,17 @@ export function stageExecutionCellBindingRefusals(stage, cell, bundleCell) {
   return refusals;
 }
 
+export function stageTreatmentReleaseBindingRefusals(stage, bundleProtocol, releaseBinding) {
+  if (releaseBinding !== null &&
+      bundleProtocol.treatment?.engineArtifactSha256 === releaseBinding.runtimeArtifactSha256 &&
+      bundleProtocol.treatment?.installedTreeSha256 === releaseBinding.installedTreeSha256 &&
+      bundleProtocol.treatment?.artifactProvenance?.sourceCommit === releaseBinding.gitCommit &&
+      bundleProtocol.treatment?.artifactProvenance?.publishedPackageByteMatch === true) {
+    return [];
+  }
+  return [`${stage.id} execution bundle treatment bytes, installed tree, registry-byte identity, or source commit differ from the release binding`];
+}
+
 function verifyStageExecutionBundle(root, protocol, stage, blockers) {
   if (!stage.executionBundlePath) {
     blockers.push(`${stage.id} sealed execution bundle is unset`);
@@ -492,12 +575,7 @@ function verifyStageExecutionBundle(root, protocol, stage, blockers) {
       blockers.push(`${stage.id} model identity evidence does not bind the verifier-checked capability attestation`);
     }
   }
-  if (protocol.releaseBinding === null ||
-      bundleProtocol.treatment?.engineArtifactSha256 !== protocol.releaseBinding.runtimeArtifactSha256 ||
-      bundleProtocol.treatment?.installedTreeSha256 !== protocol.releaseBinding.installedTreeSha256 ||
-      bundleProtocol.treatment?.artifactProvenance?.sourceCommit !== protocol.releaseBinding.gitCommit) {
-    blockers.push(`${stage.id} execution bundle treatment bytes, installed tree, or source commit differ from the release binding`);
-  }
+  blockers.push(...stageTreatmentReleaseBindingRefusals(stage, bundleProtocol, protocol.releaseBinding));
   if (bundleProtocol.implementation?.blindedEvaluatorSha256 !== protocol.evaluator.evaluatorArtifactSha256) {
     blockers.push(`${stage.id} execution bundle does not bind the frozen arm-blind evaluator`);
   }

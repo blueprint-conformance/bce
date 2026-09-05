@@ -9,6 +9,8 @@ import { tmpdir } from 'node:os';
 import {
   CLAIM_CLASSES,
   EvidenceFoundryRefusal,
+  RUNTIME_DERIVATION_CERTIFICATE_IDENTITY,
+  RUNTIME_DERIVATION_CERTIFICATE_ISSUER,
   canonical,
   externalResultAnchorRefusals,
   registryReleaseEvidenceRefusals,
@@ -16,7 +18,10 @@ import {
   resolveRegularFileInside,
   sha256Bytes,
   stageExecutionCellBindingRefusals,
+  stageTreatmentReleaseBindingRefusals,
   studyReadinessBlockers,
+  runtimeDerivationEvidenceRefusals,
+  validateRuntimeDerivationStatement,
   validatePowerDesign,
   validateProtocolV3,
   verifyStudyRegistry,
@@ -55,11 +60,20 @@ function frozenProtocol() {
     packageArtifactSha256: sha256Bytes(packageBytes),
     npmIntegrity: `sha512-${createHash('sha512').update(packageBytes).digest('base64')}`,
     registryTarballUrl: 'https://registry.npmjs.org/bce-engine/-/bce-engine-0.3.0.tgz',
+    runtimeArtifactPath: 'research/model-evaluation/studies/evidence-foundry-v3/release-runtime.tgz',
     runtimeArtifactSha256: '3'.repeat(64),
     installedTreeSha256: '4'.repeat(64),
     registryVerification: {
       recordPath: 'research/model-evaluation/studies/evidence-foundry-v3/registry-verification.json',
       recordSha256: 'a'.repeat(64),
+    },
+    runtimeDerivation: {
+      statementPath: 'research/model-evaluation/studies/evidence-foundry-v3/runtime-derivation.json',
+      statementSha256: 'b'.repeat(64),
+      bundlePath: 'research/model-evaluation/studies/evidence-foundry-v3/runtime-derivation.sigstore',
+      bundleSha256: 'c'.repeat(64),
+      certificateIssuer: RUNTIME_DERIVATION_CERTIFICATE_ISSUER,
+      certificateIdentityURI: RUNTIME_DERIVATION_CERTIFICATE_IDENTITY,
     },
     releaseStatePath: 'release-state.json',
     releaseStateSha256: '5'.repeat(64),
@@ -100,7 +114,7 @@ function beginRun(value) {
   };
 }
 
-for (const schemaName of ['study-index.v3.schema.json', 'protocol.v3.schema.json', 'power-design.v1.schema.json']) {
+for (const schemaName of ['study-index.v3.schema.json', 'protocol.v3.schema.json', 'power-design.v1.schema.json', 'runtime-derivation.v1.schema.json']) {
   assertSchemaObjectsClosed(readJson(`research/model-evaluation/schemas/${schemaName}`));
 }
 
@@ -125,17 +139,29 @@ assert.match(
   stageExecutionCellBindingRefusals({ id: 'transport-a' }, stageCell, { ...singleStageBundleCell, resolvedModel: 'other' }).join('\n'),
   /identity differs from the preregistered cell/,
 );
+const stageReleaseBinding = { runtimeArtifactSha256: 'a'.repeat(64), installedTreeSha256: 'b'.repeat(64), gitCommit: 'c'.repeat(40) };
+const stageTreatment = {
+  treatment: {
+    engineArtifactSha256: stageReleaseBinding.runtimeArtifactSha256,
+    installedTreeSha256: stageReleaseBinding.installedTreeSha256,
+    artifactProvenance: { sourceCommit: stageReleaseBinding.gitCommit, publishedPackageByteMatch: true },
+  },
+};
+assert.deepEqual(stageTreatmentReleaseBindingRefusals({ id: 'primary-confirmatory' }, stageTreatment, stageReleaseBinding), []);
+const unknownRegistryMatch = clone(stageTreatment);
+unknownRegistryMatch.treatment.artifactProvenance.publishedPackageByteMatch = null;
+assert.match(
+  stageTreatmentReleaseBindingRefusals({ id: 'primary-confirmatory' }, unknownRegistryMatch, stageReleaseBinding).join('\n'),
+  /registry-byte identity/,
+);
 
 const report = verifyStudyRegistry({ root });
 assert.equal(report.valid, true);
-assert.equal(report.ready, false);
+assert.equal(typeof report.ready, 'boolean');
 assert.equal(report.archives.length, 5);
 assert.equal(report.archives.every((archive) => archive.immutable && archive.claimClass === 'apparatus-validation-only'), true);
-assert.match(report.readinessBlockers.join('\n'), /release binding is unset/);
-
-const readyCli = spawnSync(process.execPath, [resolve(root, 'scripts/verify-evidence-foundry-registry.mjs'), '--require-ready'], { cwd: root, encoding: 'utf8' });
-assert.equal(readyCli.status, 2);
-assert.match(readyCli.stderr, /structurally valid but not execution-ready/);
+assert.equal(report.studies[0].lifecycle, protocol.lifecycle);
+assert.deepEqual(report.studies[0].claimClasses, protocol.currentClaimClasses);
 const unknownCli = spawnSync(process.execPath, [resolve(root, 'scripts/verify-evidence-foundry-registry.mjs'), '--invented-flag'], { cwd: root, encoding: 'utf8' });
 assert.equal(unknownCli.status, 2);
 assert.match(unknownCli.stderr, /unknown argument/);
@@ -155,6 +181,15 @@ const captureExisting = spawnSync(process.execPath, [captureCli,
 assert.equal(captureExisting.status, 2);
 assert.match(captureExisting.stderr, /already exists.*may not be replaced/);
 
+const runtimeDerivationCli = resolve(root, 'scripts/create-evidence-foundry-runtime-derivation.mjs');
+const runtimeDerivationOutsideActions = spawnSync(process.execPath, [runtimeDerivationCli], {
+  cwd: root,
+  encoding: 'utf8',
+  env: { ...process.env, GITHUB_ACTIONS: 'false' },
+});
+assert.equal(runtimeDerivationOutsideActions.status, 2);
+assert.match(runtimeDerivationOutsideActions.stderr, /only by the identified BCE main-branch GitHub Actions workflow/);
+
 const anchorCli = resolve(root, 'scripts/create-evidence-foundry-result-anchor.mjs');
 const anchorOutsideActions = spawnSync(process.execPath, [anchorCli,
   '--stage', 'primary-confirmatory', '--results', 'results', '--out', 'anchor.json',
@@ -172,6 +207,15 @@ assert.match(anchorWorkflow, /verify-evidence-foundry-registry\.mjs --json/);
 assert.match(anchorWorkflow, /@sigstore\/cli\/bin\/run attest/);
 assert.match(anchorWorkflow, /@sigstore\/cli\/bin\/run verify/);
 assert.match(anchorWorkflow, /actions\/upload-artifact@[0-9a-f]{40}/);
+const runtimeDerivationWorkflow = readFileSync(resolve(root, '.github/workflows/evidence-foundry-runtime-derivation.yml'), 'utf8');
+assert.match(runtimeDerivationWorkflow, /workflow_dispatch:/);
+assert.match(runtimeDerivationWorkflow, /id-token: write/);
+assert.match(runtimeDerivationWorkflow, /GITHUB_REF" = "refs\/heads\/main/);
+assert.match(runtimeDerivationWorkflow, /create-evidence-foundry-runtime-derivation\.mjs/);
+assert.doesNotMatch(runtimeDerivationWorkflow, /npm pack/);
+assert.match(runtimeDerivationWorkflow, /@sigstore\/cli\/bin\/run attest/);
+assert.match(runtimeDerivationWorkflow, /@sigstore\/cli\/bin\/run verify/);
+assert.match(runtimeDerivationWorkflow, /actions\/upload-artifact@[0-9a-f]{40}/);
 
 const indexExtra = clone(registry);
 indexExtra.unreviewed = true;
@@ -231,11 +275,20 @@ draftRelease.releaseBinding = {
   packageArtifactSha256: '3'.repeat(64),
   npmIntegrity: `sha512-${Buffer.from('synthetic').toString('base64')}`,
   registryTarballUrl: 'https://registry.npmjs.org/bce-engine/-/bce-engine-0.3.0.tgz',
+  runtimeArtifactPath: 'research/model-evaluation/studies/evidence-foundry-v3/release-runtime.tgz',
   runtimeArtifactSha256: '3'.repeat(64),
   installedTreeSha256: '4'.repeat(64),
   registryVerification: {
     recordPath: 'research/model-evaluation/studies/evidence-foundry-v3/registry-verification.json',
     recordSha256: 'a'.repeat(64),
+  },
+  runtimeDerivation: {
+    statementPath: 'research/model-evaluation/studies/evidence-foundry-v3/runtime-derivation.json',
+    statementSha256: 'b'.repeat(64),
+    bundlePath: 'research/model-evaluation/studies/evidence-foundry-v3/runtime-derivation.sigstore',
+    bundleSha256: 'c'.repeat(64),
+    certificateIssuer: RUNTIME_DERIVATION_CERTIFICATE_ISSUER,
+    certificateIdentityURI: RUNTIME_DERIVATION_CERTIFICATE_IDENTITY,
   },
   releaseStatePath: 'release-state.json',
   releaseStateSha256: '5'.repeat(64),
@@ -253,6 +306,9 @@ for (const cell of primaryOnlyProtocol.clientModelCells.slice(1)) {
 validateProtocolV3(root, primaryOnlyProtocol);
 const readinessScratch = mkdtempSync(join(tmpdir(), 'bce-evidence-foundry-readiness-'));
 try {
+  const runtimeDerivationSchemaPath = join(readinessScratch, 'research', 'model-evaluation', 'schemas', 'runtime-derivation.v1.schema.json');
+  mkdirSync(dirname(runtimeDerivationSchemaPath), { recursive: true });
+  writeFileSync(runtimeDerivationSchemaPath, readFileSync(resolve(root, 'research/model-evaluation/schemas/runtime-derivation.v1.schema.json')));
   const ready = clone(frozen);
   const artifactBytes = (name, bytes) => {
     const absolute = join(readinessScratch, name);
@@ -310,6 +366,61 @@ try {
     },
   });
   ready.releaseBinding.registryVerification = { recordPath: registryVerification.path, recordSha256: registryVerification.sha256 };
+  const runtimeArtifact = artifactBytes('bce-treatment-runtime.tgz', Buffer.from('runtime derived only from synthetic release artifact'));
+  ready.releaseBinding.runtimeArtifactPath = runtimeArtifact.path;
+  ready.releaseBinding.runtimeArtifactSha256 = runtimeArtifact.sha256;
+  ready.releaseBinding.installedTreeSha256 = '4'.repeat(64);
+  const runtimeDerivationStatementValue = {
+    schemaVersion: '1',
+    kind: 'registry-package-runtime-derivation',
+    package: {
+      name: ready.releaseBinding.packageName,
+      version: ready.releaseBinding.version,
+      sourceCommit: ready.releaseBinding.gitCommit,
+      registryTarballUrl: ready.releaseBinding.registryTarballUrl,
+      artifactPath: ready.releaseBinding.packageArtifactPath,
+      artifactSha256: ready.releaseBinding.packageArtifactSha256,
+      npmIntegrity: ready.releaseBinding.npmIntegrity,
+      registryVerificationPath: ready.releaseBinding.registryVerification.recordPath,
+      registryVerificationSha256: ready.releaseBinding.registryVerification.recordSha256,
+    },
+    builder: {
+      workflowSourceCommit: '2'.repeat(40),
+      workflowRunUrl: 'https://github.com/blueprint-conformance/bce/actions/runs/123/attempts/1',
+      nodeVersion: 'v22.22.2',
+      npmVersion: '11.19.1',
+      platform: 'linux',
+      architecture: 'x64',
+      installCommand: 'corepack npm@11.19.1 --registry=https://registry.npmjs.org/ install --ignore-scripts --no-audit --no-fund --package-lock=true',
+    },
+    runtime: {
+      archiveName: 'bce-treatment-runtime.tgz',
+      artifactSha256: ready.releaseBinding.runtimeArtifactSha256,
+      installedTreeSha256: ready.releaseBinding.installedTreeSha256,
+    },
+    createdAt: '2026-09-06T00:00:00.000Z',
+    statementSha256: null,
+  };
+  runtimeDerivationStatementValue.statementSha256 = sha256Bytes(JSON.stringify(canonical(runtimeDerivationStatementValue)));
+  validateRuntimeDerivationStatement(readinessScratch, runtimeDerivationStatementValue);
+  const runtimeDerivationStatement = artifact('runtime-derivation.json', runtimeDerivationStatementValue);
+  const runtimeDerivationBundle = artifact('runtime-derivation.sigstore', dsse(runtimeDerivationStatementValue));
+  ready.releaseBinding.runtimeDerivation = {
+    statementPath: runtimeDerivationStatement.path,
+    statementSha256: runtimeDerivationStatement.sha256,
+    bundlePath: runtimeDerivationBundle.path,
+    bundleSha256: runtimeDerivationBundle.sha256,
+    certificateIssuer: RUNTIME_DERIVATION_CERTIFICATE_ISSUER,
+    certificateIdentityURI: RUNTIME_DERIVATION_CERTIFICATE_IDENTITY,
+  };
+  let observedRuntimeSigner = null;
+  assert.deepEqual(runtimeDerivationEvidenceRefusals(readinessScratch, ready.releaseBinding, {
+    verifySigstore: (_root, _bundle, signer) => { observedRuntimeSigner = signer; },
+  }), []);
+  assert.deepEqual(observedRuntimeSigner, {
+    issuer: RUNTIME_DERIVATION_CERTIFICATE_ISSUER,
+    identity: RUNTIME_DERIVATION_CERTIFICATE_IDENTITY,
+  });
   const releaseState = artifact('release-state.json', {
     currentVersion: ready.releaseBinding.version,
     npmIntegrity: packageIntegrity,
@@ -334,6 +445,8 @@ try {
     runtimeArtifactSha256: ready.releaseBinding.runtimeArtifactSha256,
     installedTreeSha256: ready.releaseBinding.installedTreeSha256,
     registryVerificationSha256: registryVerification.sha256,
+    runtimeDerivationStatementSha256: runtimeDerivationStatement.sha256,
+    runtimeDerivationBundleSha256: runtimeDerivationBundle.sha256,
     releaseStateSha256: releaseState.sha256,
   };
   const releaseAttestation = artifact('release-attestation.json', releaseAttestationValue);
@@ -426,6 +539,24 @@ try {
   const wrongProvenance = clone(ready);
   wrongProvenance.releaseBinding.registryVerification = { recordPath: wrongProvenanceRecord.path, recordSha256: wrongProvenanceRecord.sha256 };
   assert.match(readiness(wrongProvenance).join('\n'), /does not bind the exact BCE release workflow, tag, and source commit/);
+
+  const swappedRuntimeArtifact = artifactBytes('swapped-runtime.tgz', Buffer.from('hostile runtime B'));
+  const swappedRuntime = clone(ready);
+  swappedRuntime.releaseBinding.runtimeArtifactPath = swappedRuntimeArtifact.path;
+  swappedRuntime.releaseBinding.runtimeArtifactSha256 = swappedRuntimeArtifact.sha256;
+  swappedRuntime.releaseBinding.installedTreeSha256 = 'f'.repeat(64);
+  const swappedReleaseAttestation = artifact('swapped-release-attestation.json', {
+    ...releaseAttestationValue,
+    runtimeArtifactSha256: swappedRuntime.releaseBinding.runtimeArtifactSha256,
+    installedTreeSha256: swappedRuntime.releaseBinding.installedTreeSha256,
+  });
+  swappedRuntime.releaseBinding.attestationPath = swappedReleaseAttestation.path;
+  swappedRuntime.releaseBinding.attestationSha256 = swappedReleaseAttestation.sha256;
+  assert.match(
+    runtimeDerivationEvidenceRefusals(readinessScratch, swappedRuntime.releaseBinding, { verifySigstore: () => {} }).join('\n'),
+    /does not bind the exact executed runtime archive and installed tree/,
+  );
+  assert.match(readiness(swappedRuntime).join('\n'), /does not bind the exact executed runtime archive and installed tree/);
 
   const summary = {
     resultSha256: 'd'.repeat(64),

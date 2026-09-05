@@ -154,11 +154,13 @@ sends a model request. V4 binds the provider-returned Ollama version, model name
 artifact size, and post-attempt active model. That identity strength does not widen the pilot's
 claim scope.
 
-The treatment is an exact local candidate, not a claim about the npm release. Its builder resolves
-pinned runtime dependencies once before sealing, removes install-only lock metadata that embeds
-host paths, archives the complete executable runtime tree, and the controller later extracts it
-without registry access and verifies the installed-tree digest. The sealed provenance leaves
-`publishedPackageByteMatch` explicitly unknown.
+Confirmatory treatment runtimes are derived only from the exact tarball retained by the registry
+capture. The `evidence-foundry-runtime-derivation.yml` workflow verifies that tarball's npm/SLSA
+provenance, installs it with pinned npm, archives the complete runtime tree, and signs a closed
+input-package/output-runtime statement through the workflow's GitHub OIDC identity. The canary and
+v3 verifier both reject a runtime whose archive or installed-tree digest differs from that statement;
+new confirmatory bundles record `publishedPackageByteMatch: true`. Historical pilot archives keep
+their original local-candidate provenance and remain claim-ineligible.
 
 For Codex subscription authentication, the controller copies only `auth.json` into disposable
 state, proves initialization access, then deletes that file on the first
@@ -194,9 +196,28 @@ call in the BCE arm. Mentions, shell guesses, resource-list failures, and other 
 count. A non-qualified canary is useful apparatus evidence but cannot authorize a new pilot.
 
 ```sh
+node scripts/capture-evidence-foundry-registry.mjs \
+  --version VERSION \
+  --source-commit RELEASE_COMMIT \
+  --out-dir PATH/TO/registry-capture
+
+gh workflow run evidence-foundry-runtime-derivation.yml \
+  -f source_commit=MAIN_COMMIT \
+  -f release_source_commit=RELEASE_COMMIT \
+  -f package_artifact_path=PATH/TO/bce-engine-VERSION.tgz \
+  -f registry_record_path=PATH/TO/registry-verification.json \
+  -f output_directory=research/model-evaluation/studies/evidence-foundry-v3/release-runtime
+
+# After the workflow succeeds, download its artifact into the same output directory.
+gh run download RUN_ID \
+  --name evidence-foundry-registry-runtime-RELEASE_COMMIT \
+  --dir research/model-evaluation/studies/evidence-foundry-v3/release-runtime
+
 npm run model-eval:canary -- \
+  --client bce-ollama-tool-client \
   --ollama-model MODEL \
   --reasoning-effort low \
+  --runtime-derivation research/model-evaluation/studies/evidence-foundry-v3/release-runtime/runtime-derivation.json \
   --out /path/to/canary-attestation.json \
   --restricted-runs /access-controlled/path
 ```

@@ -2,16 +2,24 @@
 /** Live sacrificial client/model/BCE capability canary. Never uses evaluation tasks. */
 import { spawnSync } from 'node:child_process';
 import {
-  chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync,
+  chmodSync, constants, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync,
   rmSync, writeFileSync,
 } from 'node:fs';
 import { arch, platform, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   expectedSeal, fileArtifact, hashTree, loadVerifiedRecords, regenerateAssignments, sha256Bytes, sha256Json,
   validateCapabilityCanaryAttestation,
 } from './lib/model-evaluation.mjs';
+import {
+  RUNTIME_DERIVATION_CERTIFICATE_IDENTITY,
+  RUNTIME_DERIVATION_CERTIFICATE_ISSUER,
+  registryReleaseEvidenceRefusals,
+  resolveRegularFileInside,
+  runtimeDerivationEvidenceRefusals,
+  validateRuntimeDerivationStatement,
+} from './lib/evidence-foundry-v3.mjs';
 
 const valueAfter = (flag) => {
   const index = process.argv.indexOf(flag);
@@ -23,8 +31,9 @@ const outputPath = valueAfter('--out');
 const restrictedRunsArgument = valueAfter('--restricted-runs');
 const reasoningEffort = valueAfter('--reasoning-effort') ?? 'low';
 const clientKind = valueAfter('--client');
-if (!modelName || !outputPath || !clientKind) {
-  process.stderr.write('usage: node scripts/run-model-evaluation-canary.mjs --ollama-model NAME --out ATTESTATION.json --client codex|bce-ollama-tool-client [--reasoning-effort low|medium|high] [--restricted-runs DIR] [--codex FILE] [--node FILE] [--ollama-endpoint URL]\n');
+const runtimeDerivationArgument = valueAfter('--runtime-derivation');
+if (!modelName || !outputPath || !clientKind || !runtimeDerivationArgument) {
+  process.stderr.write('usage: node scripts/run-model-evaluation-canary.mjs --ollama-model NAME --out ATTESTATION.json --client codex|bce-ollama-tool-client --runtime-derivation REPOSITORY_RELATIVE_STATEMENT.json [--reasoning-effort low|medium|high] [--restricted-runs DIR] [--codex FILE] [--node FILE] [--ollama-endpoint URL]\n');
   process.exit(2);
 }
 if (!['low', 'medium', 'high'].includes(reasoningEffort)) {
@@ -77,25 +86,73 @@ function probeProvider(runtimePath) {
   return provider;
 }
 
-function buildTreatmentArchive() {
+function loadDerivedTreatmentArchive() {
+  const statementAbsolute = resolveRegularFileInside(root, runtimeDerivationArgument, 'runtime derivation statement');
+  const statement = JSON.parse(readFileSync(statementAbsolute, 'utf8'));
+  validateRuntimeDerivationStatement(root, statement);
+  const derivationDirectory = dirname(statementAbsolute);
+  const bundleAbsolute = resolveRegularFileInside(
+    root,
+    relative(root, join(derivationDirectory, 'runtime-derivation.sigstore')).split(sep).join('/'),
+    'runtime derivation Sigstore bundle',
+  );
+  const archiveAbsolute = resolveRegularFileInside(
+    root,
+    relative(root, join(derivationDirectory, statement.runtime.archiveName)).split(sep).join('/'),
+    'derived runtime archive',
+  );
+  const releaseBinding = {
+    packageName: statement.package.name,
+    version: statement.package.version,
+    gitCommit: statement.package.sourceCommit,
+    packageArtifactPath: statement.package.artifactPath,
+    packageArtifactSha256: statement.package.artifactSha256,
+    npmIntegrity: statement.package.npmIntegrity,
+    registryTarballUrl: statement.package.registryTarballUrl,
+    runtimeArtifactPath: relative(root, archiveAbsolute).split(sep).join('/'),
+    runtimeArtifactSha256: statement.runtime.artifactSha256,
+    installedTreeSha256: statement.runtime.installedTreeSha256,
+    registryVerification: {
+      recordPath: statement.package.registryVerificationPath,
+      recordSha256: statement.package.registryVerificationSha256,
+    },
+    runtimeDerivation: {
+      statementPath: relative(root, statementAbsolute).split(sep).join('/'),
+      statementSha256: sha256Bytes(readFileSync(statementAbsolute)),
+      bundlePath: relative(root, bundleAbsolute).split(sep).join('/'),
+      bundleSha256: sha256Bytes(readFileSync(bundleAbsolute)),
+      certificateIssuer: RUNTIME_DERIVATION_CERTIFICATE_ISSUER,
+      certificateIdentityURI: RUNTIME_DERIVATION_CERTIFICATE_IDENTITY,
+    },
+  };
+  const refusals = [
+    ...registryReleaseEvidenceRefusals(root, releaseBinding),
+    ...runtimeDerivationEvidenceRefusals(root, releaseBinding),
+  ];
+  if (refusals.length > 0) throw new Error(`derived treatment refused: ${refusals.join('; ')}`);
   const artifacts = join(bundle, 'artifacts');
   mkdirSync(artifacts, { recursive: true });
-  const packed = run('npm', ['pack', '--json', '--pack-destination', artifacts]);
-  if (packed.status !== 0) throw new Error(`canary treatment pack failed: ${packed.stderr}`);
-  const jsonStart = packed.stdout.lastIndexOf('\n[');
-  const packResult = JSON.parse(jsonStart >= 0 ? packed.stdout.slice(jsonStart + 1) : packed.stdout);
-  const tarball = join(artifacts, packResult[0].filename);
-  const runtime = join(scratch, 'treatment-runtime');
-  const installed = run('npm', ['install', '--prefix', runtime, '--ignore-scripts', '--no-audit', '--no-fund', '--no-save', '--package-lock=false', tarball]);
-  if (installed.status !== 0) throw new Error(`canary treatment install failed: ${installed.stderr}`);
-  const installLock = join(runtime, 'node_modules', '.package-lock.json');
-  if (existsSync(installLock)) rmSync(installLock);
-  const installedTreeSha256 = hashTree(runtime, { includeNodeModules: true });
   const archive = join(artifacts, 'bce-canary-treatment-runtime.tgz');
-  const archived = run('/usr/bin/tar', ['-czf', archive, '-C', runtime, '.'], { env: { ...process.env, COPYFILE_DISABLE: '1' } });
-  if (archived.status !== 0) throw new Error(`canary treatment archive failed: ${archived.stderr}`);
-  rmSync(tarball);
-  return { archive, installedTreeSha256, runtime, mcpServer: join(runtime, 'node_modules', 'bce-engine', 'dist', 'mcp-server.js') };
+  copyFileSync(archiveAbsolute, archive, constants.COPYFILE_EXCL);
+  if (sha256Bytes(readFileSync(archive)) !== statement.runtime.artifactSha256) {
+    throw new Error('copied treatment runtime differs from the signed derivation');
+  }
+  const runtime = join(scratch, 'treatment-runtime');
+  mkdirSync(runtime);
+  const entries = run('/usr/bin/tar', ['-tzf', archive]);
+  if (entries.status !== 0) throw new Error(`derived treatment archive listing failed: ${entries.stderr}`);
+  if (entries.stdout.split('\n').filter(Boolean).some((entry) => entry.startsWith('/') || entry.split('/').includes('..'))) {
+    throw new Error('derived treatment archive contains a traversal path');
+  }
+  const extracted = run('/usr/bin/tar', ['-xzf', archive, '-C', runtime]);
+  if (extracted.status !== 0) throw new Error(`derived treatment archive extraction failed: ${extracted.stderr}`);
+  const installedTreeSha256 = hashTree(runtime, { includeNodeModules: true });
+  if (installedTreeSha256 !== statement.runtime.installedTreeSha256) {
+    throw new Error('extracted treatment tree differs from the signed derivation');
+  }
+  const mcpServer = realpathSync(join(runtime, 'node_modules', 'bce-engine', 'dist', 'mcp-server.js'));
+  if (!mcpServer.startsWith(`${realpathSync(runtime)}${sep}`)) throw new Error('derived BCE MCP server escapes the runtime closure');
+  return { archive, installedTreeSha256, runtime, mcpServer, releaseSourceCommit: statement.package.sourceCommit };
 }
 
 function probeMcpRunGateTool(runtimePath, mcpServer) {
@@ -177,7 +234,7 @@ try {
   const clientVersionProbe = clientKind === 'codex' ? run(clientPath, ['--version']) : run(runtimePath, [clientPath, '--version']);
   if (clientVersionProbe.status !== 0 || runtimeVersion.status !== 0) throw new Error('client/runtime version probe failed');
   const provider = probeProvider(runtimePath);
-  const treatment = buildTreatmentArchive();
+  const treatment = loadDerivedTreatmentArchive();
   const mcpRunGateTool = probeMcpRunGateTool(runtimePath, treatment.mcpServer);
   const protocol = JSON.parse(readFileSync(join(root, 'research', 'model-evaluation', 'protocol.v2.json'), 'utf8'));
   Object.assign(protocol, {
@@ -227,9 +284,9 @@ try {
   const gitCommit = run('git', ['rev-parse', 'HEAD']).stdout.trim();
   const gitStatus = run('git', ['status', '--porcelain', '--untracked-files=all']).stdout.trim();
   protocol.treatment.artifactProvenance = {
-    sourceCommit: gitCommit, sourceTreeState: gitStatus === '' ? 'clean' : 'dirty-development-only',
-    buildCommand: 'npm pack; npm install exact candidate into isolated scratch; archive complete executable runtime closure for sacrificial canary',
-    classification: 'exact-local-candidate-offline-runtime-closure', publishedPackageByteMatch: null,
+    sourceCommit: treatment.releaseSourceCommit, sourceTreeState: 'clean',
+    buildCommand: 'verify signed registry derivation; copy and extract its exact runtime closure for the sacrificial canary',
+    classification: 'exact-local-candidate-offline-runtime-closure', publishedPackageByteMatch: true,
   };
   protocol.implementation = {
     verifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation.mjs'))),

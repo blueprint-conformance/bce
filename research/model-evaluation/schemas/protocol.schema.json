@@ -118,7 +118,12 @@
             "sourceTreeState": { "enum": ["clean", "dirty-development-only"] },
             "buildCommand": { "type": "string", "minLength": 20 },
             "classification": { "const": "exact-local-candidate-offline-runtime-closure" },
-            "publishedPackageByteMatch": { "type": "null" }
+            "publishedPackageByteMatch": {
+              "oneOf": [
+                { "const": true },
+                { "type": "null" }
+              ]
+            }
           }
         },
         "baselineReceivesWrittenPolicy": { "const": true },

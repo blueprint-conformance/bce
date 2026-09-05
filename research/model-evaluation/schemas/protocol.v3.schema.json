@@ -309,9 +309,11 @@
         "packageArtifactSha256",
         "npmIntegrity",
         "registryTarballUrl",
+        "runtimeArtifactPath",
         "runtimeArtifactSha256",
         "installedTreeSha256",
         "registryVerification",
+        "runtimeDerivation",
         "releaseStatePath",
         "releaseStateSha256",
         "attestationPath",
@@ -327,9 +329,11 @@
         "packageArtifactSha256": { "$ref": "#/definitions/sha256" },
         "npmIntegrity": { "type": "string", "pattern": "^sha512-[A-Za-z0-9+/]+=*$" },
         "registryTarballUrl": { "type": "string", "pattern": "^https://registry\\.npmjs\\.org/bce-engine/-/bce-engine-[0-9A-Za-z.-]+\\.tgz$" },
+        "runtimeArtifactPath": { "$ref": "#/definitions/relativeFilePath" },
         "runtimeArtifactSha256": { "$ref": "#/definitions/sha256" },
         "installedTreeSha256": { "$ref": "#/definitions/sha256" },
         "registryVerification": { "$ref": "#/definitions/registryVerification" },
+        "runtimeDerivation": { "$ref": "#/definitions/runtimeDerivation" },
         "releaseStatePath": { "$ref": "#/definitions/relativeJsonPath" },
         "releaseStateSha256": { "$ref": "#/definitions/sha256" },
         "attestationPath": { "$ref": "#/definitions/relativeJsonPath" },
@@ -453,6 +457,28 @@
       "properties": {
         "recordPath": { "$ref": "#/definitions/relativeJsonPath" },
         "recordSha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "runtimeDerivation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statementPath",
+        "statementSha256",
+        "bundlePath",
+        "bundleSha256",
+        "certificateIssuer",
+        "certificateIdentityURI"
+      ],
+      "properties": {
+        "statementPath": { "$ref": "#/definitions/relativeJsonPath" },
+        "statementSha256": { "$ref": "#/definitions/sha256" },
+        "bundlePath": { "$ref": "#/definitions/relativeFilePath" },
+        "bundleSha256": { "$ref": "#/definitions/sha256" },
+        "certificateIssuer": { "const": "https://token.actions.githubusercontent.com" },
+        "certificateIdentityURI": {
+          "const": "https://github.com/blueprint-conformance/bce/.github/workflows/evidence-foundry-runtime-derivation.yml@refs/heads/main"
+        }
       }
     }
   }
