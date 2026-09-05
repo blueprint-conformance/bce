@@ -144,10 +144,11 @@ completion and adoption, but is not counted as observed policy manipulation.
 ### Sacrificial live capability canary
 
 The canary creates its own one-file fixture and never reads or runs an evaluation task. It retains
-two sacrificial attempts, one per arm, and qualifies an exact cell only when both attempts show an
-accepted command event, the exact single allowed-file edit, usable turn/token telemetry, stable
-provider name and digest, zero unsupported router errors, and a real BCE MCP `run_gate` call in the
-BCE arm. A non-qualified canary is useful apparatus evidence but cannot authorize v5.
+two sacrificial attempts, one per arm, and qualifies an exact cell only when both attempts show a
+successful command completion, the exact single allowed-file edit, usable turn/token telemetry,
+stable provider name and digest, zero tool-router errors, and an exact successful BCE MCP `run_gate`
+call in the BCE arm. Mentions, shell guesses, resource-list failures, and other MCP calls do not
+count. A non-qualified canary is useful apparatus evidence but cannot authorize v5.
 
 ```sh
 npm run model-eval:canary -- \

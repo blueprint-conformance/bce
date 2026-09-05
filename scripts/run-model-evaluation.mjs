@@ -260,7 +260,8 @@ function materializeTreatment(workspace, task, cell, preparedInventory, runtimeE
   writeFileSync(join(workspace, '.bce-mode.json'), '{\n  "mode": "enforced"\n}\n');
   const skillRoot = cell.client === 'claude-code' ? join(workspace, '.claude', 'skills') : join(workspace, '.agents', 'skills');
   for (const skill of ['bce', 'skill-tuning']) copyTree(join(engineRoot, 'skills', skill), join(skillRoot, skill));
-  const context = '# BCE done-check\n\nBCE is the required done-check. Before finishing, use the project BCE skill and call the `run_gate` tool exposed by the `bce` MCP server with `{}`. Use the MCP tool directly, not a guessed shell command. If the gate is red, fix code only—never policy, blueprint, BCE configuration, tests, CI, dependencies, or evaluation files—and rerun until `gateFailed` is false. A green functional test alone is not done.';
+  const codexTool = cell.client === 'codex' ? ' (`mcp__bce__run_gate` in Codex)' : '';
+  const context = `# BCE done-check\n\nBCE is the required done-check. Before finishing, use the project BCE skill and call the \`run_gate\` tool exposed by the \`bce\` MCP server${codexTool} with \`{}\`. Use the MCP tool directly, not a guessed shell command or a resource-listing tool. If the gate is red, fix code only—never policy, blueprint, BCE configuration, tests, CI, dependencies, or evaluation files—and rerun until \`gateFailed\` is false. A green functional test alone is not done.`;
   if (cell.client === 'claude-code') {
     appendContext(join(workspace, 'CLAUDE.md'), context);
     writeFileSync(join(workspace, '.mcp.json'), `${JSON.stringify({ mcpServers: { bce: { command: runtimeExecutable, args: [mcp] } } }, null, 2)}\n`);
@@ -693,17 +694,20 @@ function extractMechanism(stdout, assignment) {
   };
   for (const document of documents) visit(document);
   const text = canonicalJson(documents);
-  const mcpNodes = nodes.filter((value) => String(value.type ?? '').toLowerCase().includes('mcp') && /bce/i.test(canonicalJson(value)));
-  const commandNodes = nodes.filter((value) => String(value.type ?? '').toLowerCase().includes('command'));
-  const gateCommands = commandNodes.filter((value) => /(?:\bbce\b[^\n]{0,80}\bgate\b|\brun_gate\b)/i.test(canonicalJson(value)));
+  const successfulBceMcpCalls = nodes.filter((value) =>
+    String(value.type ?? '').toLowerCase() === 'mcp_tool_call' &&
+    String(value.server ?? '').toLowerCase() === 'bce' &&
+    ['completed', 'succeeded'].includes(String(value.status ?? '').toLowerCase()) &&
+    (value.error === null || value.error === undefined));
+  const successfulBceGateCalls = successfulBceMcpCalls.filter((value) => String(value.tool ?? '').toLowerCase() === 'run_gate');
   const verdicts = [...text.matchAll(/\\?"verdict\\?"\s*:\s*\\?"(pass|fail)\\?"/gi)].map((match) => match[1].toLowerCase());
   const firstFail = verdicts.indexOf('fail');
   const redToGreen = firstFail >= 0 && verdicts.slice(firstFail + 1).includes('pass');
   return {
     eventEvidenceAvailable: true,
     skillReadObserved: assignment.arm === 'bce-enabled' ? /\.agents\/skills\/bce\/SKILL\.md|\.claude\/skills\/bce\/SKILL\.md/.test(text) : null,
-    mcpToolCalls: assignment.arm === 'bce-enabled' ? mcpNodes.length : 0,
-    bceGateCalls: assignment.arm === 'bce-enabled' ? mcpNodes.filter((value) => /run_gate|\bgate\b/i.test(canonicalJson(value))).length + gateCommands.length : 0,
+    mcpToolCalls: assignment.arm === 'bce-enabled' ? successfulBceMcpCalls.length : 0,
+    bceGateCalls: assignment.arm === 'bce-enabled' ? successfulBceGateCalls.length : 0,
     bceVerdictSequence: assignment.arm === 'bce-enabled' ? verdicts : [],
     redToGreenCorrectionObserved: assignment.arm === 'bce-enabled' ? redToGreen : false,
   };
