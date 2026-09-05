@@ -1,7 +1,7 @@
 {
   "name": "bce-engine",
   "version": "0.2.0",
-  "description": "bce — the blueprint conformance engine. Author an EngineeringBlueprint (the durable architectural contract for a repository) and gate code against it: a deterministic conformance score, fail-closed verdicts, and re-derivable evidence. Extraction is TypeScript/JavaScript today (ts-morph AST primary, line-scan fallback, behind one RepositoryFacts interface); the blueprint graph model is language-neutral.",
+  "description": "bce — the blueprint conformance engine. Author an EngineeringBlueprint and gate code against it with deterministic scores, fail-closed verdicts, and re-derivable evidence. TypeScript/JavaScript AST extraction is mature; Python import extraction is an explicit MVP behind the same RepositoryFacts interface.",
   "license": "Apache-2.0",
   "author": "bce maintainers",
   "repository": {
@@ -59,6 +59,8 @@
     "test:release-policy": "node scripts/check-release-proof-policy.selftest.mjs && node scripts/check-release-proof-policy.mjs",
     "test:reproducibility": "node scripts/reproducibility-proof.mjs",
     "test:release-claims": "node scripts/check-release-claims.selftest.mjs && node scripts/check-release-claims.mjs",
+    "test:public-release": "node scripts/verify-public-release.selftest.mjs && node scripts/verify-public-release.mjs",
+    "test:release-payload": "node scripts/verify-release-payload.selftest.mjs && node scripts/verify-release-payload.mjs",
     "generate:doc-diagrams": "node scripts/generate-doc-diagrams.mjs",
     "test:doc-diagrams": "node scripts/generate-doc-diagrams.mjs --check",
     "test:adoption-program": "node scripts/validate-adoption-program.selftest.mjs && node scripts/validate-adoption-program.mjs",
@@ -122,6 +124,7 @@
     "evidence/example-chain",
     "tools/verify-chain.mjs",
     "npm-shrinkwrap.json",
+    "release-state.json",
     "action.yml",
     "llms.txt"
   ],

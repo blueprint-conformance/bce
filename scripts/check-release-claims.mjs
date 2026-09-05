@@ -16,6 +16,7 @@ const state = json('release-state.json');
 const packageJson = json('package.json');
 const shrinkwrap = json('npm-shrinkwrap.json');
 const enginePin = json('.engine-pin.json');
+if (/\b\d+\s+tests\b/i.test(read('README.md'))) failures.push('README hard-codes a test count instead of relying on the generated badge');
 if (state.schemaVersion !== '2') failures.push('release-state.json has an unsupported schemaVersion');
 const packageVersion = state.candidateVersion ?? state.currentVersion;
 const parseExactVersion = (value) => {
@@ -44,6 +45,17 @@ if (state.candidateVersion !== undefined && state.candidateVersion !== null) {
   }
   requireText('README.md', `npm view bce-engine@${state.candidateVersion} version dist.integrity`, 'candidate registry preflight');
   requireText('README.md', `registry release: v${state.currentVersion}`, 'published/candidate distinction');
+}
+
+for (const path of [
+  'README.md', 'docs/quickstart.md', 'docs/first-win.md', 'docs/onboarding.md', 'docs/agent-loop.md',
+  'examples/quickstart/README.md', 'examples/first-win/README.md', 'skills/README.md', 'skills/bce/references/lifecycle.md',
+]) {
+  requireText(path, `npm view bce-engine@${state.currentVersion} version dist.integrity`, 'released registry preflight');
+  requireText(path, `npm install --save-dev --save-exact bce-engine@${state.currentVersion}`, 'released install target');
+  if (state.candidateVersion && read(path).includes(`npm install --save-dev --save-exact bce-engine@${state.candidateVersion}`)) {
+    failures.push(`released install target: ${path} presents the unpublished candidate as an install command`);
+  }
 }
 if (!/^[0-9a-f]{40}$/.test(state.actionCommit)) failures.push('actionCommit is not a full commit SHA');
 

@@ -36,12 +36,12 @@ try {
   if (error.status !== 1 || !String(error.stderr).includes('in-place npm self-upgrade is forbidden')) throw error;
 }
 
-writeFileSync(fixture, source.replace('--certificate-issuer https://token.actions.githubusercontent.com', '--certificate-issuer https://example.invalid'));
+writeFileSync(fixture, source.replaceAll('--certificate-issuer https://token.actions.githubusercontent.com', '--certificate-issuer https://example.invalid'));
 try {
   execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   throw new Error('release policy accepted an unconstrained Sigstore issuer');
 } catch (error) {
-  if (error.status !== 1 || !String(error.stderr).includes('Sigstore issuer constraint')) throw error;
+  if (error.status !== 1 || !String(error.stderr).includes('Sigstore issuer constraints')) throw error;
 }
 
 writeFileSync(fixture, source.replace('          npm run test:self-teeth-mutations\n', '          echo source mutation proof removed\n'));
@@ -60,6 +60,74 @@ try {
   if (error.status !== 1 || !String(error.stderr).includes('single-source leakage scan')) throw error;
 }
 
+writeFileSync(fixture, source.replace('        run: bash scripts/leakage-gate-selftest.sh\n', '        run: echo leakage negative controls removed\n'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a release without leakage negative controls');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('canonical leakage scanner negative controls')) throw error;
+}
+
+writeFileSync(fixture, source.replace(
+  '        run: node scripts/verify-release-payload.selftest.mjs && node scripts/verify-release-payload.mjs --out release-payload-manifest.json\n',
+  '        run: echo release payload boundary removed\n',
+));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a release without the payload boundary proof');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('release payload boundary proof')) throw error;
+}
+
+writeFileSync(fixture, source.replace(
+  '          npm publish "$RELEASE_TARBALL" --provenance --access public\n',
+  '          npm publish --provenance --access public\n',
+));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted publishing a rebuild instead of the verified tarball');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('publish of the verified npm tarball')) throw error;
+}
+
+writeFileSync(fixture, source.replace('            --tarball "$tarball" \\\n', '            --tarball "unverified.tgz" \\\n'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted an unverified tarball before publication');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('exact npm tarball verification')) throw error;
+}
+
+writeFileSync(fixture, source.replace('            "$RELEASE_TARBALL" \\\n', '            substituted-package.tgz \\\n'));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a draft without the exact published tarball');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('exact published tarball release asset')) throw error;
+}
+
+writeFileSync(fixture, source.replace(
+  '        run: node scripts/verify-public-release.selftest.mjs && node scripts/verify-public-release.mjs\n',
+  '        run: echo public registry proof removed\n',
+));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a release without the current public registry proof');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('current public registry proof')) throw error;
+}
+
+writeFileSync(fixture, source.replace(
+  '        run: bash scripts/leakage-scan.sh .\n',
+  '        run: |\n          CRED_PATTERNS=(planted)\n          echo divergent embedded scanner\n',
+));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a divergent embedded leakage implementation');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('divergent embedded leakage policy')) throw error;
+}
+
 writeFileSync(fixture, source.replace(/^\s*run:\s*npm run test:model-eval-controller\s*$/m, '        run: npm run test:model-eval-protocol'));
 try {
   execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -75,7 +143,7 @@ try {
   execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   throw new Error('release policy accepted npm publish before evidence staging');
 } catch (error) {
-  if (error.status !== 1 || !String(error.stderr).includes('verified evidence staged on a draft before npm publish')) throw error;
+  if (error.status !== 1 || !String(error.stderr).includes('verified evidence and payload staged on a draft before exact-tarball npm publish')) throw error;
 }
 
 writeFileSync(fixture, source.replace('gh release create "$tag" --verify-tag --draft', 'gh release create "$tag" --verify-tag'));
@@ -122,4 +190,4 @@ writeFileSync(fixture, source);
 const accepted = execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`intact release policy did not pass:\n${accepted}`);
 
-process.stdout.write('release-proof-policy self-test: PASS (missing adoption/source-mutation/controller/toolchain/leakage proof, in-place npm upgrade, wrong issuer, unsafe immutable-Release construction, uncoupled or non-retry-safe finalization, and publish-before-staging ordering rejected; intact gate accepted)\n');
+process.stdout.write('release-proof-policy self-test: PASS (missing adoption/source-mutation/controller/toolchain/leakage/payload proof, tarball rebuild/substitution, divergent leakage policy, in-place npm upgrade, wrong issuer, unsafe immutable-Release construction, uncoupled or non-retry-safe finalization, and publish-before-staging ordering rejected; intact gate accepted)\n');

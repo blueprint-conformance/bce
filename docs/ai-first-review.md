@@ -1,5 +1,7 @@
 # AI-first blueprint proposal and review
 
+> **Release status:** this surface is available in the exact `bce-engine@0.2.0` registry release.
+
 `bce propose` is the first repository-facing experience: a maintainer states intent, an AI drafts a
 plan, BCE deterministically compiles and tests the exact candidate, and a human reviews one immutable
 packet. The model never gains approval or policy-write authority.

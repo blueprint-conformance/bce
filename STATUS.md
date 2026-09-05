@@ -74,6 +74,13 @@ source tree.
   production extractor/evaluator path. CI regenerates and freshness-checks the mapping, rejects
   invalid or collateral mutants, and requires the real proof. This establishes that the current 45
   clauses can redden on real source changes; it does not establish specification completeness.
+- Pull-request and release boundaries execute one dependency-free leakage scanner. Its 33 pattern
+  classes have planted negative controls, sealed-evidence exceptions are exact path-and-digest pairs,
+  and the release separately emits a signed manifest of the npm payload while refusing research and
+  governance roots from that payload.
+- Pages deployment resolves the exact `release-state.json.currentVersion` against npm and requires
+  the ledger's SHA-512 integrity before publishing install instructions, so every active install
+  surface follows the registry release recorded by the trust anchor.
 - The model-evaluation controller has a no-model rehearsal over the exact eight-attempt pilot
   topology. It proves read-default-deny isolation, host/protected-surface write denial, hidden-input
   read denial, exact client/Node staging, positive generated-config MCP negotiation, copied-auth

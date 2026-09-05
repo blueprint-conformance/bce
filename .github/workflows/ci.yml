@@ -53,7 +53,7 @@ jobs:
       - name: Build the distributable engine
         run: npm run build
 
-      - name: Self-hosted extractor teeth — fresh manifest + 38 separately materialized source mutants
+      - name: Self-hosted extractor teeth — fresh manifest + separately materialized source mutants
         run: npm run test:self-teeth-mutations
 
       - name: Typecheck (tsc --noEmit, full tree)

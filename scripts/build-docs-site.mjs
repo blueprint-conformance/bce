@@ -15,7 +15,7 @@
  * WHY A HAND-ROLLED RENDERER, NOT A MARKDOWN LIBRARY
  * --------------------------------------------------
  * The markdown surface here is bounded and MEASURED, not guessed: across the
- * 20 published sources it is ATX headings, fenced code, GFM pipe tables,
+ * published sources recorded in the route map it is ATX headings, fenced code, GFM pipe tables,
  * ordered/unordered lists nested at most two deep, blockquotes, thematic
  * breaks, HTML comments, and inline links / code spans / emphasis. There are
  * no setext headings, no raw HTML blocks, no footnotes, no reference links.
@@ -68,6 +68,18 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+let RELEASE_STATE;
+try {
+  RELEASE_STATE = JSON.parse(fs.readFileSync(path.join(repoRoot, 'release-state.json'), 'utf8'));
+} catch (error) {
+  console.error(`docs-site: release-state.json is unreadable: ${error.message}`);
+  process.exit(2);
+}
+if (!/^\d+\.\d+\.\d+$/.test(RELEASE_STATE.currentVersion ?? '') ||
+    (RELEASE_STATE.candidateVersion != null && !/^\d+\.\d+\.\d+$/.test(RELEASE_STATE.candidateVersion))) {
+  console.error('docs-site: release-state.json must carry exact current and optional candidate versions');
+  process.exit(2);
+}
 
 const SITE_NAME = 'bce';
 const SITE_TAGLINE = 'the blueprint conformance engine';
@@ -936,7 +948,7 @@ ${withToc(pageBody, headings, wantToc)}
 ${source}
 </main>
 <footer class="site-footer">
-  <p>Apache-2.0. Pre-release: names, schemas, and commands may change before the initial public tag.</p>
+  <p>Apache-2.0 · registry release: bce-engine@${escapeHtml(RELEASE_STATE.currentVersion)}${RELEASE_STATE.candidateVersion ? ` · source candidate: ${escapeHtml(RELEASE_STATE.candidateVersion)}` : ''} · compatibility remains pre-1.0.</p>
 </footer>
 </body>
 </html>

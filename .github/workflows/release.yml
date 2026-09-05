@@ -162,6 +162,9 @@ jobs:
             echo "→ workflow_dispatch — dry_run=${dr:-true}"
           fi
 
+      - name: Current public install still resolves before staging its successor
+        run: node scripts/verify-public-release.selftest.mjs && node scripts/verify-public-release.mjs
+
       - name: Guard — package.json version must match the tag (tag push only)
         if: ${{ github.event_name == 'push' }}
         shell: bash
@@ -181,6 +184,9 @@ jobs:
 
       - name: Build the distributable engine
         run: npm run build
+
+      - name: Release payload boundary — enumerate and refuse non-shipping roots
+        run: node scripts/verify-release-payload.selftest.mjs && node scripts/verify-release-payload.mjs --out release-payload-manifest.json
 
       - name: Typecheck (tsc --noEmit, full tree)
         run: npm run typecheck
@@ -233,7 +239,11 @@ jobs:
           echo "--- teeth report (surfaced in the run log) ---"
           cat extractor-teeth-report.json
 
-      - name: Leakage gate — NUL-proof banned-string scan (same implementation as the PR gate)
+      - name: Leakage negative controls — canonical scanner catches every policy class
+        shell: bash
+        run: bash scripts/leakage-gate-selftest.sh
+
+      - name: Leakage gate — canonical full-tree scan (re-run at the tag)
         shell: bash
         run: bash scripts/leakage-scan.sh .
 
@@ -368,6 +378,10 @@ jobs:
       evidence_sha256: ${{ steps.stage_release.outputs.evidence_sha256 }}
       sigstore_sha256: ${{ steps.stage_release.outputs.sigstore_sha256 }}
       compliance_sha256: ${{ steps.stage_release.outputs.compliance_sha256 }}
+      payload_sha256: ${{ steps.stage_release.outputs.payload_sha256 }}
+      payload_sigstore_sha256: ${{ steps.stage_release.outputs.payload_sigstore_sha256 }}
+      tarball_sha256: ${{ steps.stage_release.outputs.tarball_sha256 }}
+      tarball_name: ${{ steps.stage_release.outputs.tarball_name }}
     permissions:
       contents: write   # create/update the GitHub Release + upload the evidence asset
       id-token: write    # npm provenance + Trusted Publishing (OIDC) — auth path (B)
@@ -417,6 +431,18 @@ jobs:
       - name: Build the distributable engine
         run: npm run build
 
+      - name: Create the one npm tarball that may be published
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm pack --ignore-scripts --json --silent > release-pack-output.txt
+          tarball="$(node scripts/verify-release-payload.mjs --pack-json release-pack-output.txt --print-filename)"
+          node scripts/verify-release-payload.mjs \
+            --pack-json release-pack-output.txt \
+            --tarball "$tarball" \
+            --out release-payload-manifest.json
+          echo "RELEASE_TARBALL=$tarball" >> "$GITHUB_ENV"
+
       - name: Generate the evidence record of THIS release gate-run before publish
         shell: bash
         run: |
@@ -440,7 +466,7 @@ jobs:
           node tools/verify-chain.mjs release-evidence-chain
           echo "release evidence record verifies (zero-dep verifier)."
 
-      - name: Keyless-sign and verify the release evidence record
+      - name: Keyless-sign and verify the release evidence and payload boundary
         shell: bash
         run: |
           set -euo pipefail
@@ -452,7 +478,14 @@ jobs:
             release-evidence-record.sigstore \
             --certificate-issuer https://token.actions.githubusercontent.com \
             --certificate-identity-uri "$identity"
-          echo "release evidence signature verifies for ${identity}."
+          node node_modules/@sigstore/cli/bin/run attest \
+            release-payload-manifest.json \
+            --output-file release-payload-manifest.sigstore
+          node node_modules/@sigstore/cli/bin/run verify \
+            release-payload-manifest.sigstore \
+            --certificate-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-uri "$identity"
+          echo "release evidence and payload-boundary signatures verify for ${identity}."
 
       - name: Stage the evidence assets on a draft GitHub Release
         id: stage_release
@@ -462,7 +495,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="${{ github.ref_name }}"
-          notes="Automated release of $(node -p "require('./package.json').name")@${tag#v}. The attached release-evidence-record.json is the EvidenceRecord of this release's gate-run — re-derivable with \`node tools/verify-chain.mjs\` and keyless-signed in release-evidence-record.sigstore. Published with npm provenance."
+          notes="Automated release of $(node -p "require('./package.json').name")@${tag#v}. The attached evidence record is re-derivable and keyless-signed; the signed payload manifest identifies the exact attached npm tarball published with npm provenance."
 
           # Immutable releases must receive every asset while still drafts. A
           # failed npm publish leaves this draft retryable; it exposes nothing as
@@ -479,13 +512,20 @@ jobs:
             release-evidence-record.json \
             release-evidence-record.sigstore \
             release-compliance-report.json \
+            release-payload-manifest.json \
+            release-payload-manifest.sigstore \
+            "$RELEASE_TARBALL" \
             --clobber
           {
             echo "evidence_sha256=$(sha256sum release-evidence-record.json | awk '{print $1}')"
             echo "sigstore_sha256=$(sha256sum release-evidence-record.sigstore | awk '{print $1}')"
             echo "compliance_sha256=$(sha256sum release-compliance-report.json | awk '{print $1}')"
+            echo "payload_sha256=$(sha256sum release-payload-manifest.json | awk '{print $1}')"
+            echo "payload_sigstore_sha256=$(sha256sum release-payload-manifest.sigstore | awk '{print $1}')"
+            echo "tarball_sha256=$(sha256sum "$RELEASE_TARBALL" | awk '{print $1}')"
+            echo "tarball_name=$RELEASE_TARBALL"
           } >> "$GITHUB_OUTPUT"
-          echo "staged evidence record + Sigstore bundle + compliance report on draft Release $tag"
+          echo "staged evidence, exact npm tarball, payload boundary, both Sigstore bundles, and compliance report on draft Release $tag"
 
       - name: npm publish --provenance --access public (only after evidence verifies)
         shell: bash
@@ -497,7 +537,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
-          npm publish --provenance --access public
+          npm publish "$RELEASE_TARBALL" --provenance --access public
           echo "published $(node -p "require('./package.json').name")@$(node -p "require('./package.json').version") with provenance."
 
   finalize-github-release:
@@ -516,16 +556,33 @@ jobs:
           EXPECTED_EVIDENCE_SHA256: ${{ needs.publish.outputs.evidence_sha256 }}
           EXPECTED_SIGSTORE_SHA256: ${{ needs.publish.outputs.sigstore_sha256 }}
           EXPECTED_COMPLIANCE_SHA256: ${{ needs.publish.outputs.compliance_sha256 }}
+          EXPECTED_PAYLOAD_SHA256: ${{ needs.publish.outputs.payload_sha256 }}
+          EXPECTED_PAYLOAD_SIGSTORE_SHA256: ${{ needs.publish.outputs.payload_sigstore_sha256 }}
+          EXPECTED_TARBALL_SHA256: ${{ needs.publish.outputs.tarball_sha256 }}
+          EXPECTED_TARBALL_NAME: ${{ needs.publish.outputs.tarball_name }}
         run: |
           set -euo pipefail
           tag="${{ github.ref_name }}"
+          if ! [[ "$EXPECTED_TARBALL_NAME" =~ ^[A-Za-z0-9._-]+\.tgz$ ]]; then
+            echo "::error::publish job did not provide a safe tarball asset name."
+            exit 1
+          fi
           release_json="$(gh release view "$tag" --json isDraft,assets)"
           is_draft="$(jq -r .isDraft <<<"$release_json")"
-          for asset in release-evidence-record.json release-evidence-record.sigstore release-compliance-report.json; do
+          for asset in \
+            release-evidence-record.json \
+            release-evidence-record.sigstore \
+            release-compliance-report.json \
+            release-payload-manifest.json \
+            release-payload-manifest.sigstore \
+            "$EXPECTED_TARBALL_NAME"; do
             case "$asset" in
               release-evidence-record.json) expected="$EXPECTED_EVIDENCE_SHA256" ;;
               release-evidence-record.sigstore) expected="$EXPECTED_SIGSTORE_SHA256" ;;
               release-compliance-report.json) expected="$EXPECTED_COMPLIANCE_SHA256" ;;
+              release-payload-manifest.json) expected="$EXPECTED_PAYLOAD_SHA256" ;;
+              release-payload-manifest.sigstore) expected="$EXPECTED_PAYLOAD_SIGSTORE_SHA256" ;;
+              "$EXPECTED_TARBALL_NAME") expected="$EXPECTED_TARBALL_SHA256" ;;
             esac
             if ! [[ "$expected" =~ ^[0-9a-f]{64}$ ]]; then
               echo "::error::publish job did not provide a valid digest for ${asset}."

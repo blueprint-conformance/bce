@@ -1,9 +1,9 @@
 name: leakage-gate
 
-# The FIRST workflow of this repository: a dependency-free, NUL-proof
-# banned-string scan. It exists from commit #1 so that no internal
-# identifier, host, or infrastructure reference can ever land in this tree.
-# Pure bash — no actions beyond checkout, no external tools.
+# The first workflow of this repository: a dependency-free, NUL-proof
+# banned-string scan. Both this PR boundary and the release boundary execute the
+# same scanner so their policy, coverage, and content-addressed exceptions cannot
+# drift independently.
 
 on:
   push:
@@ -36,6 +36,6 @@ jobs:
         shell: bash
         run: bash scripts/leakage-gate-selftest.sh
 
-      - name: Banned-string scan (NUL-proof, dependency-free)
+      - name: Banned-string scan (canonical, NUL-proof, dependency-free)
         shell: bash
         run: bash scripts/leakage-scan.sh .

@@ -41,6 +41,9 @@ on:
       - 'scripts/build-docs-site.mjs'
       - 'scripts/docs-site-selftest.mjs'
       - 'scripts/gen-fleet-evidence.mjs'
+      - 'scripts/verify-public-release.mjs'
+      - 'scripts/verify-public-release.selftest.mjs'
+      - 'release-state.json'
       - 'evidence/fleet/**'
       - '.github/workflows/docs-site-check.yml'
       - '.github/workflows/publish-schemas.yml'
@@ -71,6 +74,9 @@ jobs:
       # ----------------------------------------------------------------------
       - name: Self-test — every check must refuse its own probe
         run: node scripts/docs-site-selftest.mjs
+
+      - name: Public-release verifier refuses false registry metadata
+        run: node scripts/verify-public-release.selftest.mjs
 
       # The estate numbers on the landing page describe a PRIVATE repository, so no
       # public reader can re-derive them. What CAN be enforced offline is that the

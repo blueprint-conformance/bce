@@ -59,6 +59,9 @@ jobs:
         with:
           node-version: 22.22.2
 
+      - name: Public install advertised by the site still resolves
+        run: node scripts/verify-public-release.selftest.mjs && node scripts/verify-public-release.mjs
+
       # Assembles the same `_site/` this job has always deployed: every schema
       # copied byte-for-byte to /schemas/<name>.schema.json — the exact path its
       # `$id` names — plus the rendered documentation around them. The schemas

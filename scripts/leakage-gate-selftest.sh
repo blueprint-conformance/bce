@@ -36,38 +36,38 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 fails=0
 
 # ---- Fragment assembly. Nothing below is a banned literal in this file. --------
-o1="od"; o2="in"; NAME="${o1}${o2}"
-t1="redro""cket"; t2="3d""3d"; t4="open""value"; t5="hazel""man"; t7="techre""bels"
-t8="fleet""care"; t9="monkey""vision"
+po1="od"; po2="in"; p_name="${po1}${po2}"
+pt1="redro""cket"; pt2="3d""3d"; pt4="open""value"; pt5="hazel""man"; pt7="techre""bels"
+pt8="fleet""care"; pt9="monkey""vision"
 # Bounded classes. t3/t6 existed in the gate from the start but had NO probe here —
 # two classes with no negative control, found while adding the 2026-08-31 widening.
-t3="h""es"; t6="la""rs"
-n1="ke""vin"; n2="k""en"; n3="ko""os"
-gp="gh""p_"; gs="gh""s_"; go="gh""o_"; gpat="git""hub_pat_"; pk="PRIV""ATE KEY"
-sn="blueprintconformance"".dev"
-reg="npm.pkg.git""hub.com"
-dfA="dark"; dfB="factory"; ocA="open"; ocB="claw"
+pt3="h""es"; pt6="la""rs"
+pn1="ke""vin"; pn2="k""en"; pn3="ko""os"
+pgp="gh""p_"; pgs="gh""s_"; pgo="gh""o_"; pgpat="git""hub_pat_"; ppk="PRIV""ATE KEY"
+psn="blueprintconformance"".dev"
+preg="npm.pkg.git""hub.com"
+pdf_a="dark"; pdf_b="factory"; poc_a="open"; poc_b="claw"
 ip1="77.42.""80.233"; ip2="10.0""."; ip3="136.""243."; ip4="65.""21."
 rule="rule-""4"; vp="vp-""alpha"; del="del-""alpha"
 sk="sk_""aaaaaaaabbbb"; akia="AKIA""ABCDEFGH1234"; xox="xox""b-abc"
 jwt="eyJ""abcdefghijklmnopqrstu.eyJ""x"
-pem="-----BEGIN ""${pk}-----"
+pem="-----BEGIN ""${ppk}-----"
 
 # label -> probe string
 PROBES=(
-  "steward-org-name|${NAME} Systems"
-  "tenant-1|${t1}"
-  "tenant-2|${t2}"
-  "tenant-4|${t4}"
-  "tenant-5|${t5}"
-  "tenant-7|${t7}"
-  "tenant-8|${t8}"
-  "tenant-9|${t9}"
-  "tenant-3-bounded|the ${t3} stack"
-  "tenant-6-bounded|the ${t6} tenant"
-  "contact-1-bounded|ping ${n1} about it"
-  "contact-2-bounded|ask ${n2} first"
-  "contact-3-bounded|escalate to ${n3}"
+  "steward-org-name|${p_name} Systems"
+  "tenant-1|${pt1}"
+  "tenant-2|${pt2}"
+  "tenant-4|${pt4}"
+  "tenant-5|${pt5}"
+  "tenant-7|${pt7}"
+  "tenant-8|${pt8}"
+  "tenant-9|${pt9}"
+  "tenant-3-bounded|the ${pt3} stack"
+  "tenant-6-bounded|the ${pt6} tenant"
+  "contact-1-bounded|ping ${pn1} about it"
+  "contact-2-bounded|ask ${pn2} first"
+  "contact-3-bounded|escalate to ${pn3}"
   "host-prod|${ip1}"
   "host-private-range|${ip2}0.5"
   "host-dc-1|${ip3}18.36"
@@ -75,15 +75,15 @@ PROBES=(
   "doctrine-rule-id|see ${rule} for detail"
   "cycle-id-vp|cycle ${vp}"
   "cycle-id-del|cycle ${del}"
-  "private-registry|${reg}"
-  "steward-domain|${sn}"
-  "internal-pipeline-codename|the ${dfA}-${dfB} loop"
-  "internal-product-name|${ocA}${ocB} gateway"
+  "private-registry|${preg}"
+  "steward-domain|${psn}"
+  "internal-pipeline-codename|the ${pdf_a}-${pdf_b} loop"
+  "internal-product-name|${poc_a}${poc_b} gateway"
   "cred-sk|${sk}"
-  "cred-gh-pat|${gp}ABCDEFGHIJ12"
-  "cred-gh-server|${gs}ABCDEFGHIJ12"
-  "cred-gh-oauth|${go}ABCDEFGHIJ12"
-  "cred-gh-finegrained|${gpat}abc"
+  "cred-gh-pat|${pgp}ABCDEFGHIJ12"
+  "cred-gh-server|${pgs}ABCDEFGHIJ12"
+  "cred-gh-oauth|${pgo}ABCDEFGHIJ12"
+  "cred-gh-finegrained|${pgpat}abc"
   "cred-aws|${akia}"
   "cred-slack|${xox}"
   "cred-pem|${pem}"
@@ -106,9 +106,19 @@ for workflow in \
     echo "::error::$(basename "$workflow") must invoke the single-source leakage scanner exactly once"
     exit 2
   fi
+  if grep -qE 'CRED_PATTERNS=\(|(^|[^A-Z_])STEWARD_ALLOWLIST=\(' "$workflow"; then
+    echo "::error::$(basename "$workflow") carries a divergent embedded leakage policy"
+    exit 2
+  fi
 done
 
 echo "leakage-gate selftest: ${#PROBES[@]} pattern classes, each planted separately"
+policy_count="$(bash "$SCANNER" --pattern-count)"
+if [ "$policy_count" -ne "${#PROBES[@]}" ]; then
+  echo "::error::selftest: ${policy_count} policy classes but ${#PROBES[@]} probes"
+  exit 2
+fi
+echo "  wiring: pull-request and release boundaries share scripts/leakage-scan.sh"
 echo
 
 git -C "$REPO_ROOT" archive HEAD --prefix=base/ | tar -x -C "$TMP"
@@ -130,7 +140,7 @@ if ! scan "$pinned_dir" >/dev/null 2>&1; then
   echo "  MISS  exact sealed evidence was not recognized"
   fails=$((fails+1))
 fi
-printf '\n%s\n' "$t1" >> "$pinned_dir/$pinned_rel"
+printf '\n%s\n' "$pt1" >> "$pinned_dir/$pinned_rel"
 if changed_output="$(scan "$pinned_dir" 2>&1)"; then
   echo "  MISS  changed sealed evidence escaped its digest pin"
   fails=$((fails+1))
@@ -145,7 +155,8 @@ echo
 
 # The public security-address exception is exact in both content and location. It must not become
 # a file-wide exemption, and the same address outside SECURITY.md must remain a leak.
-contact="mitchell@${o1}${o2}-labs.ai"
+contact="mitchell@${po1}${po2}-labs.ai"
+near_contact="mitchell@${po1}${po2}-labsXai"
 exception_dir="$TMP/security_exception"
 mkdir -p "$exception_dir"
 printf 'Fallback: %s\n' "$contact" > "$exception_dir/SECURITY.md"
@@ -153,7 +164,7 @@ if ! scan "$exception_dir" >/dev/null 2>&1; then
   echo "  MISS  exact security contact was not allowlisted"
   fails=$((fails+1))
 fi
-printf 'Fallback: %s\n%s Systems\n' "$contact" "$NAME" > "$exception_dir/SECURITY.md"
+printf 'Fallback: %s\n%s Systems\n' "$contact" "$p_name" > "$exception_dir/SECURITY.md"
 if security_output="$(scan "$exception_dir" 2>&1)"; then
   echo "  MISS  SECURITY.md exception hid another steward reference"
   fails=$((fails+1))
@@ -168,7 +179,33 @@ if outside_output="$(scan "$exception_dir" 2>&1)"; then
 else
   case "$outside_output" in *README.md*) ;; *) echo "  MISS  outside-contact failure did not name its path"; fails=$((fails+1));; esac
 fi
-[ "$fails" -eq 0 ] && echo "  OK    exact SECURITY.md contact exception is content- and file-scoped"
+printf 'Fallback: %s\n' "$near_contact" > "$exception_dir/SECURITY.md"
+if near_output="$(scan "$exception_dir" 2>&1)"; then
+  echo "  MISS  regex-near security contact was treated as exact"
+  fails=$((fails+1))
+else
+  case "$near_output" in *SECURITY.md*) ;; *) echo "  MISS  regex-near contact failure did not name its path"; fails=$((fails+1));; esac
+fi
+[ "$fails" -eq 0 ] && echo "  OK    exact SECURITY.md contact exception is literal-, content-, and file-scoped"
+echo
+
+# A linked worktree represents .git as a metadata file rather than a directory.
+# Git control data is outside the repository tree under either representation.
+git_meta_dir="$TMP/git_metadata"
+mkdir -p "$git_meta_dir"
+printf 'gitdir: /tmp/%s/control\n' "$pt1" > "$git_meta_dir/.git"
+if ! scan "$git_meta_dir" >/dev/null 2>&1; then
+  echo "  MISS  linked-worktree .git metadata was scanned"
+  fails=$((fails+1))
+fi
+printf '%s\n' "$pt1" > "$git_meta_dir/TRACKED.txt"
+if tracked_output="$(scan "$git_meta_dir" 2>&1)"; then
+  echo "  MISS  .git exclusion hid a tracked sibling"
+  fails=$((fails+1))
+else
+  case "$tracked_output" in *TRACKED.txt*) ;; *) echo "  MISS  tracked-sibling failure did not name its path"; fails=$((fails+1));; esac
+fi
+[ "$fails" -eq 0 ] && echo "  OK    .git metadata exclusion is representation-safe and file-scoped"
 echo
 
 for entry in "${PROBES[@]}"; do

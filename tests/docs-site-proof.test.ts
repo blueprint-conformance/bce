@@ -37,6 +37,7 @@ import * as os from 'node:os';
 const repoRoot = path.resolve(__dirname, '..');
 const builder = path.join(repoRoot, 'scripts', 'build-docs-site.mjs');
 const selftest = path.join(repoRoot, 'scripts', 'docs-site-selftest.mjs');
+const releaseState = JSON.parse(readFileSync(path.join(repoRoot, 'release-state.json'), 'utf8'));
 const probeCountResult = spawnSync(process.execPath, [selftest, '--print-probe-count'], {
   cwd: repoRoot, encoding: 'utf8',
 });
@@ -122,6 +123,13 @@ describe('docs-site build (always-on, unfiltered by CI paths)', () => {
       expect(html).toContain(
         '<meta property="og:image" content="https://blueprint-conformance.github.io/bce/assets/bce-social-card.png">',
       );
+      expect(html).toContain(`registry release: bce-engine@${releaseState.currentVersion}`);
+      if (releaseState.candidateVersion) {
+        expect(html).toContain(`source candidate: ${releaseState.candidateVersion}`);
+      } else {
+        expect(html).not.toContain('source candidate:');
+      }
+      expect(html).not.toContain('before the initial public tag');
     }
   });
 
@@ -164,6 +172,7 @@ describe('the post-flip deploy activation is intact', () => {
     // broad and let the dependency-free builder decide the actual payload.
     expect(publishWf).toMatch(/^  push:\n    branches: \[main\]$/m);
     expect(publishWf).not.toMatch(/^    paths:$/m);
+    expect(publishWf).toContain('node scripts/verify-public-release.selftest.mjs && node scripts/verify-public-release.mjs');
     // The repo enforces actions/permissions.sha_pinning_required. Require the v5
     // family whose transitive artifact upload is also immutable, with the reviewed
     // 40-hex commit here and the release family retained as a trailing comment.
