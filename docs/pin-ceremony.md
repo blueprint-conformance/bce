@@ -24,6 +24,12 @@ the grader is **fixed** — a published artifact the PR under review cannot infl
 Bumping the Lane-A pin changes the independent grader. So the bump is itself a **governed act, gated by
 the engine it is replacing**:
 
+0. A release-staging PR may set `package.json`, `npm-shrinkwrap.json`, and
+   `release-state.json.candidateVersion` to the next exact version. It must leave
+   `release-state.json.currentVersion`, `releaseTag`, and `.engine-pin.json` on the last registry-
+   verified release. The release-claim checker rejects a candidate that is silently treated as the
+   published Lane-A trust anchor.
+
 1. Publish the new engine version (e.g. `0.2.0`) via the tag-gated
    [`release.yml`](../.github/workflows/release.yml). Publishing is itself fail-closed: the release
    refuses unless the full suite + corpus/recall + self-gate + leakage-gate + the RED/GREEN dist pair
@@ -35,6 +41,10 @@ the engine it is replacing**:
    its predecessor.* This is the honest claim, not "every commit ever."
 4. Merge only when Lane A (old pin) and every other required check are green. After merge, Lane A
    installs the new pin for all subsequent PRs.
+
+The publish and pin moves are deliberately separate. A source version, Git tag, or successful package
+build is not registry evidence. Consumption begins only after `npm view` resolves the exact version and
+its integrity is recorded.
 
 ## New constraint vocabulary lands via the version-skew two-step
 

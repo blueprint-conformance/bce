@@ -24,7 +24,8 @@ Node 22 or newer is required. Install the exact published version as a developme
 both `bce` and `bce-mcp` become local project binaries:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.5
+npm view bce-engine@0.2.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.2.0
 npx --no-install bce demo
 ```
 
@@ -102,8 +103,9 @@ existing policy files, either installed skill, or an existing MCP server named `
 
 The generated Action uses the full commit SHA for the `v0.1.5` Action source and can build that
 source locally. The repository's immutable-release setting was enabled after `v0.1.5` was published,
-so the tag itself is not treated as an executable trust anchor. Pass `--engine bce-engine@0.1.5`
-instead when you want the generated workflow to install the exact published package independently.
+so the tag itself is not treated as an executable trust anchor. After the exact registry preflight
+resolves, pass `--engine bce-engine@0.2.0` when you want the generated workflow to install this package
+independently.
 
 ## 4. Diagnose, prove RED, and go GREEN
 

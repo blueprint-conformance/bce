@@ -7,7 +7,8 @@
 > deterministic conformance score, a fail-closed required-check gate for merges, and hash-chained
 > evidence anyone can re-derive offline. Extraction is TypeScript/JavaScript today; the blueprint graph
 > model is language-neutral, the extractor seam is documented, and Python is the named next community
-> target. Status: v0.1.5 released with npm provenance; compatibility remains pre-1.0.
+> target. Source package: v0.2.0 candidate; registry release: v0.1.5. Verify the exact candidate and
+> its integrity on npm before installation. Compatibility remains pre-1.0.
 
 Core rules for an agent working in a bce-gated repo: (1) the gate is the done-check — a change is not
 done until `bce gate` is green; (2) on a red, fix the code, never silently edit the blueprint; (3) the

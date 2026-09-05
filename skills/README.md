@@ -97,7 +97,8 @@ The skill drives the `bce` CLI, so the command has to be reachable. Install the 
 provenance-backed public release in the target project:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.5
+npm view bce-engine@0.2.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.2.0
 npx --no-install bce demo
 ```
 

@@ -24,10 +24,11 @@ Node 22+ is required; the contract remains pre-1.0.
 
 ## Run a real gate
 
-Two commands. No account, hosted service, API key, or repository setup:
+Three commands. No account, hosted service, API key, or repository setup:
 
 ```bash
-npm install --save-dev --save-exact bce-engine@0.1.5
+npm view bce-engine@0.2.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.2.0
 npx --no-install bce demo
 ```
 
@@ -143,7 +144,9 @@ Specification: [blueprint-conformance/v1alpha1](spec/SPEC.md) · Agent loop:
 [MCP and agent workflow](docs/agent-loop.md) · Documentation:
 [blueprint-conformance.github.io/bce](https://blueprint-conformance.github.io/bce/)
 
-**Status: v0.1.5 released.** The npm package has provenance. Its historical tag is mutable;
-repository-level release immutability now protects future releases. Compatibility remains pre-1.0.
+**Source package: v0.2.0 candidate; registry release: v0.1.5.** Registry resolution is authoritative:
+do not install or pin v0.2.0 until the `npm view` preflight above returns its integrity. The v0.1.5
+historical tag is mutable; repository-level release immutability now protects future releases.
+Compatibility remains pre-1.0.
 
 Apache-2.0 — [license](LICENSE), [notice](NOTICE), and [trademarks](TRADEMARKS.md).

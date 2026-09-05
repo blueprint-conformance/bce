@@ -1,6 +1,6 @@
 {
   "name": "bce-engine",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "bce — the blueprint conformance engine. Author an EngineeringBlueprint (the durable architectural contract for a repository) and gate code against it: a deterministic conformance score, fail-closed verdicts, and re-derivable evidence. Extraction is TypeScript/JavaScript today (ts-morph AST primary, line-scan fallback, behind one RepositoryFacts interface); the blueprint graph model is language-neutral.",
   "license": "Apache-2.0",
   "author": "bce maintainers",

@@ -38,7 +38,8 @@ itself quietly bypasses all three. The blueprint makes that rule enforceable.
 ```bash
 mkdir bce-quickstart && cd bce-quickstart
 npm init -y
-npm install --save-dev --save-exact bce-engine@0.1.5
+npm view bce-engine@0.2.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.2.0
 cp -R node_modules/bce-engine/examples/quickstart .
 cd quickstart
 alias bce='../node_modules/.bin/bce'
