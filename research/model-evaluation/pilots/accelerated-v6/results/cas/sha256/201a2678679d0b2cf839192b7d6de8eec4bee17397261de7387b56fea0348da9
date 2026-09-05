@@ -1,0 +1,9 @@
+{
+  "available": true,
+  "agentWorkspaceInventorySha256": "73a4f1b8be45d069877aee1ac00d8ec387c1b16742e6280298cddbf56243b5e9",
+  "changedPaths": [
+    "src/features/repair-intent.mjs"
+  ],
+  "neutralTreeSha256": "7af438669d4181e8d3f9df3e4168d8991276867df737a1e92af30d73854274cd",
+  "agentWorkspaceTreeSha256": "dbe20b1e995d8e668f20719fea2c0a36fdb10bd733c77b6df61a3bb202cf6390"
+}

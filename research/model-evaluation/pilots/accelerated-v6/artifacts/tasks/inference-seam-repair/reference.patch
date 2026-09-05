@@ -1,0 +1,8 @@
+diff --git a/src/features/repair-intent.mjs b/src/features/repair-intent.mjs
+--- a/src/features/repair-intent.mjs
++++ b/src/features/repair-intent.mjs
+@@ -1,2 +1,2 @@
+-import { classifyIntent } from '../vendor/raw-inference.mjs';
+-export function repairIntent(text) { return classifyIntent(text).toUpperCase(); }
++import { classifyIntent } from '../application/inference-port.mjs';
++export function repairIntent(text) { return classifyIntent(text); }

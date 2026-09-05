@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1",
+  "authority": "controller-before-after-inventory",
+  "changes": [
+    {
+      "path": "src/usecases/repair-charge.mjs",
+      "before": {
+        "path": "src/usecases/repair-charge.mjs",
+        "type": "file",
+        "mode": 420,
+        "bytes": 156,
+        "sha256": "836525a083535117d4ba9069a137ae7a31423d5c8df2c3da5dd29b187928fa07"
+      },
+      "after": {
+        "path": "src/usecases/repair-charge.mjs",
+        "type": "file",
+        "mode": 384,
+        "bytes": 75,
+        "sha256": "3bc5582fb3b795828844a93709887dd49a3bdfc72aeda0b33a6ee73836fd0d9a"
+      }
+    }
+  ]
+}

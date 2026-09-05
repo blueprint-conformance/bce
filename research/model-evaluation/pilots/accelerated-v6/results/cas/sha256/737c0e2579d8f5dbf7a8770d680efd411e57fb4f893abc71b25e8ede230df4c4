@@ -1,0 +1,76 @@
+{
+  "passed": false,
+  "collateralRegression": false,
+  "locations": [
+    "src/routes/report-owner.mjs#L1"
+  ],
+  "deterministic": true,
+  "executed": true,
+  "inputTreeSha256": "6192922e9f5c1488042e870df7a06abca2906ee922a7d07fd2f48da961de4b15",
+  "runs": [
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "src/routes/report-owner.mjs#L1"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"workspace-access-refactor\",\"inputTreeSha256\":\"6192922e9f5c1488042e870df7a06abca2906ee922a7d07fd2f48da961de4b15\",\"passed\":false,\"locations\":[\"src/routes/report-owner.mjs#L1\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "workspace-access-refactor",
+        "inputTreeSha256": "6192922e9f5c1488042e870df7a06abca2906ee922a7d07fd2f48da961de4b15",
+        "passed": false,
+        "locations": [
+          "src/routes/report-owner.mjs#L1"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "f57a374c27a19eab356823ea89130092bea8e1be9c4bba1f496c1559ae789c3a",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    },
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "src/routes/report-owner.mjs#L1"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"workspace-access-refactor\",\"inputTreeSha256\":\"6192922e9f5c1488042e870df7a06abca2906ee922a7d07fd2f48da961de4b15\",\"passed\":false,\"locations\":[\"src/routes/report-owner.mjs#L1\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "workspace-access-refactor",
+        "inputTreeSha256": "6192922e9f5c1488042e870df7a06abca2906ee922a7d07fd2f48da961de4b15",
+        "passed": false,
+        "locations": [
+          "src/routes/report-owner.mjs#L1"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "f57a374c27a19eab356823ea89130092bea8e1be9c4bba1f496c1559ae789c3a",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    }
+  ]
+}

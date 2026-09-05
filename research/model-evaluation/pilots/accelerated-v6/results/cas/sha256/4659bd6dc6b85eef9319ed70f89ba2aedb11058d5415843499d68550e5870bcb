@@ -1,0 +1,78 @@
+{
+  "passed": false,
+  "collateralRegression": false,
+  "locations": [
+    "vectorLabel is not defined"
+  ],
+  "deterministic": true,
+  "executed": true,
+  "inputTreeSha256": "a62debe0d963aeda764a02f6947426fc2472aea181bd783199f2a95c6af0cd30",
+  "runs": [
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "vectorLabel is not defined"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"inference-seam-refactor\",\"inputTreeSha256\":\"a62debe0d963aeda764a02f6947426fc2472aea181bd783199f2a95c6af0cd30\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"vectorLabel is not defined\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "inference-seam-refactor",
+        "inputTreeSha256": "a62debe0d963aeda764a02f6947426fc2472aea181bd783199f2a95c6af0cd30",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "vectorLabel is not defined"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "db5fbb8ac2b29805a20af059dc2294d249e54fafeba2190b6674128470cd3249",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    },
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "vectorLabel is not defined"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"inference-seam-refactor\",\"inputTreeSha256\":\"a62debe0d963aeda764a02f6947426fc2472aea181bd783199f2a95c6af0cd30\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"vectorLabel is not defined\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "inference-seam-refactor",
+        "inputTreeSha256": "a62debe0d963aeda764a02f6947426fc2472aea181bd783199f2a95c6af0cd30",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "vectorLabel is not defined"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "db5fbb8ac2b29805a20af059dc2294d249e54fafeba2190b6674128470cd3249",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    }
+  ]
+}

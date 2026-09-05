@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { repairCharge } from '../src/usecases/repair-charge.mjs'; test('repairs charge', () => assert.equal(repairCharge(' ch-7 '), 'CH-7'));

@@ -1,0 +1,8 @@
+diff --git a/src/usecases/repair-charge.mjs b/src/usecases/repair-charge.mjs
+--- a/src/usecases/repair-charge.mjs
++++ b/src/usecases/repair-charge.mjs
+@@ -1,2 +1,2 @@
+-import { normalizeCharge } from '../infrastructure/raw-processor.mjs';
+-export function repairCharge(value) { return normalizeCharge(value).toLowerCase(); }
++import { normalizeCharge } from '../infrastructure/raw-processor.mjs';
++export function repairCharge(value) { return normalizeCharge(value); }

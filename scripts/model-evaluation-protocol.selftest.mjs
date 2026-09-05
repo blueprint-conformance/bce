@@ -24,7 +24,7 @@ mkdirSync(join(bundleDir, 'schemas'), { recursive: true });
 mkdirSync(join(bundleDir, 'artifacts'), { recursive: true });
 mkdirSync(join(bundleDir, 'repos'), { recursive: true });
 mkdirSync(runsDir, { recursive: true });
-for (const schema of ['protocol.schema.json', 'task-manifest.schema.json', 'terminal-record.schema.json', 'seal.schema.json', 'treatment-delta.schema.json', 'protected-paths.schema.json']) {
+for (const schema of ['protocol.schema.json', 'task-manifest.schema.json', 'terminal-record.schema.json', 'seal.schema.json', 'treatment-delta.schema.json', 'protected-paths.schema.json', 'study-halt.schema.json', 'safety-halt-archive.schema.json']) {
   cpSync(join(root, 'research', 'model-evaluation', 'schemas', schema), join(bundleDir, 'schemas', schema));
 }
 for (const name of ['treatment-delta.v1.json', 'protected-paths.v1.json', 'protocol-amendments.jsonl']) {
@@ -71,6 +71,18 @@ protocol.implementation = {
     analyzerSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'analyze-model-evaluation.mjs'))),
     analysisCoreSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-analysis.mjs'))),
     referenceVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'verify-model-evaluation-reference-patches.mjs'))),
+    providerVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-provider.mjs'))),
+    haltVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-halt.mjs'))),
+    publicExporterSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'export-model-evaluation-public.mjs'))),
+    publicVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'verify-model-evaluation-public.mjs'))),
+    studyHaltSchemaSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'study-halt.schema.json'))),
+    safetyHaltArchiveSchemaSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'safety-halt-archive.schema.json'))),
+    canaryRunnerSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'run-model-evaluation-canary.mjs'))),
+    ollamaToolClientSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'model-evaluation-ollama-tool-client.mjs'))),
+    ollamaToolClientEventVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-client-events.mjs'))),
+    ollamaSystemPromptSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'client', 'ollama-system-prompt.v1.txt'))),
+    ollamaCommonToolsSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'client', 'ollama-common-tools.v1.json'))),
+    ollamaClientEventSchemaSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'client-event.schema.json'))),
 };
 protocol.clientModelCells = [
   ['primary-codex', 'primary', 'codex', 'gpt-test-a'],
@@ -280,7 +292,7 @@ function makeTerminal(assignment) {
   });
   write(join(trialDir, 'functional.json'), { passed: functionalPassed, collateralRegression: taskIndex === 8, deterministic: true });
   write(join(trialDir, 'architecture.json'), { passed: architecturePassed, locations: architecturePassed ? [] : ['src/index.ts#L1'], deterministic: true });
-  write(join(trialDir, 'policy.json'), { mutation: policyMutation, paths: policyMutation ? ['.blueprints/task.json'] : [], observedWritePaths: [] });
+  write(join(trialDir, 'policy.json'), { assessmentComplete: true, mutationObserved: policyMutation, failClosedForOutcome: policyMutation, mutation: policyMutation, paths: policyMutation ? ['.blueprints/task.json'] : [], observedWritePaths: [] });
   const evidence = {
     events: runArtifact(join(trialDir, 'events.jsonl'), runsDir, 'application/x-ndjson'),
     transcript: runArtifact(join(trialDir, 'transcript.jsonl'), runsDir, 'application/x-ndjson'),
@@ -294,7 +306,7 @@ function makeTerminal(assignment) {
     policyDiff: runArtifact(join(trialDir, 'policy.json'), runsDir, 'application/json'),
   };
   const terminal = {
-    schemaVersion: '2',
+    schemaVersion: '3',
     studyId: protocol.studyId,
     trialId: assignment.trialId,
     pairId: assignment.pairId,
@@ -337,6 +349,9 @@ function makeTerminal(assignment) {
       visiblePipelineAccepted: visibleAccepted,
       hiddenFunctionalPassed: functionalPassed,
       independentArchitecturePassed: architecturePassed,
+      policyAssessmentComplete: true,
+      policyMutationObserved: policyMutation,
+      policyFailClosedForOutcome: policyMutation,
       policyMutation,
       withinBudget: true,
       safeSuccessfulCompletion: visibleAccepted && functionalPassed && architecturePassed && !policyMutation,

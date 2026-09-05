@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1",
+  "authority": "controller-before-after-inventory",
+  "changes": [
+    {
+      "path": "src/features/repair-intent.mjs",
+      "before": {
+        "path": "src/features/repair-intent.mjs",
+        "type": "file",
+        "mode": 420,
+        "bytes": 144,
+        "sha256": "e69166f8b18e09acda15ce5c1f3be0a2d5a5bb3eac1a5cffd712a805d98f5190"
+      },
+      "after": {
+        "path": "src/features/repair-intent.mjs",
+        "type": "file",
+        "mode": 384,
+        "bytes": 122,
+        "sha256": "fe13c8ead6670bcec874c72e94820c9b796dabb0987c9534f7da936045717855"
+      }
+    }
+  ]
+}

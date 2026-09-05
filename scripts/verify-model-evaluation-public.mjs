@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 /** Zero-credential verification of a public model-evaluation export. */
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyzeModelEvaluationRecords } from './lib/model-evaluation-analysis.mjs';
 import { canonicalJson, expectedSeal, sha256Bytes, sha256Json } from './lib/model-evaluation.mjs';
 import { SAFETY_HALT_ARCHIVE_SCHEMA_PATH, verifyPublishedSafetyHalt } from './lib/model-evaluation-halt.mjs';
+import { localProviderProofMatches, localProviderProofWellFormed } from './lib/model-evaluation-provider.mjs';
 
 const valueAfter = (flag) => {
   const index = process.argv.indexOf(flag);
@@ -14,24 +16,6 @@ const valueAfter = (flag) => {
 const bundleRoot = resolve(valueAfter('--bundle') ?? 'research/model-evaluation/pilots/accelerated-v1');
 const resultsRoot = resolve(valueAfter('--results') ?? join(bundleRoot, 'results'));
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
-const localProviderProofMatches = (proof, provider, { requireActiveModel = false } = {}) => {
-  if (!proof || !provider) return false;
-  const expectedResponse = {
-    serverVersion: provider.serverVersion,
-    modelName: provider.modelName,
-    modelDigest: provider.modelDigest,
-    modelSizeBytes: provider.modelSizeBytes,
-  };
-  const activeExpected = { modelName: provider.modelName, modelDigest: provider.modelDigest, modelSizeBytes: provider.modelSizeBytes };
-  return proof.matched === true && proof.endpoint === provider.endpoint && proof.activeModelRequired === requireActiveModel && canonicalJson(proof.response) === canonicalJson(expectedResponse) && proof.responseSha256 === sha256Json(expectedResponse) &&
-    (!requireActiveModel || (canonicalJson(proof.activeModel) === canonicalJson(activeExpected) && proof.activeModelSha256 === sha256Json(activeExpected)));
-};
-const localProviderProofWellFormed = (proof, provider) => {
-  if (!proof || proof.endpoint !== provider.endpoint) return false;
-  if (proof.response === null) return proof.responseSha256 === null && proof.matched === false && typeof proof.exitCode === 'number';
-  return proof.response && typeof proof.response === 'object' && proof.responseSha256 === sha256Json(proof.response) && typeof proof.matched === 'boolean' &&
-    ((proof.activeModel === null && proof.activeModelSha256 === null) || (proof.activeModel && proof.activeModelSha256 === sha256Json(proof.activeModel)));
-};
 const protocol = readJson(join(bundleRoot, 'protocol.v2.json'));
 const manifest = readJson(join(bundleRoot, 'task-manifest.json'));
 const seal = readJson(join(bundleRoot, 'seal.json'));
@@ -45,7 +29,36 @@ if (safetyHalted) {
     haltHelperSha256: sha256Bytes(readFileSync(fileURLToPath(new URL('./lib/model-evaluation-halt.mjs', import.meta.url)))),
     archiveSchemaSha256: sha256Bytes(readFileSync(SAFETY_HALT_ARCHIVE_SCHEMA_PATH)),
   };
-  if (canonicalJson(summary.archiveTooling) !== canonicalJson(runningArchiveTooling)) throw new Error('safety-halt archive tooling digest mismatch');
+  if (canonicalJson(summary.archiveTooling) !== canonicalJson(runningArchiveTooling)) {
+    const historicalArchives = {
+      'bce-accelerated-instrumentation-pilot-v4-2026-09-05': {
+        commit: '06db0323b78eee999bd97ec4a6d2e92022daa1a4',
+        tooling: {
+          exporterSha256: 'cd6ce33dd6c0d0d2c49e88217807b7338f001628198456f9a74f96b2e0029859',
+          publicVerifierSha256: '4cc204c3582cebafb3015b033014d23b87cc544e532a2312a5e7d544abd91dee',
+          haltHelperSha256: '8e9a2d40dc00d8926b95982528441872b76644260e37f01484d7ad5e4c93537b',
+          archiveSchemaSha256: '55754ad9439faf01b9456ac2e14f7d7863f019961e203b1d430461421795c84a',
+        },
+      },
+    };
+    const historical = historicalArchives[summary.studyId];
+    if (!historical || canonicalJson(summary.archiveTooling) !== canonicalJson(historical.tooling)) throw new Error('safety-halt archive tooling digest mismatch');
+    const top = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: bundleRoot, encoding: 'utf8' });
+    if (top.status !== 0) throw new Error('historical archive tooling verification requires the public Git history');
+    const repositoryRoot = top.stdout.trim();
+    const paths = {
+      exporterSha256: 'scripts/export-model-evaluation-public.mjs',
+      publicVerifierSha256: 'scripts/verify-model-evaluation-public.mjs',
+      haltHelperSha256: 'scripts/lib/model-evaluation-halt.mjs',
+      archiveSchemaSha256: 'research/model-evaluation/schemas/safety-halt-archive.schema.json',
+    };
+    for (const [field, path] of Object.entries(paths)) {
+      const blob = spawnSync('git', ['show', `${historical.commit}:${path}`], { cwd: repositoryRoot, encoding: null, maxBuffer: 64 * 1024 * 1024 });
+      if (blob.status !== 0 || sha256Bytes(blob.stdout) !== summary.archiveTooling[field]) {
+        throw new Error(`historical safety-halt archive ${field} is not content-addressed by ${historical.commit}`);
+      }
+    }
+  }
   if (summary.analysis !== null || summary.archive?.archiveSha256 !== sha256Json({ ...summary.archive, archiveSha256: null }) || summary.archive?.efficacyEstimatesProduced !== false) {
     throw new Error('safety-halt archive contains an analysis or has an invalid self-digest');
   }
@@ -143,6 +156,21 @@ for (let index = 0; index < records.length; index += 1) {
       (protocol.isolation.positiveCapabilityProofRequired === true && (!isolation.workspaceReadWriteAllowed || !isolation.stagedRuntimeVersionVerified || !isolation.stagedClientVersionVerified)) ||
       (task.referencePatch && isolation.referencePatchReadDenied !== true) ||
       (task.shortcutPatch && isolation.shortcutPatchReadDenied !== true) ||
+      (cell.client === 'bce-ollama-tool-client' && record.status !== 'infrastructure-error' &&
+        (isolation.clientToolchainWriteDenied !== true || isolation.stagedToolchainIntegrityAfterExecution !== true ||
+          isolation.execBroker?.driver !== cell.toolLoop.execSandbox.driver ||
+          isolation.execBroker?.driverSha256 !== cell.toolLoop.execSandbox.driverSha256 ||
+          !/^[0-9a-f]{64}$/.test(isolation.execBroker?.profileSha256 ?? '') ||
+          isolation.execBroker?.workspaceReadWriteAllowed !== true || isolation.execBroker?.gitDiagnosticAllowed !== true || isolation.execBroker?.protectedWriteDenied !== true ||
+          isolation.execBroker?.toolchainWriteDenied !== true || isolation.execBroker?.controllerCanaryReadDenied !== true ||
+          (task.referencePatch && isolation.execBroker?.referencePatchReadDenied !== true) ||
+          (task.shortcutPatch && isolation.execBroker?.shortcutPatchReadDenied !== true) ||
+          isolation.execBroker?.processForkDenied !== true || isolation.execBroker?.providerNetworkDenied !== true ||
+          isolation.execBroker?.externalNetworkDenied !== true || isolation.execBroker?.wrongLoopbackDenied !== true ||
+          isolation.stagedToolchainAfterExecution?.clientArtifactSha256 !== cell.clientArtifactSha256 ||
+          isolation.stagedToolchainAfterExecution?.runtimeArtifactSha256 !== protocol.isolation.runtimeArtifactSha256 ||
+          isolation.stagedToolchainAfterExecution?.systemPromptSha256 !== cell.toolLoop.systemPrompt.sha256 ||
+          isolation.stagedToolchainAfterExecution?.commonToolContractSha256 !== cell.toolLoop.commonToolContract.sha256)) ||
       (assignment.arm === 'bce-enabled' && protocol.isolation.positiveCapabilityProofRequired === true && (!isolation.mcpHandshakePassed || !Array.isArray(isolation.mcpToolNames) || isolation.mcpToolNames.length === 0 || (hardenedEvidenceRequired && (isolation.mcpDoneCheckAvailable !== true || !isolation.mcpToolNames.includes('run_gate'))))) ||
       (cell.localProvider && (isolation.authenticationAbsent !== true || isolation.providerReachable !== true || isolation.externalNetworkDenied !== true || isolation.nonProviderLoopbackDenied !== true ||
         !localProviderProofMatches(isolation.providerIdentityBefore, cell.localProvider) || !localProviderProofWellFormed(isolation.providerIdentityAfter, cell.localProvider) ||
@@ -151,9 +179,16 @@ for (let index = 0; index < records.length; index += 1) {
       (cell.client === 'codex' && isolation.clientSessionObserved === true && (isolation.credentialRetiredBeforeModelToolExecution !== true || isolation.modelToolExecutionObservedBeforeCredentialRetirement !== false)) ||
       (cell.client === 'codex' && record.status === 'completed' && isolation.clientSessionObserved !== true)) throw new Error(`${record.trialId}: client isolation proof mismatch`);
   if (safetyHalted) {
-    if (record.status !== 'infrastructure-error' || policy.conservativeFailureClassification !== true || policy.mutation !== true ||
+    if (record.status !== 'infrastructure-error') throw new Error(`${record.trialId}: safety-halt prefix contains a non-infrastructure terminal`);
+    if (record.schemaVersion === '3') {
+      if (typeof policy.assessmentComplete !== 'boolean' || typeof policy.mutationObserved !== 'boolean' ||
+          typeof policy.failClosedForOutcome !== 'boolean' || policy.mutation !== policy.mutationObserved ||
+          policy.failClosedForOutcome !== (!policy.assessmentComplete || policy.mutationObserved)) {
+        throw new Error(`${record.trialId}: safety-halt policy tri-state is inconsistent`);
+      }
+    } else if (policy.conservativeFailureClassification !== true || policy.mutation !== true ||
         policy.finalPolicyPaths?.length !== 0 || policy.observedWritePaths?.length !== 0 || policy.outOfScope?.length !== 0) {
-      throw new Error(`${record.trialId}: safety-halt policy evidence is not the frozen conservative unknown placeholder`);
+      throw new Error(`${record.trialId}: legacy safety-halt policy evidence is not the frozen conservative unknown placeholder`);
     }
     continue;
   }
@@ -165,6 +200,14 @@ for (let index = 0; index < records.length; index += 1) {
   } else if (hardenedEvidenceRequired && ((visible.bceRun ?? null) !== null || visible.bceGateAccepted !== null)) throw new Error(`${record.trialId}: baseline arm contains BCE gate evidence`);
   const withinBudget = record.telemetry.endToEndVisibleMs !== null && record.telemetry.endToEndVisibleMs <= task.budget.timeoutMs && record.telemetry.agentTurns !== null && record.telemetry.agentTurns <= task.budget.maxTurns && (task.budget.maxCostUsd === null || (record.telemetry.costUsd !== null && record.telemetry.costUsd <= task.budget.maxCostUsd));
   const modelIdentityVerified = record.bindings.resolvedModel === cell.resolvedModel && ['provider-response', 'synthetic-response'].includes(cell.modelIdentityEvidence);
+  const triStatePolicy = record.schemaVersion === '3';
+  const policyAssessmentComplete = triStatePolicy ? policy.assessmentComplete === true : true;
+  const policyMutationObserved = triStatePolicy ? policy.mutationObserved === true : policy.mutation === true;
+  const policyFailClosedForOutcome = triStatePolicy ? policy.failClosedForOutcome === true : policyMutationObserved;
+  if (triStatePolicy && (
+    typeof policy.assessmentComplete !== 'boolean' || typeof policy.mutationObserved !== 'boolean' || typeof policy.failClosedForOutcome !== 'boolean' ||
+    policy.mutation !== policy.mutationObserved || policy.failClosedForOutcome !== (!policy.assessmentComplete || policy.mutationObserved)
+  )) throw new Error(`${record.trialId}: public policy tri-state is inconsistent`);
   const expectedDerived = {
     modelIdentityVerified,
     nonBcePipelineAccepted: visible.nonBceAccepted === true,
@@ -172,13 +215,14 @@ for (let index = 0; index < records.length; index += 1) {
     visiblePipelineAccepted: visible.accepted === true,
     hiddenFunctionalPassed: functional.passed === true,
     independentArchitecturePassed: architecture.passed === true,
-    policyMutation: policy.mutation === true,
+    policyMutation: policyMutationObserved,
     withinBudget,
   };
-  expectedDerived.safeSuccessfulCompletion = record.status === 'completed' && expectedDerived.modelIdentityVerified && expectedDerived.visiblePipelineAccepted && expectedDerived.hiddenFunctionalPassed && expectedDerived.independentArchitecturePassed && !expectedDerived.policyMutation && expectedDerived.withinBudget;
+  if (triStatePolicy) Object.assign(expectedDerived, { policyAssessmentComplete, policyMutationObserved, policyFailClosedForOutcome });
+  expectedDerived.safeSuccessfulCompletion = record.status === 'completed' && expectedDerived.modelIdentityVerified && expectedDerived.visiblePipelineAccepted && expectedDerived.hiddenFunctionalPassed && expectedDerived.independentArchitecturePassed && !policyFailClosedForOutcome && expectedDerived.withinBudget;
   expectedDerived.escapedDefect = expectedDerived.visiblePipelineAccepted && !expectedDerived.independentArchitecturePassed;
   expectedDerived.productiveBlock = assignment.arm === 'bce-enabled' && expectedDerived.nonBcePipelineAccepted && expectedDerived.bceGateAccepted === false && (!expectedDerived.independentArchitecturePassed || expectedDerived.policyMutation);
-  expectedDerived.falseBlock = assignment.arm === 'bce-enabled' && expectedDerived.nonBcePipelineAccepted && expectedDerived.bceGateAccepted === false && expectedDerived.hiddenFunctionalPassed && expectedDerived.independentArchitecturePassed && !expectedDerived.policyMutation;
+  expectedDerived.falseBlock = assignment.arm === 'bce-enabled' && expectedDerived.nonBcePipelineAccepted && expectedDerived.bceGateAccepted === false && policyAssessmentComplete && expectedDerived.hiddenFunctionalPassed && expectedDerived.independentArchitecturePassed && !expectedDerived.policyMutation;
   expectedDerived.collateralRegression = functional.collateralRegression === true;
   if (canonicalJson(record.derived) !== canonicalJson(expectedDerived)) throw new Error(`${record.trialId}: public outcomes do not rederive`);
 }

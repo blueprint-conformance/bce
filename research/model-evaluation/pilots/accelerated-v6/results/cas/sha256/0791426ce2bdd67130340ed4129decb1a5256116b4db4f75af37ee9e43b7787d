@@ -1,0 +1,18 @@
+{
+  "accepted": false,
+  "nonBceAccepted": false,
+  "bceGateAccepted": null,
+  "nonBceRuns": [
+    {
+      "command": [
+        "node",
+        "visible-tests/refactor.check.mjs"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "stdout": "",
+      "stderr": "file:///private/var/folders/83/ztvdqz3j63b44vnqx4rl493h0000gn/T/bce-eval-bce-reference-ollama-qwen3-8b-web-url-refactor-r0-base-seZJKy/controller-neutral/src/browser/origin-summary.mjs:1\nexport function originSummary(value) {\\n  const input = String(value).trim();\\n  const url = new URL(input);\\n  const formattedOrigin = url.origin;\\n  return `origin:${formattedOrigin}`;\\n}\\n\n                                      ^\n\nSyntaxError: Invalid or unexpected token\n    at compileSourceTextModule (node:internal/modules/esm/utils:346:16)\n    at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:146:18)\n    at #translate (node:internal/modules/esm/loader:497:12)\n    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:544:27)\n\nNode.js v20.20.2\n"
+    }
+  ],
+  "bceRun": null
+}

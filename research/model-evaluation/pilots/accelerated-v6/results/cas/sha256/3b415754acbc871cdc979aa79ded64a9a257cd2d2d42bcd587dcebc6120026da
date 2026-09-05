@@ -1,0 +1,78 @@
+{
+  "passed": false,
+  "collateralRegression": false,
+  "locations": [
+    "The requested module '../security/workspace-access.mjs' does not provide an export named 'checkAuthorization'"
+  ],
+  "deterministic": true,
+  "executed": true,
+  "inputTreeSha256": "828fad82cb1c10bd62545ae63bcb6fdc6517d156e545ef749f742fddf54a512f",
+  "runs": [
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "The requested module '../security/workspace-access.mjs' does not provide an export named 'checkAuthorization'"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"workspace-access-repair\",\"inputTreeSha256\":\"828fad82cb1c10bd62545ae63bcb6fdc6517d156e545ef749f742fddf54a512f\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"The requested module '../security/workspace-access.mjs' does not provide an export named 'checkAuthorization'\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "workspace-access-repair",
+        "inputTreeSha256": "828fad82cb1c10bd62545ae63bcb6fdc6517d156e545ef749f742fddf54a512f",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "The requested module '../security/workspace-access.mjs' does not provide an export named 'checkAuthorization'"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "e0f2535181f488290ab2075389554dc460078bc5e38150c15684518d958d2320",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    },
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "The requested module '../security/workspace-access.mjs' does not provide an export named 'checkAuthorization'"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"workspace-access-repair\",\"inputTreeSha256\":\"828fad82cb1c10bd62545ae63bcb6fdc6517d156e545ef749f742fddf54a512f\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"The requested module '../security/workspace-access.mjs' does not provide an export named 'checkAuthorization'\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "workspace-access-repair",
+        "inputTreeSha256": "828fad82cb1c10bd62545ae63bcb6fdc6517d156e545ef749f742fddf54a512f",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "The requested module '../security/workspace-access.mjs' does not provide an export named 'checkAuthorization'"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "e0f2535181f488290ab2075389554dc460078bc5e38150c15684518d958d2320",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    }
+  ]
+}

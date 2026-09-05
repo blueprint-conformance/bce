@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "writtenPolicyText": "src/browser/repair-host.mjs must not directly import the url or node:url root specifier.",
+  "constraint": {
+    "id": "web-url-repair-no-forbidden-edge",
+    "type": "forbiddenDependency",
+    "severity": "critical",
+    "from": "*",
+    "to": "builtin:url",
+    "scopePaths": [
+      "src/browser/repair-host.mjs"
+    ]
+  }
+}

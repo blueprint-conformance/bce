@@ -1,0 +1,27 @@
+{
+  "accepted": false,
+  "nonBceAccepted": false,
+  "bceGateAccepted": true,
+  "nonBceRuns": [
+    {
+      "command": [
+        "node",
+        "visible-tests/repair.check.mjs"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "stdout": "",
+      "stderr": "file:///private/var/folders/83/ztvdqz3j63b44vnqx4rl493h0000gn/T/bce-eval-bce-reference-ollama-qwen3-8b-web-url-repair-r0-bce-kZ2WLj/controller-neutral/visible-tests/repair.check.mjs:1\nimport test from 'node:test'; import assert from 'node:assert/strict'; import { repairHost } from '../src/browser/repair-host.mjs'; test('repairs browser host', () => assert.equal(repairHost(' HTTPS://EXAMPLE.COM/a '), 'example.com'));\n                                                                                ^^^^^^^^^^\nSyntaxError: The requested module '../src/browser/repair-host.mjs' does not provide an export named 'repairHost'\n    at ModuleJob._instantiate (node:internal/modules/esm/module_job:213:21)\n    at async ModuleJob.run (node:internal/modules/esm/module_job:320:5)\n    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)\n\nNode.js v20.20.2\n"
+    }
+  ],
+  "bceRun": {
+    "command": [
+      "bce",
+      "gate"
+    ],
+    "exitCode": 0,
+    "signal": null,
+    "stdout": "  ✓ web-url-repair@1.0.0 — score 100 (pass)\nbce gate [enforced]: 1/1 blueprint(s) evaluated, 0 failing.\n",
+    "stderr": ""
+  }
+}

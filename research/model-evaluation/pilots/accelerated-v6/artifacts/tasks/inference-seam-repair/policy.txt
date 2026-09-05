@@ -1,0 +1,1 @@
+src/features/repair-intent.mjs must not directly import src/vendor/raw-inference.mjs.

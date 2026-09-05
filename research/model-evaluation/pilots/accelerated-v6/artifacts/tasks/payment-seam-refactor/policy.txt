@@ -1,0 +1,1 @@
+src/usecases/charge-summary.mjs must not directly import src/infrastructure/raw-processor.mjs.

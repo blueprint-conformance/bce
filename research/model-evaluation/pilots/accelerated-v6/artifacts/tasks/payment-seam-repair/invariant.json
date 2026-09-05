@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1",
+  "writtenPolicyText": "src/usecases/repair-charge.mjs must not directly import src/infrastructure/raw-processor.mjs.",
+  "constraint": {
+    "id": "payment-seam-repair-no-forbidden-edge",
+    "type": "forbiddenDependency",
+    "severity": "critical",
+    "from": "*",
+    "to": "module:src/infrastructure/raw-processor.mjs",
+    "scopePaths": [
+      "src/usecases/repair-charge.mjs"
+    ]
+  }
+}

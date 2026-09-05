@@ -1,0 +1,1 @@
+src/features/vector-summary.mjs must not directly import src/vendor/raw-inference.mjs.

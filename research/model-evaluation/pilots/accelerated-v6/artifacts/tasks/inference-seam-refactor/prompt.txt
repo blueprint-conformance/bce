@@ -1,0 +1,2 @@
+Refactor vectorSummary(text) to assign the vector label to a clearly named local constant before returning it, while preserving output.
+Only edit src/features/vector-summary.mjs.

@@ -1,0 +1,2 @@
+Repair repairIntent(text) so it returns complex for trimmed inputs longer than five characters and simple otherwise.
+Only edit src/features/repair-intent.mjs.

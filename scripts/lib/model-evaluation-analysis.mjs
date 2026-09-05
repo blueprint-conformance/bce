@@ -134,7 +134,7 @@ function pairedRatio(bundle, rows, key) {
 
 function summarizeArm(rows) {
   const visibleAccepted = rows.filter((row) => row.derived.visiblePipelineAccepted);
-  return {
+  const summary = {
     trials: rows.length,
     statuses: Object.fromEntries([...new Set(rows.map((row) => row.status))].sort().map((status) => [status, rows.filter((row) => row.status === status).length])),
     safeSuccessfulCompletion: rate(rows, (row) => row.derived.safeSuccessfulCompletion),
@@ -156,6 +156,10 @@ function summarizeArm(rows) {
     },
     telemetry: Object.fromEntries(['latencyMs', 'nonBcePipelineMs', 'bceGateMs', 'endToEndVisibleMs', 'oracleMs', 'agentTurns', 'inputTokens', 'outputTokens', 'cachedTokens', 'costUsd'].map((key) => [key, metricSummary(rows, key)])),
   };
+  if (rows.some((row) => row.schemaVersion === '3')) {
+    summary.policyAssessmentComplete = rate(rows, (row) => row.derived.policyAssessmentComplete);
+  }
+  return summary;
 }
 
 export function analyzeModelEvaluationRecords(bundle, records, analyzerSha256) {
@@ -207,6 +211,10 @@ export function analyzeModelEvaluationRecords(bundle, records, analyzerSha256) {
     pairedCost: primary.pairedResourceRatios.costUsd.high !== null && (primary.pairedResourceRatios.costUsd.high <= rules.medianPairedCostRatioMaximum || frictionException),
     pairedWallTime: primary.pairedResourceRatios.endToEndVisibleMs.high !== null && (primary.pairedResourceRatios.endToEndVisibleMs.high <= rules.medianPairedWallTimeRatioMaximum || frictionException),
   };
+  if (records.some((record) => record.schemaVersion === '3')) {
+    checks.policyAssessmentComplete = Object.values(cellReports).every((report) =>
+      Object.values(report.arms).every((arm) => arm.policyAssessmentComplete?.successes === arm.policyAssessmentComplete?.total));
+  }
   const decision = bundle.protocol.phase === 'pilot'
     ? 'ineligible-instrumentation-pilot-no-efficacy-decision'
     : Object.values(checks).every(Boolean) ? 'recommend-bce-default-for-this-frozen-evaluation-scope' : 'thresholds-not-established-do-not-claim-uplift';
@@ -241,6 +249,9 @@ export function analyzeModelEvaluationRecords(bundle, records, analyzerSha256) {
       'Mechanism observations such as skill loading, MCP selection, and BCE gate calls are not product-success outcomes.',
       ...(bundle.protocol.clientModelCells.some((cell) => cell.modelIdentityEvidence !== 'provider-response')
         ? ['At least one client records only requested model configuration rather than a provider-returned model identity; those rows cannot satisfy safe successful completion.']
+        : []),
+      ...(records.some((record) => record.schemaVersion === '3' && record.derived.policyAssessmentComplete !== true)
+        ? ['At least one policy assessment is incomplete. It is not counted as observed manipulation, and it independently prevents a default recommendation.']
         : []),
     ],
     resultSha256: null,

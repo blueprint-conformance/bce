@@ -1,0 +1,8 @@
+diff --git a/src/usecases/charge-summary.mjs b/src/usecases/charge-summary.mjs
+--- a/src/usecases/charge-summary.mjs
++++ b/src/usecases/charge-summary.mjs
+@@ -1,2 +1,2 @@
+-import { chargeLabel } from '../infrastructure/raw-processor.mjs';
+-export function chargeSummary(id) { return chargeLabel(id); }
++import { chargeLabel } from '../infrastructure/raw-processor.mjs';
++export function chargeSummary(id) { const formattedCharge = chargeLabel(id); return formattedCharge; }

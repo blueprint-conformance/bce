@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://blueprint-conformance.github.io/schemas/capability-canary-attestation.schema.json",
+  "title": "BCE sacrificial capability canary attestation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "kind", "eligibleForEvaluationEvidence", "eligibleForProductClaim",
+    "studyId", "ranAt", "sourceCommit", "sourceTreeState", "qualified", "exactCell",
+    "requirements", "observations", "refusalReasons", "restrictedEvidence",
+    "canaryRunnerSha256", "sealedFixtureProtocolSha256", "sealedFixtureManifestSha256",
+    "sealedFixtureRootSha256", "attestationSha256"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "kind": { "const": "sacrificial-live-capability-canary" },
+    "eligibleForEvaluationEvidence": { "const": false },
+    "eligibleForProductClaim": { "const": false },
+    "studyId": { "type": "string", "minLength": 1 },
+    "ranAt": { "type": "string", "minLength": 1 },
+    "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sourceTreeState": { "enum": ["clean", "dirty-development-only"] },
+    "qualified": { "type": "boolean" },
+    "exactCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "client", "clientVersion", "clientArtifactSha256", "reasoningEffort", "requestedModel",
+        "resolvedModel", "provider", "runtimeVersion", "runtimeArtifactSha256", "controllerSha256", "implementation",
+        "treatmentArtifactSha256", "treatmentInstalledTreeSha256", "toolLoop"
+      ],
+      "properties": {
+        "client": { "enum": ["codex", "bce-ollama-tool-client"] },
+        "clientVersion": { "type": "string", "minLength": 1 },
+        "clientArtifactSha256": { "$ref": "#/definitions/sha256" },
+        "reasoningEffort": { "enum": ["low", "medium", "high"] },
+        "requestedModel": { "type": "string", "minLength": 1 },
+        "resolvedModel": { "type": "string", "minLength": 1 },
+        "provider": { "$ref": "#/definitions/provider" },
+        "runtimeVersion": { "type": "string", "minLength": 1 },
+        "runtimeArtifactSha256": { "$ref": "#/definitions/sha256" },
+        "controllerSha256": { "$ref": "#/definitions/sha256" },
+        "implementation": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/definitions/sha256" }
+        },
+        "treatmentArtifactSha256": { "$ref": "#/definitions/sha256" },
+        "treatmentInstalledTreeSha256": { "$ref": "#/definitions/sha256" },
+        "toolLoop": { "type": ["object", "null"] }
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trialId", "arm", "status", "recordSha256", "successfulCommands",
+          "exactAllowedFileEdit", "telemetryUsable", "toolRouterErrors", "bceMcpRunGate",
+          "bceLastVerifiedVerdict", "clientEventChainVerified", "execBrokerControllerVerified", "providerIdentityStable",
+          "safeSuccessfulCompletion"
+        ],
+        "properties": {
+          "trialId": { "type": "string", "minLength": 1 },
+          "arm": { "enum": ["baseline-no-bce", "bce-enabled"] },
+          "status": { "type": "string", "minLength": 1 },
+          "recordSha256": { "$ref": "#/definitions/sha256" },
+          "successfulCommands": { "type": "integer", "minimum": 0 },
+          "exactAllowedFileEdit": { "type": "boolean" },
+          "telemetryUsable": { "type": "boolean" },
+          "toolRouterErrors": { "type": "integer", "minimum": 0 },
+          "bceMcpRunGate": { "type": ["boolean", "null"] },
+          "bceLastVerifiedVerdict": { "enum": ["pass", "fail", null] },
+          "clientEventChainVerified": { "type": ["boolean", "null"] },
+          "execBrokerControllerVerified": { "type": ["boolean", "null"] },
+          "providerIdentityStable": { "type": "boolean" },
+          "safeSuccessfulCompletion": { "type": "boolean" }
+        }
+      }
+    },
+    "refusalReasons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "restrictedEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["retained", "bundleRetained", "pathPublished", "ledgerHeadSha256"],
+      "properties": {
+        "retained": { "type": "boolean" },
+        "bundleRetained": { "type": "boolean" },
+        "pathPublished": { "const": false },
+        "ledgerHeadSha256": { "anyOf": [{ "$ref": "#/definitions/sha256" }, { "type": "null" }] }
+      }
+    },
+    "canaryRunnerSha256": { "$ref": "#/definitions/sha256" },
+    "sealedFixtureProtocolSha256": { "$ref": "#/definitions/sha256" },
+    "sealedFixtureManifestSha256": { "$ref": "#/definitions/sha256" },
+    "sealedFixtureRootSha256": { "$ref": "#/definitions/sha256" },
+    "attestationSha256": { "$ref": "#/definitions/sha256" }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "endpoint", "serverVersion", "modelName", "modelDigest", "modelSizeBytes", "authentication"],
+      "properties": {
+        "kind": { "const": "ollama" },
+        "endpoint": { "type": "string", "pattern": "^http://(?:127\\.0\\.0\\.1|\\[::1\\]):[0-9]+/?$" },
+        "serverVersion": { "type": "string", "minLength": 1 },
+        "modelName": { "type": "string", "minLength": 1 },
+        "modelDigest": { "$ref": "#/definitions/sha256" },
+        "modelSizeBytes": { "type": "integer", "minimum": 1 },
+        "authentication": { "const": "none" }
+      }
+    }
+  }
+}

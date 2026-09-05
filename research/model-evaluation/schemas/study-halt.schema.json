@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCE model-evaluation safety halt v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "studyId", "status", "bindings", "evidence", "trigger", "recordedAt", "haltSha256"],
+  "properties": {
+    "schemaVersion": { "const": "2" },
+    "studyId": { "type": "string", "minLength": 3 },
+    "status": { "const": "safety-halt" },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sealRootSha256", "protocolSha256", "manifestSha256", "runnerSha256", "studyHaltSchemaSha256"],
+      "properties": {
+        "sealRootSha256": { "$ref": "#/definitions/digest" },
+        "protocolSha256": { "$ref": "#/definitions/digest" },
+        "manifestSha256": { "$ref": "#/definitions/digest" },
+        "runnerSha256": { "$ref": "#/definitions/digest" },
+        "studyHaltSchemaSha256": { "$ref": "#/definitions/digest" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["committedTrials", "plannedTrials", "ledger", "terminalPrefix"],
+      "properties": {
+        "committedTrials": { "type": "integer", "minimum": 1 },
+        "plannedTrials": { "type": "integer", "minimum": 2 },
+        "ledger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "bytes", "headSha256"],
+          "properties": {
+            "path": { "const": "ledger.jsonl" },
+            "sha256": { "$ref": "#/definitions/digest" },
+            "bytes": { "type": "integer", "minimum": 1 },
+            "headSha256": { "$ref": "#/definitions/digest" }
+          }
+        },
+        "terminalPrefix": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["encoding", "sha256", "records"],
+          "properties": {
+            "encoding": { "const": "canonical-json-lines-v1" },
+            "sha256": { "$ref": "#/definitions/digest" },
+            "records": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "threshold", "observed", "firstTriggeredOrderIndex", "trialId", "cellId", "reason"],
+      "properties": {
+        "rule": { "enum": ["consecutive-post-exposure-infrastructure-failures", "cell-infrastructure-failure-rate"] },
+        "threshold": { "type": "number", "exclusiveMinimum": 0 },
+        "observed": { "type": "number", "minimum": 0 },
+        "firstTriggeredOrderIndex": { "type": "integer", "minimum": 0 },
+        "trialId": { "type": "string", "minLength": 3 },
+        "cellId": { "type": ["string", "null"] },
+        "reason": { "type": "string", "minLength": 20 }
+      }
+    },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "haltSha256": { "$ref": "#/definitions/digest" }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

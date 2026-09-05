@@ -1,0 +1,1 @@
+src/routes/report-owner.mjs must directly import src/security/workspace-access.mjs.

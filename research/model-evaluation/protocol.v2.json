@@ -173,7 +173,19 @@
     "runnerSha256": null,
     "analyzerSha256": null,
     "analysisCoreSha256": null,
-    "referenceVerifierSha256": null
+    "referenceVerifierSha256": null,
+    "providerVerifierSha256": null,
+    "haltVerifierSha256": null,
+    "publicExporterSha256": null,
+    "publicVerifierSha256": null,
+    "studyHaltSchemaSha256": null,
+    "safetyHaltArchiveSchemaSha256": null,
+    "canaryRunnerSha256": null,
+    "ollamaToolClientSha256": null,
+    "ollamaToolClientEventVerifierSha256": null,
+    "ollamaSystemPromptSha256": null,
+    "ollamaCommonToolsSha256": null,
+    "ollamaClientEventSchemaSha256": null
   },
   "stopping": {
     "outcomeDependentStopping": false,

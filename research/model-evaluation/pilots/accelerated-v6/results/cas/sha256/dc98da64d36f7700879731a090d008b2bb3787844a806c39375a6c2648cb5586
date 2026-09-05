@@ -1,0 +1,27 @@
+{
+  "accepted": false,
+  "nonBceAccepted": false,
+  "bceGateAccepted": true,
+  "nonBceRuns": [
+    {
+      "command": [
+        "node",
+        "visible-tests/refactor.check.mjs"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "stdout": "TAP version 13\n# Subtest: summarizes charge\nnot ok 1 - summarizes charge\n  ---\n  duration_ms: 0.460375\n  location: '/private/var/folders/83/ztvdqz3j63b44vnqx4rl493h0000gn/T/bce-eval-bce-reference-ollama-qwen3-8b-payment-seam-refactor-r0-bce-tBYfS3/controller-neutral/visible-tests/refactor.check.mjs:1:140'\n  failureType: 'testCodeFailure'\n  error: 'chargeLabel is not defined'\n  code: 'ERR_TEST_FAILURE'\n  name: 'ReferenceError'\n  stack: |-\n    chargeSummary (file:///private/var/folders/83/ztvdqz3j63b44vnqx4rl493h0000gn/T/bce-eval-bce-reference-ollama-qwen3-8b-payment-seam-refactor-r0-bce-tBYfS3/controller-neutral/src/usecases/charge-summary.mjs:1:61)\n    TestContext.<anonymous> (file:///private/var/folders/83/ztvdqz3j63b44vnqx4rl493h0000gn/T/bce-eval-bce-reference-ollama-qwen3-8b-payment-seam-refactor-r0-bce-tBYfS3/controller-neutral/visible-tests/refactor.check.mjs:1:185)\n    Test.runInAsyncScope (node:async_hooks:206:9)\n    Test.run (node:internal/test_runner/test:796:25)\n    Test.processPendingSubtests (node:internal/test_runner/test:526:18)\n    node:internal/test_runner/harness:255:12\n    node:internal/process/task_queues:140:7\n    AsyncResource.runInAsyncScope (node:async_hooks:206:9)\n    AsyncResource.runMicrotask (node:internal/process/task_queues:137:8)\n  ...\n1..1\n# tests 1\n# suites 0\n# pass 0\n# fail 1\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 3.688958\n",
+      "stderr": ""
+    }
+  ],
+  "bceRun": {
+    "command": [
+      "bce",
+      "gate"
+    ],
+    "exitCode": 0,
+    "signal": null,
+    "stdout": "  ✓ payment-seam-refactor@1.0.0 — score 100 (pass)\nbce gate [enforced]: 1/1 blueprint(s) evaluated, 0 failing.\n",
+    "stderr": ""
+  }
+}

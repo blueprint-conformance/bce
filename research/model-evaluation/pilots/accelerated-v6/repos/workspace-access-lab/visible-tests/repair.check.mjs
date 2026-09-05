@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { repairReport } from '../src/routes/repair-report.mjs'; test('repairs workspace report', () => assert.equal(repairReport('nova', { id: 'u7', workspaceId: 'nova' }), 'report:nova:u7'));

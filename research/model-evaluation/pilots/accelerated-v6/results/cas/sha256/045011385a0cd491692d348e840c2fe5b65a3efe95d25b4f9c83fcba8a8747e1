@@ -1,0 +1,9 @@
+{
+  "available": true,
+  "agentWorkspaceInventorySha256": "977bfd6fb2ebad8bb3756370a6b5e04742f56601cc27bfc3b08da17cc2d4a46c",
+  "changedPaths": [
+    "src/usecases/charge-summary.mjs"
+  ],
+  "neutralTreeSha256": "f92e794c1a5e8537f9a15606ef382f9c11c740868f13b02019e9f41e68608ce7",
+  "agentWorkspaceTreeSha256": "ab0dd20dd9a6c5bd5814f57757268215a46a74ae8e0a004319460ae200788db9"
+}

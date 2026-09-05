@@ -96,8 +96,12 @@ source tree.
   machinery evidence only.
 - The candidate controller's adversarial self-test uses a local Ollama-compatible fixture to prove
   the model process can reach only one sealed loopback port, binds provider/model identity before
-  exposure and the exact active model after execution, denies external and wrong-port connections,
-  refuses repository/output symlinks, and keeps sealed reference solutions unreadable to the model.
+  exposure and the exact active model name/digest after execution while retaining distinct artifact,
+  runtime-allocation, VRAM, and context diagnostics. It denies external and wrong-port connections,
+  refuses repository/output symlinks, keeps sealed reference solutions unreadable to the model,
+  preserves final inventory/policy evidence across post-run attestation failures, distinguishes
+  unknown policy assessment from observed manipulation, and proves an immutable exit-3 safety halt
+  can be replayed while a conflicting halt is refused.
   Every reference patch must apply inside its allowlist and pass visible tests, both hidden oracles
   twice, and the real BCE gate. The v4 local-model run below showed that this model-free rehearsal
   did not yet qualify the complete client/model tool loop.
@@ -145,7 +149,8 @@ source tree.
   diagnostics also show the exact local client/model tool loop was not qualified. The public v4
   archive proves only the sealed prefix, terminal artifacts, ledger, and halt. It contains no
   efficacy analysis or product decision. V5 requires fresh inputs and a live sacrificial tool-loop
-  canary before sealing.
+  canary before sealing. The canary mechanism now exists, but no exact cell is qualified until a
+  clean public implementation commit passes all command/edit/telemetry/router/MCP criteria.
 - No conventional precision/recall study with independent annotation has been completed.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;

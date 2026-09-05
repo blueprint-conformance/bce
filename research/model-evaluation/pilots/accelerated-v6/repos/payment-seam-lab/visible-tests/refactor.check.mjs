@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { chargeSummary } from '../src/usecases/charge-summary.mjs'; test('summarizes charge', () => assert.equal(chargeSummary(' 42 '), 'charge:42'));

@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "1",
+  "kind": "sacrificial-live-capability-canary",
+  "eligibleForEvaluationEvidence": false,
+  "eligibleForProductClaim": false,
+  "studyId": "bce-sacrificial-capability-canary-e5796a874f331788",
+  "ranAt": "2026-09-05T17:13:55.232Z",
+  "sourceCommit": "ae4c7a4c2a2f53c2d5b0c893eade3ecb6a400aeb",
+  "sourceTreeState": "clean",
+  "qualified": true,
+  "exactCell": {
+    "client": "bce-ollama-tool-client",
+    "clientVersion": "bce-ollama-tool-client 1.0.0",
+    "clientArtifactSha256": "68055731b63febee760f9c8bec5977346fda2801827bc8eda1d8245164a3c037",
+    "reasoningEffort": "low",
+    "requestedModel": "qwen3:8b",
+    "resolvedModel": "qwen3:8b@sha256:500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+    "provider": {
+      "kind": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "serverVersion": "0.20.6",
+      "modelName": "qwen3:8b",
+      "modelDigest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+      "modelSizeBytes": 5225388164,
+      "authentication": "none"
+    },
+    "runtimeVersion": "v22.22.2",
+    "runtimeArtifactSha256": "5c899797c4eb8f1db5563eea56538342ddb3e9276ee1b04a5a1f0f1023d2b011",
+    "controllerSha256": "63d1b8a3b257a25650b9ea18502a6637ef79cc4a1bb2e3d12448287776700dda",
+    "implementation": {
+      "verifierSha256": "be0d795986dfa7eee3c37d47a28405aba74be01dc91f6e007667bcd318601a2b",
+      "assignmentGeneratorSha256": "feab649dbb27f016ed59385e24256f39396824aa272f7a7cbf672e5d872cc0ef",
+      "runnerSha256": "63d1b8a3b257a25650b9ea18502a6637ef79cc4a1bb2e3d12448287776700dda",
+      "analyzerSha256": "63bdf331a3a47be38ba828b6d7e5abb52c044d7622c9dd901f1fab9cb6390767",
+      "analysisCoreSha256": "93e2f108c4773362108ffa33d69f78d2e324ae8e52fd43be5889c9fd15ee43c3",
+      "referenceVerifierSha256": "a4116b245b424085b8bfb8eec663e8ffbbdc48def4191a692ce0b9e3f4680938",
+      "providerVerifierSha256": "c8b82f6aced9742a2e5906b39472399c117b546b1161f685e5f5ebcd574268e3",
+      "haltVerifierSha256": "2c889a5905ec4b198941af28a45a60286cab060eb33c83b544b259c6f7ec7751",
+      "publicExporterSha256": "cd6ce33dd6c0d0d2c49e88217807b7338f001628198456f9a74f96b2e0029859",
+      "publicVerifierSha256": "944e19cca2e803abf6acc93b657c2eb56ab5232a238b0d9e8aca25a84e850628",
+      "studyHaltSchemaSha256": "096c97d2b04dbc0732b4683debd1d17c19adccfa739b062407d2cbc0ac1b80f4",
+      "safetyHaltArchiveSchemaSha256": "67f549847c26b09bac9bbe5c9010499a1b1ce9f66e9b1cb3463770dd26801549",
+      "canaryRunnerSha256": "610a439ce7db2748fafd6cf3db6426d4834dc84c550a9f8009c7e5e368e1b97b",
+      "ollamaToolClientSha256": "68055731b63febee760f9c8bec5977346fda2801827bc8eda1d8245164a3c037",
+      "ollamaToolClientEventVerifierSha256": "d62f28c5de96bf0b46fe79f46b96556ad4e818ae5a7d27bc4efaae11811d0332",
+      "ollamaSystemPromptSha256": "05b0360c31bc16bdea4841e38bc8bf030ad9f9a57c4b6a03398a16519e8d8b00",
+      "ollamaCommonToolsSha256": "f13e1598c92c60567d41033f61766ff849c2f2fdc275831f9792ebf15957a612",
+      "ollamaClientEventSchemaSha256": "e988e0216d1e538adc3ae4301e1314f1378eaa2741866ecf24a8888b2adc1293",
+      "capabilityCanaryAttestationSchemaSha256": "cd1e965f1719450219a8f97d3c709daa980bdad695ce77f31546d202c30b918f"
+    },
+    "treatmentArtifactSha256": "eb1ad71194b54f89bde46a354b9aa5fac836e72a41f7843debabcd6c272e9568",
+    "treatmentInstalledTreeSha256": "b010b3daec1b52baf08c7fcee222060bc2af17a00431cb4a8dbef388ac74ca47",
+    "toolLoop": {
+      "eventProtocol": "bce-ollama-tool-client-events/v1",
+      "clientImplementationSha256": "68055731b63febee760f9c8bec5977346fda2801827bc8eda1d8245164a3c037",
+      "systemPrompt": {
+        "path": "client/ollama-system-prompt.v1.txt",
+        "sha256": "05b0360c31bc16bdea4841e38bc8bf030ad9f9a57c4b6a03398a16519e8d8b00"
+      },
+      "commonToolContract": {
+        "path": "client/ollama-common-tools.v1.json",
+        "sha256": "f13e1598c92c60567d41033f61766ff849c2f2fdc275831f9792ebf15957a612"
+      },
+      "clientEventSchema": {
+        "path": "schemas/client-event.schema.json",
+        "sha256": "e988e0216d1e538adc3ae4301e1314f1378eaa2741866ecf24a8888b2adc1293"
+      },
+      "modelOptions": {
+        "temperature": 0,
+        "seed": 424242,
+        "numCtx": 32768,
+        "keepAlive": "10m"
+      },
+      "execSandbox": {
+        "driver": "/usr/bin/sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "networkPolicy": "deny-all",
+        "processPolicy": "deny-fork",
+        "filesystemPolicy": "controller-read-default-deny-workspace-write-protected-roots-denied"
+      },
+      "limits": {
+        "maximumTurns": 64,
+        "maxFileBytes": 262144,
+        "maxToolOutputBytes": 32768,
+        "commandTimeoutMs": 120000,
+        "providerTimeoutMs": 180000
+      },
+      "mcpRunGateToolSha256": "f73be346b918d51f3badb19ab67fe541916aeb25113baee80fe955537ede283f",
+      "qualificationAttestation": null
+    }
+  },
+  "requirements": [
+    "retained-sealed-fixture-bundle",
+    "independent-terminal-replay-all-attempts",
+    "successful-command-completion-each-arm",
+    "exact-single-allowed-file-edit-each-arm",
+    "usable-token-and-turn-telemetry-each-arm",
+    "zero-tool-router-errors-each-arm",
+    "stable-provider-name-and-digest",
+    "bce-enabled-exact-successful-mcp-run-gate",
+    "bce-enabled-last-exact-mcp-verdict-pass",
+    "sealed-client-event-chain-each-arm",
+    "controller-bijective-exec-broker-evidence-each-arm"
+  ],
+  "observations": [
+    {
+      "trialId": "bce-reference-ollama-qwen3-8b-sacrificial-canary-r0-bce",
+      "arm": "bce-enabled",
+      "status": "completed",
+      "recordSha256": "c5943338c79b207d2cb5c564fcca5dfb3ea70c1328c70a3b63df0230df33a670",
+      "successfulCommands": 1,
+      "exactAllowedFileEdit": true,
+      "telemetryUsable": true,
+      "toolRouterErrors": 0,
+      "bceMcpRunGate": true,
+      "bceLastVerifiedVerdict": "pass",
+      "clientEventChainVerified": true,
+      "execBrokerControllerVerified": true,
+      "providerIdentityStable": true,
+      "safeSuccessfulCompletion": true
+    },
+    {
+      "trialId": "bce-reference-ollama-qwen3-8b-sacrificial-canary-r0-base",
+      "arm": "baseline-no-bce",
+      "status": "completed",
+      "recordSha256": "d33228ed744a710c18f4b6f47e4d929a8ca35d406b6756365d7b84df6c3cde15",
+      "successfulCommands": 1,
+      "exactAllowedFileEdit": true,
+      "telemetryUsable": true,
+      "toolRouterErrors": 0,
+      "bceMcpRunGate": null,
+      "bceLastVerifiedVerdict": null,
+      "clientEventChainVerified": true,
+      "execBrokerControllerVerified": true,
+      "providerIdentityStable": true,
+      "safeSuccessfulCompletion": true
+    }
+  ],
+  "refusalReasons": [],
+  "restrictedEvidence": {
+    "retained": true,
+    "bundleRetained": true,
+    "pathPublished": false,
+    "ledgerHeadSha256": "1b5712eeeaddc589047e4681833f6823dbe96ebcad4041a18eec4d80c64755cb"
+  },
+  "canaryRunnerSha256": "610a439ce7db2748fafd6cf3db6426d4834dc84c550a9f8009c7e5e368e1b97b",
+  "sealedFixtureProtocolSha256": "0bd0abb2380c59e93bd1b1e5afc4d7fbe18fc2502c85fd73084e6c524e93b225",
+  "sealedFixtureManifestSha256": "73e38fa40023e5631ba3cc2c86522c7414c711bcda924f27ea09783cd16c52b3",
+  "sealedFixtureRootSha256": "4b8f07403259896ad364e1ee31bed39cfa9c339fdd2418d1085e6de9ee51f871",
+  "attestationSha256": "4214ea1353527ff5fc9aaa62adcb5d95dc7300726467af779dd6ae9a4dccb0f0"
+}

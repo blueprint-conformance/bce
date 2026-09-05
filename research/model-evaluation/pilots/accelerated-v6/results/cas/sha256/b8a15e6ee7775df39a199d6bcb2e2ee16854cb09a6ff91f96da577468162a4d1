@@ -1,0 +1,78 @@
+{
+  "passed": false,
+  "collateralRegression": false,
+  "locations": [
+    "m.repairHost is not a function"
+  ],
+  "deterministic": true,
+  "executed": true,
+  "inputTreeSha256": "8d9ec25eacebdac486d41561e2565b04e9c0a1fddb11bd9aba05607566e95df5",
+  "runs": [
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "m.repairHost is not a function"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"web-url-repair\",\"inputTreeSha256\":\"8d9ec25eacebdac486d41561e2565b04e9c0a1fddb11bd9aba05607566e95df5\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"m.repairHost is not a function\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "web-url-repair",
+        "inputTreeSha256": "8d9ec25eacebdac486d41561e2565b04e9c0a1fddb11bd9aba05607566e95df5",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "m.repairHost is not a function"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "cc71cfba510ec7b37e1bedbfe9bb4e3882f94cc1be82ea54c25b9d064de99a37",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    },
+    {
+      "passed": false,
+      "collateralRegression": false,
+      "locations": [
+        "m.repairHost is not a function"
+      ],
+      "valid": true,
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "{\"schemaVersion\":\"1\",\"taskId\":\"web-url-repair\",\"inputTreeSha256\":\"8d9ec25eacebdac486d41561e2565b04e9c0a1fddb11bd9aba05607566e95df5\",\"passed\":false,\"collateralRegression\":false,\"locations\":[\"m.repairHost is not a function\"]}",
+      "stderr": "",
+      "document": {
+        "schemaVersion": "1",
+        "taskId": "web-url-repair",
+        "inputTreeSha256": "8d9ec25eacebdac486d41561e2565b04e9c0a1fddb11bd9aba05607566e95df5",
+        "passed": false,
+        "collateralRegression": false,
+        "locations": [
+          "m.repairHost is not a function"
+        ]
+      },
+      "isolationProof": {
+        "driver": "macos-sandbox-exec",
+        "driverSha256": "e3d7a792c58a5d3783d2f7274c82d70062393830d8cb1ded713ca554a470bd2f",
+        "profileSha256": "cc71cfba510ec7b37e1bedbfe9bb4e3882f94cc1be82ea54c25b9d064de99a37",
+        "controllerReadDenied": true,
+        "networkDenied": true,
+        "readProbeExitCode": 0,
+        "networkProbeExitCode": 0,
+        "readProbeStderr": "EPERM",
+        "networkProbeStderr": "EPERM"
+      }
+    }
+  ]
+}

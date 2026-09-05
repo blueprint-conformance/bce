@@ -1,0 +1,1 @@
+src/routes/repair-report.mjs must directly import src/security/workspace-access.mjs.
