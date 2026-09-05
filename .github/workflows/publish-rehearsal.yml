@@ -66,11 +66,24 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
 
-      # Mirrors release.yml. node-version:22 ships npm 10.9.x; Trusted Publishing
-      # needs >= 11.5.1. The rehearsal must run the same toolchain the publish does
-      # or it is rehearsing a different program.
-      - name: Upgrade npm to the Trusted-Publishing floor (>=11.5.1)
-        run: npm install -g npm@^11.5.1
+      # Mirrors release.yml. The hosted Node 22.22.2 npm can be missing one of its
+      # own Arborist modules, so never ask it to overwrite itself. Corepack installs
+      # the exact release CLI behind a RUNNER_TEMP shim without invoking that npm.
+      - name: Bootstrap exact npm 11.19.1 through Corepack
+        shell: bash
+        env:
+          COREPACK_DEFAULT_TO_LATEST: "0"
+        run: |
+          set -euo pipefail
+          npm_bin="${RUNNER_TEMP}/corepack-bin"
+          mkdir -p "$npm_bin"
+          corepack install --global npm@11.19.1
+          corepack enable npm --install-directory "$npm_bin"
+          echo "$npm_bin" >> "$GITHUB_PATH"
+          actual="$("$npm_bin/npm" --version)"
+          [ "$actual" = "11.19.1" ] || { echo "::error::expected npm 11.19.1, got ${actual}"; exit 1; }
+          echo "COREPACK_DEFAULT_TO_LATEST=0" >> "$GITHUB_ENV"
+          echo "npm ${actual} bootstrapped outside the hosted Node toolcache"
 
       - name: Report the toolchain actually under rehearsal
         shell: bash
