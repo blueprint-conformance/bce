@@ -9,7 +9,7 @@ import { arch, platform, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  expectedSeal, fileArtifact, hashTree, regenerateAssignments, sha256Bytes, sha256Json,
+  expectedSeal, fileArtifact, hashTree, loadVerifiedRecords, regenerateAssignments, sha256Bytes, sha256Json,
 } from './lib/model-evaluation.mjs';
 
 const valueAfter = (flag) => {
@@ -284,6 +284,9 @@ try {
   if (executed.status !== 0) process.stderr.write(`sacrificial canary controller diagnostic:\n${executed.stderr}\n`);
   const ledgerPath = join(restrictedRuns, 'ledger.jsonl');
   const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line)) : [];
+  let verifiedRecords = [];
+  try { verifiedRecords = loadVerifiedRecords(bundle, restrictedRuns); }
+  catch (error) { if (ledger.length > 0) process.stderr.write(`sacrificial canary evidence verification diagnostic:\n${error instanceof Error ? error.message : String(error)}\n`); }
   const observations = [];
   const refusalReasons = [];
   for (const entry of ledger) {
@@ -318,6 +321,7 @@ try {
   }
   if (![0, 3].includes(executed.status)) refusalReasons.push(`controller exited ${executed.status}`);
   if (ledger.length !== 2) refusalReasons.push(`expected 2 sacrificial attempts, retained ${ledger.length}`);
+  if (verifiedRecords.length !== ledger.length) refusalReasons.push(`independent terminal replay verified ${verifiedRecords.length}/${ledger.length} retained attempts`);
   for (const observation of observations) {
     if (observation.status !== 'completed') refusalReasons.push(`${observation.arm}: status ${observation.status}`);
     if (observation.successfulCommands < 1) refusalReasons.push(`${observation.arm}: no successful command completion`);
@@ -340,7 +344,7 @@ try {
       controllerSha256: runnerSha256, treatmentInstalledTreeSha256: treatment.installedTreeSha256,
       toolLoop: protocol.clientModelCells[0].toolLoop ?? null,
     },
-    requirements: ['successful-command-completion-each-arm', 'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm', 'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest', 'bce-enabled-exact-successful-mcp-run-gate', ...(clientKind === 'bce-ollama-tool-client' ? ['sealed-client-event-chain-each-arm'] : [])],
+    requirements: ['independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm', 'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm', 'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest', 'bce-enabled-exact-successful-mcp-run-gate', ...(clientKind === 'bce-ollama-tool-client' ? ['sealed-client-event-chain-each-arm'] : [])],
     observations, refusalReasons, restrictedEvidence: { retained: Boolean(restrictedRunsArgument), pathPublished: false, ledgerHeadSha256: ledger.at(-1)?.entrySha256 ?? null },
     canaryRunnerSha256: protocol.implementation.canaryRunnerSha256, sealedFixtureRootSha256: expected.rootSha256, attestationSha256: null,
   };
