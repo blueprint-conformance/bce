@@ -285,7 +285,7 @@ try {
   const ledgerPath = join(restrictedRuns, 'ledger.jsonl');
   const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line)) : [];
   let verifiedRecords = [];
-  try { verifiedRecords = loadVerifiedRecords(bundle, restrictedRuns); }
+  try { verifiedRecords = loadVerifiedRecords(bundle, restrictedRuns).records; }
   catch (error) { if (ledger.length > 0) process.stderr.write(`sacrificial canary evidence verification diagnostic:\n${error instanceof Error ? error.message : String(error)}\n`); }
   const observations = [];
   const refusalReasons = [];
