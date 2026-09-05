@@ -251,6 +251,12 @@ Each desktop/mobile pair is one semantic component. Keep both files updated toge
 
 Show one `EngineeringBlueprint`, one observed repository graph, and one verdict as a continuous causal trace. C1–C4 are the specification's first four enforcing types, not marketing feature numbers: `requiredComponent`, `requiredDependency`, `forbiddenDependency`, and `forbiddenPath`. Use one coherent plugin-surface example. C1, C2, and C4 visibly conform; the observed `axios` import fires C3 and leads to the exact component, file, line, and blocking exit. This is a graph, not four same-sized feature cards.
 
+### Documentation Diagram Curriculum
+
+The documentation owns ten responsive teaching concepts: individual causal traces for C1–C4, the source-to-verdict engine path, the three-way exit contract, deterministic report construction, evidence-chain ancestry, AI proposal authority, and the brownfield adoption ratchet. The four individual constraint diagrams zoom into failure semantics; they complement rather than replace the combined Architecture Package overview. Keep each diagram adjacent to the prose that owns its facts, and keep desktop/mobile variants semantically equivalent.
+
+Generate the twenty SVG assets with `npm run generate:doc-diagrams` and verify committed bytes with `npm run test:doc-diagrams`. The generator is the editable source of truth; do not hand-edit its outputs.
+
 ### Adoption Ratchet
 
 Show advisory, shrink-only baseline, and enforced in forward order. Cyan connects progress; green marks enforced; the reverse path is dashed steel and explicitly requires reviewed rationale. Never render downgrade as a symmetric, effortless toggle.

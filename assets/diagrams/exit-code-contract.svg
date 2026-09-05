@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="exit-code-contract-title exit-code-contract-desc">
+  <title id="exit-code-contract-title">Three exits preserve three meanings</title>
+  <desc id="exit-code-contract-desc">BCE exit zero means a successful command, exit one means a graded violation or user error, and exit two means the engine refused because it could not honestly grade. Both one and two block an enforced merge. Advisory mode only makes a graded violation non-blocking; it never hides a refusal.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#263249" stroke-width="1" opacity="0.24"/>
+    </pattern>
+    <marker id="cyan-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#61c9ef"/>
+    </marker>
+    <marker id="red-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#f05c67"/>
+    </marker>
+    <marker id="green-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#48c99a"/>
+    </marker>
+    <marker id="steel-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#7890a3"/>
+    </marker>
+    <style>
+      .sans{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace}
+      .title{font-size:28px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .m-title{font-size:32px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .heading{font-size:18px;font-weight:700;fill:#e8ebed}
+      .m-heading{font-size:24px;font-weight:700;fill:#e8ebed}
+      .label{font-size:13px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .m-label{font-size:18px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .body{font-size:17px;fill:#c9d5e1}
+      .m-body{font-size:23px;fill:#c9d5e1}
+      .code{font-size:16px;fill:#e8ebed}
+      .m-code{font-size:22px;fill:#e8ebed}
+      .small{font-size:14px;fill:#8fa4b5}
+      .m-small{font-size:19px;fill:#8fa4b5}
+      .cyan{fill:#61c9ef}.green{fill:#48c99a}.red{fill:#f05c67}.steel{fill:#7890a3}
+      .node{fill:#0d1025;stroke:#566274;stroke-width:1.5;vector-effect:non-scaling-stroke}
+      .cyan-node{fill:#0d1428;stroke:#61c9ef}.green-node{fill:#0c1b1c;stroke:#48c99a}.red-node{fill:#24121e;stroke:#f05c67}
+      .rule{stroke:#36445b;stroke-width:1;vector-effect:non-scaling-stroke}
+      .route{fill:none;stroke:#61c9ef;stroke-width:2;marker-end:url(#cyan-arrow);vector-effect:non-scaling-stroke}
+      .red-route{fill:none;stroke:#f05c67;stroke-width:2;marker-end:url(#red-arrow);vector-effect:non-scaling-stroke}
+      .green-route{fill:none;stroke:#48c99a;stroke-width:2;marker-end:url(#green-arrow);vector-effect:non-scaling-stroke}
+      .steel-route{fill:none;stroke:#7890a3;stroke-width:1.8;marker-end:url(#steel-arrow);vector-effect:non-scaling-stroke}
+      .dash{stroke-dasharray:7 7}
+    </style>
+  </defs>
+  <rect width="1280" height="480" rx="4" fill="#080919"/>
+  <rect width="1280" height="480" rx="4" fill="url(#grid)"/>
+  <text x="44" y="50" class="sans title">Three exits preserve three meanings</text>
+  <text x="1236" y="49" text-anchor="end" class="mono label">PROCESS CONTRACT</text>
+  <path d="M44 70H1236" class="rule"/>
+      <rect x="44" y="114" width="322" height="228" rx="4" class="node green-node"/>
+      <text x="68" y="158" class="mono title green">0</text>
+      <text x="118" y="156" class="sans heading">successful command</text>
+      <text x="68" y="204" class="mono code">GREEN · graded pass</text>
+      <text x="68" y="244" class="sans small">merge may proceed</text>
+      <text x="68" y="292" class="sans small steel">Advisory RED also exits 0,</text>
+      <text x="68" y="316" class="sans small steel">with its verdict still visible.</text>
+      <rect x="479" y="114" width="322" height="228" rx="4" class="node red-node"/>
+      <text x="503" y="158" class="mono title red">1</text>
+      <text x="553" y="156" class="sans heading">red or user error</text>
+      <text x="503" y="204" class="mono code">graded violation</text>
+      <text x="503" y="244" class="sans small">exact constraint + evidence</text>
+      <text x="503" y="292" class="mono label red">BLOCKS ENFORCED MERGE</text>
+      <rect x="914" y="114" width="322" height="228" rx="4" class="node red-node"/>
+      <text x="938" y="158" class="mono title red">2</text>
+      <text x="988" y="156" class="sans heading">fail-closed refusal</text>
+      <text x="938" y="204" class="mono code">not honestly graded</text>
+      <text x="938" y="244" class="sans small">empty scan · unsupported input</text>
+      <text x="938" y="292" class="mono label red">BLOCKS IN EVERY MODE</text>
+      <path d="M44 382H1236" class="rule"/>
+      <text x="44" y="424" class="sans body">A refusal is never converted into a pass.</text>
+      <text x="1236" y="424" text-anchor="end" class="mono small">outcome: pass · violation · refusal</text>
+</svg>

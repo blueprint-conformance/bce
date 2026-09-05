@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="source-to-verdict-title source-to-verdict-desc">
+  <title id="source-to-verdict-title">From repository bytes to one verdict</title>
+  <desc id="source-to-verdict-desc">BCE scans a pinned or live repository surface, applies the selected extractor profile, records an observed graph and coverage envelope, evaluates the human-owned blueprint, and emits both a deterministic report and process exit code.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#263249" stroke-width="1" opacity="0.24"/>
+    </pattern>
+    <marker id="cyan-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#61c9ef"/>
+    </marker>
+    <marker id="red-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#f05c67"/>
+    </marker>
+    <marker id="green-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#48c99a"/>
+    </marker>
+    <marker id="steel-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#7890a3"/>
+    </marker>
+    <style>
+      .sans{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace}
+      .title{font-size:28px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .m-title{font-size:32px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .heading{font-size:18px;font-weight:700;fill:#e8ebed}
+      .m-heading{font-size:24px;font-weight:700;fill:#e8ebed}
+      .label{font-size:13px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .m-label{font-size:18px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .body{font-size:17px;fill:#c9d5e1}
+      .m-body{font-size:23px;fill:#c9d5e1}
+      .code{font-size:16px;fill:#e8ebed}
+      .m-code{font-size:22px;fill:#e8ebed}
+      .small{font-size:14px;fill:#8fa4b5}
+      .m-small{font-size:19px;fill:#8fa4b5}
+      .cyan{fill:#61c9ef}.green{fill:#48c99a}.red{fill:#f05c67}.steel{fill:#7890a3}
+      .node{fill:#0d1025;stroke:#566274;stroke-width:1.5;vector-effect:non-scaling-stroke}
+      .cyan-node{fill:#0d1428;stroke:#61c9ef}.green-node{fill:#0c1b1c;stroke:#48c99a}.red-node{fill:#24121e;stroke:#f05c67}
+      .rule{stroke:#36445b;stroke-width:1;vector-effect:non-scaling-stroke}
+      .route{fill:none;stroke:#61c9ef;stroke-width:2;marker-end:url(#cyan-arrow);vector-effect:non-scaling-stroke}
+      .red-route{fill:none;stroke:#f05c67;stroke-width:2;marker-end:url(#red-arrow);vector-effect:non-scaling-stroke}
+      .green-route{fill:none;stroke:#48c99a;stroke-width:2;marker-end:url(#green-arrow);vector-effect:non-scaling-stroke}
+      .steel-route{fill:none;stroke:#7890a3;stroke-width:1.8;marker-end:url(#steel-arrow);vector-effect:non-scaling-stroke}
+      .dash{stroke-dasharray:7 7}
+    </style>
+  </defs>
+  <rect width="1280" height="480" rx="4" fill="#080919"/>
+  <rect width="1280" height="480" rx="4" fill="url(#grid)"/>
+  <text x="44" y="50" class="sans title">From repository bytes to one verdict</text>
+  <text x="1236" y="49" text-anchor="end" class="mono label">ONE ENGINE PATH</text>
+  <path d="M44 70H1236" class="rule"/>
+      <rect x="44" y="126" width="210" height="116" rx="4" class="node"/>
+      <text x="68" y="164" class="mono label">REPOSITORY</text>
+      <text x="68" y="202" class="mono code">source files</text>
+      <text x="68" y="226" class="sans small">pinned or live tree</text>
+      <path d="M254 184H310" class="route"/>
+      <rect x="334" y="126" width="210" height="116" rx="4" class="node cyan-node"/>
+      <text x="358" y="164" class="mono label cyan">EXTRACT</text>
+      <text x="358" y="202" class="mono code">profile + scope</text>
+      <text x="358" y="226" class="sans small">AST or observation</text>
+      <path d="M544 184H600" class="route"/>
+      <rect x="624" y="104" width="246" height="160" rx="4" class="node"/>
+      <text x="648" y="142" class="mono label">OBSERVED FACTS</text>
+      <text x="648" y="180" class="mono code">architecture graph</text>
+      <text x="648" y="213" class="mono code">coverage envelope</text>
+      <text x="648" y="241" class="sans small">nodes · edges · file anchors</text>
+      <path d="M870 184H926" class="route"/>
+      <rect x="950" y="126" width="286" height="116" rx="4" class="node cyan-node"/>
+      <text x="974" y="164" class="mono label cyan">EVALUATE</text>
+      <text x="974" y="202" class="mono code">EngineeringBlueprint</text>
+      <text x="974" y="226" class="sans small">C1–C8 + explicit skips</text>
+      <path d="M1093 242V310" class="route"/>
+      <rect x="842" y="332" width="394" height="96" rx="4" class="node green-node"/>
+      <text x="866" y="368" class="mono label green">OUTPUT</text>
+      <text x="866" y="402" class="mono code">compliance report + exit 0 / 1 / 2</text>
+      <path d="M44 380H790" class="rule"/>
+      <text x="44" y="414" class="sans body">CLI, Action, and MCP call this same path.</text>
+</svg>

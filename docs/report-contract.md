@@ -4,6 +4,13 @@ Every graded run produces a **compliance report**: a deterministic JSON document
 measured, what the verdict was, and — for a red — exactly which contract failed, where, and why. The
 report is what makes a verdict *re-derivable* rather than a claim you have to trust.
 
+<p align="center">
+  <picture>
+    <source media="(max-width: 600px)" srcset="../assets/diagrams/deterministic-report-mobile.svg">
+    <img src="../assets/diagrams/deterministic-report.svg" alt="The exact EngineeringBlueprint bytes and observed architecture graph bytes enter pure evaluation. BCE evaluates constraints, sorts violations, and uses stable serialization to produce a byte-identical compliance report carrying score, verdict, violations, coverage, and a content-addressed graph reference.">
+  </picture>
+</p>
+
 ## What a report carries
 
 A compliance report always carries: `schemaVersion`, `blueprintRef` (`<id>@<version>`),

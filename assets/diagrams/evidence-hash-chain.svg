@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="evidence-hash-chain-title evidence-hash-chain-desc">
+  <title id="evidence-hash-chain-title">Each evidence record commits to its ancestry</title>
+  <desc id="evidence-hash-chain-desc">A compliance report and previous hash produce an evidence record. Each next record includes the previous record hash. Editing an earlier record breaks its own hash, while rehashing or removing it breaks the next link. Producer identity is a separate signature layer.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#263249" stroke-width="1" opacity="0.24"/>
+    </pattern>
+    <marker id="cyan-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#61c9ef"/>
+    </marker>
+    <marker id="red-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#f05c67"/>
+    </marker>
+    <marker id="green-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#48c99a"/>
+    </marker>
+    <marker id="steel-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#7890a3"/>
+    </marker>
+    <style>
+      .sans{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace}
+      .title{font-size:28px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .m-title{font-size:32px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .heading{font-size:18px;font-weight:700;fill:#e8ebed}
+      .m-heading{font-size:24px;font-weight:700;fill:#e8ebed}
+      .label{font-size:13px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .m-label{font-size:18px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .body{font-size:17px;fill:#c9d5e1}
+      .m-body{font-size:23px;fill:#c9d5e1}
+      .code{font-size:16px;fill:#e8ebed}
+      .m-code{font-size:22px;fill:#e8ebed}
+      .small{font-size:14px;fill:#8fa4b5}
+      .m-small{font-size:19px;fill:#8fa4b5}
+      .cyan{fill:#61c9ef}.green{fill:#48c99a}.red{fill:#f05c67}.steel{fill:#7890a3}
+      .node{fill:#0d1025;stroke:#566274;stroke-width:1.5;vector-effect:non-scaling-stroke}
+      .cyan-node{fill:#0d1428;stroke:#61c9ef}.green-node{fill:#0c1b1c;stroke:#48c99a}.red-node{fill:#24121e;stroke:#f05c67}
+      .rule{stroke:#36445b;stroke-width:1;vector-effect:non-scaling-stroke}
+      .route{fill:none;stroke:#61c9ef;stroke-width:2;marker-end:url(#cyan-arrow);vector-effect:non-scaling-stroke}
+      .red-route{fill:none;stroke:#f05c67;stroke-width:2;marker-end:url(#red-arrow);vector-effect:non-scaling-stroke}
+      .green-route{fill:none;stroke:#48c99a;stroke-width:2;marker-end:url(#green-arrow);vector-effect:non-scaling-stroke}
+      .steel-route{fill:none;stroke:#7890a3;stroke-width:1.8;marker-end:url(#steel-arrow);vector-effect:non-scaling-stroke}
+      .dash{stroke-dasharray:7 7}
+    </style>
+  </defs>
+  <rect width="1280" height="480" rx="4" fill="#080919"/>
+  <rect width="1280" height="480" rx="4" fill="url(#grid)"/>
+  <text x="44" y="50" class="sans title">Each record commits to its ancestry</text>
+  <text x="1236" y="49" text-anchor="end" class="mono label">TAMPER-EVIDENT EVIDENCE</text>
+  <path d="M44 70H1236" class="rule"/>
+      <rect x="44" y="126" width="232" height="112" rx="4" class="node cyan-node"/>
+      <text x="68" y="164" class="mono label cyan">GENESIS</text>
+      <text x="68" y="202" class="mono code">previousHash: 00…00</text>
+      <path d="M276 182H344" class="route"/>
+      <rect x="368" y="106" width="244" height="152" rx="4" class="node"/>
+      <text x="392" y="144" class="mono label">RECORD 001</text>
+      <text x="392" y="182" class="mono code">report hash A</text>
+      <text x="392" y="215" class="mono code">hash: 81…c2</text>
+      <path d="M612 182H680" class="route"/>
+      <rect x="704" y="106" width="244" height="152" rx="4" class="node"/>
+      <text x="728" y="144" class="mono label">RECORD 002</text>
+      <text x="728" y="182" class="mono code">prev: 81…c2</text>
+      <text x="728" y="215" class="mono code">hash: a4…19</text>
+      <path d="M948 182H1016" class="route"/>
+      <rect x="1040" y="106" width="196" height="152" rx="4" class="node green-node"/>
+      <text x="1064" y="144" class="mono label green">RECORD 003</text>
+      <text x="1064" y="182" class="mono code">prev: a4…19</text>
+      <text x="1064" y="215" class="mono code">chain intact</text>
+      <path d="M488 258V320" class="red-route"/>
+      <rect x="300" y="342" width="376" height="94" rx="4" class="node red-node"/>
+      <text x="324" y="378" class="mono label red">EDIT OR EXCISE RECORD 001</text>
+      <text x="324" y="410" class="sans small">its hash fails; rehashing breaks the next link</text>
+      <rect x="760" y="342" width="476" height="94" rx="4" class="node"/>
+      <text x="784" y="378" class="mono label">SEPARATE IDENTITY LAYER</text>
+      <text x="784" y="410" class="sans small">integrity chain ≠ producer authentication</text>
+</svg>

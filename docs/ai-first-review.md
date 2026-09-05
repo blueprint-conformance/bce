@@ -4,6 +4,13 @@
 plan, BCE deterministically compiles and tests the exact candidate, and a human reviews one immutable
 packet. The model never gains approval or policy-write authority.
 
+<p align="center">
+  <picture>
+    <source media="(max-width: 600px)" srcset="../assets/diagrams/ai-review-authority-mobile.svg">
+    <img src="../assets/diagrams/ai-review-authority.svg" alt="Bounded disclosed context reaches the assistant, whose output stays an untrusted draft in quarantine. Deterministic BCE validation, scope, gate, teeth, and semantic-diff checks produce an immutable review packet. Only an authenticated human review and attended ratification ceremony can move the candidate toward policy; the assistant has no approval or policy-write path.">
+  </picture>
+</p>
+
 ## 1. Freeze the state and state the intent
 
 Commit the source state to be reviewed. The authenticated pull-request review must target this exact

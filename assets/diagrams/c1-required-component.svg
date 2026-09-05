@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="c1-required-component-title c1-required-component-desc">
+  <title id="c1-required-component-title">C1 — requiredComponent</title>
+  <desc id="c1-required-component-desc">A requiredComponent constraint asks whether at least one component of the declared type exists in the observed graph. Here the extractor finds zero pluginSurface components, so BCE emits exactly one violation and blocks.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#263249" stroke-width="1" opacity="0.24"/>
+    </pattern>
+    <marker id="cyan-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#61c9ef"/>
+    </marker>
+    <marker id="red-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#f05c67"/>
+    </marker>
+    <marker id="green-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#48c99a"/>
+    </marker>
+    <marker id="steel-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#7890a3"/>
+    </marker>
+    <style>
+      .sans{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace}
+      .title{font-size:28px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .m-title{font-size:32px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .heading{font-size:18px;font-weight:700;fill:#e8ebed}
+      .m-heading{font-size:24px;font-weight:700;fill:#e8ebed}
+      .label{font-size:13px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .m-label{font-size:18px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .body{font-size:17px;fill:#c9d5e1}
+      .m-body{font-size:23px;fill:#c9d5e1}
+      .code{font-size:16px;fill:#e8ebed}
+      .m-code{font-size:22px;fill:#e8ebed}
+      .small{font-size:14px;fill:#8fa4b5}
+      .m-small{font-size:19px;fill:#8fa4b5}
+      .cyan{fill:#61c9ef}.green{fill:#48c99a}.red{fill:#f05c67}.steel{fill:#7890a3}
+      .node{fill:#0d1025;stroke:#566274;stroke-width:1.5;vector-effect:non-scaling-stroke}
+      .cyan-node{fill:#0d1428;stroke:#61c9ef}.green-node{fill:#0c1b1c;stroke:#48c99a}.red-node{fill:#24121e;stroke:#f05c67}
+      .rule{stroke:#36445b;stroke-width:1;vector-effect:non-scaling-stroke}
+      .route{fill:none;stroke:#61c9ef;stroke-width:2;marker-end:url(#cyan-arrow);vector-effect:non-scaling-stroke}
+      .red-route{fill:none;stroke:#f05c67;stroke-width:2;marker-end:url(#red-arrow);vector-effect:non-scaling-stroke}
+      .green-route{fill:none;stroke:#48c99a;stroke-width:2;marker-end:url(#green-arrow);vector-effect:non-scaling-stroke}
+      .steel-route{fill:none;stroke:#7890a3;stroke-width:1.8;marker-end:url(#steel-arrow);vector-effect:non-scaling-stroke}
+      .dash{stroke-dasharray:7 7}
+    </style>
+  </defs>
+  <rect width="1280" height="480" rx="4" fill="#080919"/>
+  <rect width="1280" height="480" rx="4" fill="url(#grid)"/>
+  <text x="44" y="50" class="sans title">C1 — require a real component</text>
+  <text x="1236" y="49" text-anchor="end" class="mono label">OBSERVED COMPONENT SET</text>
+  <path d="M44 70H1236" class="rule"/>
+      <text x="44" y="108" class="sans heading">Contract</text>
+      <rect x="44" y="130" width="328" height="180" rx="4" class="node cyan-node"/>
+      <text x="68" y="166" class="mono label cyan">ENGINEERINGBLUEPRINT</text>
+      <text x="68" y="204" class="mono code">type: requiredComponent</text>
+      <text x="68" y="237" class="mono code">component: pluginSurface</text>
+      <text x="68" y="278" class="sans small">At least one must exist.</text>
+      <path d="M372 220H454" class="route"/>
+      <text x="478" y="108" class="sans heading">Observed graph</text>
+      <rect x="478" y="130" width="332" height="180" rx="4" class="node"/>
+      <text x="502" y="166" class="mono label">AST EXTRACTION</text>
+      <text x="502" y="211" class="mono code">pluginSurface count</text>
+      <text x="502" y="260" class="mono title red">0</text>
+      <text x="548" y="260" class="sans body">found in scanned scope</text>
+      <path d="M810 220H892" class="red-route"/>
+      <text x="916" y="108" class="sans heading">Deterministic verdict</text>
+      <rect x="916" y="130" width="320" height="180" rx="4" class="node red-node"/>
+      <text x="940" y="168" class="mono label red">1 · BLOCK</text>
+      <text x="940" y="207" class="mono code">component: pluginSurface</text>
+      <text x="940" y="240" class="sans small">observed: no component found</text>
+      <text x="940" y="273" class="sans small red">exactly one C1 violation</text>
+      <path d="M44 352H1236" class="rule"/>
+      <text x="44" y="394" class="sans body">C1 measures presence, not file count or naming intent.</text>
+      <text x="1236" y="394" text-anchor="end" class="mono small">zero → one violation</text>
+</svg>

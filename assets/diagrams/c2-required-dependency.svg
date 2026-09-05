@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="c2-required-dependency-title c2-required-dependency-desc">
+  <title id="c2-required-dependency-title">C2 — requiredDependency</title>
+  <desc id="c2-required-dependency-desc">A requiredDependency constraint checks every target component for a governed outgoing edge. The plugin surface exists but has no provides edge, so BCE names the component and blocks. Zero target components also fail closed rather than passing vacuously.</desc>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#263249" stroke-width="1" opacity="0.24"/>
+    </pattern>
+    <marker id="cyan-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#61c9ef"/>
+    </marker>
+    <marker id="red-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#f05c67"/>
+    </marker>
+    <marker id="green-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#48c99a"/>
+    </marker>
+    <marker id="steel-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#7890a3"/>
+    </marker>
+    <style>
+      .sans{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace}
+      .title{font-size:28px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .m-title{font-size:32px;font-weight:720;letter-spacing:-.4px;fill:#e8ebed}
+      .heading{font-size:18px;font-weight:700;fill:#e8ebed}
+      .m-heading{font-size:24px;font-weight:700;fill:#e8ebed}
+      .label{font-size:13px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .m-label{font-size:18px;font-weight:700;letter-spacing:1px;fill:#7890a3}
+      .body{font-size:17px;fill:#c9d5e1}
+      .m-body{font-size:23px;fill:#c9d5e1}
+      .code{font-size:16px;fill:#e8ebed}
+      .m-code{font-size:22px;fill:#e8ebed}
+      .small{font-size:14px;fill:#8fa4b5}
+      .m-small{font-size:19px;fill:#8fa4b5}
+      .cyan{fill:#61c9ef}.green{fill:#48c99a}.red{fill:#f05c67}.steel{fill:#7890a3}
+      .node{fill:#0d1025;stroke:#566274;stroke-width:1.5;vector-effect:non-scaling-stroke}
+      .cyan-node{fill:#0d1428;stroke:#61c9ef}.green-node{fill:#0c1b1c;stroke:#48c99a}.red-node{fill:#24121e;stroke:#f05c67}
+      .rule{stroke:#36445b;stroke-width:1;vector-effect:non-scaling-stroke}
+      .route{fill:none;stroke:#61c9ef;stroke-width:2;marker-end:url(#cyan-arrow);vector-effect:non-scaling-stroke}
+      .red-route{fill:none;stroke:#f05c67;stroke-width:2;marker-end:url(#red-arrow);vector-effect:non-scaling-stroke}
+      .green-route{fill:none;stroke:#48c99a;stroke-width:2;marker-end:url(#green-arrow);vector-effect:non-scaling-stroke}
+      .steel-route{fill:none;stroke:#7890a3;stroke-width:1.8;marker-end:url(#steel-arrow);vector-effect:non-scaling-stroke}
+      .dash{stroke-dasharray:7 7}
+    </style>
+  </defs>
+  <rect width="1280" height="480" rx="4" fill="#080919"/>
+  <rect width="1280" height="480" rx="4" fill="url(#grid)"/>
+  <text x="44" y="50" class="sans title">C2 — require the governed edge</text>
+  <text x="1236" y="49" text-anchor="end" class="mono label">OBSERVED COMPONENTS + EDGES</text>
+  <path d="M44 70H1236" class="rule"/>
+      <rect x="44" y="118" width="332" height="220" rx="4" class="node cyan-node"/>
+      <text x="68" y="156" class="mono label cyan">CONTRACT</text>
+      <text x="68" y="196" class="mono code">type: requiredDependency</text>
+      <text x="68" y="229" class="mono code">component: pluginSurface</text>
+      <text x="68" y="262" class="mono code">edge: provides</text>
+      <text x="68" y="307" class="sans small">Every target needs an edge.</text>
+      <path d="M376 228H446" class="route"/>
+      <rect x="470" y="118" width="358" height="220" rx="4" class="node"/>
+      <text x="494" y="156" class="mono label">OBSERVED GRAPH</text>
+      <rect x="494" y="181" width="310" height="66" rx="4" class="node cyan-node"/>
+      <text x="514" y="221" class="mono code">extension:greeting.plugin</text>
+      <path d="M649 247V291" stroke="#f05c67" stroke-width="2" stroke-dasharray="6 6" class="dash"/>
+      <text x="669" y="281" class="mono small red">no provides edge</text>
+      <path d="M828 228H898" class="red-route"/>
+      <rect x="922" y="118" width="314" height="220" rx="4" class="node red-node"/>
+      <text x="946" y="156" class="mono label red">1 · BLOCK</text>
+      <text x="946" y="198" class="mono code">greeting.plugin</text>
+      <text x="946" y="231" class="sans small">observed: no provides edge</text>
+      <text x="946" y="264" class="sans small">expected: governed registration</text>
+      <text x="946" y="307" class="mono small red">file + line anchored</text>
+      <path d="M44 376H1236" class="rule"/>
+      <text x="44" y="418" class="sans body">No target component is also RED: C2 never passes vacuously.</text>
+      <text x="1236" y="418" text-anchor="end" class="mono small">each missing edge → violation</text>
+</svg>

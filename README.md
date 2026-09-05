@@ -19,7 +19,7 @@ Node 22+ is required; the contract remains pre-1.0.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 853">
+  <img src="assets/badges/tests.svg" alt="tests: 857">
 </p>
 
 ## Run a real gate
@@ -50,7 +50,8 @@ These are the specification's first four enforcing types: **C1 `requiredComponen
 real `pluginSurface`; **C2 `requiredDependency`** requires its governed registration edge;
 **C3 `forbiddenDependency`** rejects the `axios` import; and **C4 `forbiddenPath`** keeps extracted
 components out of `src/legacy/**`. The taxonomy has four more enforcing types and three explicit
-reserved types—[read the exact semantics](spec/SPEC.md#3-constraint-taxonomy--11-types).
+reserved types—[open the C1–C4 visual guide](docs/constraint-guide.md) or
+[read the exact semantics](spec/SPEC.md#3-constraint-taxonomy--11-types).
 
 On a release that includes the AI-first review surface, `bce propose` writes an immutable draft
 packet to quarantine; the model cannot approve or land policy. [Read the review

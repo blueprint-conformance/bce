@@ -11,6 +11,13 @@ configuration files — never by an invisible CI-line override. That is what kee
 honest. The two config files are `.bce-mode.json` (advisory mode) and `.blueprints/baseline.json`
 (the shrink-only baseline).
 
+<p align="center">
+  <picture>
+    <source media="(max-width: 600px)" srcset="../assets/diagrams/brownfield-adoption-mobile.svg">
+    <img src="../assets/diagrams/brownfield-adoption.svg" alt="BCE brownfield adoption begins in committed advisory mode with all existing violations visible. A reviewed shrink-only baseline separates known debt from new drift, then enforced mode blocks every new violation while existing debt decreases from 75 to 38 to zero. A downgrade requires visible reviewed rationale.">
+  </picture>
+</p>
+
 ## The two adoption controls
 
 Mode and baseline are independent, committed controls. Mode decides whether a graded violation

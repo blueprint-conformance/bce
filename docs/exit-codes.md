@@ -9,6 +9,13 @@ stdout. Three codes, one meaning each:
 | **1** | **red or user error** — a graded violation, or a usage/config error. |
 | **2** | **fail-closed refusal** — the run could not honestly grade (an empty scan, a malformed blueprint, an extractor that cannot honor a constraint). Deliberately distinct from a graded red: the engine is telling you it did *not* grade, rather than pretending a pass. |
 
+<p align="center">
+  <picture>
+    <source media="(max-width: 600px)" srcset="../assets/diagrams/exit-code-contract-mobile.svg">
+    <img src="../assets/diagrams/exit-code-contract.svg" alt="The BCE process contract preserves three meanings: exit 0 is a successful command, exit 1 is a graded violation or user error that blocks an enforced merge, and exit 2 is a fail-closed refusal that blocks in every mode. Advisory mode may make a visible graded violation non-blocking but never converts a refusal into a pass.">
+  </picture>
+</p>
+
 Two consequences worth stating plainly:
 
 - **A refusal is never a silent pass.** `2` exists precisely so that "I could not grade this" is
