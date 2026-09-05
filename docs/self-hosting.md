@@ -81,14 +81,14 @@ Two lanes can gate this tree:
   itself.
 
 The bootstrap-0 exception ended with the provenance-backed `bce-engine@0.1.0` publication.
-Lane A now installs the exact `bce-engine@0.1.5` registry artifact independently, while Lane B continues to grade
+Lane A now installs the exact `bce-engine@0.2.0` registry artifact independently, while Lane B continues to grade
 the commit under review with its own build.
 
 **The flip:** the `lane-a-pinned-gate` job already exists in
 [`self-gate.yml`](../.github/workflows/self-gate.yml) — it reads the exact pin from
 [`.engine-pin.json`](../.engine-pin.json), and is **if-guarded on the pin being published AND
 `bce-engine@<pin>` actually resolving on npm**. The guard is open: the job installs
-`bce-engine@0.1.5` (exact pin, no range) and runs the same `gate` verb. The job is also a required
+`bce-engine@0.2.0` (exact pin, no range) and runs the same `gate` verb. The job is also a required
 branch-protection check.
 
 ## The Lane-A pin ceremony (forward reference)
@@ -96,7 +96,7 @@ branch-protection check.
 The Lane-A flip is a **pin ceremony**, not a version range — and the distinction is the whole point
 of the lane. Lane A must be independent of the code under review, so it installs an **exact** version:
 
-- `bce-engine@0.1.5`, never `^0.1.5` or `~0.1.5` or `@latest`. A range would let a later publish
+- `bce-engine@0.2.0`, never `^0.2.0` or `~0.2.0` or `@latest`. A range would let a later publish
   silently change the gate the tree is graded by, reintroducing the trusting-trust hole Lane A exists
   to close.
 - The pin is bumped only by a deliberate, reviewed PR — the same way any load-bearing dependency pin

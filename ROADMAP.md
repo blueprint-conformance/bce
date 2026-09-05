@@ -84,8 +84,10 @@ If a label here overstates reality, that is a bug — please open an issue.
 - **[RUNS]** Tag-gated release workflow that re-executes every proof at the tag — full suite,
   deterministic Agent Skills/MCP adoption, clean-install reproducibility, corpus recall, self-gate,
   and RED/GREEN pair — and refuses to publish unless all of them are green in that run
-  ([`.github/workflows/release.yml`](.github/workflows/release.yml)). `bce-engine@0.1.5` is public;
-  repository-level immutable releases protect releases created after that setting was enabled.
+  ([`.github/workflows/release.yml`](.github/workflows/release.yml)). `bce-engine@0.2.0` is public
+  with npm provenance. Its canonical GitHub Release is immutable; the exact signed evidence assets
+  are preserved in the linked supplemental immutable release after the first asset-ordering incident
+  ([verification record](docs/release-v0.2.0.md)).
 
 ## Designed, not built — [DESIGN]
 

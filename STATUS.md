@@ -1,6 +1,6 @@
 # Project status
 
-Last reviewed: 2026-09-03. This file is the authoritative public claim ledger for the current
+Last reviewed: 2026-09-05. This file is the authoritative public claim ledger for the current
 source tree.
 
 ## Distribution
@@ -9,10 +9,10 @@ source tree.
 |---|---|---|
 | Source checkout | Working, internally tested | Node 22.22.2, `npm ci`, `npm run build`, then `node dist/cli.js`; published runtime remains Node 22+ |
 | Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree and runs `bce demo` |
-| npm | Released | [`bce-engine@0.1.5`](https://www.npmjs.com/package/bce-engine/v/0.1.5) is public with npm provenance; install the exact version on Node 22+ |
-| Git tag / GitHub Release | Released, historical tag mutable | [`v0.1.5`](https://github.com/blueprint-conformance/bce/releases/tag/v0.1.5) carries the release compliance report plus verified evidence record, but was published before repository release immutability was enabled and remains mutable |
-| GitHub Action | Released | Pin `blueprint-conformance/bce@3611709acf0dace4698dd1876f835a73ec44837b` (the v0.1.5 source commit), not the mutable tag; creator-maintained external RED/GREEN evidence is linked below |
-| GitLab template | Unsupported reference | It uses exact `bce-engine@0.1.5` and is fail-closed, but no real GitLab runner/client matrix has been completed; GitLab is not a supported integration |
+| npm | Released | [`bce-engine@0.2.0`](https://www.npmjs.com/package/bce-engine/v/0.2.0) is public with SLSA provenance and integrity `sha512-hFKOHO+EYgQbp+jaOW7/WTBGEqjHDEEKfB+O1ALo8KLnmIAr708mQWeXxRUMi3YAmWxz1RhfiAY1Rdpk81NNrA==`; install the exact version on Node 22+ |
+| Git tag / GitHub Release | Released, immutable | [`v0.2.0`](https://github.com/blueprint-conformance/bce/releases/tag/v0.2.0) is immutable at source `14716bf655d8dd6020b9dcf8905678ef2abe2760`; it froze before asset upload, so the exact signed record is preserved in the separate [`evidence-v0.2.0`](https://github.com/blueprint-conformance/bce/releases/tag/evidence-v0.2.0) immutable release ([verification record](docs/release-v0.2.0.md)) |
+| GitHub Action | Released | Pin `blueprint-conformance/bce@14716bf655d8dd6020b9dcf8905678ef2abe2760` (the v0.2.0 source commit), never a tag; the creator-maintained external RED/GREEN witness below remains evidence for its recorded v0.1.5 Action pin, not v0.2.0 |
+| GitLab template | Unsupported reference | It uses exact `bce-engine@0.2.0` and is fail-closed, but no real GitLab runner/client matrix has been completed; GitLab is not a supported integration |
 | OpenAI plugin | Packaged, unsubmitted | `.codex-plugin/plugin.json` validates as a skills-only ChatGPT/Codex plugin; there is no portal submission, public listing URL, or clean-account directory install |
 
 ## What the engine currently proves
@@ -27,21 +27,21 @@ source tree.
   probe definition, stimulus set, collector, and environment before they can affect a verdict.
 - `bce run --emit` can emit hash-chained integrity records. Ordinary gate runs do not emit them,
   and a local hash chain is not authenticated provenance.
-- Current source embeds the exact dependency-lock digest and extractor/provider identity in new
-  evidence records. Its reproducibility proof obtains the same production graph and report hash
-  from two clean installs. Historical 0.1.5 records predate this additive field.
+- The v0.2.0 release evidence embeds the exact dependency-lock digest and extractor/provider
+  identity. Its reproducibility proof obtains the same production graph and report hash from two
+  clean installs. Historical 0.1.5 records predate this additive field.
 - The built MCP server passes strict discovery through locked Inspector 2.5.0, boundary/framing
   tests, and a 2-second startup/discovery p95 gate. This is Inspector compatibility, not proof of
   every named host client.
 - The synthetic scale track scans 2,000 TypeScript files, enforces a 30-second p95 ceiling, and
   requires a planted final-package import to redden at its exact line. It is a regression budget,
   not real-monorepo generalization evidence.
-- The current source and packed candidate passed the public Ubuntu/macOS/Windows × Node 22/24
+- The v0.2.0 source and packed artifact passed the public Ubuntu/macOS/Windows × Node 22/24
   [portability matrix](https://github.com/blueprint-conformance/bce/actions/runs/33709587798), including
   build, typecheck, cross-platform engine/CLI/evidence/MCP tests, restricted-network operation, and
   a packed-consumer proof. This establishes the current source path, not a retrospective claim that
   every platform executed the historical `v0.1.5` release workflow.
-- The generated GitHub Action runs outside this repository: the public
+- The v0.1.5 GitHub Action ran outside this repository: the public
   [`blueprint-conformance/bce-action-witness`](https://github.com/blueprint-conformance/bce-action-witness) consumer
   produced a [clean GREEN](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497921200),
   [reported planted drift](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33497995578),
@@ -57,8 +57,9 @@ source tree.
   `failure`, exit 1) →
   [GREEN after the fix](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33690296051).
   That RED is evidence of enforced blocking in an external consumer. It remains creator-maintained
-  (see the consumer's `WITNESS.md`), so it does not change the independent-witness count below.
-- The source-tree AI-adoption proof runs all four supported harness layouts. It checks project-local
+  (see the consumer's `WITNESS.md`), so it does not change the independent-witness count below, and
+  the sequence has not yet been rerun against the v0.2.0 Action commit.
+- The v0.2.0 AI-adoption proof runs all four supported harness layouts. It checks project-local
   discovery of both skills, project-local MCP configuration, read-only tool affordances,
   zero-argument repository calls, and live GREEN → RED → GREEN correction. This is a deterministic
   agent-harness simulation, not an LLM comparison or independent-human usability evidence.
@@ -83,9 +84,9 @@ source tree.
 
 ## What has not been established
 
-- The AI-first `propose`/review surface exists in the current source and passes packed-candidate
-  tests, but it has not been released to npm. No exact release version, npm integrity, published
-  source commit, or installed-tree digest exists for this feature yet.
+- The AI-first `propose`/review surface is released in v0.2.0 and passes deterministic source and
+  packed-consumer proofs. No independent user has yet completed or evaluated that proposal journey;
+  its usability or benefit relative to manual authoring is not established.
 - No independent user witness has completed the adoption journey. The external consumer above
   is creator-maintained and therefore does not change the independent-witness count.
 - The author-designed seeded corpus is a regression suite, not a held-out benchmark.
@@ -120,16 +121,21 @@ source tree.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;
   the accepted implementation count remains zero.
-- The release workflow in current source keyless-signs future release evidence with GitHub OIDC and
-  verifies issuer plus workflow identity before upload. Historical v0.1.5 has no such signature, so
-  authenticated release-evidence identity is not yet established for a published release.
+- The v0.2.0 EvidenceRecord has authenticated Sigstore identity bound to the GitHub OIDC issuer and
+  exact `release.yml@refs/tags/v0.2.0` workflow identity. The canonical immutable Release froze before
+  its assets uploaded; the Rekor-recovered bundle and exact record are therefore held by the separate
+  immutable evidence release. [The release record](docs/release-v0.2.0.md) preserves the failure and
+  fix-forward. This establishes producer identity for the release evidence, not product efficacy.
 - The OpenAI skills-only plugin archive validates locally, but required operator identity/legal
   materials and portal review are incomplete; it is not publicly listed.
-- This repository's `main` requires seven CI contexts, enforces them for admins, and blocks force-push
-  and deletion. It requires zero human approvals and has no release-environment reviewer because the
-  project currently has one human maintainer; configuring a second-person gate would deadlock it.
-  Independent review is not claimed. Adopters must configure policy owners appropriate to their own
-  team size.
+- This repository's `main` requires seven CI contexts: `build-test-prove`, `lane-b-self-gate`,
+  `lane-a-pinned-gate`, `leakage-gate`, `banned-phrases`,
+  `launch promises (inert while private, blocking once public)`, and
+  `model-evaluation-controller-macos`. GitHub enforces them for admins
+  and blocks force-push and deletion. It requires zero human approvals and has no release-environment
+  reviewer because the project currently has one human maintainer; configuring a second-person gate
+  would deadlock it. Independent review is not claimed. Adopters must configure policy owners
+  appropriate to their own team size.
 
 ## Claim-change rule
 

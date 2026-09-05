@@ -28,7 +28,7 @@ The distinguishing mechanism is a fail-closed, local-first architecture gate tha
 
 ## Capabilities and Constraints
 
-- Node 22 or newer; the released package is `bce-engine@0.1.5`.
+- Node 22 or newer; the released package is `bce-engine@0.2.0`.
 - TypeScript/JavaScript AST extraction is the mature path; Python import-graph extraction is an MVP behind the provider seam.
 - Validation, extraction, gating, MCP discovery, and evidence verification work without a hosted service after installation.
 - Critical unsupported analysis, missing rules, unsafe paths, and unknown constraints fail closed.

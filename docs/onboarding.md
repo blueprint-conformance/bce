@@ -84,7 +84,7 @@ project-local format.
 npx --no-install bce onboard \
   --repo . \
   --blueprint bce-draft.json \
-  --engine blueprint-conformance/bce@3611709acf0dace4698dd1876f835a73ec44837b \
+  --engine blueprint-conformance/bce@14716bf655d8dd6020b9dcf8905678ef2abe2760 \
   --harness agents
 ```
 
@@ -101,11 +101,10 @@ Override paths with `--agent-file` or `--mcp-config`. Paths are confined to the 
 existing context and unrelated MCP servers/settings are preserved. The command refuses to overwrite
 existing policy files, either installed skill, or an existing MCP server named `bce`.
 
-The generated Action uses the full commit SHA for the `v0.1.5` Action source and can build that
-source locally. The repository's immutable-release setting was enabled after `v0.1.5` was published,
-so the tag itself is not treated as an executable trust anchor. After the exact registry preflight
-resolves, pass `--engine bce-engine@0.2.0` when you want the generated workflow to install this package
-independently.
+The generated Action uses the full commit SHA for the `v0.2.0` Action source and can build that
+source locally. The canonical `v0.2.0` Release is immutable, but executable workflows still pin the
+source commit rather than relying on tag semantics. Pass `--engine bce-engine@0.2.0` when you want
+the generated workflow to install the exact registry package independently.
 
 ## 4. Diagnose, prove RED, and go GREEN
 

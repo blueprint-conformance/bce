@@ -9,8 +9,10 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
 
 ## Phase 0 — pre-flip gates (repo still private)
 
-1. **[agent]** All CI legs green on main HEAD — JOB names, not file names:
-   `build-test-prove`, `lane-b-self-gate`, `leakage-gate`, `banned-phrases`.
+1. **[agent]** All required CI contexts green on main HEAD — JOB names, not file names:
+   `build-test-prove`, `lane-b-self-gate`, `lane-a-pinned-gate`, `leakage-gate`,
+   `banned-phrases`, `launch promises (inert while private, blocking once public)`, and
+   `model-evaluation-controller-macos`.
    `gh run list -R blueprint-conformance/bce --branch main --limit 8`
 
    (This item carried the filename list — `ci`, `self-gate`,
@@ -51,8 +53,10 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
 9. **[agent]** Verify every schema `$id` resolves 200:
    `for s in spec/schemas/*.schema.json; do curl -fsI "$(jq -r '."$id"' "$s")" >/dev/null && echo "OK $s"; done`
 10. **[agent]** Branch protection + required checks on `main`: `build-test-prove`,
-    `lane-b-self-gate`, `leakage-gate`, `banned-phrases`, and `lane-a-pinned-gate`.
-    Lane A is live at the published 0.1.5 pin; this item now concerns required-check enforcement,
+    `lane-b-self-gate`, `lane-a-pinned-gate`, `leakage-gate`, `banned-phrases`,
+    `launch promises (inert while private, blocking once public)`, and
+    `model-evaluation-controller-macos`.
+    Lane A is live at the published 0.2.0 pin; this item now concerns required-check enforcement,
     not activation.
     `gh api -X PUT repos/blueprint-conformance/bce/branches/main/protection ...`
 
@@ -71,7 +75,7 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
     context that never reports leaves every PR **permanently pending** — not
     failed, *pending*, which no code change resolves and no re-run clears,
     including the PR that would fix it. Nothing enforces that a workflow's file
-    name and its job name agree, and four of this repo's seven PR jobs differ.
+    name and its job name agree, and four of this repo's seven required contexts differ.
 
     **Verify before configuring, not after:**
 
@@ -79,7 +83,8 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
     # run from the steward's governance checkout (the repo holding validate-* scripts)
     bash .claude/scripts/validate-required-context-drift.sh --jobs blueprint-conformance/bce
     bash .claude/scripts/validate-required-context-drift.sh --propose blueprint-conformance/bce \
-      build-test-prove lane-b-self-gate leakage-gate banned-phrases
+      build-test-prove lane-b-self-gate lane-a-pinned-gate leakage-gate banned-phrases \
+      'launch promises (inert while private, blocking once public)' model-evaluation-controller-macos
     ```
 
     `--propose` exits non-zero if any proposed context would never report. It
@@ -185,9 +190,10 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
     re-bound in the same change.
 
 15. ~~**[operator]** Publish the first tag through `release.yml`.~~ **DONE** — current public release
-    is `v0.1.5`, with npm provenance; that historical GitHub release predates immutable-release enforcement.
+    is `v0.2.0`, with npm provenance and an immutable canonical GitHub Release. Its asset-ordering
+    incident and separate immutable evidence release are recorded in `docs/release-v0.2.0.md`.
 16. ~~**[agent]** Verify npm, smoke the packed/published path, and activate Lane A.~~ **DONE** —
-    `.engine-pin.json` is live at exact `bce-engine@0.1.5`, and `lane-a-pinned-gate` is required.
+    `.engine-pin.json` is live at exact `bce-engine@0.2.0`, and `lane-a-pinned-gate` is required.
 17. ~~**[agent]** Replace README placeholder links.~~ **DONE** — guarded by launch-readiness checks.
 
 ## Phase 4 — launch post

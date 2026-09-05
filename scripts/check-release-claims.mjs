@@ -47,15 +47,83 @@ if (state.candidateVersion !== undefined && state.candidateVersion !== null) {
 }
 if (!/^[0-9a-f]{40}$/.test(state.actionCommit)) failures.push('actionCommit is not a full commit SHA');
 
+if (!/^sha512-[A-Za-z0-9+/]+={0,2}$/.test(state.npmIntegrity ?? '')) {
+  failures.push('npmIntegrity is not an exact sha512 Subresource Integrity value');
+}
+if (!/^[0-9a-f]{40}$/.test(state.npmShasum ?? '')) failures.push('npmShasum is not a full SHA-1 digest');
+if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(state.publishedAt ?? '')) {
+  failures.push('publishedAt is not an exact UTC registry timestamp');
+}
+if (enginePin.integrity !== state.npmIntegrity) failures.push('Lane-A integrity differs from release state');
+if (enginePin.shasum !== state.npmShasum) failures.push('Lane-A shasum differs from release state');
+if (enginePin.sourceCommit !== state.actionCommit) failures.push('Lane-A source commit differs from release state');
+if (enginePin.provenanceRunUrl !== state.provenanceRunUrl) failures.push('Lane-A provenance run differs from release state');
+if (enginePin.evidenceReleaseUrl !== state.evidenceReleaseUrl) failures.push('Lane-A evidence release differs from release state');
+if (state.canonicalReleaseUrl !== `https://github.com/blueprint-conformance/bce/releases/tag/${state.releaseTag}`) {
+  failures.push('canonical release URL does not match releaseTag');
+}
+if (!/^https:\/\/github\.com\/blueprint-conformance\/bce\/actions\/runs\/\d+\/attempts\/\d+$/.test(state.provenanceRunUrl ?? '')) {
+  failures.push('provenance run URL is not an exact workflow attempt');
+}
+if (!/^https:\/\/github\.com\/blueprint-conformance\/bce\/releases\/tag\/.+/.test(state.evidenceReleaseUrl ?? '')) {
+  failures.push('evidence release URL is not an exact repository release');
+}
+for (const field of ['evidenceRecordSha256', 'sigstoreBundleSha256', 'complianceReportSha256']) {
+  if (!/^[0-9a-f]{64}$/.test(state[field] ?? '')) failures.push(`${field} is not a full SHA-256 digest`);
+}
+if (!Array.isArray(state.requiredStatusChecks) || state.requiredStatusChecks.length !== 7 ||
+    new Set(state.requiredStatusChecks).size !== 7) {
+  failures.push('requiredStatusChecks must name seven unique branch-protection contexts');
+} else {
+  for (const path of [
+    'STATUS.md',
+    'docs/governance-enforcement.md',
+    'docs/launch/public-flip-checklist.md',
+    'docs/launch/show-hn-draft.md',
+  ]) {
+    for (const context of state.requiredStatusChecks) requireText(path, context, 'required context inventory');
+  }
+}
+
 for (const path of ['README.md', 'STATUS.md', 'docs/onboarding.md']) {
   requireText(path, state.actionCommit, 'immutable Action source');
 }
 if (state.githubReleaseImmutable === false) {
   requireText('STATUS.md', 'historical tag mutable', 'historical release immutability');
   requireText('README.md', 'historical tag is mutable', 'historical release immutability');
+} else if (state.githubReleaseImmutable === true) {
+  requireText('STATUS.md', '| Git tag / GitHub Release | Released, immutable |', 'current release immutability');
+  requireText('README.md', 'Release is immutable', 'current release immutability');
+} else {
+  failures.push('githubReleaseImmutable must be a boolean');
 }
 if (state.repositoryImmutableReleasesEnabled === true) {
-  requireText('README.md', 'repository-level release immutability now', 'future release immutability');
+  if (state.githubReleaseImmutable !== true) {
+    requireText('README.md', 'repository-level release immutability now', 'future release immutability');
+  }
+}
+
+const releaseRecord = `docs/release-v${state.currentVersion}.md`;
+if (!existsSync(join(root, releaseRecord))) {
+  failures.push(`release verification record is missing: ${releaseRecord}`);
+} else {
+  for (const value of [
+    state.npmIntegrity,
+    state.npmShasum,
+    state.actionCommit,
+    state.provenanceRunUrl,
+    state.canonicalReleaseUrl,
+    state.evidenceReleaseUrl,
+    state.evidenceRecordSha256,
+    state.sigstoreBundleSha256,
+    state.complianceReportSha256,
+  ]) {
+    requireText(releaseRecord, value, 'release verification identity');
+  }
+  requireText(releaseRecord, 'It is not independent adoption', 'release evidence firewall');
+  if (state.evidenceReleaseUrl !== state.canonicalReleaseUrl) {
+    requireText(releaseRecord, 'intentionally has no assets', 'supplemental evidence recovery disclosure');
+  }
 }
 
 const attestation = /^>\s*\*\*Count:\s*(\d+)\.\*\*/m.exec(read('ATTESTATIONS.md'));

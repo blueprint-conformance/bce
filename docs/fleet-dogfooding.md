@@ -51,10 +51,10 @@ default branch:
 
 ### Public/private implementation identity
 
-The private estate's `0.17.0` pin is **not** the public npm package's current `0.1.5` identity, and
+The private estate's `0.17.0` pin is **not** the public npm package's current `0.2.0` identity, and
 this repository contains no public source-to-artifact attestation connecting the two. Consequently,
 the fleet record is evidence about the private estate's gate operation, not implementation evidence
-for public `bce-engine@0.1.5`. It must not be used to claim that the public package handled those
+for public `bce-engine@0.2.0`. It must not be used to claim that the public package handled those
 merges. A future private run may count as public BCE dogfood only when its sanitized record binds the
 exact public package version, package integrity, and public source commit. Private policy and raw
 tenant telemetry remain private; engine identity and aggregate outcomes may be published.
