@@ -103,6 +103,7 @@ jobs:
           node node_modules/@sigstore/cli/bin/run verify result-anchor.sigstore \
             --certificate-issuer https://token.actions.githubusercontent.com \
             --certificate-identity-uri "$identity"
+          # shellcheck disable=SC2016
           IDENTITY="$identity" node --input-type=module -e '
             import { createHash } from "node:crypto";
             import { readFileSync, writeFileSync } from "node:fs";
