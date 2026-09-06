@@ -44,11 +44,13 @@ const probeCountResult = spawnSync(process.execPath, [selftest, '--print-probe-c
 if (probeCountResult.status !== 0 || !/^\d+$/.test(probeCountResult.stdout.trim())) {
   throw new Error(`docs self-test did not expose its probe count: ${probeCountResult.stderr}`);
 }
-// Each negative control stages and rebuilds the complete site. Keep the proof finite,
-// but scale its deadline with the workload so supported slower runners remain valid.
+// Each control stages and rebuilds the complete site. Post-merge run 34064098402
+// completed the proof in 284.7s on Windows/Node 24, exceeding the former 240s cap.
+// Allow 16s per control with a finite 10-minute cap for filesystem-heavy runners;
+// keep every positive/negative control and its reason-specific assertions intact.
 const DOCS_SELFTEST_TIMEOUT_MS = Math.min(
-  240_000,
-  Math.max(60_000, Number(probeCountResult.stdout.trim()) * 8_000),
+  600_000,
+  Math.max(60_000, Number(probeCountResult.stdout.trim()) * 16_000),
 );
 
 let out: string;
