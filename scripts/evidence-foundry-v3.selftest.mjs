@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -24,8 +24,10 @@ import {
   validateRuntimeDerivationStatement,
   validatePowerDesign,
   validateProtocolV3,
+  verifyStageBundleForLifecycle,
   verifyStudyRegistry,
 } from './lib/evidence-foundry-v3.mjs';
+import { expectedSeal } from './lib/model-evaluation.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (path) => JSON.parse(readFileSync(resolve(root, path), 'utf8'));
@@ -116,6 +118,54 @@ function beginRun(value) {
 
 for (const schemaName of ['study-index.v3.schema.json', 'protocol.v3.schema.json', 'power-design.v1.schema.json', 'runtime-derivation.v1.schema.json']) {
   assertSchemaObjectsClosed(readJson(`research/model-evaluation/schemas/${schemaName}`));
+}
+
+const portableStageScratch = mkdtempSync(join(root, '.bce-completed-stage-portability-'));
+try {
+  const portableBundle = join(portableStageScratch, 'bundle');
+  cpSync(resolve(root, 'research/model-evaluation/pilots/accelerated-v6'), portableBundle, { recursive: true });
+  const publicVerifier = resolve(root, 'scripts/verify-model-evaluation-public.mjs');
+  const portableResults = join(portableBundle, 'results');
+  const replayed = spawnSync(process.execPath, [publicVerifier, '--bundle', portableBundle, '--results', portableResults], {
+    cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+  });
+  assert.equal(replayed.status, 0, `portable public replay fixture refused: ${replayed.stderr}`);
+  const terminalRecordsPath = join(portableResults, 'terminal-records.jsonl');
+  const terminalRecordBytes = readFileSync(terminalRecordsPath);
+  rmSync(terminalRecordsPath);
+  const missingTerminals = spawnSync(process.execPath, [publicVerifier, '--bundle', portableBundle, '--results', portableResults], {
+    cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+  });
+  assert.notEqual(missingTerminals.status, 0, 'public replay accepted missing terminal evidence');
+  writeFileSync(terminalRecordsPath, terminalRecordBytes);
+
+  const protocolPath = join(portableBundle, 'protocol.v2.json');
+  const portableProtocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
+  portableProtocol.isolation.runtimeExecutable = '/private/nonexistent-bce-execution-host/node';
+  writeFileSync(protocolPath, `${JSON.stringify(portableProtocol, null, 2)}\n`);
+  const manifest = JSON.parse(readFileSync(join(portableBundle, 'task-manifest.json'), 'utf8'));
+  const sealPath = join(portableBundle, 'seal.json');
+  const seal = JSON.parse(readFileSync(sealPath, 'utf8'));
+  const resealed = expectedSeal(portableBundle, portableProtocol, manifest);
+  seal.entries = resealed.entries;
+  seal.rootSha256 = resealed.rootSha256;
+  seal.attestation.subjectRootSha256 = resealed.rootSha256;
+  writeFileSync(sealPath, `${JSON.stringify(seal, null, 2)}\n`);
+
+  const completedVerification = verifyStageBundleForLifecycle(portableBundle, { lifecycle: 'complete' });
+  assert.equal(completedVerification.ok, true, completedVerification.refusals.join('\n'));
+  assert.equal(completedVerification.hostArtifactsVerified, false);
+  const preRunVerification = verifyStageBundleForLifecycle(portableBundle, { lifecycle: 'frozen-ready-not-run' });
+  assert.equal(preRunVerification.ok, false, 'pre-run readiness accepted an absent execution-host runtime');
+  assert.match(preRunVerification.refusals.join('\n'), /execution runtime artifact/);
+
+  portableProtocol.isolation.runtimeArtifactSha256 = 'f'.repeat(64);
+  writeFileSync(protocolPath, `${JSON.stringify(portableProtocol, null, 2)}\n`);
+  const tamperedCompleted = verifyStageBundleForLifecycle(portableBundle, { lifecycle: 'complete' });
+  assert.equal(tamperedCompleted.ok, false, 'portable completed-stage verification accepted sealed runtime-identity drift');
+  assert.match(tamperedCompleted.refusals.join('\n'), /seal entries do not exactly match|seal root digest mismatch/);
+} finally {
+  rmSync(portableStageScratch, { recursive: true, force: true });
 }
 
 assert.equal(CLAIM_CLASSES.length, 6);

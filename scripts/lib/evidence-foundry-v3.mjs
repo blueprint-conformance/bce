@@ -539,7 +539,12 @@ function verifyStageExecutionBundle(root, protocol, stage, blockers) {
   }
   let bundle;
   try {
-    bundle = verifyBundle(bundleRoot, { requireSealed: true, verifyHostArtifacts: true });
+    // Readiness runs on the execution host and must prove that the frozen
+    // executable bytes are present there. Completed evidence is deliberately
+    // portable: its sealed protocol, exact bundle root, terminal records, and
+    // public replay retain the execution-host identity without dereferencing a
+    // machine-local executable path on an independent verifier such as CI.
+    bundle = verifyStageBundleForLifecycle(bundleRoot, stage);
   } catch (error) {
     blockers.push(`${stage.id} execution bundle verifier failed: ${error.message}`);
     return null;
@@ -599,6 +604,13 @@ function verifyStageExecutionBundle(root, protocol, stage, blockers) {
     }
   }
   return { bundleRoot, bundle };
+}
+
+export function verifyStageBundleForLifecycle(bundleRoot, stage) {
+  return verifyBundle(bundleRoot, {
+    requireSealed: true,
+    verifyHostArtifacts: stage.lifecycle !== 'complete',
+  });
 }
 
 export function externalResultAnchorRefusals(root, protocol, stage, executionStudyId, summary, { verifySigstore = defaultSigstoreVerifier } = {}) {
