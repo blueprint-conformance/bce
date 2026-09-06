@@ -410,6 +410,22 @@
         "powerDesignStageId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
         "preregistration": { "enum": ["draft-unsealed", "sealed-before-heldout-access"] },
         "executionBundlePath": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/relativeDirectoryPath" }] },
+        "lifecycleEvidence": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["disposition", "resultsPath", "resultSha256", "checkpointHeadSha256"],
+              "properties": {
+                "disposition": { "enum": ["complete-awaiting-anchor", "safety-halt"] },
+                "resultsPath": { "$ref": "#/definitions/relativeDirectoryPath" },
+                "resultSha256": { "$ref": "#/definitions/sha256" },
+                "checkpointHeadSha256": { "$ref": "#/definitions/sha256" }
+              }
+            }
+          ]
+        },
         "resultEvidence": {
           "oneOf": [
             { "type": "null" },

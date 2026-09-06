@@ -64,6 +64,23 @@ implementation bytes, treatment runtime, and Sigstore pre-run seal. A lifecycle 
 unlock an efficacy claim; completion also requires full-denominator public replay plus an external,
 self-digested checkpoint anchor.
 
+The lifecycle is the last **publicly verified** state, not an operator progress flag. The registry
+refuses `frozen-ready-not-run` unless the complete readiness matrix recomputes green. During private
+execution that remains the public state. A stage may move to `running` only after its complete
+terminal records, registered ledger, checkpoint chain, and sanitized public result replay are
+published; here `running` means “complete result awaiting the fixed GitHub OIDC anchor,” not an
+unevidenced live pulse. A safety halt similarly requires the replayable non-empty halted prefix.
+Both states derive the first heldout-access timestamp and current ledger head from public terminal
+bytes. After a complete replay is committed, the anchor path is selected by that stage's sealed
+`lifecycleEvidence`, never by a workflow caller:
+
+```sh
+gh workflow run evidence-foundry-anchor.yml \
+  -f source_commit=MAIN_COMMIT \
+  -f stage_id=primary-confirmatory \
+  -f protocol_path=research/model-evaluation/studies/evidence-foundry-v3/protocol.json
+```
+
 Each stage owns a one-cell v2 execution bundle. That cell is `primary` within its stage-local paired
 experiment; v3 separately classifies the stage as the program primary or a transportability stage.
 Claim-bearing local-provider cells are admitted only for the first-party tool client with its exact

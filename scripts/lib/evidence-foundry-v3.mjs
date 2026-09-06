@@ -609,8 +609,119 @@ function verifyStageExecutionBundle(root, protocol, stage, blockers) {
 export function verifyStageBundleForLifecycle(bundleRoot, stage) {
   return verifyBundle(bundleRoot, {
     requireSealed: true,
-    verifyHostArtifacts: stage.lifecycle !== 'complete',
+    // Host paths are execution-host preconditions, so readiness must dereference
+    // them. Once terminal evidence exists, independent Ubuntu verification uses
+    // the sealed path/digest identity plus replayed terminal bytes instead.
+    verifyHostArtifacts: stage.lifecycle === 'frozen-ready-not-run',
   });
+}
+
+export function firstPublicExposureAt(records) {
+  const exposures = records.map((record) => record.exposure);
+  if (records.length === 0 || exposures.some((exposure) => exposure?.modelRequestExposed !== true || !Number.isFinite(Date.parse(exposure?.startedAt ?? '')))) {
+    throw new EvidenceFoundryRefusal('public terminal replay does not retain a model-exposed start timestamp for every committed attempt');
+  }
+  return exposures.map((exposure) => exposure.startedAt).sort((left, right) =>
+    Date.parse(left) - Date.parse(right) || left.localeCompare(right))[0];
+}
+
+export function stageLifecycleSummaryRefusals(protocol, stage, summary) {
+  const blockers = [];
+  const evidence = stage.lifecycleEvidence;
+  const expectedTrials = protocol.taskPopulation.pairsPerCell * protocol.arms.length;
+  const replay = summary?.publicReplay;
+  if (!evidence) return [`${stage.id} ${stage.lifecycle} lifecycle has no replayable lifecycle evidence`];
+  if (summary?.resultSha256 !== evidence.resultSha256 ||
+      summary?.runDisposition?.plannedTrials !== expectedTrials ||
+      replay?.checkpointHeadSha256 !== evidence.checkpointHeadSha256 ||
+      protocol.heldoutAccess.accessLedgerHeadSha256 !== evidence.checkpointHeadSha256) {
+    blockers.push(`${stage.id} lifecycle evidence does not bind the public result, planned denominator, and heldout checkpoint head`);
+  }
+  if (![replay?.runRegistrationSha256, replay?.checkpointsSha256, replay?.checkpointHeadSha256]
+    .every((value) => /^[0-9a-f]{64}$/.test(value ?? ''))) {
+    blockers.push(`${stage.id} lifecycle evidence requires a registered public run and retained checkpoint chain`);
+  }
+  if (stage.lifecycle === 'running') {
+    if (evidence.disposition !== 'complete-awaiting-anchor' || summary?.resultKind !== 'complete-study-evidence' ||
+        summary?.runDisposition?.status !== 'complete' || summary?.verifiedTrials !== expectedTrials ||
+        summary?.runDisposition?.committedTrials !== expectedTrials) {
+      blockers.push(`${stage.id} running lifecycle requires a complete full-denominator public replay awaiting only its external anchor`);
+    }
+  } else if (stage.lifecycle === 'safety-halted') {
+    const committed = summary?.runDisposition?.committedTrials;
+    if (evidence.disposition !== 'safety-halt' || summary?.resultKind !== 'safety-halt-archive' ||
+        summary?.runDisposition?.status !== 'safety-halt' || !Number.isInteger(committed) || committed <= 0 || committed >= expectedTrials ||
+        summary?.verifiedTrials !== committed || summary?.runDisposition?.unexposedTrials !== expectedTrials - committed) {
+      blockers.push(`${stage.id} safety-halted lifecycle requires a replayed non-empty incomplete safety-halt prefix`);
+    }
+  } else {
+    blockers.push(`${stage.id} lifecycle evidence is not valid for ${stage.lifecycle}`);
+  }
+  return blockers;
+}
+
+export function terminalLifecycleBindingRefusals(protocol, terminalStageEvidence) {
+  if (!['running', 'safety-halted', 'complete'].includes(protocol.lifecycle)) return [];
+  const blockers = [];
+  const runningStages = protocol.stages.filter((stage) => stage.lifecycle === 'running');
+  const haltedStages = protocol.stages.filter((stage) => stage.lifecycle === 'safety-halted');
+  const completedStages = protocol.stages.filter((stage) => stage.lifecycle === 'complete');
+  // An active nonfinal stage owns the current head. Between stages, or after
+  // program completion, the last completed stage in preregistered order owns it.
+  const selectedStage = runningStages[0] ?? haltedStages[0] ?? [...completedStages].at(-1);
+  const selected = terminalStageEvidence.find((entry) => entry.stage.id === selectedStage?.id);
+  if (!selected || !/^[0-9a-f]{64}$/.test(selected.checkpointHeadSha256 ?? '')) {
+    blockers.push(`${protocol.lifecycle} program has no deterministic replayed terminal-stage checkpoint head`);
+  } else if (protocol.heldoutAccess.accessLedgerHeadSha256 !== selected.checkpointHeadSha256) {
+    blockers.push(`heldout access ledger head differs from the replayed ${selected.stage.id} terminal checkpoint`);
+  }
+  const firstAccessCandidates = terminalStageEvidence.map((entry) => entry.replay.firstAccessAt).filter(Boolean);
+  if (firstAccessCandidates.length !== terminalStageEvidence.length || firstAccessCandidates.length === 0) {
+    blockers.push(`${protocol.lifecycle} program has no complete public terminal exposure timeline`);
+  } else {
+    const firstAccessAt = firstAccessCandidates.sort((left, right) =>
+      Date.parse(left) - Date.parse(right) || left.localeCompare(right))[0];
+    if (protocol.heldoutAccess.firstAccessAt !== firstAccessAt) {
+      blockers.push('heldout first-access timestamp differs from the earliest replayed model exposure');
+    }
+  }
+  return blockers;
+}
+
+function replayStagePublicEvidence(root, protocol, stage, evidence, blockers, label) {
+  const execution = verifyStageExecutionBundle(root, protocol, stage, blockers);
+  if (!evidence) {
+    blockers.push(`${stage.id} ${label} is missing`);
+    return null;
+  }
+  if (!execution) return null;
+  let resultsRoot;
+  try {
+    resultsRoot = resolveDirectoryInside(root, evidence.resultsPath, `${stage.id} public results`);
+  } catch (error) {
+    blockers.push(error.message);
+    return null;
+  }
+  const verifier = resolve(root, 'scripts/verify-model-evaluation-public.mjs');
+  const verification = spawnSync(process.execPath, [verifier, '--bundle', execution.bundleRoot, '--results', resultsRoot], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (verification.status !== 0) {
+    blockers.push(`${stage.id} public result replay refused: ${String(verification.stderr || verification.stdout).trim()}`);
+    return null;
+  }
+  try {
+    const summary = readJsonFile(resultsRoot, 'summary.json', `${stage.id} public summary`).value;
+    const terminalBytes = readFileSync(resolveRegularFileInside(resultsRoot, 'terminal-records.jsonl', `${stage.id} public terminal records`));
+    const records = terminalBytes.toString('utf8').split('\n').filter((line) => line.trim()).map((line) => JSON.parse(line));
+    const firstAccessAt = firstPublicExposureAt(records);
+    return { execution, resultsRoot, summary, firstAccessAt };
+  } catch (error) {
+    blockers.push(`${stage.id} public lifecycle evidence could not be read: ${error.message}`);
+    return null;
+  }
 }
 
 export function externalResultAnchorRefusals(root, protocol, stage, executionStudyId, summary, { verifySigstore = defaultSigstoreVerifier } = {}) {
@@ -664,41 +775,35 @@ export function externalResultAnchorRefusals(root, protocol, stage, executionStu
 }
 
 function verifyCompletedStageEvidence(root, protocol, stage, blockers) {
-  const execution = verifyStageExecutionBundle(root, protocol, stage, blockers);
   if (!stage.resultEvidence) {
     blockers.push(`${stage.id} is complete without public result evidence and an external checkpoint anchor`);
-    return;
+    verifyStageExecutionBundle(root, protocol, stage, blockers);
+    return null;
   }
-  if (!execution) return;
-  let resultsRoot;
+  const replay = replayStagePublicEvidence(root, protocol, stage, stage.resultEvidence, blockers, 'completed result evidence');
+  if (!replay) return null;
   try {
-    resultsRoot = resolveDirectoryInside(root, stage.resultEvidence.resultsPath, `${stage.id} public results`);
-  } catch (error) {
-    blockers.push(error.message);
-    return;
-  }
-  const verifier = resolve(root, 'scripts/verify-model-evaluation-public.mjs');
-  const verification = spawnSync(process.execPath, [verifier, '--bundle', execution.bundleRoot, '--results', resultsRoot], {
-    cwd: root,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  if (verification.status !== 0) {
-    blockers.push(`${stage.id} public result replay refused: ${String(verification.stderr || verification.stdout).trim()}`);
-    return;
-  }
-  try {
-    const summary = readJsonFile(resultsRoot, 'summary.json', `${stage.id} public summary`).value;
+    const { execution, summary } = replay;
     const expectedTrials = protocol.taskPopulation.pairsPerCell * protocol.arms.length;
     if (summary.resultSha256 !== stage.resultEvidence.resultSha256 || summary.runDisposition?.status !== 'complete' ||
         summary.verifiedTrials !== expectedTrials || summary.runDisposition?.plannedTrials !== expectedTrials ||
-        summary.runDisposition?.committedTrials !== expectedTrials || summary.publicReplay?.checkpointHeadSha256 !== stage.resultEvidence.checkpointHeadSha256) {
+        summary.runDisposition?.committedTrials !== expectedTrials || summary.publicReplay?.checkpointHeadSha256 !== stage.resultEvidence.checkpointHeadSha256 ||
+        ![summary.publicReplay?.runRegistrationSha256, summary.publicReplay?.checkpointsSha256, summary.publicReplay?.checkpointHeadSha256]
+          .every((value) => /^[0-9a-f]{64}$/.test(value ?? ''))) {
       blockers.push(`${stage.id} public result does not bind the full preregistered denominator and checkpoint head`);
     }
     blockers.push(...externalResultAnchorRefusals(root, protocol, stage, execution.bundle.protocol.studyId, summary));
   } catch (error) {
     blockers.push(`${stage.id} completed evidence could not be read: ${error.message}`);
   }
+  return replay;
+}
+
+function verifyNonfinalStageLifecycleEvidence(root, protocol, stage, blockers) {
+  const replay = replayStagePublicEvidence(root, protocol, stage, stage.lifecycleEvidence, blockers, 'replayable lifecycle evidence');
+  if (!replay) return null;
+  blockers.push(...stageLifecycleSummaryRefusals(protocol, stage, replay.summary));
+  return replay;
 }
 
 function readJsonFile(root, path, label) {
@@ -947,17 +1052,34 @@ export function validateProtocolV3(root, protocol) {
   }
   if (protocol.heldoutAccess.firstAccessAt !== null && !Number.isFinite(Date.parse(protocol.heldoutAccess.firstAccessAt))) refusals.push('heldout first-access timestamp is invalid');
   const completedStages = protocol.stages.filter((stage) => stage.lifecycle === 'complete');
+  const runningStages = protocol.stages.filter((stage) => stage.lifecycle === 'running');
+  const haltedStages = protocol.stages.filter((stage) => stage.lifecycle === 'safety-halted');
   const hasClaimBearingState = completedStages.length > 0 || protocol.currentClaimClasses.some((claimClass) =>
     CLAIM_CLASSES.find((entry) => entry.id === claimClass)?.efficacyEligible === true);
-  if (hasClaimBearingState) {
-    // Readiness is advisory before a run, but release authenticity is not
-    // advisory once a protocol can carry an efficacy claim.
+  const hasTerminalLifecycleState = hasClaimBearingState || runningStages.length > 0 || haltedStages.length > 0;
+  if (hasTerminalLifecycleState) {
+    // Release authenticity is mandatory once the public lifecycle says model
+    // exposure occurred, even while a complete result is awaiting its anchor.
     verifyReleaseBinding(root, protocol.releaseBinding, refusals);
   }
+  if (runningStages.length > 1) refusals.push('at most one stage may await its external result anchor at a time');
+  if (haltedStages.length > 1) refusals.push('a safety-halted program must identify exactly one halted stage');
+  const terminalStageEvidence = [];
   for (const stage of protocol.stages) {
-    if (stage.lifecycle === 'complete') verifyCompletedStageEvidence(root, protocol, stage, refusals);
-    else if (stage.resultEvidence !== null) refusals.push(`${stage.id}: only a completed stage may bind claim-bearing result evidence`);
+    if (stage.lifecycle === 'complete') {
+      const replay = verifyCompletedStageEvidence(root, protocol, stage, refusals);
+      if (replay) terminalStageEvidence.push({ stage, replay, checkpointHeadSha256: stage.resultEvidence?.checkpointHeadSha256 });
+      if ((stage.lifecycleEvidence ?? null) !== null) refusals.push(`${stage.id}: completed stage may not retain nonfinal lifecycle evidence`);
+    } else if (['running', 'safety-halted'].includes(stage.lifecycle)) {
+      const replay = verifyNonfinalStageLifecycleEvidence(root, protocol, stage, refusals);
+      if (replay) terminalStageEvidence.push({ stage, replay, checkpointHeadSha256: stage.lifecycleEvidence?.checkpointHeadSha256 });
+      if (stage.resultEvidence !== null) refusals.push(`${stage.id}: nonfinal stage may not bind claim-bearing result evidence`);
+    } else {
+      if ((stage.lifecycleEvidence ?? null) !== null) refusals.push(`${stage.id}: unexposed stage may not bind terminal lifecycle evidence`);
+      if (stage.resultEvidence !== null) refusals.push(`${stage.id}: only a completed stage may bind claim-bearing result evidence`);
+    }
   }
+  refusals.push(...terminalLifecycleBindingRefusals(protocol, terminalStageEvidence));
   let claimsByLifecycle = [CLAIM['no-efficacy-claim']];
   if (!['design-draft', 'frozen-ready-not-run', 'safety-halted'].includes(protocol.lifecycle) && completedStages.length > 0) {
     claimsByLifecycle = [];
@@ -991,7 +1113,7 @@ export function validateProtocolV3(root, protocol) {
   if (protocol.lifecycle === 'design-draft') {
     if (protocol.releaseBinding !== null) refusals.push('design draft may not claim a frozen release binding');
     if (protocol.taskPopulation.status !== 'unpopulated') refusals.push('design draft must remain visibly unpopulated');
-    if (protocol.stages.some((stage) => stage.preregistration !== 'draft-unsealed' || stage.lifecycle !== 'design-draft' || stage.executionBundlePath !== null || stage.resultEvidence !== null)) refusals.push('design draft stages must remain draft, unsealed, unexecuted, and result-free');
+    if (protocol.stages.some((stage) => stage.preregistration !== 'draft-unsealed' || stage.lifecycle !== 'design-draft' || stage.executionBundlePath !== null || (stage.lifecycleEvidence ?? null) !== null || stage.resultEvidence !== null)) refusals.push('design draft stages must remain draft, unsealed, unexecuted, and result-free');
   } else {
     if (protocol.releaseBinding === null) refusals.push('non-draft study requires an exact release binding');
     if (protocol.taskPopulation.status !== 'frozen' || protocol.taskPopulation.exposure !== 'never-exposed-to-development') refusals.push('non-draft study requires a frozen development-unexposed task population');
@@ -1090,7 +1212,13 @@ export function verifyStudyRegistry({ root, indexPath = 'research/model-evaluati
       if (protocol.artifacts.powerDesign.path !== study.powerDesignPath || protocol.artifacts.powerDesign.sha256 !== study.powerDesignSha256) {
         throw new EvidenceFoundryRefusal(`${study.studyId}: protocol power-design binding differs from registry`);
       }
-      const blockers = studyReadinessBlockers(root, protocol, powerDesign, { stageId });
+      const fullReadinessBlockers = studyReadinessBlockers(root, protocol, powerDesign);
+      if (protocol.lifecycle === 'frozen-ready-not-run' && fullReadinessBlockers.length > 0) {
+        throw new EvidenceFoundryRefusal(`frozen-ready-not-run lifecycle overstates verified readiness: ${fullReadinessBlockers.join('; ')}`);
+      }
+      const blockers = stageId === undefined
+        ? fullReadinessBlockers
+        : studyReadinessBlockers(root, protocol, powerDesign, { stageId });
       studyReports.push({ studyId: study.studyId, lifecycle: study.lifecycle, claimClasses: study.currentClaimClasses, readinessScope: stageId ?? 'program', ready: blockers.length === 0, blockers });
     } catch (error) {
       refusals.push(error.message);

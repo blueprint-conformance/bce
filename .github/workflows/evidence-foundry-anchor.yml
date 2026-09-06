@@ -19,10 +19,6 @@ on:
           - transport-a
           - transport-b
           - transport-c
-      results_path:
-        description: Repository-relative public results directory for the stage execution bundle
-        type: string
-        required: true
       protocol_path:
         description: Repository-relative v3 protocol path
         type: string
@@ -47,7 +43,6 @@ jobs:
     env:
       SOURCE_COMMIT: ${{ inputs.source_commit }}
       STAGE_ID: ${{ inputs.stage_id }}
-      RESULTS_PATH: ${{ inputs.results_path }}
       PROTOCOL_PATH: ${{ inputs.protocol_path }}
     steps:
       - name: Refuse mutable or ambiguous source selection
@@ -86,7 +81,6 @@ jobs:
           node scripts/create-evidence-foundry-result-anchor.mjs
           --protocol "$PROTOCOL_PATH"
           --stage "$STAGE_ID"
-          --results "$RESULTS_PATH"
           --out result-anchor.json
 
       - name: Sign and publish the statement through Sigstore transparency

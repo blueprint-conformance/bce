@@ -13,13 +13,16 @@ import {
   RUNTIME_DERIVATION_CERTIFICATE_ISSUER,
   canonical,
   externalResultAnchorRefusals,
+  firstPublicExposureAt,
   registryReleaseEvidenceRefusals,
   recomputeStagePower,
   resolveRegularFileInside,
   sha256Bytes,
   stageExecutionCellBindingRefusals,
+  stageLifecycleSummaryRefusals,
   stageTreatmentReleaseBindingRefusals,
   studyReadinessBlockers,
+  terminalLifecycleBindingRefusals,
   runtimeDerivationEvidenceRefusals,
   validateRuntimeDerivationStatement,
   validatePowerDesign,
@@ -155,6 +158,9 @@ try {
   const completedVerification = verifyStageBundleForLifecycle(portableBundle, { lifecycle: 'complete' });
   assert.equal(completedVerification.ok, true, completedVerification.refusals.join('\n'));
   assert.equal(completedVerification.hostArtifactsVerified, false);
+  const awaitingAnchorVerification = verifyStageBundleForLifecycle(portableBundle, { lifecycle: 'running' });
+  assert.equal(awaitingAnchorVerification.ok, true, awaitingAnchorVerification.refusals.join('\n'));
+  assert.equal(awaitingAnchorVerification.hostArtifactsVerified, false);
   const preRunVerification = verifyStageBundleForLifecycle(portableBundle, { lifecycle: 'frozen-ready-not-run' });
   assert.equal(preRunVerification.ok, false, 'pre-run readiness accepted an absent execution-host runtime');
   assert.match(preRunVerification.refusals.join('\n'), /execution runtime artifact/);
@@ -205,6 +211,98 @@ assert.match(
   /registry-byte identity/,
 );
 
+const lifecycleCheckpoint = 'f'.repeat(64);
+const lifecycleProtocol = {
+  arms: ['baseline-no-bce', 'bce-enabled'],
+  taskPopulation: { pairsPerCell: 2 },
+  heldoutAccess: { accessLedgerHeadSha256: lifecycleCheckpoint },
+};
+const registeredPublicReplay = {
+  runRegistrationSha256: 'a'.repeat(64),
+  checkpointsSha256: 'b'.repeat(64),
+  checkpointHeadSha256: lifecycleCheckpoint,
+};
+const awaitingAnchorStage = {
+  id: 'primary-confirmatory',
+  lifecycle: 'running',
+  lifecycleEvidence: {
+    disposition: 'complete-awaiting-anchor',
+    resultsPath: 'results/primary',
+    resultSha256: 'c'.repeat(64),
+    checkpointHeadSha256: lifecycleCheckpoint,
+  },
+};
+const completeAwaitingAnchorSummary = {
+  resultKind: 'complete-study-evidence',
+  resultSha256: awaitingAnchorStage.lifecycleEvidence.resultSha256,
+  verifiedTrials: 4,
+  runDisposition: { status: 'complete', plannedTrials: 4, committedTrials: 4 },
+  publicReplay: registeredPublicReplay,
+};
+assert.deepEqual(stageLifecycleSummaryRefusals(lifecycleProtocol, awaitingAnchorStage, completeAwaitingAnchorSummary), []);
+const inventedLifecycleHead = clone(awaitingAnchorStage);
+inventedLifecycleHead.lifecycleEvidence.checkpointHeadSha256 = '0'.repeat(64);
+assert.match(stageLifecycleSummaryRefusals(lifecycleProtocol, inventedLifecycleHead, completeAwaitingAnchorSummary).join('\n'), /checkpoint head/);
+const unregisteredLifecycleSummary = clone(completeAwaitingAnchorSummary);
+unregisteredLifecycleSummary.publicReplay.runRegistrationSha256 = null;
+assert.match(stageLifecycleSummaryRefusals(lifecycleProtocol, awaitingAnchorStage, unregisteredLifecycleSummary).join('\n'), /registered public run/);
+const haltedLifecycleStage = {
+  ...awaitingAnchorStage,
+  lifecycle: 'safety-halted',
+  lifecycleEvidence: { ...awaitingAnchorStage.lifecycleEvidence, disposition: 'safety-halt' },
+};
+const haltedLifecycleSummary = {
+  ...completeAwaitingAnchorSummary,
+  resultKind: 'safety-halt-archive',
+  runDisposition: { status: 'safety-halt', plannedTrials: 4, committedTrials: 1, unexposedTrials: 3 },
+  verifiedTrials: 1,
+};
+assert.deepEqual(stageLifecycleSummaryRefusals(lifecycleProtocol, haltedLifecycleStage, haltedLifecycleSummary), []);
+const relabeledCompleteAsHalt = clone(haltedLifecycleSummary);
+relabeledCompleteAsHalt.runDisposition = { status: 'safety-halt', plannedTrials: 4, committedTrials: 4, unexposedTrials: 0 };
+relabeledCompleteAsHalt.verifiedTrials = 4;
+assert.match(stageLifecycleSummaryRefusals(lifecycleProtocol, haltedLifecycleStage, relabeledCompleteAsHalt).join('\n'), /non-empty incomplete safety-halt prefix/);
+assert.equal(firstPublicExposureAt([
+  { exposure: { modelRequestExposed: true, startedAt: '2026-09-07T00:00:02.000Z' } },
+  { exposure: { modelRequestExposed: true, startedAt: '2026-09-07T00:00:01.000Z' } },
+]), '2026-09-07T00:00:01.000Z');
+assert.throws(() => firstPublicExposureAt([
+  { exposure: { modelRequestExposed: false, startedAt: '2026-09-07T00:00:01.000Z' } },
+]), /model-exposed start timestamp/);
+const betweenStagesProtocol = {
+  lifecycle: 'running',
+  stages: [
+    { id: 'primary-confirmatory', lifecycle: 'complete' },
+    { id: 'transport-a', lifecycle: 'frozen-ready-not-run' },
+  ],
+  heldoutAccess: {
+    firstAccessAt: '2026-09-07T00:00:01.000Z',
+    accessLedgerHeadSha256: '1'.repeat(64),
+  },
+};
+const primaryTerminalEvidence = [{
+  stage: betweenStagesProtocol.stages[0],
+  checkpointHeadSha256: '1'.repeat(64),
+  replay: { firstAccessAt: '2026-09-07T00:00:01.000Z' },
+}];
+assert.deepEqual(terminalLifecycleBindingRefusals(betweenStagesProtocol, primaryTerminalEvidence), []);
+const inventedBetweenStageHead = clone(betweenStagesProtocol);
+inventedBetweenStageHead.heldoutAccess.accessLedgerHeadSha256 = '2'.repeat(64);
+assert.match(terminalLifecycleBindingRefusals(inventedBetweenStageHead, primaryTerminalEvidence).join('\n'), /terminal checkpoint/);
+const inventedFirstAccess = clone(betweenStagesProtocol);
+inventedFirstAccess.heldoutAccess.firstAccessAt = '2026-09-07T00:00:00.000Z';
+assert.match(terminalLifecycleBindingRefusals(inventedFirstAccess, primaryTerminalEvidence).join('\n'), /earliest replayed model exposure/);
+const laterCompletedProtocol = clone(betweenStagesProtocol);
+laterCompletedProtocol.stages[1].lifecycle = 'complete';
+laterCompletedProtocol.heldoutAccess.accessLedgerHeadSha256 = '2'.repeat(64);
+const twoTerminalStages = [
+  primaryTerminalEvidence[0],
+  { stage: laterCompletedProtocol.stages[1], checkpointHeadSha256: '2'.repeat(64), replay: { firstAccessAt: '2026-09-07T00:00:02.000Z' } },
+];
+assert.deepEqual(terminalLifecycleBindingRefusals(laterCompletedProtocol, twoTerminalStages), []);
+laterCompletedProtocol.heldoutAccess.accessLedgerHeadSha256 = '1'.repeat(64);
+assert.match(terminalLifecycleBindingRefusals(laterCompletedProtocol, twoTerminalStages).join('\n'), /transport-a terminal checkpoint/);
+
 const report = verifyStudyRegistry({ root });
 assert.equal(report.valid, true);
 assert.equal(typeof report.ready, 'boolean');
@@ -242,7 +340,7 @@ assert.match(runtimeDerivationOutsideActions.stderr, /only by the identified BCE
 
 const anchorCli = resolve(root, 'scripts/create-evidence-foundry-result-anchor.mjs');
 const anchorOutsideActions = spawnSync(process.execPath, [anchorCli,
-  '--stage', 'primary-confirmatory', '--results', 'results', '--out', 'anchor.json',
+  '--stage', 'primary-confirmatory', '--out', 'anchor.json',
 ], { cwd: root, encoding: 'utf8', env: { ...process.env, GITHUB_ACTIONS: 'false' } });
 assert.equal(anchorOutsideActions.status, 2);
 assert.match(anchorOutsideActions.stderr, /only by an identified blueprint-conformance\/bce GitHub Actions run/);
@@ -252,6 +350,7 @@ assert.match(anchorWorkflow, /workflow_dispatch:/);
 assert.match(anchorWorkflow, /id-token: write/);
 assert.match(anchorWorkflow, /GITHUB_REF" = "refs\/heads\/main/);
 assert.doesNotMatch(anchorWorkflow, /refs\/tags/);
+assert.doesNotMatch(anchorWorkflow, /results_path|--results/);
 assert.match(anchorWorkflow, /create-evidence-foundry-result-anchor\.mjs/);
 assert.match(anchorWorkflow, /verify-evidence-foundry-registry\.mjs --json/);
 assert.match(anchorWorkflow, /@sigstore\/cli\/bin\/run attest/);
@@ -314,6 +413,14 @@ assertRefuses(() => validateProtocolV3(root, primaryDepends), /primary stage may
 const broadDraftClaim = clone(protocol);
 broadDraftClaim.currentClaimClasses = ['bounded-default-adoption-decision-all-preregistered-cells-exact-release-and-task-population'];
 assertRefuses(() => validateProtocolV3(root, broadDraftClaim), /require exact claim classes/);
+const draftWithInventedLifecycleEvidence = clone(protocol);
+draftWithInventedLifecycleEvidence.stages[0].lifecycleEvidence = {
+  disposition: 'complete-awaiting-anchor',
+  resultsPath: 'invented-results',
+  resultSha256: 'a'.repeat(64),
+  checkpointHeadSha256: 'b'.repeat(64),
+};
+assertRefuses(() => validateProtocolV3(root, draftWithInventedLifecycleEvidence), /design draft stages must remain draft, unsealed, unexecuted, and result-free/);
 const draftRelease = clone(protocol);
 draftRelease.releaseBinding = {
   packageName: 'bce-engine',
@@ -354,6 +461,28 @@ for (const cell of primaryOnlyProtocol.clientModelCells.slice(1)) {
   cell.qualification = { status: 'unqualified', attestationPath: null, attestationSha256: null };
 }
 validateProtocolV3(root, primaryOnlyProtocol);
+const readinessTruthRoot = mkdtempSync(join(tmpdir(), 'bce-evidence-foundry-readiness-truth-'));
+try {
+  cpSync(resolve(root, 'research/model-evaluation'), join(readinessTruthRoot, 'research/model-evaluation'), { recursive: true });
+  const protocolPath = join(readinessTruthRoot, 'research/model-evaluation/studies/evidence-foundry-v3/protocol.json');
+  const overstatedProtocol = clone(frozen);
+  overstatedProtocol.artifacts.evaluatorLock.sha256 = null;
+  overstatedProtocol.artifacts.integrityLock.sha256 = null;
+  writeFileSync(protocolPath, `${JSON.stringify(overstatedProtocol, null, 2)}\n`);
+  const indexPath = join(readinessTruthRoot, 'research/model-evaluation/studies/index.v3.json');
+  const overstatedIndex = JSON.parse(readFileSync(indexPath, 'utf8'));
+  overstatedIndex.studies[0].protocolSha256 = sha256Bytes(readFileSync(protocolPath));
+  overstatedIndex.studies[0].lifecycle = 'frozen-ready-not-run';
+  overstatedIndex.studies[0].evidenceClass = 'confirmatory-staged-causal-study';
+  overstatedIndex.studies[0].currentClaimClasses = ['no-efficacy-claim'];
+  writeFileSync(indexPath, `${JSON.stringify(overstatedIndex, null, 2)}\n`);
+  assertRefuses(
+    () => verifyStudyRegistry({ root: readinessTruthRoot }),
+    /frozen-ready-not-run lifecycle overstates verified readiness/,
+  );
+} finally {
+  rmSync(readinessTruthRoot, { recursive: true, force: true });
+}
 const readinessScratch = mkdtempSync(join(tmpdir(), 'bce-evidence-foundry-readiness-'));
 try {
   const runtimeDerivationSchemaPath = join(readinessScratch, 'research', 'model-evaluation', 'schemas', 'runtime-derivation.v1.schema.json');
@@ -675,6 +804,13 @@ try {
   assert.match(error.message, /registry verification record/);
   assert.match(error.message, /complete without public result evidence/);
 }
+const inventedRunning = clone(frozen);
+beginRun(inventedRunning);
+inventedRunning.stages[0].lifecycle = 'running';
+assertRefuses(
+  () => validateProtocolV3(root, inventedRunning),
+  /release.*(?:ENOENT|no such file)|replayable lifecycle evidence is missing|no deterministic replayed terminal-stage checkpoint head/,
+);
 const prematureTransport = clone(frozen);
 beginRun(prematureTransport);
 prematureTransport.stages[1].lifecycle = 'running';
@@ -702,7 +838,10 @@ assertRefuses(() => validateProtocolV3(root, independent), /must be equal to con
 const safetyHalt = clone(frozen);
 safetyHalt.lifecycle = 'safety-halted';
 safetyHalt.stages[0].lifecycle = 'safety-halted';
-validateProtocolV3(root, safetyHalt);
+assertRefuses(
+  () => validateProtocolV3(root, safetyHalt),
+  /replayable lifecycle evidence is missing|no deterministic replayed terminal-stage checkpoint head/,
+);
 
 const alteredCalculation = clone(powerDesign);
 alteredCalculation.stages[0].calculation.requiredPairsBeforeClustering += 1;

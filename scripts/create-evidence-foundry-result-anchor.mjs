@@ -19,7 +19,6 @@ const valueAfter = (name) => {
 };
 const protocolPath = valueAfter('--protocol') ?? 'research/model-evaluation/studies/evidence-foundry-v3/protocol.json';
 const stageId = valueAfter('--stage');
-const resultsPath = valueAfter('--results');
 const outPath = valueAfter('--out');
 
 function refuse(message) {
@@ -32,17 +31,19 @@ if (process.env.GITHUB_ACTIONS !== 'true' || process.env.GITHUB_REPOSITORY !== '
     !/^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA ?? '')) {
   refuse('the result anchor may be produced only by an identified blueprint-conformance/bce GitHub Actions run');
 }
-if (!stageId || !resultsPath || !outPath || isAbsolute(outPath) || outPath.includes('\\') || outPath.split('/').includes('..')) {
-  refuse('usage: --stage STAGE --results REPOSITORY_RELATIVE_RESULTS_DIR --out REPOSITORY_RELATIVE_JSON');
+if (!stageId || !outPath || isAbsolute(outPath) || outPath.includes('\\') || outPath.split('/').includes('..')) {
+  refuse('usage: --stage STAGE --out REPOSITORY_RELATIVE_JSON');
 }
 
 try {
   const protocol = JSON.parse(readFileSync(resolveRegularFileInside(root, protocolPath, 'v3 protocol'), 'utf8'));
   validateProtocolV3(root, protocol);
   const stage = protocol.stages.find((entry) => entry.id === stageId);
-  if (!stage || stage.lifecycle !== 'running' || stage.resultEvidence !== null || !stage.executionBundlePath) {
-    refuse('target stage must be registered, running, result-free, and bound to its sealed execution bundle');
+  if (!stage || stage.lifecycle !== 'running' || stage.lifecycleEvidence?.disposition !== 'complete-awaiting-anchor' ||
+      stage.resultEvidence !== null || !stage.executionBundlePath) {
+    refuse('target stage must be registered with complete replayable lifecycle evidence awaiting only its external anchor');
   }
+  const resultsPath = stage.lifecycleEvidence.resultsPath;
   const releaseRefusals = registryReleaseEvidenceRefusals(root, protocol.releaseBinding);
   if (releaseRefusals.length > 0) refuse(`release registry evidence refused: ${releaseRefusals.join('; ')}`);
   const executionProtocol = JSON.parse(readFileSync(resolveRegularFileInside(
