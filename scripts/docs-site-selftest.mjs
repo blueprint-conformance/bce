@@ -157,6 +157,26 @@ function runBuild(dir) {
   return { code: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
 }
 
+function verifyPagesTruthGate() {
+  const workflow = fs.readFileSync(path.join(repoRoot, '.github/workflows/publish-schemas.yml'), 'utf8');
+  const lockedInstall = workflow.indexOf('run: npm ci --ignore-scripts');
+  const claimGate = workflow.indexOf('run: npm run test:evidence-claims');
+  const build = workflow.indexOf('run: node scripts/build-docs-site.mjs');
+  const upload = workflow.indexOf('uses: actions/upload-pages-artifact@');
+  const deploy = workflow.indexOf('uses: actions/deploy-pages@');
+  if ([lockedInstall, claimGate, build, upload, deploy].some((index) => index < 0) ||
+      !(lockedInstall < claimGate && claimGate < build && build < upload && upload < deploy)) {
+    harness('Pages workflow must install locked dependencies and pass the full evidence-claim gate before build, upload, and deploy');
+  }
+  if ((workflow.match(/^\s*run: npm run test:evidence-claims\s*$/gm) ?? []).length !== 1) {
+    harness('Pages workflow must execute the exact evidence-claim gate once');
+  }
+  if (/continue-on-error\s*:|if\s*:\s*\$\{\{\s*always\(\)/.test(workflow)) {
+    harness('Pages workflow may not bypass a failed evidence-claim gate');
+  }
+  console.log('docs-site-selftest: Pages deploy is ordered behind the full evidence-claim gate.');
+}
+
 /**
  * Each probe: a defect to plant, the exit code the build MUST return, and a
  * phrase the refusal MUST contain. The phrase is asserted so a probe cannot
@@ -290,6 +310,7 @@ const PROBES = [
       const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
       return page.includes('Evidence Foundry v3 is in design') &&
         page.includes('No stage execution is recorded') &&
+        page.includes('The byte-immutable v6 record preserves its then-current v2 next-step language') &&
         page.includes('<td class="align-right">240</td>') &&
         page.includes('<code>no-efficacy-claim</code>')
         ? null
@@ -641,6 +662,7 @@ const PROBES = [
 
 function main() {
   let failures = 0;
+  verifyPagesTruthGate();
 
   // The clean tree must pass first. A staged tree that cannot build makes every
   // planted-probe refusal meaningless — it would refuse for the wrong reason.
