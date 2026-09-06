@@ -58,11 +58,13 @@ function stage() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-docs-site-'));
   fs.cpSync(repoRoot, dir, {
     recursive: true,
-    // Other parallel tests briefly create repo-local .tmp-* harness roots. They
-    // are not part of the committed tree and may disappear during cpSync.
+    // Other parallel tests briefly create repo-local harness roots. They are
+    // not part of the committed tree and may disappear during cpSync.
     filter: (src) => {
       const basename = path.basename(src);
-      return !SKIP.has(basename) && !basename.startsWith('.tmp-');
+      return !SKIP.has(basename) &&
+        !basename.startsWith('.tmp-') &&
+        !basename.startsWith('.canary-publication-selftest-');
     },
   });
   if (!fs.existsSync(path.join(dir, 'scripts/build-docs-site.mjs'))) {
