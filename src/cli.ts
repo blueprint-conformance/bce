@@ -1308,8 +1308,11 @@ async function main(): Promise<void> {
         const proposalId = requiredStringArg(args, 'proposal-id', '--proposal-id is required');
         const refs = blueprint.intentRefs.map((ref) => ({ ref,
           content: fs.readFileSync(resolveProposalInput(repoDir, ref.split('#')[0]!, 'authoritative intent'), 'utf8') }));
-        const collected = collectProposalContext({ repoDir, intentFile: blueprint.intentRefs[0]!.split('#')[0]! });
-        const context = buildProposalContext({ ...collected, files: collected.files.map(({ path, content }) => ({ path, content })), authoritativeIntentRefs: refs });
+        // Authored preparation has no assistant disclosure. Bind the full worktree, but carry only
+        // the cited intent bytes; the extracted graph and source proof carry the observed facts.
+        const context = buildProposalContext({ repository: snapshotRepository(repoDir), files: [],
+          humanIntent: refs.map(({ content }) => content).join('\n\n'), authoritativeIntentRefs: refs,
+          excluded: { paths: [], classes: ['unselected-source-context'] } });
         const proposal = prepareAuthoredDraft({ context, blueprint, proposalId,
           candidateVersion: typeof args['candidate-version'] === 'string' ? args['candidate-version'] : undefined });
         const cfg = resolveExtraction(proposal.candidate.extraction, proposal.candidate.constraints);
