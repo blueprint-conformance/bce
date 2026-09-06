@@ -1,0 +1,8 @@
+{
+  "blueprintRef": "bce-engine-architecture@0.1.1",
+  "mode": "enforced",
+  "ratified": true,
+  "reviewMode": "self-ratified",
+  "schemaVersion": "1",
+  "state": "ratified-enforced"
+}

@@ -1,0 +1,20 @@
+  ✓ runtime/node: Node 22.22.2; required >=22
+  ✓ runtime/engine: bce-engine 0.3.0
+  ✓ blueprints/discovery: 2 blueprint(s) discovered
+  ✓ blueprint/bce-engine-architecture/scope: 41 file(s) in scope
+  ✓ blueprint/bce-engine-architecture/proof: extractor-real-proven: 47/47 source mutants killed
+  ✓ blueprint/skill-standard/scope: 6 file(s) in scope
+  ✓ blueprint/skill-standard/proof: extractor-real-proven: 13/13 source mutants killed
+  ✓ policy/mode: enforced (committed)
+  ✓ policy/baseline: no baseline; all violations enforced
+  ✓ policy/lifecycle: ratified-enforced: bce-engine-architecture@0.1.1; self-ratified
+  ✓ governance/ratification: solo-steward: github:user:243248197; self-ratified, no independent review claimed
+  ✓ governance/codeowners: policy surfaces must have a human-review owner
+  ✓ ci/gate: 16 workflow file(s) inspected
+  ✓ ci/exact-pin: CI should use an immutable engine or Action pin
+  ✓ agents/instructions: agent done-check instructions
+  ✓ agents/mcp: bce-mcp package binary
+  ✓ agents/project-skills: bce + skill-tuning discovered under .agents/skills
+  ✓ agents/mcp-config: bce project server configured in .codex/config.toml
+  ✓ gate/full-sweep: 2/2 pass
+bce doctor: ready (exit 0)

@@ -1,0 +1,6 @@
+{
+  "sourceCommit": "416a19d9662334eebea0835e979f15084b2878c2",
+  "artifactSha256": "6247894fb904d603c9f28e4e1b89843743bb1c5ec69eeb8eea0ac34f019706ed",
+  "integrity": "sha512-TXRb3Rehz5yjoimgK3hu9loR5sCRnrNqKIGXQR0BpxGv7bSHMpL06wiRPf/QgXBK9Z49hoL4BeiXmbRM4VeX8A==",
+  "distribution": "source-built; distinct from immutable npm bce-engine@0.3.0"
+}

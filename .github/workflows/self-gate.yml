@@ -41,6 +41,9 @@ jobs:
       - name: Build the HEAD engine
         run: npm run build
 
+      - name: Doctor — authenticated lifecycle, real source teeth, and project setup must be ready
+        run: node dist/cli.js doctor --repo .
+
       - name: Exercise the actual project MCP configuration and live repository gate
         run: node scripts/self-agent-proof.mjs
 

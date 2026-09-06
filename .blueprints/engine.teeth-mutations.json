@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1",
-  "blueprintRef": "bce-engine-architecture@0.1.0",
+  "blueprintRef": "bce-engine-architecture@0.1.1",
   "allowedMutationRoots": [
     "src"
   ],
