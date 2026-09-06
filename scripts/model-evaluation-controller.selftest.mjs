@@ -598,14 +598,14 @@ function verifyConfirmatoryQualificationReplay() {
       throw new Error('qualification replay fixture did not retain two safe successful attempts');
     }
 
-    const publicationRoot = join(scratch, 'qualification-publication');
-    const publicBundle = join(publicationRoot, 'artifacts', 'qualification', 'bundle');
-    const publicRuns = join(publicationRoot, 'artifacts', 'qualification', 'runs');
-    mkdirSync(join(publicationRoot, 'artifacts', 'qualification'), { recursive: true });
+    const qualificationPackage = join(scratch, 'qualification-publication');
+    const publicBundle = join(qualificationPackage, 'bundle');
+    const publicRuns = join(qualificationPackage, 'runs');
+    mkdirSync(qualificationPackage, { recursive: true });
     cpSync(bundle, publicBundle, { recursive: true });
     cpSync(runs, publicRuns, { recursive: true });
     const terminalBytes = Buffer.from(`${replay.records.map((record) => canonicalJson(record)).join('\n')}\n`);
-    const terminalPath = join(publicationRoot, 'artifacts', 'qualification', 'terminal-records.jsonl');
+    const terminalPath = join(qualificationPackage, 'terminal-records.jsonl');
     writeFileSync(terminalPath, terminalBytes);
     const ledgerPath = join(publicRuns, 'ledger.jsonl');
     const ledgerBytes = readFileSync(ledgerPath);
@@ -660,10 +660,10 @@ function verifyConfirmatoryQualificationReplay() {
       restrictedEvidence: { retained: true, bundleRetained: true, pathPublished: true, ledgerHeadSha256: ledger.at(-1).entrySha256 },
       publicReplay: {
         published: true,
-        bundlePath: 'artifacts/qualification/bundle',
-        runsPath: 'artifacts/qualification/runs',
-        terminalRecordsPath: 'artifacts/qualification/terminal-records.jsonl',
-        ledgerPath: 'artifacts/qualification/runs/ledger.jsonl',
+        bundlePath: 'bundle',
+        runsPath: 'runs',
+        terminalRecordsPath: 'terminal-records.jsonl',
+        ledgerPath: 'runs/ledger.jsonl',
         protocolSha256: sha256Bytes(readFileSync(join(publicBundle, 'protocol.v2.json'))),
         manifestSha256: sha256Bytes(readFileSync(join(publicBundle, 'task-manifest.json'))),
         sealRootSha256: seal.rootSha256,
@@ -679,8 +679,40 @@ function verifyConfirmatoryQualificationReplay() {
       attestationSha256: null,
     };
     attestation.attestationSha256 = sha256Json(attestation);
+    const standaloneAttestationPath = join(qualificationPackage, 'qualification-attestation.json');
+    writeFileSync(standaloneAttestationPath, `${JSON.stringify(attestation, null, 2)}\n`);
     const schemaPath = join(root, 'research', 'model-evaluation', 'schemas', 'capability-canary-attestation.schema.json');
-    verifyCapabilityQualificationReplay(publicationRoot, attestation, schemaPath);
+    verifyCapabilityQualificationReplay(qualificationPackage, attestation, schemaPath);
+
+    const standaloneAttestationBytes = readFileSync(standaloneAttestationPath);
+    const composedPackageRelative = 'artifacts/vendor/qualification-v2';
+    const composedPackage = join(bundle, composedPackageRelative);
+    cpSync(qualificationPackage, composedPackage, { recursive: true });
+    const composedAttestationPath = join(composedPackage, 'qualification-attestation.json');
+    if (!readFileSync(composedAttestationPath).equals(standaloneAttestationBytes)) {
+      throw new Error('qualification package composition rewrote the attestation bytes');
+    }
+    verifyCapabilityQualificationReplay(composedPackage, JSON.parse(readFileSync(composedAttestationPath, 'utf8')), schemaPath);
+    const outerProtocolPath = join(bundle, 'protocol.v2.json');
+    const outerProtocol = JSON.parse(readFileSync(outerProtocolPath, 'utf8'));
+    const outerManifest = JSON.parse(readFileSync(join(bundle, 'task-manifest.json'), 'utf8'));
+    outerProtocol.clientModelCells[0].toolLoop.qualificationAttestation = {
+      path: `${composedPackageRelative}/qualification-attestation.json`,
+      sha256: sha256Bytes(standaloneAttestationBytes),
+    };
+    writeFileSync(outerProtocolPath, `${JSON.stringify(outerProtocol, null, 2)}\n`);
+    const composedSealPaths = new Set(expectedSeal(bundle, outerProtocol, outerManifest).entries.map((entry) => entry.path));
+    for (const expectedPath of [
+      `${composedPackageRelative}/qualification-attestation.json`,
+      `${composedPackageRelative}/bundle/protocol.v2.json`,
+      `${composedPackageRelative}/runs/ledger.jsonl`,
+      `${composedPackageRelative}/terminal-records.jsonl`,
+    ]) {
+      if (!composedSealPaths.has(expectedPath)) throw new Error(`outer seal omitted composed qualification package path ${expectedPath}`);
+    }
+    if (composedSealPaths.has('bundle/protocol.v2.json') || composedSealPaths.has('runs/ledger.jsonl')) {
+      throw new Error('outer seal resolved qualification package paths from the stage root instead of the attestation directory');
+    }
 
     const expectReplayRefusal = (label, mutate, pattern) => {
       const candidate = structuredClone(attestation);
@@ -688,7 +720,7 @@ function verifyConfirmatoryQualificationReplay() {
       candidate.attestationSha256 = null;
       candidate.attestationSha256 = sha256Json(candidate);
       try {
-        verifyCapabilityQualificationReplay(publicationRoot, candidate, schemaPath);
+        verifyCapabilityQualificationReplay(qualificationPackage, candidate, schemaPath);
       } catch (error) {
         if (pattern.test(error.message)) return;
         throw new Error(`${label} was refused for the wrong reason: ${error.message}`);
@@ -701,6 +733,9 @@ function verifyConfirmatoryQualificationReplay() {
     expectReplayRefusal('self-rehashed invented qualification boolean', (candidate) => {
       candidate.observations[0].safeSuccessfulCompletion = false;
     }, /observations do not rederive/);
+    expectReplayRefusal('self-rehashed invented source commit', (candidate) => {
+      candidate.sourceCommit = 'f'.repeat(40);
+    }, /source or canary-runner identity mismatch/);
 
     const legacy = structuredClone(attestation);
     legacy.schemaVersion = '1';
@@ -711,7 +746,7 @@ function verifyConfirmatoryQualificationReplay() {
     legacy.attestationSha256 = sha256Json(legacy);
     validateCapabilityCanaryAttestation(legacy, schemaPath);
     try {
-      verifyCapabilityQualificationReplay(publicationRoot, legacy, schemaPath);
+      verifyCapabilityQualificationReplay(qualificationPackage, legacy, schemaPath);
       throw new Error('v1 boolean-only qualification was accepted for confirmatory use');
     } catch (error) {
       if (!/confirmatory qualification requires a v2 attestation/.test(error.message)) throw error;

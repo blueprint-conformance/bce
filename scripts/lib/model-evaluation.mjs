@@ -10,7 +10,7 @@ import {
   realpathSync,
   statSync,
 } from 'node:fs';
-import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   localProviderProofMatches,
@@ -420,12 +420,18 @@ function collectExpectedSealEntries(bundleDir, protocol, manifest) {
     for (const artifact of [cell.toolLoop?.systemPrompt, cell.toolLoop?.commonToolContract, cell.toolLoop?.clientEventSchema, cell.toolLoop?.qualificationAttestation].filter(Boolean)) paths.add(artifact.path);
     const qualificationArtifact = cell.toolLoop?.qualificationAttestation;
     if (qualificationArtifact) {
-      const attestation = JSON.parse(readFileSync(resolveSealedFile(bundleDir, qualificationArtifact.path, `${cell.id} qualification attestation`), 'utf8'));
+      const qualificationAttestationPath = resolveSealedFile(bundleDir, qualificationArtifact.path, `${cell.id} qualification attestation`);
+      const attestation = JSON.parse(readFileSync(qualificationAttestationPath, 'utf8'));
       if (attestation.schemaVersion === '2') {
-        addSealedTreePaths(paths, bundleDir, attestation.publicReplay.bundlePath, `${cell.id} public qualification bundle`);
-        addSealedTreePaths(paths, bundleDir, attestation.publicReplay.runsPath, `${cell.id} public qualification runs`);
-        paths.add(attestation.publicReplay.terminalRecordsPath);
-        paths.add(attestation.publicReplay.ledgerPath);
+        const packagePrefix = posixRelative(bundleDir, dirname(qualificationAttestationPath));
+        const packagePath = (path, label) => {
+          assertRelativePath(path, label);
+          return packagePrefix ? `${packagePrefix}/${path}` : path;
+        };
+        addSealedTreePaths(paths, bundleDir, packagePath(attestation.publicReplay.bundlePath, `${cell.id} public qualification bundle path`), `${cell.id} public qualification bundle`);
+        addSealedTreePaths(paths, bundleDir, packagePath(attestation.publicReplay.runsPath, `${cell.id} public qualification runs path`), `${cell.id} public qualification runs`);
+        paths.add(packagePath(attestation.publicReplay.terminalRecordsPath, `${cell.id} public qualification terminal-records path`));
+        paths.add(packagePath(attestation.publicReplay.ledgerPath, `${cell.id} public qualification ledger path`));
       }
     }
   }
@@ -439,7 +445,7 @@ function collectExpectedSealEntries(bundleDir, protocol, manifest) {
 }
 
 export function expectedSeal(bundleDir, protocol, manifest) {
-  const entries = collectExpectedSealEntries(bundleDir, protocol, manifest);
+  const entries = collectExpectedSealEntries(realpathSync(bundleDir), protocol, manifest);
   return { entries, rootSha256: sha256Json(entries) };
 }
 
@@ -484,8 +490,8 @@ function deriveQualificationObservation(record, replay) {
   };
 }
 
-export function verifyCapabilityQualificationReplay(rootInput, attestation, schemaPath) {
-  const root = resolve(rootInput);
+export function verifyCapabilityQualificationReplay(packageRootInput, attestation, schemaPath) {
+  const root = resolve(packageRootInput);
   validateCapabilityCanaryAttestation(attestation, schemaPath, { requirePublicReplay: true });
   const publicReplay = attestation.publicReplay;
   const bundleRoot = resolveSealedDirectory(root, publicReplay.bundlePath, 'public qualification bundle');
@@ -562,9 +568,10 @@ function verifyQualificationAttestation(root, protocol, seal, cell, configuratio
     return;
   }
   let attestation;
+  let attestationPath;
   try {
-    const path = resolveSealedFile(root, artifact.path, `${cell.id} qualification attestation`);
-    const bytes = readFileSync(path);
+    attestationPath = resolveSealedFile(root, artifact.path, `${cell.id} qualification attestation`);
+    const bytes = readFileSync(attestationPath);
     if (sha256Bytes(bytes) !== artifact.sha256) throw new Error('artifact digest mismatch');
     attestation = JSON.parse(bytes);
     validateOrThrow(attestation, resolve(root, 'schemas', 'capability-canary-attestation.schema.json'), `${cell.id} qualification attestation`);
@@ -601,7 +608,7 @@ function verifyQualificationAttestation(root, protocol, seal, cell, configuratio
   }
   if (protocol.phase === 'confirmatory') {
     try {
-      verifyCapabilityQualificationReplay(root, attestation, resolve(root, 'schemas', 'capability-canary-attestation.schema.json'));
+      verifyCapabilityQualificationReplay(dirname(attestationPath), attestation, resolve(root, 'schemas', 'capability-canary-attestation.schema.json'));
     } catch (error) {
       refusals.push(`${cell.id}: confirmatory qualification replay: ${error.message}`);
     }
