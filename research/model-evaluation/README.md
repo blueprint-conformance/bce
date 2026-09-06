@@ -46,8 +46,9 @@ and frozen task population.
 
 The v3 registry binds the arm-blind deterministic evaluator and rubric, the run-registration and
 durability contract, per-terminal checkpoints, exact changed-file replay bytes, immutable legacy
-archives, and the pre-access power calculation. Full-program and primary-stage readiness are
-separate fail-closed checks:
+archives, and the pre-access power calculation. Registry validity and stage readiness are separate
+checks: the initial frozen gate and default readiness report cover the exact primary stage, while
+each later transport stage is selected explicitly after its dependency completes:
 
 ```sh
 npm run research:evidence-foundry-v3

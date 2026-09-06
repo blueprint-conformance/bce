@@ -271,9 +271,13 @@ export function bindVerifiedFoundryRegistry(evidence, foundryRegistryReport) {
     (entry) => entry.studyId === evidence.foundryStudy?.studyId,
   );
   if (!verifiedStudy) fail('Evidence Foundry v3 full verifier omitted the indexed study');
+  const primaryStageId = evidence.foundryStudy.primaryStage.stageId;
+  if (foundryRegistryReport.readinessScope !== primaryStageId || verifiedStudy.readinessScope !== primaryStageId) {
+    fail('Evidence Foundry v3 verifier report is not scoped to the exact primary confirmatory stage');
+  }
   const executionReady = evidence.foundryProtocol.lifecycle === 'frozen-ready-not-run' && verifiedStudy.ready === true;
   if (evidence.foundryStudy.ready !== executionReady) {
-    fail('Evidence Foundry v3 readiness differs from full preregistered execution readiness');
+    fail('Evidence Foundry v3 readiness differs from verified primary-stage execution readiness');
   }
   return evidence;
 }

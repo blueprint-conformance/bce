@@ -1212,14 +1212,16 @@ export function verifyStudyRegistry({ root, indexPath = 'research/model-evaluati
       if (protocol.artifacts.powerDesign.path !== study.powerDesignPath || protocol.artifacts.powerDesign.sha256 !== study.powerDesignSha256) {
         throw new EvidenceFoundryRefusal(`${study.studyId}: protocol power-design binding differs from registry`);
       }
-      const fullReadinessBlockers = studyReadinessBlockers(root, protocol, powerDesign);
-      if (protocol.lifecycle === 'frozen-ready-not-run' && fullReadinessBlockers.length > 0) {
-        throw new EvidenceFoundryRefusal(`frozen-ready-not-run lifecycle overstates verified readiness: ${fullReadinessBlockers.join('; ')}`);
+      const primaryStageId = protocol.stages.find((stage) => stage.stageType === 'primary-confirmatory')?.id;
+      const readinessStageId = stageId ?? primaryStageId;
+      const blockers = studyReadinessBlockers(root, protocol, powerDesign, { stageId: readinessStageId });
+      const primaryReadinessBlockers = readinessStageId === primaryStageId
+        ? blockers
+        : studyReadinessBlockers(root, protocol, powerDesign, { stageId: primaryStageId });
+      if (protocol.lifecycle === 'frozen-ready-not-run' && primaryReadinessBlockers.length > 0) {
+        throw new EvidenceFoundryRefusal(`frozen-ready-not-run lifecycle overstates verified primary-stage readiness: ${primaryReadinessBlockers.join('; ')}`);
       }
-      const blockers = stageId === undefined
-        ? fullReadinessBlockers
-        : studyReadinessBlockers(root, protocol, powerDesign, { stageId });
-      studyReports.push({ studyId: study.studyId, lifecycle: study.lifecycle, claimClasses: study.currentClaimClasses, readinessScope: stageId ?? 'program', ready: blockers.length === 0, blockers });
+      studyReports.push({ studyId: study.studyId, lifecycle: study.lifecycle, claimClasses: study.currentClaimClasses, readinessScope: readinessStageId, ready: blockers.length === 0, blockers });
     } catch (error) {
       refusals.push(error.message);
     }
@@ -1227,7 +1229,8 @@ export function verifyStudyRegistry({ root, indexPath = 'research/model-evaluati
   refuseIfAny(refusals, 'study registry refused');
   const readinessBlockers = studyReports.flatMap((report) => report.blockers.map((blocker) => `${report.studyId}: ${blocker}`));
   if (requireReady && readinessBlockers.length > 0) throw new EvidenceFoundryRefusal(`study registry is structurally valid but not execution-ready: ${readinessBlockers.join('; ')}`, readinessBlockers);
-  return { valid: true, ready: readinessBlockers.length === 0, readinessScope: stageId ?? 'program', archives: archiveReports, studies: studyReports, readinessBlockers };
+  const readinessScope = stageId ?? (studyReports.length === 1 ? studyReports[0].readinessScope : 'per-study-primary');
+  return { valid: true, ready: readinessBlockers.length === 0, readinessScope, archives: archiveReports, studies: studyReports, readinessBlockers };
 }
 
 export function studyReadinessBlockers(root, protocol, powerDesign, { stageId, verifySigstore } = {}) {

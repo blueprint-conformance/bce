@@ -7,7 +7,7 @@ import { cpSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { deriveFoundryClaimClasses } from './lib/evidence-claims.mjs';
+import { bindVerifiedFoundryRegistry, deriveFoundryClaimClasses } from './lib/evidence-claims.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const fixture = mkdtempSync(join(tmpdir(), 'bce-evidence-claims-'));
@@ -51,8 +51,38 @@ assert.ok(
   `dependency-free claim projection imported ${claimLibraryImports.filter((specifier) => !specifier.startsWith('node:')).join(', ')}`,
 );
 const checkerSource = readFileSync(checker, 'utf8');
-assert.match(checkerSource, /verifyStudyRegistry\(\{ root, indexPath: evidence\.foundryStudy\.registry \}\)/);
+assert.match(checkerSource, /stageId: evidence\.foundryStudy\.primaryStage\.stageId/);
 assert.match(checkerSource, /bindVerifiedFoundryRegistry\(evidence, foundryRegistryReport\)/);
+
+const primaryScopedEvidence = {
+  foundryProtocol: { lifecycle: 'frozen-ready-not-run' },
+  foundryStudy: { studyId: 'study', ready: true, primaryStage: { stageId: 'primary-confirmatory' } },
+};
+const primaryScopedReport = {
+  readinessScope: 'primary-confirmatory',
+  studies: [{ studyId: 'study', readinessScope: 'primary-confirmatory', ready: true }],
+};
+assert.equal(
+  bindVerifiedFoundryRegistry(primaryScopedEvidence, primaryScopedReport),
+  primaryScopedEvidence,
+  'primary-ready claim projection must not require deferred transport readiness',
+);
+assert.throws(
+  () => bindVerifiedFoundryRegistry(primaryScopedEvidence, {
+    readinessScope: 'primary-confirmatory',
+    studies: [{ studyId: 'study', readinessScope: 'primary-confirmatory', ready: false }],
+  }),
+  /readiness differs from verified primary-stage execution readiness/,
+  'claim projection accepted a missing primary readiness gate',
+);
+assert.throws(
+  () => bindVerifiedFoundryRegistry(primaryScopedEvidence, {
+    readinessScope: 'program',
+    studies: [{ studyId: 'study', readinessScope: 'program', ready: true }],
+  }),
+  /not scoped to the exact primary confirmatory stage/,
+  'claim projection accepted a program-wide report for a staged primary gate',
+);
 
 const lifecycleProtocol = (lifecycle, completedStageTypes = []) => ({
   lifecycle,

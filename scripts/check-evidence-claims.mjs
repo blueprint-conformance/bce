@@ -12,7 +12,11 @@ try {
   const evidence = loadEvidenceClaims(root);
   let foundryRegistryReport;
   try {
-    foundryRegistryReport = verifyStudyRegistry({ root, indexPath: evidence.foundryStudy.registry });
+    foundryRegistryReport = verifyStudyRegistry({
+      root,
+      indexPath: evidence.foundryStudy.registry,
+      stageId: evidence.foundryStudy.primaryStage.stageId,
+    });
   } catch (error) {
     throw new Error(`claim-evidence: Evidence Foundry v3 full registry and result verification refused: ${error.message}`);
   }

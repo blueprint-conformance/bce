@@ -306,6 +306,8 @@ assert.match(terminalLifecycleBindingRefusals(laterCompletedProtocol, twoTermina
 const report = verifyStudyRegistry({ root });
 assert.equal(report.valid, true);
 assert.equal(typeof report.ready, 'boolean');
+assert.equal(report.readinessScope, 'primary-confirmatory');
+assert.equal(report.studies[0].readinessScope, 'primary-confirmatory');
 assert.equal(report.archives.length, 5);
 assert.equal(report.archives.every((archive) => archive.immutable && archive.claimClass === 'apparatus-validation-only'), true);
 assert.equal(report.studies[0].lifecycle, protocol.lifecycle);
@@ -478,7 +480,7 @@ try {
   writeFileSync(indexPath, `${JSON.stringify(overstatedIndex, null, 2)}\n`);
   assertRefuses(
     () => verifyStudyRegistry({ root: readinessTruthRoot }),
-    /frozen-ready-not-run lifecycle overstates verified readiness/,
+    /frozen-ready-not-run lifecycle overstates verified primary-stage readiness.*primary-confirmatory sealed execution bundle is unset/,
   );
 } finally {
   rmSync(readinessTruthRoot, { recursive: true, force: true });
@@ -675,6 +677,11 @@ try {
   assert.deepEqual(readiness(primaryOnly, { stageId: 'primary-confirmatory' }), [
     'primary-confirmatory sealed execution bundle is unset',
   ]);
+  assert.doesNotMatch(
+    readiness(primaryOnly, { stageId: 'primary-confirmatory' }).join('\n'),
+    /transport-/,
+    'primary readiness must allow deferred transport qualification and bundles',
+  );
   mkdirSync(join(readinessScratch, 'fake-bundle'));
   const fakeBundle = clone(primaryOnly);
   fakeBundle.stages[0].executionBundlePath = 'fake-bundle';
