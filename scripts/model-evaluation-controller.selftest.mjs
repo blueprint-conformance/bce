@@ -19,6 +19,7 @@ import {
   validateConfirmatorySealSigner,
   verifyBundle,
   verifyCapabilityQualificationReplay,
+  verifyConfirmatorySigstoreSubject,
   verifyTerminalRecord,
 } from './lib/model-evaluation.mjs';
 
@@ -729,6 +730,37 @@ function verifyConfirmatoryQualificationReplay() {
     } catch (error) {
       if (!/confirmatory seal requires exact signer/.test(error.message)) throw error;
     }
+
+    const exactSubjectBytes = Buffer.from(`${JSON.stringify({ schemaVersion: '1', rootSha256: 'a'.repeat(64) }, null, 2)}\n`);
+    const signedBundle = (payloadBytes) => Buffer.from(JSON.stringify({
+      mediaType: 'application/vnd.dev.sigstore.bundle.v0.3+json',
+      dsseEnvelope: {
+        payload: payloadBytes.toString('base64'),
+        payloadType: 'application/vnd.in-toto+json',
+        signatures: [{ keyid: '', sig: Buffer.from('valid-looking-signature').toString('base64') }],
+      },
+      verificationMaterial: { certificate: { rawBytes: Buffer.from('valid-looking-certificate').toString('base64') } },
+    }));
+    let signerHookCalls = 0;
+    verifyConfirmatorySigstoreSubject(exactSubjectBytes, signedBundle(exactSubjectBytes), () => { signerHookCalls += 1; });
+    if (signerHookCalls !== 1) throw new Error('exact confirmatory Sigstore subject did not reach the signature verifier');
+    const differentSubjectBytes = Buffer.from(`${JSON.stringify({ schemaVersion: '1', rootSha256: 'b'.repeat(64) }, null, 2)}\n`);
+    try {
+      verifyConfirmatorySigstoreSubject(exactSubjectBytes, signedBundle(differentSubjectBytes), () => { signerHookCalls += 1; });
+      throw new Error('same-signer bundle with a different DSSE subject was accepted');
+    } catch (error) {
+      if (!/does not equal the exact seal subject bytes/.test(error.message)) throw error;
+    }
+    if (signerHookCalls !== 1) throw new Error('mismatched DSSE subject reached the signature verifier');
+    const nonCanonicalBundle = JSON.parse(signedBundle(exactSubjectBytes).toString('utf8'));
+    nonCanonicalBundle.dsseEnvelope.payload = `${nonCanonicalBundle.dsseEnvelope.payload}\n`;
+    try {
+      verifyConfirmatorySigstoreSubject(exactSubjectBytes, Buffer.from(JSON.stringify(nonCanonicalBundle)), () => { signerHookCalls += 1; });
+      throw new Error('non-canonical DSSE base64 payload was accepted');
+    } catch (error) {
+      if (!/not canonical base64/.test(error.message)) throw error;
+    }
+    if (signerHookCalls !== 1) throw new Error('non-canonical DSSE payload reached the signature verifier');
   } finally {
     stopFakeOllama(server);
   }
@@ -945,5 +977,5 @@ executeSymlinkReplayRefusal();
 executeProviderIdentityDriftRefusal();
 executeMissingActiveProviderRefusal();
 executeFirstClassSafetyHalt();
-process.stdout.write('model-evaluation controller self-test: PASS (registered fsync-backed run + checkpoint chain; arm-blind evaluator; exact replay bytes; outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable; first-party typed exec broker denied provider/external network, forks, oracle reads, protected writes, and toolchain writes with bijective controller evidence; public qualification replay rederived both arms and refused invented digest/boolean, legacy v1 confirmatory use, arbitrary signer, and missing package-byte match; allowed-path symlink replay refused before oracles; provider digest drift and missing-active failures retained without erasing policy evidence; pre-trigger, replayed, and tampered safety-halt states fail closed; first-class halt exits 3; checkpoint fork and aggregate tamper refused; pilot recommendation impossible)\n');
+process.stdout.write('model-evaluation controller self-test: PASS (registered fsync-backed run + checkpoint chain; arm-blind evaluator; exact replay bytes; outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable; first-party typed exec broker denied provider/external network, forks, oracle reads, protected writes, and toolchain writes with bijective controller evidence; public qualification replay rederived both arms and refused invented digest/boolean, legacy v1 confirmatory use, arbitrary signer, mismatched/non-canonical Sigstore payloads, and missing package-byte match; allowed-path symlink replay refused before oracles; provider digest drift and missing-active failures retained without erasing policy evidence; pre-trigger, replayed, and tampered safety-halt states fail closed; first-class halt exits 3; checkpoint fork and aggregate tamper refused; pilot recommendation impossible)\n');
 rmSync(scratch, { recursive: true, force: true });

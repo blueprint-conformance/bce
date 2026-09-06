@@ -230,6 +230,32 @@ export function validateConfirmatorySealSigner(attestation) {
   return true;
 }
 
+export function verifyConfirmatorySigstoreSubject(subjectInput, bundleInput, signatureVerifier) {
+  const subjectBytes = Buffer.isBuffer(subjectInput) ? subjectInput : Buffer.from(subjectInput);
+  const bundleBytes = Buffer.isBuffer(bundleInput) ? bundleInput : Buffer.from(bundleInput);
+  let bundle;
+  try {
+    bundle = JSON.parse(bundleBytes.toString('utf8'));
+  } catch (error) {
+    throw new Error(`confirmatory Sigstore bundle is not JSON: ${error.message}`);
+  }
+  const encoded = bundle?.dsseEnvelope?.payload;
+  if (typeof encoded !== 'string' || encoded.length === 0 || encoded.length % 4 !== 0 ||
+      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) {
+    throw new Error('confirmatory Sigstore DSSE payload is not canonical base64');
+  }
+  const payloadBytes = Buffer.from(encoded, 'base64');
+  if (payloadBytes.toString('base64') !== encoded) {
+    throw new Error('confirmatory Sigstore DSSE payload is not canonical base64');
+  }
+  if (!payloadBytes.equals(subjectBytes)) {
+    throw new Error('confirmatory Sigstore DSSE payload does not equal the exact seal subject bytes');
+  }
+  if (typeof signatureVerifier !== 'function') throw new Error('confirmatory Sigstore signature verifier is unavailable');
+  signatureVerifier();
+  return true;
+}
+
 function qualificationExactCell(protocol, cell, configuration) {
   return {
     client: cell.client,
@@ -444,12 +470,15 @@ function deriveQualificationObservation(record, replay) {
     recordSha256: record.recordSha256,
     successfulCommands,
     exactAllowedFileEdit,
-    telemetryUsable: Number.isInteger(record.telemetry.agentTurns) && Number.isInteger(record.telemetry.inputTokens) && Number.isInteger(record.telemetry.outputTokens),
+    telemetryUsable: Number.isInteger(record.telemetry.agentTurns) && record.telemetry.agentTurns > 0 &&
+      Number.isInteger(record.telemetry.inputTokens) && record.telemetry.inputTokens > 0 &&
+      Number.isInteger(record.telemetry.outputTokens) && record.telemetry.outputTokens > 0,
     toolRouterErrors: documents.filter((node) => node?.type === 'tool.rejected').length,
     bceMcpRunGate: record.assignment.arm === 'bce-enabled' ? record.mechanism.mcpToolCalls >= 1 && record.mechanism.bceGateCalls >= 1 : null,
     bceLastVerifiedVerdict: record.assignment.arm === 'bce-enabled' ? record.mechanism.bceVerdictSequence?.at(-1) ?? null : null,
     clientEventChainVerified: transcript.sealedClientEventVerification?.passed === true && typeof transcript.sealedClientEventVerification?.eventChainHeadSha256 === 'string',
-    execBrokerControllerVerified: transcript.sealedClientEventVerification?.passed === true && transcript.sealedClientEventVerification?.execBrokerError === null && Array.isArray(transcript.sealedClientEventVerification?.execBrokerControllerEvidence),
+    execBrokerControllerVerified: transcript.sealedClientEventVerification?.passed === true && transcript.sealedClientEventVerification?.execBrokerError === null &&
+      Array.isArray(transcript.sealedClientEventVerification?.execBrokerControllerEvidence) && transcript.sealedClientEventVerification.execBrokerControllerEvidence.length > 0,
     providerIdentityStable: isolation.providerIdentityStable === true,
     safeSuccessfulCompletion: record.derived.safeSuccessfulCompletion,
   };
@@ -859,11 +888,14 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
           try {
             const subjectPath = resolveSealedFile(root, seal.attestation.subjectPath, 'Sigstore subject');
             const bundlePath = resolveSealedFile(root, seal.attestation.bundlePath, 'Sigstore bundle');
-            const subject = JSON.parse(readFileSync(subjectPath, 'utf8'));
+            const subjectBytes = readFileSync(subjectPath);
+            const subject = JSON.parse(subjectBytes.toString('utf8'));
             if (canonicalJson(subject) !== canonicalJson({ schemaVersion: '1', rootSha256: expected.rootSha256 })) throw new Error('subject file does not contain the computed seal root');
             const cli = resolve(fileURLToPath(new URL('../..', import.meta.url)), 'node_modules', '@sigstore', 'cli', 'bin', 'run');
-            const result = spawnSync(process.execPath, [cli, 'verify', bundlePath, '--certificate-issuer', seal.attestation.certificateIssuer, '--certificate-identity-uri', seal.attestation.certificateIdentityURI], { encoding: 'utf8' });
-            if (result.status !== 0) throw new Error(`Sigstore verification failed: ${String(result.stderr).trim()}`);
+            verifyConfirmatorySigstoreSubject(subjectBytes, readFileSync(bundlePath), () => {
+              const result = spawnSync(process.execPath, [cli, 'verify', bundlePath, '--certificate-issuer', seal.attestation.certificateIssuer, '--certificate-identity-uri', seal.attestation.certificateIdentityURI], { encoding: 'utf8' });
+              if (result.status !== 0) throw new Error(`Sigstore verification failed: ${String(result.stderr).trim()}`);
+            });
           } catch (error) { refusals.push(`confirmatory attestation verification: ${error.message}`); }
         }
       }
