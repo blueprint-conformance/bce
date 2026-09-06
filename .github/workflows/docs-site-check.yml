@@ -40,6 +40,11 @@ on:
       - 'README.md'
       - 'scripts/build-docs-site.mjs'
       - 'scripts/docs-site-selftest.mjs'
+      - 'scripts/self-adoption-status.selftest.mjs'
+      - 'scripts/lib/self-adoption-site.mjs'
+      - 'assets/site/**'
+      - '.bce-adoption.json'
+      - '.blueprints/POLICY-HISTORY.jsonl'
       - 'scripts/check-evidence-claims.mjs'
       - 'scripts/check-evidence-claims.selftest.mjs'
       - 'scripts/lib/evidence-claims.mjs'
@@ -80,6 +85,9 @@ jobs:
       # ----------------------------------------------------------------------
       - name: Self-test — every check must refuse its own probe
         run: node scripts/docs-site-selftest.mjs
+
+      - name: Live pipeline refuses stale, missing, or unsuccessful evidence
+        run: node scripts/self-adoption-status.selftest.mjs
 
       - name: Install locked evidence verifier dependencies
         run: npm ci --ignore-scripts
@@ -131,6 +139,8 @@ jobs:
           require _site/rfcs/index.html
           require _site/paper/index.html
           require _site/trust/index.html
+          require _site/guides/live-self-adoption/index.html
+          require _site/assets/self-adoption-status.mjs
 
           # Every schema in the tree is published, at the exact path its `$id`
           # names, byte-for-byte. This is the pre-existing behaviour of
