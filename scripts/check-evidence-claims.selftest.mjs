@@ -12,6 +12,7 @@ import { deriveFoundryClaimClasses } from './lib/evidence-claims.mjs';
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const fixture = mkdtempSync(join(tmpdir(), 'bce-evidence-claims-'));
 const checker = join(root, 'scripts/check-evidence-claims.mjs');
+const claimLibrary = join(root, 'scripts/lib/evidence-claims.mjs');
 const matrixPath = 'research/claim-evidence-matrix.json';
 const matrix = JSON.parse(readFileSync(join(root, matrixPath), 'utf8'));
 const supportPaths = new Set([
@@ -40,6 +41,18 @@ for (const path of paths) {
 const originals = new Map([...paths].map((path) => [path, readFileSync(join(fixture, path), 'utf8')]));
 const restore = () => { for (const [path, value] of originals) writeFileSync(join(fixture, path), value); };
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+
+const claimLibrarySource = readFileSync(claimLibrary, 'utf8');
+const claimLibraryImports = [...claimLibrarySource.matchAll(/from\s+['"]([^'"]+)['"]/g)]
+  .map((match) => match[1]);
+assert.ok(claimLibraryImports.length > 0, 'claim projection must retain explicit imports');
+assert.ok(
+  claimLibraryImports.every((specifier) => specifier.startsWith('node:')),
+  `dependency-free claim projection imported ${claimLibraryImports.filter((specifier) => !specifier.startsWith('node:')).join(', ')}`,
+);
+const checkerSource = readFileSync(checker, 'utf8');
+assert.match(checkerSource, /verifyStudyRegistry\(\{ root, indexPath: evidence\.foundryStudy\.registry \}\)/);
+assert.match(checkerSource, /bindVerifiedFoundryRegistry\(evidence, foundryRegistryReport\)/);
 
 const lifecycleProtocol = (lifecycle, completedStageTypes = []) => ({
   lifecycle,
@@ -133,7 +146,7 @@ reject('Evidence Foundry draft presented as execution-ready', () => {
   const value = JSON.parse(originals.get(matrixPath));
   value.studies.find((study) => study.id === 'evidence-foundry-v3').ready = true;
   writeFileSync(join(fixture, matrixPath), `${JSON.stringify(value, null, 2)}\n`);
-}, 'readiness differs from full preregistered execution readiness');
+}, 'readiness is not structurally valid for its lifecycle');
 
 reject('claim-bearing running transition without sealed result and registry proof', () => {
   const value = JSON.parse(originals.get(matrixPath));

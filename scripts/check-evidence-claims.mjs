@@ -2,13 +2,21 @@
 
 import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import { loadEvidenceClaims } from './lib/evidence-claims.mjs';
+import { bindVerifiedFoundryRegistry, loadEvidenceClaims } from './lib/evidence-claims.mjs';
+import { verifyStudyRegistry } from './lib/evidence-foundry-v3.mjs';
 
 const rootArg = process.argv.indexOf('--root');
 const root = resolve(rootArg >= 0 ? process.argv[rootArg + 1] ?? '' : '.');
 
 try {
   const evidence = loadEvidenceClaims(root);
+  let foundryRegistryReport;
+  try {
+    foundryRegistryReport = verifyStudyRegistry({ root, indexPath: evidence.foundryStudy.registry });
+  } catch (error) {
+    throw new Error(`claim-evidence: Evidence Foundry v3 full registry and result verification refused: ${error.message}`);
+  }
+  bindVerifiedFoundryRegistry(evidence, foundryRegistryReport);
   const affirmativeOverclaims = [
     /\bBCE\s+(?:makes|made)\s+agents\s+more\s+successful\b/gi,
     /\bBCE\s+(?:improves|improved)\s+coding-agent\s+outcomes\b/gi,

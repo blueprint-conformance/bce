@@ -1,9 +1,6 @@
 import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { isAbsolute, join, resolve, sep } from 'node:path';
-import {
-  verifyStudyRegistry,
-} from './evidence-foundry-v3.mjs';
 
 const MATRIX_PATH = 'research/claim-evidence-matrix.json';
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -206,12 +203,6 @@ export function loadEvidenceClaims(rootInput = '.') {
   const foundryRegistry = readJson(root, foundryStudy.registry);
   const foundryProtocol = readJson(root, foundryStudy.protocol);
   const foundryPower = readJson(root, foundryStudy.powerDesign);
-  let foundryRegistryReport;
-  try {
-    foundryRegistryReport = verifyStudyRegistry({ root, indexPath: foundryStudy.registry });
-  } catch (error) {
-    fail(`Evidence Foundry v3 full registry and result verification refused: ${error.message}`);
-  }
   const registryEntry = foundryRegistry.studies?.find((entry) => entry.studyId === foundryStudy.studyId);
   if (!registryEntry || registryEntry.protocolPath !== foundryStudy.protocol || registryEntry.powerDesignPath !== foundryStudy.powerDesign ||
       registryEntry.protocolSha256 !== foundryStudy.protocolSha256 || registryEntry.powerDesignSha256 !== foundryStudy.powerDesignSha256) {
@@ -230,10 +221,10 @@ export function loadEvidenceClaims(rootInput = '.') {
       JSON.stringify(registryEntry.currentClaimClasses) !== JSON.stringify(derivedClaimClasses)) {
     fail('Evidence Foundry v3 lifecycle and exact derived claim classes do not cross-bind');
   }
-  const verifiedStudy = foundryRegistryReport.studies.find((entry) => entry.studyId === foundryStudy.studyId);
-  if (!verifiedStudy) fail('Evidence Foundry v3 full verifier omitted the indexed study');
-  const executionReady = foundryProtocol.lifecycle === 'frozen-ready-not-run' && verifiedStudy.ready === true;
-  if (foundryStudy.ready !== executionReady) fail('Evidence Foundry v3 readiness differs from full preregistered execution readiness');
+  if (typeof foundryStudy.ready !== 'boolean' ||
+      (foundryProtocol.lifecycle !== 'frozen-ready-not-run' && foundryStudy.ready !== false)) {
+    fail('Evidence Foundry v3 readiness is not structurally valid for its lifecycle');
+  }
   exactKeys(foundryStudy.primaryStage, ['stageId', 'repositoryClusters', 'tasksPerRepository', 'pairs', 'retainedAttempts'], 'Evidence Foundry v3 primaryStage');
   const primaryStage = foundryProtocol.stages?.find((stage) => stage.stageType === 'primary-confirmatory');
   const primaryPower = foundryPower.stages?.find((stage) => stage.stageId === primaryStage?.id);
@@ -272,4 +263,17 @@ export function loadEvidenceClaims(rootInput = '.') {
     safeEffect, escapedEffect, elapsedRatio,
     unestablished: matrix.claims.filter((claim) => claim.status === 'unestablished'),
   };
+}
+
+export function bindVerifiedFoundryRegistry(evidence, foundryRegistryReport) {
+  if (!evidence || typeof evidence !== 'object') fail('structural evidence projection is required before full verification');
+  const verifiedStudy = foundryRegistryReport?.studies?.find(
+    (entry) => entry.studyId === evidence.foundryStudy?.studyId,
+  );
+  if (!verifiedStudy) fail('Evidence Foundry v3 full verifier omitted the indexed study');
+  const executionReady = evidence.foundryProtocol.lifecycle === 'frozen-ready-not-run' && verifiedStudy.ready === true;
+  if (evidence.foundryStudy.ready !== executionReady) {
+    fail('Evidence Foundry v3 readiness differs from full preregistered execution readiness');
+  }
+  return evidence;
 }
