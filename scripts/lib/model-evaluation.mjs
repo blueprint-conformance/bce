@@ -51,6 +51,8 @@ const TREATMENT_DELTA_CONTRACT = {
     'outcome-dependent retry or stopping',
   ],
 };
+export const CONFIRMATORY_SIGSTORE_ISSUER = 'https://token.actions.githubusercontent.com';
+export const CONFIRMATORY_SIGSTORE_IDENTITY = 'https://github.com/blueprint-conformance/bce/.github/workflows/model-evaluation-confirmatory-seal.yml@refs/heads/main';
 
 export const FROZEN_IMPLEMENTATIONS = {
   verifierSha256: fileURLToPath(import.meta.url),
@@ -164,6 +166,12 @@ function resolveSealedFile(root, path, label) {
   return canonical;
 }
 
+function resolveSealedDirectory(root, path, label) {
+  const directory = resolveSealedFile(root, path, label);
+  if (!statSync(directory).isDirectory()) throw new Error(`${label}: not a directory`);
+  return directory;
+}
+
 export function hashTree(root, { includeNodeModules = false } = {}) {
   const base = realpathSync(root);
   const entries = [];
@@ -201,12 +209,44 @@ function validateOrThrow(value, schemaPath, label) {
   if (!validate(value)) throw new Error(`${label}: ${ajv.errorsText(validate.errors, { separator: '; ' })}`);
 }
 
-export function validateCapabilityCanaryAttestation(attestation, schemaPath) {
+export function validateCapabilityCanaryAttestation(attestation, schemaPath, { requirePublicReplay = false } = {}) {
   validateOrThrow(attestation, schemaPath, 'capability canary attestation');
   if (attestation.attestationSha256 !== sha256Json({ ...attestation, attestationSha256: null })) {
     throw new Error('capability canary attestation self-digest does not recompute');
   }
+  if (requirePublicReplay && attestation.schemaVersion !== '2') {
+    throw new Error('confirmatory qualification requires a v2 attestation with retained public replay evidence');
+  }
   return true;
+}
+
+export function validateConfirmatorySealSigner(attestation) {
+  if (attestation?.kind !== 'sigstore-github-oidc' || attestation.eligibleForProductClaim !== true ||
+      attestation.certificateIssuer !== CONFIRMATORY_SIGSTORE_ISSUER ||
+      attestation.certificateIdentityURI !== CONFIRMATORY_SIGSTORE_IDENTITY ||
+      attestation.identity !== CONFIRMATORY_SIGSTORE_IDENTITY) {
+    throw new Error(`confirmatory seal requires exact signer ${CONFIRMATORY_SIGSTORE_IDENTITY} issued by ${CONFIRMATORY_SIGSTORE_ISSUER}`);
+  }
+  return true;
+}
+
+function qualificationExactCell(protocol, cell, configuration) {
+  return {
+    client: cell.client,
+    clientVersion: cell.clientVersion,
+    clientArtifactSha256: cell.clientArtifactSha256,
+    reasoningEffort: cell.reasoningEffort,
+    requestedModel: cell.requestedModel,
+    resolvedModel: cell.resolvedModel,
+    provider: cell.localProvider,
+    runtimeVersion: protocol.isolation.runtimeVersion,
+    runtimeArtifactSha256: protocol.isolation.runtimeArtifactSha256,
+    controllerSha256: protocol.implementation.runnerSha256,
+    implementation: protocol.implementation,
+    treatmentArtifactSha256: protocol.treatment.engineArtifactSha256,
+    treatmentInstalledTreeSha256: protocol.treatment.installedTreeSha256,
+    toolLoop: configuration ? { ...configuration, qualificationAttestation: null } : null,
+  };
 }
 
 function rank(seed, domain, id) {
@@ -316,6 +356,22 @@ function verifyArtifact(root, artifact, label, refusals) {
   }
 }
 
+function addSealedTreePaths(paths, root, relativeRoot, label) {
+  const directory = resolveSealedDirectory(root, relativeRoot, label);
+  const walk = (current) => {
+    for (const name of readdirSync(current).sort()) {
+      const absolute = resolve(current, name);
+      const stat = lstatSync(absolute);
+      const path = posixRelative(root, absolute);
+      if (stat.isSymbolicLink()) throw new Error(`${label}: symbolic-link public replay artifacts are refused (${path})`);
+      if (stat.isDirectory()) walk(absolute);
+      else if (stat.isFile()) paths.add(path);
+      else throw new Error(`${label}: unsupported public replay entry (${path})`);
+    }
+  };
+  walk(directory);
+}
+
 function collectExpectedSealEntries(bundleDir, protocol, manifest) {
   const paths = new Set([
     'protocol.v2.json',
@@ -336,6 +392,16 @@ function collectExpectedSealEntries(bundleDir, protocol, manifest) {
   if (protocol.treatment.engineArtifact) paths.add(protocol.treatment.engineArtifact);
   for (const cell of protocol.clientModelCells ?? []) {
     for (const artifact of [cell.toolLoop?.systemPrompt, cell.toolLoop?.commonToolContract, cell.toolLoop?.clientEventSchema, cell.toolLoop?.qualificationAttestation].filter(Boolean)) paths.add(artifact.path);
+    const qualificationArtifact = cell.toolLoop?.qualificationAttestation;
+    if (qualificationArtifact) {
+      const attestation = JSON.parse(readFileSync(resolveSealedFile(bundleDir, qualificationArtifact.path, `${cell.id} qualification attestation`), 'utf8'));
+      if (attestation.schemaVersion === '2') {
+        addSealedTreePaths(paths, bundleDir, attestation.publicReplay.bundlePath, `${cell.id} public qualification bundle`);
+        addSealedTreePaths(paths, bundleDir, attestation.publicReplay.runsPath, `${cell.id} public qualification runs`);
+        paths.add(attestation.publicReplay.terminalRecordsPath);
+        paths.add(attestation.publicReplay.ledgerPath);
+      }
+    }
   }
   for (const task of manifest.tasks) for (const artifact of artifactRefs(task)) paths.add(artifact.path);
   const entries = [...paths].sort().map((path) => {
@@ -349,6 +415,115 @@ function collectExpectedSealEntries(bundleDir, protocol, manifest) {
 export function expectedSeal(bundleDir, protocol, manifest) {
   const entries = collectExpectedSealEntries(bundleDir, protocol, manifest);
   return { entries, rootSha256: sha256Json(entries) };
+}
+
+const QUALIFICATION_REQUIREMENTS = [
+  'retained-sealed-fixture-bundle', 'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm',
+  'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm',
+  'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest',
+  'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass',
+  'sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm',
+];
+const PUBLIC_QUALIFICATION_REQUIREMENT = 'public-replayable-sealed-fixture-terminal-records-and-ledger';
+
+function deriveQualificationObservation(record, replay) {
+  const task = replay.bundle.manifest.tasks.find((entry) => entry.id === record.assignment.taskId);
+  const transcript = readJsonArtifact(replay.runsRoot, record.evidence.transcript, `${record.trialId}/qualification transcript`);
+  const patch = readJsonArtifact(replay.runsRoot, record.evidence.patch, `${record.trialId}/qualification patch`);
+  const isolation = readJsonArtifact(replay.runsRoot, record.evidence.isolationProof, `${record.trialId}/qualification isolation`);
+  const documents = transcript.rawUsage ?? [];
+  const successfulCommands = documents.filter((node) =>
+    node?.type === 'tool.result' && node.payload?.name === 'exec' &&
+    node.payload?.ok === true && node.payload?.result?.exitCode === 0).length;
+  const exactAllowedFileEdit = patch.changes?.length === 1 && task.allowedPaths.length === 1 && patch.changes[0].path === task.allowedPaths[0] &&
+    record.derived.policyAssessmentComplete === true && record.derived.policyMutationObserved === false;
+  return {
+    trialId: record.trialId,
+    arm: record.assignment.arm,
+    status: record.status,
+    recordSha256: record.recordSha256,
+    successfulCommands,
+    exactAllowedFileEdit,
+    telemetryUsable: Number.isInteger(record.telemetry.agentTurns) && Number.isInteger(record.telemetry.inputTokens) && Number.isInteger(record.telemetry.outputTokens),
+    toolRouterErrors: documents.filter((node) => node?.type === 'tool.rejected').length,
+    bceMcpRunGate: record.assignment.arm === 'bce-enabled' ? record.mechanism.mcpToolCalls >= 1 && record.mechanism.bceGateCalls >= 1 : null,
+    bceLastVerifiedVerdict: record.assignment.arm === 'bce-enabled' ? record.mechanism.bceVerdictSequence?.at(-1) ?? null : null,
+    clientEventChainVerified: transcript.sealedClientEventVerification?.passed === true && typeof transcript.sealedClientEventVerification?.eventChainHeadSha256 === 'string',
+    execBrokerControllerVerified: transcript.sealedClientEventVerification?.passed === true && transcript.sealedClientEventVerification?.execBrokerError === null && Array.isArray(transcript.sealedClientEventVerification?.execBrokerControllerEvidence),
+    providerIdentityStable: isolation.providerIdentityStable === true,
+    safeSuccessfulCompletion: record.derived.safeSuccessfulCompletion,
+  };
+}
+
+export function verifyCapabilityQualificationReplay(rootInput, attestation, schemaPath) {
+  const root = resolve(rootInput);
+  validateCapabilityCanaryAttestation(attestation, schemaPath, { requirePublicReplay: true });
+  const publicReplay = attestation.publicReplay;
+  const bundleRoot = resolveSealedDirectory(root, publicReplay.bundlePath, 'public qualification bundle');
+  const runsRoot = resolveSealedDirectory(root, publicReplay.runsPath, 'public qualification runs');
+  const protocolBytes = readFileSync(resolveSealedFile(bundleRoot, 'protocol.v2.json', 'public qualification protocol'));
+  const manifestBytes = readFileSync(resolveSealedFile(bundleRoot, 'task-manifest.json', 'public qualification manifest'));
+  if (sha256Bytes(protocolBytes) !== publicReplay.protocolSha256 || sha256Bytes(protocolBytes) !== attestation.sealedFixtureProtocolSha256) {
+    throw new Error('public qualification protocol digest mismatch');
+  }
+  if (sha256Bytes(manifestBytes) !== publicReplay.manifestSha256 || sha256Bytes(manifestBytes) !== attestation.sealedFixtureManifestSha256) {
+    throw new Error('public qualification manifest digest mismatch');
+  }
+  const replay = loadVerifiedRecords(bundleRoot, runsRoot, { verifyHostArtifacts: false });
+  replay.runsRoot = runsRoot;
+  if (replay.bundle.seal.rootSha256 !== publicReplay.sealRootSha256 || replay.bundle.seal.rootSha256 !== attestation.sealedFixtureRootSha256) {
+    throw new Error('public qualification seal root digest mismatch');
+  }
+  if (replay.bundle.protocol.studyId !== attestation.studyId || replay.bundle.protocol.phase !== 'pilot' ||
+      replay.bundle.protocol.claimScope !== 'sacrificial-apparatus-capability-only-no-product-efficacy-cost-latency-safety-or-adoption-claim' ||
+      replay.bundle.manifest.repositories.length !== 1 || replay.bundle.manifest.tasks.length !== 1 || replay.records.length !== 2 ||
+      replay.bundle.manifest.assignments.length !== 2) {
+    throw new Error('public qualification replay is not the exact two-arm sacrificial canary fixture');
+  }
+  const [qualificationRepository] = replay.bundle.manifest.repositories;
+  const [qualificationTask] = replay.bundle.manifest.tasks;
+  if (qualificationRepository.developmentExposed !== true || qualificationTask.repositoryId !== qualificationRepository.id ||
+      qualificationTask.classification !== 'pilot-development-only' || qualificationTask.constraintClass !== 'apparatus-capability' ||
+      qualificationTask.provenance?.developmentExposed !== true ||
+      qualificationTask.provenance?.source !== 'dedicated sacrificial apparatus fixture' ||
+      qualificationTask.provenance?.selectionRule !== 'fixed capability proof unrelated to evaluation tasks') {
+    throw new Error('public qualification replay is not permanently scoped to development-exposed apparatus evidence');
+  }
+  const qualificationCell = replay.bundle.protocol.clientModelCells[0];
+  if (replay.bundle.protocol.clientModelCells.length !== 1 || qualificationCell.client !== 'bce-ollama-tool-client' ||
+      canonicalJson(attestation.exactCell) !== canonicalJson(qualificationExactCell(replay.bundle.protocol, qualificationCell, qualificationCell.toolLoop))) {
+    throw new Error('public qualification replay does not bind the attested exact client/model/provider/runtime/controller/treatment/tool-loop cell');
+  }
+  if (attestation.sourceCommit !== replay.bundle.protocol.treatment.artifactProvenance.sourceCommit ||
+      attestation.sourceTreeState !== replay.bundle.protocol.treatment.artifactProvenance.sourceTreeState ||
+      attestation.canaryRunnerSha256 !== replay.bundle.protocol.implementation.canaryRunnerSha256) {
+    throw new Error('public qualification replay source or canary-runner identity mismatch');
+  }
+  const terminalBytes = readFileSync(resolveSealedFile(root, publicReplay.terminalRecordsPath, 'public qualification terminal records'));
+  const publishedRecords = terminalBytes.toString('utf8').split('\n').filter((line) => line.trim()).map((line) => JSON.parse(line));
+  if (sha256Bytes(terminalBytes) !== publicReplay.terminalRecordsSha256 || publicReplay.recordCount !== replay.records.length ||
+      canonicalJson(publishedRecords) !== canonicalJson(replay.records)) {
+    throw new Error('public qualification terminal records do not match the fully replayed attempts');
+  }
+  const ledgerBytes = readFileSync(resolveSealedFile(root, publicReplay.ledgerPath, 'public qualification ledger'));
+  const retainedLedgerBytes = readFileSync(resolveSealedFile(runsRoot, 'ledger.jsonl', 'retained qualification ledger'));
+  const ledger = ledgerBytes.toString('utf8').split('\n').filter((line) => line.trim()).map((line) => JSON.parse(line));
+  if (!ledgerBytes.equals(retainedLedgerBytes) || sha256Bytes(ledgerBytes) !== publicReplay.ledgerSha256 ||
+      ledger.at(-1)?.entrySha256 !== publicReplay.ledgerHeadSha256 ||
+      attestation.restrictedEvidence.ledgerHeadSha256 !== publicReplay.ledgerHeadSha256) {
+    throw new Error('public qualification ledger digest or head mismatch');
+  }
+  const observed = [...attestation.observations].sort((left, right) => left.trialId.localeCompare(right.trialId));
+  const derived = replay.records.map((record) => deriveQualificationObservation(record, replay)).sort((left, right) => left.trialId.localeCompare(right.trialId));
+  if (canonicalJson(observed) !== canonicalJson(derived)) {
+    throw new Error('public qualification observations do not rederive from the retained terminal evidence');
+  }
+  if (attestation.qualified !== true || attestation.refusalReasons.length !== 0 ||
+      QUALIFICATION_REQUIREMENTS.some((requirement) => !attestation.requirements.includes(requirement)) ||
+      !attestation.requirements.includes(PUBLIC_QUALIFICATION_REQUIREMENT)) {
+    throw new Error('public qualification replay does not prove the complete clean two-arm capability contract');
+  }
+  return { bundle: replay.bundle, records: replay.records, observations: derived };
 }
 
 function verifyQualificationAttestation(root, protocol, seal, cell, configuration, refusals) {
@@ -371,22 +546,7 @@ function verifyQualificationAttestation(root, protocol, seal, cell, configuratio
   if (attestation.attestationSha256 !== sha256Json({ ...attestation, attestationSha256: null })) {
     refusals.push(`${cell.id}: qualification attestation self-digest does not recompute`);
   }
-  const expectedExactCell = {
-    client: cell.client,
-    clientVersion: cell.clientVersion,
-    clientArtifactSha256: cell.clientArtifactSha256,
-    reasoningEffort: cell.reasoningEffort,
-    requestedModel: cell.requestedModel,
-    resolvedModel: cell.resolvedModel,
-    provider: cell.localProvider,
-    runtimeVersion: protocol.isolation.runtimeVersion,
-    runtimeArtifactSha256: protocol.isolation.runtimeArtifactSha256,
-    controllerSha256: protocol.implementation.runnerSha256,
-    implementation: protocol.implementation,
-    treatmentArtifactSha256: protocol.treatment.engineArtifactSha256,
-    treatmentInstalledTreeSha256: protocol.treatment.installedTreeSha256,
-    toolLoop: { ...configuration, qualificationAttestation: null },
-  };
+  const expectedExactCell = qualificationExactCell(protocol, cell, configuration);
   if (canonicalJson(attestation.exactCell) !== canonicalJson(expectedExactCell)) {
     refusals.push(`${cell.id}: qualification attestation does not bind the exact client/model/provider/runtime/controller/treatment/tool-loop cell`);
   }
@@ -405,17 +565,17 @@ function verifyQualificationAttestation(root, protocol, seal, cell, configuratio
     attestation.observations.find((observation) => observation.arm === 'baseline-no-bce')?.bceLastVerifiedVerdict === null &&
     attestation.observations.find((observation) => observation.arm === 'bce-enabled')?.bceMcpRunGate === true &&
     attestation.observations.find((observation) => observation.arm === 'bce-enabled')?.bceLastVerifiedVerdict === 'pass';
-  const requiredClaims = [
-    'retained-sealed-fixture-bundle', 'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm',
-    'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm',
-    'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest',
-    'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass',
-    'sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm',
-  ];
   if (attestation.qualified !== true || attestation.sourceTreeState !== 'clean' || attestation.refusalReasons.length !== 0 ||
       attestation.restrictedEvidence.retained !== true || attestation.restrictedEvidence.bundleRetained !== true || !/^[0-9a-f]{64}$/.test(attestation.restrictedEvidence.ledgerHeadSha256 ?? '') ||
-      !observationEligible || requiredClaims.some((requirement) => !attestation.requirements.includes(requirement))) {
+      !observationEligible || QUALIFICATION_REQUIREMENTS.some((requirement) => !attestation.requirements.includes(requirement))) {
     refusals.push(`${cell.id}: qualification attestation does not prove the complete clean two-arm capability contract`);
+  }
+  if (protocol.phase === 'confirmatory') {
+    try {
+      verifyCapabilityQualificationReplay(root, attestation, resolve(root, 'schemas', 'capability-canary-attestation.schema.json'));
+    } catch (error) {
+      refusals.push(`${cell.id}: confirmatory qualification replay: ${error.message}`);
+    }
   }
 }
 
@@ -654,6 +814,9 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
   if (!/^[0-9a-f]{64}$/.test(protocol.treatment.installedTreeSha256 ?? '') || !protocol.treatment.artifactProvenance) {
     refusals.push('BCE treatment offline installed tree and source provenance are not frozen');
   }
+  if (protocol.phase === 'confirmatory' && protocol.treatment.artifactProvenance?.publishedPackageByteMatch !== true) {
+    refusals.push('confirmatory treatment must prove an exact published-package byte match');
+  }
   if (requireSealed && protocol.treatment.artifactProvenance?.sourceTreeState !== 'clean') {
     refusals.push('sealed execution requires a treatment artifact built from a clean source tree');
   }
@@ -684,9 +847,15 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
         refusals.push('pilot local-git seal does not bind its exact public commit URL');
       }
       if (protocol.phase === 'confirmatory') {
-        if (seal.attestation?.kind !== 'sigstore-github-oidc' || seal.attestation?.eligibleForProductClaim !== true) {
-          refusals.push('confirmatory seal requires a product-eligible Sigstore GitHub OIDC attestation');
-        } else {
+        try {
+          validateConfirmatorySealSigner(seal.attestation);
+        } catch (error) {
+          refusals.push(error.message);
+        }
+        if (seal.attestation?.kind === 'sigstore-github-oidc' && seal.attestation?.eligibleForProductClaim === true &&
+            seal.attestation.certificateIssuer === CONFIRMATORY_SIGSTORE_ISSUER &&
+            seal.attestation.certificateIdentityURI === CONFIRMATORY_SIGSTORE_IDENTITY &&
+            seal.attestation.identity === CONFIRMATORY_SIGSTORE_IDENTITY) {
           try {
             const subjectPath = resolveSealedFile(root, seal.attestation.subjectPath, 'Sigstore subject');
             const bundlePath = resolveSealedFile(root, seal.attestation.bundlePath, 'Sigstore bundle');
@@ -942,8 +1111,8 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
   return record;
 }
 
-export function loadVerifiedRecords(bundleDir, runsDir) {
-  const bundle = verifyBundle(bundleDir, { requireSealed: true });
+export function loadVerifiedRecords(bundleDir, runsDir, { verifyHostArtifacts = true } = {}) {
+  const bundle = verifyBundle(bundleDir, { requireSealed: true, verifyHostArtifacts });
   if (!bundle.ok) throw new Error(`bundle verification refused:\n${bundle.refusals.map((item) => `- ${item}`).join('\n')}`);
   const runsRoot = resolve(runsDir);
   const terminalFiles = [];

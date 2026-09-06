@@ -4,7 +4,23 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { expectedSeal, fileArtifact, hashTree, sha256Bytes, sha256Json, verifyBundle, verifyTerminalRecord } from './lib/model-evaluation.mjs';
+import {
+  CONFIRMATORY_SIGSTORE_IDENTITY,
+  CONFIRMATORY_SIGSTORE_ISSUER,
+  canonicalJson,
+  expectedSeal,
+  fileArtifact,
+  hashTree,
+  loadVerifiedRecords,
+  regenerateAssignments,
+  sha256Bytes,
+  sha256Json,
+  validateCapabilityCanaryAttestation,
+  validateConfirmatorySealSigner,
+  verifyBundle,
+  verifyCapabilityQualificationReplay,
+  verifyTerminalRecord,
+} from './lib/model-evaluation.mjs';
 
 if (process.platform !== 'darwin') {
   process.stderr.write('controller self-test requires the same macOS sandbox-exec driver as the accelerated pilot\n');
@@ -17,7 +33,7 @@ const fixtureClient = join(scratch, 'fixture-client.mjs');
 copyFileSync(join(root, 'scripts', 'fixtures', 'model-evaluation-fake-client.mjs'), fixtureClient);
 chmodSync(fixtureClient, 0o755);
 
-function startFakeOllama(name, { flipDigestAfterFirstTags = false, omitActiveModel = false, serveToolLoop = false } = {}) {
+function startFakeOllama(name, { flipDigestAfterFirstTags = false, omitActiveModel = false, serveToolLoop = false, qualificationEdit = false } = {}) {
   const serverPath = join(scratch, `${name}-ollama-server.mjs`);
   const portPath = join(scratch, `${name}-ollama-port.txt`);
   const modelDigest = sha256Bytes(`${name}-model`);
@@ -31,12 +47,14 @@ const changed=${JSON.stringify(changedDigest)};
 const flip=${JSON.stringify(flipDigestAfterFirstTags)};
 const omit=${JSON.stringify(omitActiveModel)};
 const serveToolLoop=${JSON.stringify(serveToolLoop)};
+const qualificationEdit=${JSON.stringify(qualificationEdit)};
+const qualificationCommand=${JSON.stringify("require('node:fs').writeFileSync('src/service.mjs', \"import { callProvider } from './gateway.mjs';\\nexport async function summarize(name) { return callProvider(String(name).trim()); }\\n\")")};
 const response=(res,value)=>{res.setHeader('content-type','application/json');res.end(JSON.stringify(value))};
 const server=http.createServer((req,res)=>{
   if(req.url==='/api/version')return response(res,{version:'0.20.6-fixture'});
   if(req.url==='/api/tags'){const digest=flip&&tags++>0?changed:expected;return response(res,{models:[{name:model,model,digest,size:20201253829}]});}
   if(req.url==='/api/ps'){const digest=flip&&tags>1?changed:expected;return response(res,{models:omit?[]:[{name:model,model,digest,size:31232580640,size_vram:17179869184,context_length:40960}]});}
-  if(req.url==='/api/chat'&&serveToolLoop){const chunks=[];req.on('data',chunk=>chunks.push(chunk));req.on('end',()=>{const body=JSON.parse(Buffer.concat(chunks).toString());const turn=body.messages.filter(message=>message.role==='assistant').length+1;const hasGate=body.tools.some(tool=>tool.function?.name==='run_gate');let message;if(turn===1)message={role:'assistant',content:'',tool_calls:[{function:{name:'exec',arguments:{argv:['node','-e',\"process.stdout.write('broker-ok')\"]}}}]};else if(turn===2&&hasGate)message={role:'assistant',content:'',tool_calls:[{function:{name:'run_gate',arguments:{}}}]};else message={role:'assistant',content:'done'};response(res,{model,message,prompt_eval_count:7,eval_count:3})});return;}
+  if(req.url==='/api/chat'&&serveToolLoop){const chunks=[];req.on('data',chunk=>chunks.push(chunk));req.on('end',()=>{const body=JSON.parse(Buffer.concat(chunks).toString());const turn=body.messages.filter(message=>message.role==='assistant').length+1;const hasGate=body.tools.some(tool=>tool.function?.name==='run_gate');let message;if(turn===1)message={role:'assistant',content:'',tool_calls:[{function:{name:'exec',arguments:{argv:['node','-e',qualificationEdit?qualificationCommand:\"process.stdout.write('broker-ok')\"]}}}]};else if(turn===2&&hasGate)message={role:'assistant',content:'',tool_calls:[{function:{name:'run_gate',arguments:{}}}]};else message={role:'assistant',content:'done'};response(res,{model,message,prompt_eval_count:7,eval_count:3})});return;}
   res.statusCode=404;response(res,{error:'not found'});
 });
 server.listen(0,'127.0.0.1',()=>fs.writeFileSync(${JSON.stringify(portPath)},String(server.address().port)));
@@ -238,6 +256,47 @@ function prepareReferenceClientBundle(name, provider) {
     sealedAt: '2026-09-05T00:00:00.000Z', entries: expected.entries, rootSha256: expected.rootSha256,
     publicTimestamp: 'https://example.invalid/synthetic-reference-client-controller-self-test',
     attestation: { kind: 'synthetic-self-test', subjectRootSha256: expected.rootSha256, uri: 'https://example.invalid/synthetic-reference-client-controller-self-test', identity: 'controller-self-test', eligibleForProductClaim: false },
+  }, null, 2)}\n`);
+  return prepared;
+}
+
+function prepareQualificationReplayBundle(name, provider) {
+  const prepared = prepareReferenceClientBundle(name, provider);
+  const protocolPath = join(prepared.bundle, 'protocol.v2.json');
+  const manifestPath = join(prepared.bundle, 'task-manifest.json');
+  const protocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const task = manifest.tasks.find((entry) => entry.id === 'boundary-repair');
+  const repository = manifest.repositories.find((entry) => entry.id === task.repositoryId);
+  protocol.claimScope = 'sacrificial-apparatus-capability-only-no-product-efficacy-cost-latency-safety-or-adoption-claim';
+  protocol.matrix = {
+    clientModelCells: 1,
+    repositories: 1,
+    tasksPerRepository: 1,
+    taskTypes: ['repair'],
+    trialsPerArmPerCell: 1,
+    totalRandomizedTrials: 2,
+    exactCartesianPairing: true,
+  };
+  manifest.repositories = [{ ...repository, sourceUrl: 'generated-sacrificial-capability-fixture' }];
+  manifest.tasks = [{
+    ...task,
+    constraintClass: 'apparatus-capability',
+    provenance: {
+      ...task.provenance,
+      source: 'dedicated sacrificial apparatus fixture',
+      selectionRule: 'fixed capability proof unrelated to evaluation tasks',
+    },
+  }];
+  Object.assign(manifest, regenerateAssignments(protocol, manifest));
+  writeFileSync(protocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const expected = expectedSeal(prepared.bundle, protocol, manifest);
+  writeFileSync(join(prepared.bundle, 'seal.json'), `${JSON.stringify({
+    schemaVersion: '1', studyId: protocol.studyId, status: 'sealed-before-first-trial',
+    sealedAt: '2026-09-05T00:00:00.000Z', entries: expected.entries, rootSha256: expected.rootSha256,
+    publicTimestamp: 'https://example.invalid/synthetic-public-qualification-replay',
+    attestation: { kind: 'synthetic-self-test', subjectRootSha256: expected.rootSha256, uri: 'https://example.invalid/synthetic-public-qualification-replay', identity: 'controller-self-test', eligibleForProductClaim: false },
   }, null, 2)}\n`);
   return prepared;
 }
@@ -478,6 +537,7 @@ function verifyReferenceCanaryBinding() {
     if (!accepted.ok) throw new Error(`valid sealed reference canary binding was refused: ${accepted.refusals.join('; ')}`);
 
     protocol.phase = 'confirmatory';
+    protocol.treatment.artifactProvenance.publishedPackageByteMatch = true;
     manifest.phase = 'confirmatory';
     for (const repository of manifest.repositories) repository.developmentExposed = false;
     for (const task of manifest.tasks) {
@@ -490,9 +550,9 @@ function verifyReferenceCanaryBinding() {
     }
     writeFileSync(protocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    const confirmatoryCandidate = verifyBundle(bundle, { requireSealed: false });
-    if (!confirmatoryCandidate.ok) {
-      throw new Error(`qualified first-party local confirmatory candidate was refused: ${confirmatoryCandidate.refusals.join('; ')}`);
+    const legacyConfirmatoryCandidate = verifyBundle(bundle, { requireSealed: false });
+    if (legacyConfirmatoryCandidate.ok || !legacyConfirmatoryCandidate.refusals.some((message) => message.includes('confirmatory qualification requires a v2 attestation'))) {
+      throw new Error('confirmatory verifier accepted a boolean-only v1 capability attestation');
     }
 
     const referenceClient = cell.client;
@@ -521,6 +581,168 @@ function verifyReferenceCanaryBinding() {
     }
   } finally {
     stopFakeOllama(server);
+  }
+}
+
+function verifyConfirmatoryQualificationReplay() {
+  const server = startFakeOllama('confirmatory-qualification-replay', { serveToolLoop: true, qualificationEdit: true });
+  try {
+    const { bundle, runs } = prepareQualificationReplayBundle('confirmatory-qualification-replay', server.provider);
+    const executed = spawnSync(process.execPath, [
+      'scripts/run-model-evaluation.mjs', '--bundle', bundle, '--runs', runs, '--execute-sealed-study',
+    ], { cwd: root, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 300000 });
+    if (executed.status !== 0) throw new Error(`qualification replay fixture failed:\n${executed.stdout}\n${executed.stderr}`);
+    const replay = loadVerifiedRecords(bundle, runs);
+    if (replay.records.length !== 2 || replay.records.some((record) => record.derived.safeSuccessfulCompletion !== true)) {
+      throw new Error('qualification replay fixture did not retain two safe successful attempts');
+    }
+
+    const publicationRoot = join(scratch, 'qualification-publication');
+    const publicBundle = join(publicationRoot, 'artifacts', 'qualification', 'bundle');
+    const publicRuns = join(publicationRoot, 'artifacts', 'qualification', 'runs');
+    mkdirSync(join(publicationRoot, 'artifacts', 'qualification'), { recursive: true });
+    cpSync(bundle, publicBundle, { recursive: true });
+    cpSync(runs, publicRuns, { recursive: true });
+    const terminalBytes = Buffer.from(`${replay.records.map((record) => canonicalJson(record)).join('\n')}\n`);
+    const terminalPath = join(publicationRoot, 'artifacts', 'qualification', 'terminal-records.jsonl');
+    writeFileSync(terminalPath, terminalBytes);
+    const ledgerPath = join(publicRuns, 'ledger.jsonl');
+    const ledgerBytes = readFileSync(ledgerPath);
+    const ledger = ledgerBytes.toString('utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const protocol = JSON.parse(readFileSync(join(publicBundle, 'protocol.v2.json'), 'utf8'));
+    const manifest = JSON.parse(readFileSync(join(publicBundle, 'task-manifest.json'), 'utf8'));
+    const seal = JSON.parse(readFileSync(join(publicBundle, 'seal.json'), 'utf8'));
+    const cell = protocol.clientModelCells[0];
+    const observations = replay.records.map((record) => ({
+      trialId: record.trialId,
+      arm: record.assignment.arm,
+      status: record.status,
+      recordSha256: record.recordSha256,
+      successfulCommands: 1,
+      exactAllowedFileEdit: true,
+      telemetryUsable: true,
+      toolRouterErrors: 0,
+      bceMcpRunGate: record.assignment.arm === 'bce-enabled' ? true : null,
+      bceLastVerifiedVerdict: record.assignment.arm === 'bce-enabled' ? 'pass' : null,
+      clientEventChainVerified: true,
+      execBrokerControllerVerified: true,
+      providerIdentityStable: true,
+      safeSuccessfulCompletion: true,
+    }));
+    const requirements = [
+      'retained-sealed-fixture-bundle', 'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm',
+      'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm',
+      'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest',
+      'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass',
+      'sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm',
+      'public-replayable-sealed-fixture-terminal-records-and-ledger',
+    ];
+    const attestation = {
+      schemaVersion: '2', kind: 'sacrificial-live-capability-canary', eligibleForEvaluationEvidence: false, eligibleForProductClaim: false,
+      studyId: protocol.studyId, ranAt: '2026-09-05T00:00:00.000Z',
+      sourceCommit: protocol.treatment.artifactProvenance.sourceCommit,
+      sourceTreeState: protocol.treatment.artifactProvenance.sourceTreeState,
+      qualified: true,
+      exactCell: {
+        client: cell.client, clientVersion: cell.clientVersion, clientArtifactSha256: cell.clientArtifactSha256,
+        reasoningEffort: cell.reasoningEffort, requestedModel: cell.requestedModel, resolvedModel: cell.resolvedModel,
+        provider: cell.localProvider, runtimeVersion: protocol.isolation.runtimeVersion,
+        runtimeArtifactSha256: protocol.isolation.runtimeArtifactSha256,
+        controllerSha256: protocol.implementation.runnerSha256, implementation: protocol.implementation,
+        treatmentArtifactSha256: protocol.treatment.engineArtifactSha256,
+        treatmentInstalledTreeSha256: protocol.treatment.installedTreeSha256,
+        toolLoop: { ...cell.toolLoop, qualificationAttestation: null },
+      },
+      requirements,
+      observations,
+      refusalReasons: [],
+      restrictedEvidence: { retained: true, bundleRetained: true, pathPublished: false, ledgerHeadSha256: ledger.at(-1).entrySha256 },
+      publicReplay: {
+        published: true,
+        bundlePath: 'artifacts/qualification/bundle',
+        runsPath: 'artifacts/qualification/runs',
+        terminalRecordsPath: 'artifacts/qualification/terminal-records.jsonl',
+        ledgerPath: 'artifacts/qualification/runs/ledger.jsonl',
+        protocolSha256: sha256Bytes(readFileSync(join(publicBundle, 'protocol.v2.json'))),
+        manifestSha256: sha256Bytes(readFileSync(join(publicBundle, 'task-manifest.json'))),
+        sealRootSha256: seal.rootSha256,
+        terminalRecordsSha256: sha256Bytes(terminalBytes),
+        ledgerSha256: sha256Bytes(ledgerBytes),
+        ledgerHeadSha256: ledger.at(-1).entrySha256,
+        recordCount: 2,
+      },
+      canaryRunnerSha256: protocol.implementation.canaryRunnerSha256,
+      sealedFixtureProtocolSha256: sha256Bytes(readFileSync(join(publicBundle, 'protocol.v2.json'))),
+      sealedFixtureManifestSha256: sha256Bytes(readFileSync(join(publicBundle, 'task-manifest.json'))),
+      sealedFixtureRootSha256: seal.rootSha256,
+      attestationSha256: null,
+    };
+    attestation.attestationSha256 = sha256Json(attestation);
+    const schemaPath = join(root, 'research', 'model-evaluation', 'schemas', 'capability-canary-attestation.schema.json');
+    verifyCapabilityQualificationReplay(publicationRoot, attestation, schemaPath);
+
+    const expectReplayRefusal = (label, mutate, pattern) => {
+      const candidate = structuredClone(attestation);
+      mutate(candidate);
+      candidate.attestationSha256 = null;
+      candidate.attestationSha256 = sha256Json(candidate);
+      try {
+        verifyCapabilityQualificationReplay(publicationRoot, candidate, schemaPath);
+      } catch (error) {
+        if (pattern.test(error.message)) return;
+        throw new Error(`${label} was refused for the wrong reason: ${error.message}`);
+      }
+      throw new Error(`${label} was accepted`);
+    };
+    expectReplayRefusal('invented public replay digest', (candidate) => {
+      candidate.publicReplay.terminalRecordsSha256 = 'f'.repeat(64);
+    }, /terminal records do not match/);
+    expectReplayRefusal('self-rehashed invented qualification boolean', (candidate) => {
+      candidate.observations[0].safeSuccessfulCompletion = false;
+    }, /observations do not rederive/);
+
+    const legacy = structuredClone(attestation);
+    legacy.schemaVersion = '1';
+    delete legacy.publicReplay;
+    legacy.requirements = legacy.requirements.filter((requirement) => requirement !== 'public-replayable-sealed-fixture-terminal-records-and-ledger');
+    legacy.attestationSha256 = null;
+    legacy.attestationSha256 = sha256Json(legacy);
+    validateCapabilityCanaryAttestation(legacy, schemaPath);
+    try {
+      verifyCapabilityQualificationReplay(publicationRoot, legacy, schemaPath);
+      throw new Error('v1 boolean-only qualification was accepted for confirmatory use');
+    } catch (error) {
+      if (!/confirmatory qualification requires a v2 attestation/.test(error.message)) throw error;
+    }
+
+    const exactSigner = {
+      kind: 'sigstore-github-oidc', eligibleForProductClaim: true,
+      certificateIssuer: CONFIRMATORY_SIGSTORE_ISSUER,
+      certificateIdentityURI: CONFIRMATORY_SIGSTORE_IDENTITY,
+      identity: CONFIRMATORY_SIGSTORE_IDENTITY,
+    };
+    validateConfirmatorySealSigner(exactSigner);
+    try {
+      validateConfirmatorySealSigner({ ...exactSigner, certificateIdentityURI: 'https://example.invalid/arbitrary-workflow', identity: 'https://example.invalid/arbitrary-workflow' });
+      throw new Error('arbitrary HTTPS confirmatory signer was accepted');
+    } catch (error) {
+      if (!/confirmatory seal requires exact signer/.test(error.message)) throw error;
+    }
+  } finally {
+    stopFakeOllama(server);
+  }
+}
+
+function verifyConfirmatoryPublishedPackageBinding() {
+  const { bundle } = prepareBundle('confirmatory-published-package-binding');
+  const protocolPath = join(bundle, 'protocol.v2.json');
+  const protocol = JSON.parse(readFileSync(protocolPath, 'utf8'));
+  protocol.phase = 'confirmatory';
+  protocol.treatment.artifactProvenance.publishedPackageByteMatch = null;
+  writeFileSync(protocolPath, `${JSON.stringify(protocol, null, 2)}\n`);
+  const refused = verifyBundle(bundle, { requireSealed: false, verifyHostArtifacts: false });
+  if (refused.ok || !refused.refusals.includes('confirmatory treatment must prove an exact published-package byte match')) {
+    throw new Error('confirmatory bundle without an exact published-package byte match was accepted');
   }
 }
 
@@ -716,9 +938,11 @@ executeCredentialRetirement();
 executeLocalProviderIsolation();
 executeReferenceClientBrokerIsolation();
 verifyReferenceCanaryBinding();
+verifyConfirmatoryQualificationReplay();
+verifyConfirmatoryPublishedPackageBinding();
 executeSymlinkReplayRefusal();
 executeProviderIdentityDriftRefusal();
 executeMissingActiveProviderRefusal();
 executeFirstClassSafetyHalt();
-process.stdout.write('model-evaluation controller self-test: PASS (registered fsync-backed run + checkpoint chain; arm-blind evaluator; exact replay bytes; outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable; first-party typed exec broker denied provider/external network, forks, oracle reads, protected writes, and toolchain writes with bijective controller evidence; allowed-path symlink replay refused before oracles; provider digest drift and missing-active failures retained without erasing policy evidence; pre-trigger, replayed, and tampered safety-halt states fail closed; first-class halt exits 3; checkpoint fork and aggregate tamper refused; pilot recommendation impossible)\n');
+process.stdout.write('model-evaluation controller self-test: PASS (registered fsync-backed run + checkpoint chain; arm-blind evaluator; exact replay bytes; outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable; first-party typed exec broker denied provider/external network, forks, oracle reads, protected writes, and toolchain writes with bijective controller evidence; public qualification replay rederived both arms and refused invented digest/boolean, legacy v1 confirmatory use, arbitrary signer, and missing package-byte match; allowed-path symlink replay refused before oracles; provider digest drift and missing-active failures retained without erasing policy evidence; pre-trigger, replayed, and tampered safety-halt states fail closed; first-class halt exits 3; checkpoint fork and aggregate tamper refused; pilot recommendation impossible)\n');
 rmSync(scratch, { recursive: true, force: true });

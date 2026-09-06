@@ -3,6 +3,35 @@
   "title": "BCE model-evaluation pre-run seal",
   "type": "object",
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "attestation": {
+            "type": "object",
+            "required": ["kind"],
+            "properties": { "kind": { "const": "sigstore-github-oidc" } }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "attestation": {
+            "type": "object",
+            "required": ["bundlePath", "subjectPath", "certificateIssuer", "certificateIdentityURI"],
+            "properties": {
+              "bundlePath": {},
+              "subjectPath": {},
+              "certificateIssuer": { "const": "https://token.actions.githubusercontent.com" },
+              "certificateIdentityURI": { "const": "https://github.com/blueprint-conformance/bce/.github/workflows/model-evaluation-confirmatory-seal.yml@refs/heads/main" },
+              "identity": { "const": "https://github.com/blueprint-conformance/bce/.github/workflows/model-evaluation-confirmatory-seal.yml@refs/heads/main" },
+              "eligibleForProductClaim": { "const": true }
+            }
+          }
+        }
+      }
+    }
+  ],
   "required": ["schemaVersion", "studyId", "status", "sealedAt", "entries", "rootSha256", "publicTimestamp", "attestation"],
   "properties": {
     "schemaVersion": { "const": "1" },
@@ -40,8 +69,8 @@
             ,"gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
             ,"bundlePath": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+" }
             ,"subjectPath": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+" }
-            ,"certificateIssuer": { "type": "string", "pattern": "^https://" }
-            ,"certificateIdentityURI": { "type": "string", "pattern": "^https://" }
+            ,"certificateIssuer": { "const": "https://token.actions.githubusercontent.com" }
+            ,"certificateIdentityURI": { "const": "https://github.com/blueprint-conformance/bce/.github/workflows/model-evaluation-confirmatory-seal.yml@refs/heads/main" }
           }
         }
       ]
