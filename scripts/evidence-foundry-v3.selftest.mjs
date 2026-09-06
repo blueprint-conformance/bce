@@ -346,6 +346,34 @@ const anchorOutsideActions = spawnSync(process.execPath, [anchorCli,
 ], { cwd: root, encoding: 'utf8', env: { ...process.env, GITHUB_ACTIONS: 'false' } });
 assert.equal(anchorOutsideActions.status, 2);
 assert.match(anchorOutsideActions.stderr, /only by an identified blueprint-conformance\/bce GitHub Actions run/);
+const anchorOutsideRoot = mkdtempSync('/tmp/bce-result-anchor-outside-');
+const anchorHarnessName = `.canary-publication-selftest-anchor-${process.pid}`;
+const anchorHarness = join(root, anchorHarnessName);
+const anchorSymlink = join(anchorHarness, 'linked-parent');
+try {
+  mkdirSync(anchorHarness);
+  symlinkSync(anchorOutsideRoot, anchorSymlink, 'dir');
+  const symlinkOutput = spawnSync(process.execPath, [anchorCli,
+    '--stage', 'primary-confirmatory', '--out', `${anchorHarnessName}/linked-parent/anchor.json`,
+  ], {
+    cwd: root,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GITHUB_ACTIONS: 'true',
+      GITHUB_REPOSITORY: 'blueprint-conformance/bce',
+      GITHUB_RUN_ID: '1',
+      GITHUB_RUN_ATTEMPT: '1',
+      GITHUB_SHA: '1'.repeat(40),
+    },
+  });
+  assert.equal(symlinkOutput.status, 2, symlinkOutput.stderr || symlinkOutput.stdout);
+  assert.match(symlinkOutput.stderr, /output parent traverses a symbolic link/);
+  assert.equal(existsSync(join(anchorOutsideRoot, 'anchor.json')), false);
+} finally {
+  rmSync(anchorHarness, { recursive: true, force: true });
+  rmSync(anchorOutsideRoot, { recursive: true, force: true });
+}
 
 const anchorWorkflow = readFileSync(resolve(root, '.github/workflows/evidence-foundry-anchor.yml'), 'utf8');
 assert.match(anchorWorkflow, /workflow_dispatch:/);

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   canonical,
@@ -33,6 +33,27 @@ if (process.env.GITHUB_ACTIONS !== 'true' || process.env.GITHUB_REPOSITORY !== '
 }
 if (!stageId || !outPath || isAbsolute(outPath) || outPath.includes('\\') || outPath.split('/').includes('..')) {
   refuse('usage: --stage STAGE --out REPOSITORY_RELATIVE_JSON');
+}
+const output = resolve(root, outPath);
+if (!output.startsWith(`${root}${sep}`) || relative(root, output).split(sep).includes('..')) {
+  refuse('output escapes the repository');
+}
+try {
+  const parent = dirname(output);
+  const parentRelative = relative(root, parent);
+  let cursor = root;
+  for (const segment of parentRelative === '' ? [] : parentRelative.split(sep)) {
+    cursor = resolve(cursor, segment);
+    const stat = lstatSync(cursor);
+    if (stat.isSymbolicLink()) refuse(`output parent traverses a symbolic link: ${relative(root, cursor)}`);
+    if (!stat.isDirectory()) refuse(`output parent is not a directory: ${relative(root, cursor)}`);
+  }
+  const canonicalParent = realpathSync(parent);
+  if (canonicalParent !== root && !canonicalParent.startsWith(`${root}${sep}`)) {
+    refuse('output parent resolves outside the repository');
+  }
+} catch (error) {
+  refuse(`output parent is not a contained existing directory: ${error.message}`);
 }
 
 try {
@@ -86,8 +107,6 @@ try {
     anchorSha256: null,
   };
   anchor.anchorSha256 = sha256Bytes(JSON.stringify(canonical(anchor)));
-  const output = resolve(root, outPath);
-  if (!output.startsWith(`${root}${sep}`) || relative(root, output).split(sep).includes('..')) refuse('output escapes the repository');
   writeFileSync(output, `${JSON.stringify(anchor, null, 2)}\n`, { flag: 'wx' });
   process.stdout.write(`${JSON.stringify({ output: relative(root, output).split(sep).join('/'), anchorSha256: sha256Bytes(readFileSync(output)) })}\n`);
 } catch (error) {
