@@ -1917,6 +1917,241 @@
                 "files"
               ],
               "type": "object"
+            },
+            "sourceProof": {
+              "additionalProperties": false,
+              "properties": {
+                "blueprintDigest": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "cases": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "allowedCollateralConstraints": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "constraintId": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "expectedEvidencePath": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "graph": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "components": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "id": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "line": {
+                                  "exclusiveMinimum": 0,
+                                  "type": "integer"
+                                },
+                                "path": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "type",
+                                "path",
+                                "line"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "coverage": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "extractor": {
+                                "enum": [
+                                  "ast",
+                                  "line-scan"
+                                ],
+                                "type": "string"
+                              },
+                              "filesScanned": {
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "patternScan": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "hits": {
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "file": {
+                                          "minLength": 1,
+                                          "type": "string"
+                                        },
+                                        "line": {
+                                          "exclusiveMinimum": 0,
+                                          "type": "integer"
+                                        },
+                                        "pattern": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "pattern",
+                                        "file",
+                                        "line"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "type": "array"
+                                  },
+                                  "patterns": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "required": [
+                                  "patterns",
+                                  "hits"
+                                ],
+                                "type": "object"
+                              },
+                              "scannedFiles": {
+                                "items": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "unresolvedEgress": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "callee": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    },
+                                    "ref": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "callee",
+                                    "ref"
+                                  ],
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "unsupported": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "extractor",
+                              "filesScanned",
+                              "unsupported"
+                            ],
+                            "type": "object"
+                          },
+                          "ctRepoRevision": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "guardEdges": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "evidenceRef": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "from": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "to": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "from",
+                                "to",
+                                "type",
+                                "evidenceRef"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "schemaVersion": {
+                            "const": "1",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "schemaVersion",
+                          "ctRepoRevision",
+                          "components",
+                          "guardEdges",
+                          "coverage"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "constraintId",
+                      "expectedEvidencePath",
+                      "allowedCollateralConstraints",
+                      "graph"
+                    ],
+                    "type": "object"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "manifestJson": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "sourceTreeDigest": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "blueprintDigest",
+                "sourceTreeDigest",
+                "manifestJson",
+                "cases"
+              ],
+              "type": "object"
             }
           },
           "required": [

@@ -85,12 +85,14 @@ export function renderReviewPacketText(input: BlueprintReviewPacket, decisionInp
     '',
     `Approval: ${packet.approval.status.toUpperCase()}`,
     ...bullet(packet.approval.blockers),
+    ...(packet.artifacts.sourceProof ? ['Source proof: observed mutant graphs replay offline; authenticated landing re-executes source mutations.'] : []),
     'Approval requirements',
     ...bullet(packet.approval.requirements.map((requirement) => `${requirement.role} / ${requirement.stage}`)),
     '',
     'Human decision',
     ...(decision ? [
       `  ${decision.decision.toUpperCase()} by ${line(decision.reviewer.id)} at ${line(decision.decidedAt)}`,
+      `  Review mode: ${decision.reviewer.authentication.reviewMode ?? 'non-author-reviewed'}`,
       `  Decision: sha256:${decision.decisionDigest}`,
       `  Authentication: ${line(decision.reviewer.authentication.method)} / ${line(decision.reviewer.authentication.subject)}`,
       `  Weakening accepted: ${decision.weakeningAccepted ? 'yes' : 'no'}`,
@@ -157,7 +159,7 @@ export function renderReviewPacketHtml(input: BlueprintReviewPacket, decisionInp
   <section><h2>Current conformance and proof</h2><p>${escapeHtml(`${packet.conformance.verdict.toUpperCase()} / ${packet.conformance.score} / ${packet.conformance.violations.length} violation(s)`)}</p><p>${escapeHtml(`${packet.proof.verdict} — ${packet.proof.summary}`)}</p></section>
   <section><h2>Clauses</h2>${clauses}</section>
   <section class="status ${packet.approval.status}"><h2>Approval: ${escapeHtml(packet.approval.status.toUpperCase())}</h2>${htmlList(packet.approval.blockers)}<h3>Requirements</h3>${htmlList(packet.approval.requirements.map((requirement) => `${requirement.role} / ${requirement.stage}`))}<p>Eligibility is not approval. Live freshness and SCM authority must be rechecked at decision and landing time.</p></section>
-  <section><h2>Human decision</h2>${decision ? `<p><strong>${escapeHtml(decision.decision.toUpperCase())}</strong> by ${escapeHtml(decision.reviewer.id)} at ${escapeHtml(decision.decidedAt)}</p><p>Decision <code>sha256:${decision.decisionDigest}</code><br>Authentication ${escapeHtml(`${decision.reviewer.authentication.method} / ${decision.reviewer.authentication.subject}`)}<br>Weakening accepted: ${decision.weakeningAccepted ? 'yes' : 'no'}<br><a href="${escapeHtml(decision.reviewer.authentication.reference)}">SCM evidence</a></p><p>${escapeHtml(decision.rationale)}</p>` : '<p>No DecisionRecord supplied; freshness and human authority remain unproven.</p>'}</section>
+  <section><h2>Human decision</h2>${decision ? `<p><strong>${escapeHtml(decision.decision.toUpperCase())}</strong> by ${escapeHtml(decision.reviewer.id)} at ${escapeHtml(decision.decidedAt)}</p><p>Decision <code>sha256:${decision.decisionDigest}</code><br>Review mode: ${escapeHtml(decision.reviewer.authentication.reviewMode ?? 'non-author-reviewed')}<br>Authentication ${escapeHtml(`${decision.reviewer.authentication.method} / ${decision.reviewer.authentication.subject}`)}<br>Weakening accepted: ${decision.weakeningAccepted ? 'yes' : 'no'}<br><a href="${escapeHtml(decision.reviewer.authentication.reference)}">SCM evidence</a></p><p>${escapeHtml(decision.rationale)}</p>` : '<p>No DecisionRecord supplied; freshness and human authority remain unproven.</p>'}</section>
   <section><h2>Unsupported coverage</h2>${htmlList(packet.unsupportedCoverage)}</section>
   <details><summary>Canonical ReviewPacket JSON</summary><pre>${escapeHtml(canonical)}</pre></details>
 </main></body></html>

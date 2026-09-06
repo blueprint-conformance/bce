@@ -1,9 +1,13 @@
+import { buildProposalContext, prepareAuthoredDraft, buildReviewPacket, verifyReviewPacket } from '../src/review.js';
+import { resolveExtraction } from '../src/extractors.js';
+import { makeExtractor } from '../src/extractor-registry.js';
+import { REVIEW_IDENTITY_FIXTURE } from './review-fixture.js';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { assessExtractorTeethCorpus } from '../src/extractor-teeth.js';
+import { assessExtractorTeethCorpus, buildSourceReviewProof } from '../src/extractor-teeth.js';
 import { parseBlueprint, type EngineeringBlueprint } from '../src/schema.js';
 
 const sha = (value: string): string => createHash('sha256').update(value).digest('hex');
@@ -128,4 +132,50 @@ describe('extractor-real source mutation teeth', () => {
     linked.cases[0]!.operation.target = 'src/linked.ts';
     expect(assessExtractorTeethCorpus({ repoDir: repo, blueprint, manifest: linked }).cases[0]?.detail).toContain('symbolic link');
   });
+});
+
+describe('source proof in authenticated review packets', () => {
+  it('replays real mutant graphs and refuses surviving, stale, or counterfeit source proofs', () => {
+    const { repo, blueprint, manifest } = fixture();
+    const context = buildProposalContext({
+      repository: { identity: 'github.com/example/fixture', revision: 'revision-1', worktreeDigest: sha('tree') },
+      files: [{ path: 'src/index.ts', content: fs.readFileSync(path.join(repo, 'src/index.ts'), 'utf8') }],
+      humanIntent: 'Keep process ownership and parser imports inside their governed boundaries.',
+      authoritativeIntentRefs: [{ ref: 'test/extractor-teeth', content: 'Keep process ownership and parser imports inside their governed boundaries.' }],
+      excluded: { paths: [], classes: [] },
+    });
+    const proposal = prepareAuthoredDraft({ context, blueprint, proposalId: 'authored-source-proof' });
+    const cfg = resolveExtraction(blueprint.extraction, blueprint.constraints);
+    const graph = makeExtractor('ast', cfg).extract(repo, 'revision-1');
+    const args = { proposal, baseBlueprint: null, graph, ...REVIEW_IDENTITY_FIXTURE,
+      extractor: { ...REVIEW_IDENTITY_FIXTURE.extractor, profile: 'plugin-surface' as const },
+      repositoryPolicyDiff: { complete: true, baseRef: 'main', baseHeadRevision: 'base-1', baseRevision: 'base-1', files: [] },
+    };
+    expect(buildReviewPacket(args).approval.status).toBe('blocked');
+    const sourceProof = buildSourceReviewProof(repo, proposal.candidate, manifest)!;
+    const packet = buildReviewPacket({ ...args, sourceProof });
+    expect(packet.approval.status).toBe('eligible');
+    expect(verifyReviewPacket(packet).valid).toBe(true);
+    const forged = structuredClone(sourceProof);
+    forged.cases[0]!.graph = graph;
+    expect(() => buildReviewPacket({ ...args, sourceProof: forged })).toThrow(/mutant does not replay/);
+    const missing = { ...sourceProof, cases: sourceProof.cases.slice(1) };
+    expect(() => buildReviewPacket({ ...args, sourceProof: missing })).toThrow(/exactly once/);
+    fs.appendFileSync(path.join(repo, 'src/index.ts'), '\nexport const changed = 2;\n');
+    expect(() => buildSourceReviewProof(repo, proposal.candidate, manifest)).toThrow(/source proof refused/);
+  });
+});
+
+it('binds forbidden-file mutants to the exact file evidence without inventing a line number', () => {
+  const { repo, blueprint } = fixture();
+  const fileBlueprint = parseBlueprint({ ...blueprint, extraction: { ...blueprint.extraction, paths: ['src/**'] }, constraints: [
+    { id: 'no-pem', type: 'forbiddenFile', path: 'src/**/*.pem', severity: 'critical' },
+  ] });
+  const manifest = { schemaVersion: '1', blueprintRef: 'extractor-teeth-fixture@1.0.0', allowedMutationRoots: ['src'],
+    cases: [{ id: 'plant-pem-file', constraintId: 'no-pem', expectedEvidencePath: 'src/fixture.pem',
+      operation: { kind: 'createFile', target: 'src/fixture.pem', preconditionSha256: null, content: 'inert fixture' } }],
+  };
+  expect(assessExtractorTeethCorpus({ repoDir: repo, blueprint: fileBlueprint, manifest }).verdict).toBe('extractor-real-proven');
+  manifest.cases[0]!.expectedEvidencePath = 'src/different.pem';
+  expect(assessExtractorTeethCorpus({ repoDir: repo, blueprint: fileBlueprint, manifest }).verdict).toBe('refusal');
 });

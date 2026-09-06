@@ -8,6 +8,9 @@ import { makeExtractor } from './extractor-registry.js';
 import { assessTeeth } from './teeth.js';
 import { resolveMode } from './mode.js';
 import { readBaseline } from './baseline.js';
+import { assessExtractorTeethCorpus, discoverTeethManifest } from './extractor-teeth.js';
+import { auditAdoption } from './policy-history.js';
+import { parseSoloStewardPolicy } from './scm-review.js';
 
 export type DoctorCheckStatus = 'pass' | 'warning' | 'refusal';
 export interface DoctorCheck { id: string; status: DoctorCheckStatus; detail: string }
@@ -79,11 +82,13 @@ export function doctorRepository(repoDir: string, blueprintDir = path.join(repoD
         continue;
       }
       add(`blueprint/${bp.metadata.id}/scope`, 'pass', `${graph.coverage.filesScanned} file(s) in scope`);
+      const manifest = discoverTeethManifest(repoDir, bp);
+      const real = manifest === undefined ? undefined : assessExtractorTeethCorpus({ repoDir, blueprint: bp, manifest });
       const teeth = assessTeeth(bp, graph, cfg.profile);
       add(
         `blueprint/${bp.metadata.id}/proof`,
-        teeth.verdict === 'toothed' ? 'pass' : teeth.verdict === 'evaluator-refutable' ? 'warning' : 'refusal',
-        `${teeth.verdict}: ${teeth.toothed} extractor-real, ${teeth.evaluatorRefutable} evaluator-only`,
+        real ? (real.verdict === 'extractor-real-proven' ? 'pass' : 'refusal') : teeth.toothed === teeth.witnesses.length && teeth.toothed > 0 ? 'pass' : teeth.evaluatorRefutable > 0 && teeth.triviallyGreen === 0 && teeth.indeterminate === 0 ? 'warning' : 'refusal',
+        real ? `${real.verdict}: ${real.killed}/${real.constraints} source mutants killed` : `${teeth.verdict}: ${teeth.toothed} extractor-real, ${teeth.evaluatorRefutable} evaluator-only`,
       );
       if (bp.minEngineVersion && semverLt(engineVersion, bp.minEngineVersion)) {
         add(`blueprint/${bp.metadata.id}/engine-pin`, 'refusal', `requires >=${bp.minEngineVersion}, running ${engineVersion}`);
@@ -106,6 +111,16 @@ export function doctorRepository(repoDir: string, blueprintDir = path.join(repoD
     add('policy/baseline', 'refusal', (e as Error).message);
   }
 
+  try {
+    const detail = auditAdoption(repoDir);
+    add('policy/lifecycle', detail && !detail.includes('ratification pending') ? 'pass' : 'warning', detail ?? 'no adoption record; lifecycle history unestablished');
+    const governance = path.join(repoDir, '.bce-governance.json');
+    if (fs.existsSync(governance)) {
+      const policy = parseSoloStewardPolicy(JSON.parse(fs.readFileSync(governance, 'utf8')));
+      add('governance/ratification', 'pass', `solo-steward: github:user:${policy.steward.githubUserId}; self-ratified, no independent review claimed`);
+    }
+  } catch (e) { add('policy/lifecycle', 'refusal', (e as Error).message); }
+
   const codeowners = ['CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS'];
   add(
     'governance/codeowners',
@@ -119,7 +134,23 @@ export function doctorRepository(repoDir: string, blueprintDir = path.join(repoD
     : [];
   const workflowText = workflows.map((p) => fs.readFileSync(p, 'utf8')).join('\n');
   add('ci/gate', /bce(?:-engine)?|blueprint-conformance/.test(workflowText) ? 'pass' : 'warning', `${workflows.length} workflow file(s) inspected`);
-  add('ci/exact-pin', /bce-engine@\d+\.\d+\.\d+|blueprint-conformance\/bce@[0-9a-f]{40}/.test(workflowText) ? 'pass' : 'warning', 'CI should use an immutable engine or Action pin');
+  let exactPin = /bce-engine@\d+\.\d+\.\d+(?![\w.+-])|blueprint-conformance\/bce@[0-9a-f]{40}(?![0-9a-f])/.test(workflowText);
+  const pinPath = path.join(repoDir, '.engine-pin.json');
+  if (fs.existsSync(pinPath)) {
+    try {
+      const pin = JSON.parse(fs.readFileSync(pinPath, 'utf8')) as Record<string, unknown>;
+      if (pin.package !== 'bce-engine' || typeof pin.pin !== 'string' || !/^\d+\.\d+\.\d+$/.test(pin.pin) || pin.range !== false || pin.published !== true) {
+        throw new Error('engine pin must declare an exact published bce-engine version and range:false');
+      }
+      // Recognize the dynamic Lane-A contract only with its read + exact install + gate chain.
+      exactPin ||= workflows.some((file) => {
+        const text = fs.readFileSync(file, 'utf8').replace(/^\s*#.*$/gm, '');
+        return text.includes('.engine-pin.json') && /require\(process\.argv\[1\]\)\.pin/.test(text) &&
+          /npm install "\$\{pkg\}@\$\{pin\}"/.test(text) && /\$BCE gate --repo/.test(text);
+      });
+    } catch (e) { add('ci/engine-pin-config', 'refusal', (e as Error).message); }
+  }
+  add('ci/exact-pin', exactPin ? 'pass' : 'warning', 'CI should use an immutable engine or Action pin');
   add(
     'agents/instructions',
     hasTextFile(repoDir, ['AGENTS.md', 'CLAUDE.md', '.cursorrules', 'AGENTS.bce.md'], /bce gate|blueprint conformance/i) ? 'pass' : 'warning',

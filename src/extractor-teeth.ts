@@ -8,6 +8,8 @@ import { makeExtractor } from './extractor-registry.js';
 import { resolveExtraction, sourceSyntaxDiagnostics } from './extractors.js';
 import { evaluate, stableStringify } from './report.js';
 import type { EngineeringBlueprint } from './schema.js';
+import type { ArchitectureGraph } from './graph.js';
+import type { ReviewSourceProof } from './review-contracts.js';
 
 const Hex64 = z.string().regex(/^[0-9a-f]{64}$/);
 const RelativePath = z.string().min(1).refine(
@@ -126,7 +128,7 @@ function isUnderAllowedRoot(target: string, roots: readonly string[]): boolean {
 }
 
 const PROTECTED_PREFIXES = ['.blueprints', '.github', '.agents', '.codex', '.claude', '.cursor', 'tests', 'test', '__tests__', 'spec'];
-const PROTECTED_FILES = new Set(['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.mcp.json', '.bce-mode.json', '.bce-adoption.json', '.engine-pin.json']);
+const PROTECTED_FILES = new Set(['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.mcp.json', '.bce-mode.json', '.bce-adoption.json', '.bce-governance.json', '.engine-pin.json']);
 
 function mutationTarget(repo: string, manifest: TeethMutationManifest, target: string): string {
   if (!isUnderAllowedRoot(target, manifest.allowedMutationRoots)) throw new Error(`target '${target}' is outside allowedMutationRoots`);
@@ -214,6 +216,7 @@ export function assessExtractorTeethCorpus(input: {
   repoDir: string;
   manifest: unknown;
   extractor?: 'ast' | 'line-scan';
+  onMutation?: (constraintId: string, graph: ArchitectureGraph) => void;
 }): ExtractorTeethReport {
   const manifest = TeethMutationManifestSchema.parse(input.manifest);
   const extractorKind = input.extractor ?? 'ast';
@@ -247,9 +250,12 @@ export function assessExtractorTeethCorpus(input: {
       copySourceTree(input.repoDir, scratch, manifest.allowedMutationRoots);
       const mutation = applyOperation(scratch, manifest, testCase.operation);
       const mutatedGraph = extractor.extract(scratch, `extractor-teeth:${testCase.id}`);
+      input.onMutation?.(testCase.constraintId, mutatedGraph);
       const mutatedReport = evaluate(input.blueprint, mutatedGraph, cfg.profile);
       const targetViolations = mutatedReport.violations.filter((violation) => violation.constraintId === testCase.constraintId);
-      const exactEvidence = targetViolations.filter((violation) => violation.evidenceRef.startsWith(`${normalized(testCase.expectedEvidencePath)}#L`));
+      const exactEvidence = targetViolations.filter((violation) => targetConstraint.type === 'forbiddenFile'
+        ? violation.evidenceRef === normalized(testCase.expectedEvidencePath)
+        : violation.evidenceRef.startsWith(`${normalized(testCase.expectedEvidencePath)}#L`));
       const unexpected = [...new Set(mutatedReport.violations
         .map((violation) => violation.constraintId)
         .filter((id) => id !== testCase.constraintId && !testCase.allowedCollateralConstraints.includes(id)))].sort();
@@ -301,4 +307,40 @@ export function assessExtractorTeethCorpus(input: {
     verdict: proven ? 'extractor-real-proven' as const : 'refusal' as const,
   };
   return { ...body, proofSha256: sha256(stableStringify(body)) };
+}
+
+/** Discover an exact-ref committed source proof; never treat a stored success report as proof. */
+export function discoverTeethManifest(repoDir: string, blueprint: EngineeringBlueprint): unknown | undefined {
+  const directory = path.join(repoDir, '.blueprints');
+  if (!fs.existsSync(directory)) return undefined;
+  const matches: unknown[] = [];
+  for (const name of fs.readdirSync(directory).filter((name) => name.endsWith('.teeth-mutations.json'))) {
+    const file = path.join(directory, name);
+    if (fs.lstatSync(directory).isSymbolicLink() || fs.lstatSync(file).isSymbolicLink()) throw new Error('mutation manifest must not be a symbolic link');
+    const manifest = TeethMutationManifestSchema.parse(JSON.parse(fs.readFileSync(file, 'utf8')));
+    if (manifest.blueprintRef === `${blueprint.metadata.id}@${blueprint.metadata.version}`) matches.push(manifest);
+  }
+  if (matches.length > 1) throw new Error('multiple mutation manifests bind the same blueprint reference');
+  return matches[0];
+}
+
+/** Materialize every source mutation again; the returned graphs are for offline review replay. */
+export function buildSourceReviewProof(repoDir: string, blueprint: EngineeringBlueprint, suppliedManifest?: unknown): ReviewSourceProof | undefined {
+  const raw = suppliedManifest ?? discoverTeethManifest(repoDir, blueprint);
+  if (raw === undefined) return undefined;
+  const manifest = TeethMutationManifestSchema.parse(raw);
+  const graphs = new Map<string, ArchitectureGraph>();
+  const report = assessExtractorTeethCorpus({ repoDir, blueprint, manifest,
+    onMutation: (id, graph) => graphs.set(id, graph) });
+  if (report.verdict !== 'extractor-real-proven') throw new Error(`source proof refused: ${report.killed}/${report.constraints} mutants killed; ${report.cases.filter((item) => item.status !== 'killed').map((item) => item.detail).join('; ')}`);
+  return {
+    blueprintDigest: report.inputBindings.blueprintSha256,
+    sourceTreeDigest: report.inputBindings.sourceTreeSha256,
+    manifestJson: stableStringify(manifest),
+    cases: [...manifest.cases].sort((a, b) => a.constraintId.localeCompare(b.constraintId)).map((item) => ({
+      constraintId: item.constraintId, expectedEvidencePath: item.expectedEvidencePath,
+      allowedCollateralConstraints: item.allowedCollateralConstraints,
+      graph: graphs.get(item.constraintId)! as ReviewSourceProof['cases'][number]['graph'],
+    })),
+  };
 }

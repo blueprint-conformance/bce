@@ -35,8 +35,14 @@ jobs:
       - name: Install (clean, lockfile-exact)
         run: npm ci
 
+      - name: Project Agent Skills must match their canonical sources
+        run: node scripts/sync-self-agent-skills.mjs --check
+
       - name: Build the HEAD engine
         run: npm run build
+
+      - name: Exercise the actual project MCP configuration and live repository gate
+        run: node scripts/self-agent-proof.mjs
 
       # Negative control. Everything below asserts the engine gates its own tree —
       # the project's central claim — and none of it had ever been observed
@@ -78,14 +84,13 @@ jobs:
       - name: Teeth — all self-blueprint constraints bite real source through the production extractor
         run: npm run test:self-teeth-mutations
 
-      # Non-vacuity for the skill-standard too. Read this verdict knowing what it does NOT say:
-      # against this (clean) tree most of the standard's clauses are content patterns, so the probe
-      # can only flip them with synthetic evidence and honestly reports `evaluator-refutable` — the
-      # EVALUATOR can refute them, which is not the same as the constraint biting real extractor
-      # evidence. The substance proof is the seeded corpus in examples/skill-standard/, where the
-      # same blueprint reports 13/13 extractor-real; that run is asserted per-clause in
-      # tests/skill-standard.test.ts below. This step's job is narrower and still worth having:
-      # a TOOTHLESS skill-standard is exit 2 and fails the build.
+      # The skill standard carries its own digest-bound source manifest, including file-only
+      # evidence for forbidden files. Every clause must bite a separately materialized source copy.
+      - name: Skill-standard — every clause bites real source
+        run: |
+          node scripts/generate-skill-teeth-mutations.mjs --check
+          node dist/cli.js teeth --blueprint .blueprints/skill-standard.blueprint.json --ct-repo . --mutation-manifest .blueprints/skill-standard.teeth-mutations.json --require-all-extractor-real --out extractor-teeth-skill-standard.json
+
       - name: Teeth — non-vacuity proof over the skill-standard (toothless = exit 2)
         run: node dist/cli.js teeth --blueprint .blueprints/skill-standard.blueprint.json --ct-repo . --out teeth-skill-standard.json
 

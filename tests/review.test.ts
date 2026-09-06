@@ -1,3 +1,4 @@
+import { prepareAuthoredDraft } from '../src/review.js';
 import { describe, expect, it } from 'vitest';
 import {
   BlueprintDecisionRecordSchema,
@@ -96,7 +97,7 @@ describe('ProposalContext@1 and BlueprintDraftPlan@1', () => {
     expect(() => compileDraftPlan({ context: ctx, plan: duplicate, promptDigest: hex('p'), generationDigest: hex('g') })).toThrow(/duplicate constraint id/);
     const mismatchedId = structuredClone(plan(ctx));
     mismatchedId.proposalId = 'different-id';
-    expect(() => compileDraftPlan({ context: ctx, plan: mismatchedId, promptDigest: hex('p'), generationDigest: hex('g') })).toThrow(/must equal/);
+    expect(compileDraftPlan({ context: ctx, plan: mismatchedId, promptDigest: hex('p'), generationDigest: hex('g') }).candidate.metadata.id).toBe(mismatchedId.metadata.id);
   });
 
   it('adds the module-graph engine floor deterministically instead of relying on model memory', () => {
@@ -321,5 +322,16 @@ describe('BlueprintReviewPacket@1 and BlueprintDecisionRecord@1', () => {
       rationale: 'Resolve the ambiguous component change.',
       decidedAt: '2026-09-03T12:00:00.000Z',
     }).decision).toBe('request-changes');
+  });
+});
+
+describe('local authored review preparation', () => {
+  it('preserves the selected contract and makes local generation provenance explicit', () => {
+    const original = makeProposalFixture();
+    const prepared = prepareAuthoredDraft({ context: original.context, blueprint: original.candidate, proposalId: 'authored-review', candidateVersion: '0.2.0' });
+    expect(prepared.candidate).toEqual({ ...original.candidate, metadata: { ...original.candidate.metadata, version: '0.2.0' } });
+    expect(prepared.plan.knownBlindSpots.join(' ')).toContain('no model generation');
+    const packet = makeReviewFixture({ proposal: prepared }).packet;
+    expect(verifyReviewPacket(packet).valid).toBe(true);
   });
 });

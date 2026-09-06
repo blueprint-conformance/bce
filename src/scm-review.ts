@@ -18,6 +18,8 @@ export interface GitHubReviewSelector {
   repository: string;
   pullRequest: number;
   reviewId: number;
+  /** Explicit opt-in; the PR base must already authorize this steward. */
+  reviewMode?: 'self-ratified';
 }
 
 interface GitHubReview {
@@ -129,12 +131,14 @@ function reviewRationale(
   body: string,
   packet: BlueprintReviewPacket,
   decision: BlueprintDecisionRecord['decision'],
+  selfRatified = false,
 ): string {
   const expected = new Map([
     ['BCE-Review-Packet', `sha256:${packet.packetDigest}`],
     ['BCE-Candidate', `sha256:${packet.provenance.candidateDigest}`],
     ['BCE-Decision', decision],
   ]);
+  if (selfRatified) expected.set('BCE-Review-Mode', 'self-ratified');
   const requirement = packet.approval.requirements.length === 1 ? packet.approval.requirements[0]! : null;
   if (decision === 'approve' && packet.approval.requirements.length > 1) {
     throw new Error('one GitHub review cannot satisfy multiple blueprint approval requirements');
@@ -189,7 +193,10 @@ export async function authenticateGitHubDecision(
   const review = reviewRaw as GitHubReview;
   if (!Array.isArray(reviewsRaw)) throw new Error('GitHub review list response is malformed');
   const pull = pullRaw as GitHubPullRequest;
-  const expectedState = input.decision === 'approve' ? 'APPROVED' : 'CHANGES_REQUESTED';
+  const selfRatified = input.selector.reviewMode === 'self-ratified';
+  if (input.selector.reviewMode !== undefined && !selfRatified) throw new Error('unsupported review mode');
+  if (selfRatified && input.decision !== 'approve') throw new Error('self-ratified reviews only support approve decisions');
+  const expectedState = selfRatified ? 'COMMENTED' : input.decision === 'approve' ? 'APPROVED' : 'CHANGES_REQUESTED';
   if (review.id !== reviewId) throw new Error('GitHub returned a different review id');
   if (review.state !== expectedState) {
     throw new Error(`GitHub review state must be ${expectedState} for decision ${input.decision}`);
@@ -204,7 +211,8 @@ export async function authenticateGitHubDecision(
   if (typeof review.user?.login !== 'string' || typeof review.user.id !== 'number' || review.user.type !== 'User') {
     throw new Error('GitHub review has no authenticated user identity');
   }
-  if (pull.user?.id === review.user.id) throw new Error('pull-request authors cannot authenticate their own BCE decision');
+  if (!selfRatified && pull.user?.id === review.user.id) throw new Error('pull-request authors cannot authenticate their own BCE decision');
+  if (selfRatified && pull.user?.id !== review.user.id) throw new Error('self-ratification requires the authenticated PR author');
   const permission = await githubJson(
     fetchImpl,
     `${GITHUB_API_ORIGIN}/repos/${repository}/collaborators/${encodeURIComponent(review.user.login)}/permission`,
@@ -239,8 +247,24 @@ export async function authenticateGitHubDecision(
     throw new Error('GitHub review URL does not match the selected repository and pull request');
   }
   if (review.pull_request_url !== `${root}`) throw new Error('GitHub review does not belong to the selected pull request');
-  const rationale = reviewRationale(review.body, input.packet, input.decision);
+  let governanceDigest: string | undefined;
+  if (selfRatified) {
+    // Authority comes from the immutable PR base, never a candidate branch or a local flag.
+    const content = await githubJson(fetchImpl,
+      `${GITHUB_API_ORIGIN}/repos/${repository}/contents/.bce-governance.json?ref=${encodeURIComponent(String(pull.base.sha))}`,
+      token) as { type?: unknown; encoding?: unknown; content?: unknown };
+    if (content.type !== 'file' || content.encoding !== 'base64' || typeof content.content !== 'string') {
+      throw new Error('solo-steward governance must be a regular base-commit file');
+    }
+    const policy = parseSoloStewardPolicy(JSON.parse(Buffer.from(content.content, 'base64').toString('utf8')));
+    if (policy.steward.githubUserId !== review.user.id) {
+      throw new Error('authenticated PR author is not the base-authorized solo steward');
+    }
+    governanceDigest = reviewDigest(policy);
+  }
+  const rationale = reviewRationale(review.body, input.packet, input.decision, selfRatified);
   const assertion = {
+    ...(selfRatified ? { reviewMode: 'self-ratified', governanceDigest } : {}),
     provider: 'github',
     repository,
     pullRequest,
@@ -264,8 +288,9 @@ export async function authenticateGitHubDecision(
     packet: input.packet,
     decision: input.decision,
     reviewer: {
-      id: `${review.user.login} (${review.user.id})`,
+      id: selfRatified ? `github:user:${review.user.id}` : `${review.user.login} (${review.user.id})`,
       authentication: {
+        ...(selfRatified ? { reviewMode: 'self-ratified' as const } : {}),
         method: 'scm',
         issuer: 'https://github.com',
         subject: `github:user:${review.user.id}`,
@@ -288,4 +313,19 @@ export async function reauthenticateGitHubDecision(input: AuthenticateGitHubDeci
   if (stableStringify(fresh) !== stableStringify(input.savedDecision)) {
     throw new Error('saved decision does not reproduce from the current GitHub review assertion');
   }
+}
+
+/** Strict committed opt-in. Absence leaves the non-author approval default intact. */
+export function parseSoloStewardPolicy(value: unknown): {
+  schemaVersion: '1'; mode: 'solo-steward'; steward: { githubUserId: number };
+} {
+  const p = value as Record<string, unknown> | null;
+  if (!p || Array.isArray(p) || Object.keys(p).sort().join(',') !== 'mode,schemaVersion,steward' ||
+      p.schemaVersion !== '1' || p.mode !== 'solo-steward') throw new Error('invalid solo-steward governance policy');
+  const steward = p.steward as Record<string, unknown> | null;
+  if (!steward || Array.isArray(steward) || Object.keys(steward).join(',') !== 'githubUserId' ||
+      typeof steward.githubUserId !== 'number' || !Number.isSafeInteger(steward.githubUserId) || steward.githubUserId < 1) {
+    throw new Error('invalid solo-steward identity');
+  }
+  return { schemaVersion: '1', mode: 'solo-steward', steward: { githubUserId: steward.githubUserId } };
 }

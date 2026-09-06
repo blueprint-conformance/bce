@@ -145,18 +145,19 @@ export function appendGraduationRecord(
 ): string {
   const recordPath = path.join(repoDir, GRADUATION_RECORD_RELPATH);
   fs.mkdirSync(path.dirname(recordPath), { recursive: true });
+  const prior = fs.existsSync(recordPath) ? fs.readFileSync(recordPath, 'utf8') : undefined;
+  fs.writeFileSync(recordPath, formatGraduationRecord(prior, direction, from, to, rationale));
+  return recordPath;
+}
+
+export function formatGraduationRecord(prior: string | undefined, direction: 'graduate' | 'downgrade', from: GateMode, to: GateMode, rationale: string): string {
   const header =
     '# Gate mode graduation record\n\n' +
     'One-way, auditable transitions of this repo\'s conformance-gate adoption posture\n' +
     '(SPEC §9 mode doctrine). Every advisory↔enforced change appends an entry here — an\n' +
     'enforced→advisory downgrade is REFUSED without one. Newest entries append at the end.\n';
   const entry = `\n${graduationHeading(direction, from, to)}\n\n${rationale.trim()}\n`;
-  if (!fs.existsSync(recordPath)) {
-    fs.writeFileSync(recordPath, header + entry);
-  } else {
-    fs.appendFileSync(recordPath, entry);
-  }
-  return recordPath;
+  return (prior ?? header) + entry;
 }
 
 /**
@@ -166,14 +167,18 @@ export function appendGraduationRecord(
  */
 export function writeModeConfig(repoDir: string, mode: GateMode, rationaleRef?: string): string {
   const configPath = path.join(repoDir, MODE_CONFIG_BASENAME);
+  fs.writeFileSync(configPath, formatModeConfig(mode, rationaleRef));
+  return configPath;
+}
+
+export function formatModeConfig(mode: GateMode, rationaleRef?: string): string {
   // omit-not-empty: rationaleRef is only written when provided (keeps a plain hand-authored
   // {"mode":"advisory"} config byte-stable — the field is additive, not forced).
   const body: Record<string, string> = rationaleRef ? { mode, rationaleRef } : { mode };
   const sorted = Object.keys(body)
     .sort()
     .reduce<Record<string, string>>((acc, k) => ((acc[k] = body[k] as string), acc), {});
-  fs.writeFileSync(configPath, JSON.stringify(sorted, null, 2) + '\n');
-  return configPath;
+  return JSON.stringify(sorted, null, 2) + '\n';
 }
 
 /**

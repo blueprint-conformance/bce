@@ -51,6 +51,7 @@ function normalizePath(filePath: string): string {
 function protectedSurface(rel: string): string | undefined {
   if (/^\.blueprints(?:\/|$)/.test(rel)) return 'blueprint policy';
   if (rel === '.bce-mode.json') return 'enforcement mode';
+  if (rel === '.bce-governance.json') return 'ratification authority';
   if (rel === '.bce-adoption.json') return 'adoption policy';
   if (rel === '.engine-pin.json') return 'engine pin';
   if (/^\.github\/workflows(?:\/|$)/.test(rel)) return 'governance workflow';
