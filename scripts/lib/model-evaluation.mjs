@@ -190,7 +190,18 @@ function assertClosedRegularTree(root, label) {
   walk(root);
 }
 
-export function hashTree(root, { includeNodeModules = false } = {}) {
+function canonicalTreeMode(stat, type, platform) {
+  if (platform !== 'win32') return stat.mode & 0o777;
+  // Windows does not expose the POSIX mode bits used when study trees are
+  // sealed on Linux/macOS. Reconstruct the only portable modes: ordinary
+  // files, directories, and symlinks. A genuinely executable file remains
+  // fail-closed on Windows because its sealed 0755 digest will not match 0644.
+  if (type === 'directory') return 0o755;
+  if (type === 'symlink') return 0o777;
+  return 0o644;
+}
+
+export function hashTree(root, { includeNodeModules = false, platform = process.platform } = {}) {
   const base = realpathSync(root);
   const entries = [];
   const walk = (dir) => {
@@ -200,13 +211,13 @@ export function hashTree(root, { includeNodeModules = false } = {}) {
       const rel = posixRelative(base, absolute);
       const stat = lstatSync(absolute);
       if (stat.isDirectory()) {
-        entries.push({ path: `${rel}/`, type: 'directory', mode: stat.mode & 0o777 });
+        entries.push({ path: `${rel}/`, type: 'directory', mode: canonicalTreeMode(stat, 'directory', platform) });
         walk(absolute);
       } else if (stat.isSymbolicLink()) {
-        entries.push({ path: rel, type: 'symlink', mode: stat.mode & 0o777, target: readlinkSync(absolute) });
+        entries.push({ path: rel, type: 'symlink', mode: canonicalTreeMode(stat, 'symlink', platform), target: readlinkSync(absolute) });
       } else if (stat.isFile()) {
         const bytes = readFileSync(absolute);
-        entries.push({ path: rel, type: 'file', mode: stat.mode & 0o777, bytes: bytes.byteLength, sha256: sha256Bytes(bytes) });
+        entries.push({ path: rel, type: 'file', mode: canonicalTreeMode(stat, 'file', platform), bytes: bytes.byteLength, sha256: sha256Bytes(bytes) });
       } else {
         throw new Error(`tree contains unsupported entry type: ${rel}`);
       }

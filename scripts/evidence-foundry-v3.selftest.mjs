@@ -30,7 +30,7 @@ import {
   verifyStageBundleForLifecycle,
   verifyStudyRegistry,
 } from './lib/evidence-foundry-v3.mjs';
-import { expectedSeal, verifyBundle } from './lib/model-evaluation.mjs';
+import { expectedSeal, hashTree, verifyBundle } from './lib/model-evaluation.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (path) => JSON.parse(readFileSync(resolve(root, path), 'utf8'));
@@ -141,6 +141,13 @@ try {
     true,
     'portable replay depends on Git history instead of the content-addressed public implementation archive',
   );
+  for (const repository of portableVerification.manifest.repositories) {
+    assert.equal(
+      hashTree(join(portableBundle, repository.treePath), { platform: 'win32' }),
+      repository.treeSha256,
+      `${repository.id}: Windows logical mode normalization differs from the sealed tree`,
+    );
+  }
   const terminalRecordsPath = join(portableResults, 'terminal-records.jsonl');
   const terminalRecordBytes = readFileSync(terminalRecordsPath);
   rmSync(terminalRecordsPath);
