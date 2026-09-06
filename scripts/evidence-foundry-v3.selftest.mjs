@@ -35,6 +35,7 @@ import { expectedSeal, hashTree, verifyBundle } from './lib/model-evaluation.mjs
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (path) => JSON.parse(readFileSync(resolve(root, path), 'utf8'));
 const clone = (value) => structuredClone(value);
+const directoryLinkType = process.platform === 'win32' ? 'junction' : 'dir';
 const protocol = readJson('research/model-evaluation/studies/evidence-foundry-v3/protocol.json');
 const powerDesign = readJson('research/model-evaluation/studies/evidence-foundry-v3/power-design.json');
 const registry = readJson('research/model-evaluation/studies/index.v3.json');
@@ -361,13 +362,13 @@ const anchorOutsideActions = spawnSync(process.execPath, [anchorCli,
 ], { cwd: root, encoding: 'utf8', env: { ...process.env, GITHUB_ACTIONS: 'false' } });
 assert.equal(anchorOutsideActions.status, 2);
 assert.match(anchorOutsideActions.stderr, /only by an identified blueprint-conformance\/bce GitHub Actions run/);
-const anchorOutsideRoot = mkdtempSync('/tmp/bce-result-anchor-outside-');
+const anchorOutsideRoot = mkdtempSync(join(tmpdir(), 'bce-result-anchor-outside-'));
 const anchorHarnessName = `.canary-publication-selftest-anchor-${process.pid}`;
 const anchorHarness = join(root, anchorHarnessName);
 const anchorSymlink = join(anchorHarness, 'linked-parent');
 try {
   mkdirSync(anchorHarness);
-  symlinkSync(anchorOutsideRoot, anchorSymlink, 'dir');
+  symlinkSync(anchorOutsideRoot, anchorSymlink, directoryLinkType);
   const symlinkOutput = spawnSync(process.execPath, [anchorCli,
     '--stage', 'primary-confirmatory', '--out', `${anchorHarnessName}/linked-parent/anchor.json`,
   ], {
@@ -436,9 +437,9 @@ const traversal = clone(registry);
 traversal.studies[0].protocolPath = '../protocol.json';
 assertRefuses(() => verifyStudyRegistry({ root, index: traversal }), /pattern/);
 
-const symlinkRoot = mkdtempSync('/tmp/bce-evidence-foundry-symlink-');
+const symlinkRoot = mkdtempSync(join(tmpdir(), 'bce-evidence-foundry-symlink-'));
 try {
-  symlinkSync('/etc/passwd', join(symlinkRoot, 'artifact.json'));
+  symlinkSync(root, join(symlinkRoot, 'artifact.json'), directoryLinkType);
   assertRefuses(() => resolveRegularFileInside(symlinkRoot, 'artifact.json'), /symbolic links are refused/);
 } finally {
   rmSync(symlinkRoot, { recursive: true, force: true });
@@ -959,7 +960,7 @@ try {
   ], /normalized repository-relative path without traversal/);
   assert.equal(existsSync(join(dirname(root), `${canaryTestRootName}-escape`)), false);
 
-  symlinkSync(canaryTestRoot, join(canaryTestRoot, 'linked-parent'), 'dir');
+  symlinkSync(canaryTestRoot, join(canaryTestRoot, 'linked-parent'), directoryLinkType);
   const symlinkRoot = `${canaryTestRootName}/linked-parent/publication`;
   runCanaryRefusal([
     '--public-replay-root', symlinkRoot,
