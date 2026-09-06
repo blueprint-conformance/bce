@@ -3,6 +3,18 @@
 Last reviewed: 2026-09-06. This file is the authoritative public claim ledger for the current
 source tree.
 
+## Self-adoption source changes
+
+The source checkout now supports an explicit base-authorized solo-steward GitHub ceremony,
+local authored review preparation, source-mutation proof replay and live landing re-execution,
+and coherent policy/adoption/graduation records. Doctor requires real teeth for every clause;
+the skill standard now has its own 13-case live-source mutation manifest alongside the engine
+manifest. Team review retains the non-author approval
+default. These additions are not part of the immutable npm `v0.3.0` artifact. The project now
+has installed Agent Skills, its built MCP server configuration, and explicit enforced mode.
+The real ceremony and an honestly ready doctor are still pending until their authenticated
+records are committed; no independent review, replication, or product efficacy is claimed.
+
 ## Distribution
 
 | Surface | Status | What a user may rely on |

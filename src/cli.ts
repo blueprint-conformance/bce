@@ -57,14 +57,13 @@ import { makeExtractor } from './extractor-registry.js';
 import { safeCompilePattern, UnsafePatternError } from './safe-regex.js';
 import { evaluate, stableStringify, type ComplianceReport } from './report.js';
 import { assessTeeth, type TeethReport } from './teeth.js';
-import { assessExtractorTeethCorpus } from './extractor-teeth.js';
+import { assessExtractorTeethCorpus, buildSourceReviewProof } from './extractor-teeth.js';
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 import { resolveRevision, materializeAtRevision } from './pin.js';
-import { runGate, assembleGateReportDoc } from './gate.js';
+import { discoverBlueprints, runGate, assembleGateReportDoc } from './gate.js';
 import {
   resolveMode,
   exitCodeForGate,
-  appendGraduationRecord,
   writeModeConfig,
   readGraduationRecord,
   ADVISORY_BANNER,
@@ -92,7 +91,7 @@ import { architectureScore } from './score.js';
 import type { ArchitectureGraph, ObservedComponent } from './graph.js';
 import { loadObservations, observationBinding } from './observations.js';
 import { doctorRepository, checkEngineUpgrade } from './lifecycle.js';
-import { ratifyBlueprint, amendBlueprint, PolicyHistoryError, type PolicyHistoryEntry } from './policy-history.js';
+import { transitionAdoptionMode, ratifyBlueprint, amendBlueprint, PolicyHistoryError, type PolicyHistoryEntry } from './policy-history.js';
 import { createEvidenceBundle, verifyEvidenceBundle, type EvidenceBundle } from './evidence-bundle.js';
 import { resolveToolchainIdentity } from './runtime-identity.js';
 import {
@@ -102,6 +101,8 @@ import {
   type BlueprintReviewPacket,
 } from './review-contracts.js';
 import {
+  buildProposalContext,
+  prepareAuthoredDraft,
   buildReviewPacket,
   compileDraftPlan,
   reviewDigest,
@@ -339,7 +340,13 @@ function policyProof(
   repoDir: string,
   blueprint: EngineeringBlueprint,
   reviewedWaiver: boolean,
+  sourceProof?: BlueprintReviewPacket['artifacts']['sourceProof'],
 ): PolicyHistoryEntry['proof'] {
+  if (sourceProof) {
+    const fresh = buildSourceReviewProof(repoDir, blueprint, JSON.parse(sourceProof.manifestJson));
+    if (stableStringify(fresh) !== stableStringify(sourceProof)) die('policy source proof no longer reproduces from live source', 2);
+    return 'extractor-real';
+  }
   const cfg = resolveExtraction(blueprint.extraction, blueprint.constraints);
   const graph = makeExtractor('ast', cfg).extract(repoDir, 'policy-working-tree');
   if (graph.coverage.filesScanned < cfg.minFiles) {
@@ -811,7 +818,9 @@ function requiredPositiveIntegerArg(args: Args, key: string, label: string): num
 }
 
 function githubReviewSelector(args: Args): GitHubReviewSelector {
+  if (args['review-mode'] !== undefined && args['review-mode'] !== 'self-ratified') die('--review-mode must be self-ratified when supplied', 2);
   return {
+    ...(args['review-mode'] === 'self-ratified' ? { reviewMode: 'self-ratified' as const } : {}),
     repository: requiredStringArg(args, 'github-repo', '--github-repo owner/name is required'),
     pullRequest: requiredPositiveIntegerArg(args, 'github-pull', '--github-pull'),
     reviewId: requiredPositiveIntegerArg(args, 'github-review', '--github-review'),
@@ -894,14 +903,16 @@ async function main(): Promise<void> {
     upgrade: ['check', 'repo', 'blueprint-dir', 'candidate-engine', 'out'],
     adopt: ['repo', 'blueprint', 'engine'],
     onboard: ['repo', 'blueprint', 'engine', 'harness', 'agent-file', 'mcp-config'],
-    ratify: ['repo', 'blueprint', 'packet', 'decision', 'github-repo', 'github-pull', 'github-review'],
-    amend: ['repo', 'blueprint', 'replacement', 'packet', 'decision', 'compatibility', 'github-repo', 'github-pull', 'github-review'],
+    ratify: ['repo', 'blueprint', 'packet', 'decision', 'github-repo', 'github-pull', 'github-review', 'review-mode'],
+    amend: ['repo', 'blueprint', 'replacement', 'packet', 'decision', 'compatibility', 'github-repo', 'github-pull', 'github-review', 'review-mode'],
     validate: ['blueprint'],
     propose: ['repo', 'intent-file', 'assistant', 'assistant-model', 'out', 'base', 'new', 'governed-dir', 'max-context-files', 'max-context-bytes'],
-    review: args._[1] === 'show'
+    review: args._[1] === 'prepare'
+      ? ['repo', 'blueprint', 'base', 'new', 'proposal-id', 'candidate-version', 'mutation-manifest']
+      : args._[1] === 'show'
       ? ['packet', 'decision', 'format', 'repo']
       : args._[1] === 'decide'
-        ? ['packet', 'decision', 'github-repo', 'github-pull', 'github-review', 'repo']
+        ? ['packet', 'decision', 'github-repo', 'github-pull', 'github-review', 'review-mode', 'repo']
         : ['packet', 'decision', 'repo'],
     author: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'python-root', 'min-files', 'repo', 'out'],
     init: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'python-root', 'min-files', 'repo', 'out'],
@@ -1249,6 +1260,7 @@ async function main(): Promise<void> {
         const built = buildReviewPacket({
         proposal,
         baseBlueprint,
+        sourceProof: buildSourceReviewProof(repoDir, proposal.candidate),
         graph,
         ...identities,
         repositoryPolicyDiff,
@@ -1281,12 +1293,47 @@ async function main(): Promise<void> {
 
   if (cmd === 'review') {
     const sub = args._[1];
-    if (!['show', 'decide', 'verify'].includes(String(sub)) || args._.length !== 2) {
+    if (!['prepare', 'show', 'decide', 'verify'].includes(String(sub)) || args._.length !== 2) {
       die('usage: bce review show|decide|verify --packet <review-packet.json>', 1);
     }
     const requestedRepo = typeof args.repo === 'string' ? args.repo : '.';
     if (!fs.existsSync(requestedRepo)) die(`--repo not found: ${requestedRepo}`, 2);
     const repoDir = fs.realpathSync(requestedRepo);
+    if (sub === 'prepare') {
+      try {
+        const blueprint = readBlueprint(resolveProposalInput(repoDir, requiredStringArg(args, 'blueprint', '--blueprint is required'), '--blueprint'));
+        const hasBase = typeof args.base === 'string';
+        if (hasBase === (args.new === true || args.new === 'true')) die('select exactly one --base <blueprint> or --new', 2);
+        const baseBlueprint = hasBase ? readBlueprint(resolveProposalInput(repoDir, args.base as string, '--base')) : null;
+        const proposalId = requiredStringArg(args, 'proposal-id', '--proposal-id is required');
+        const refs = blueprint.intentRefs.map((ref) => ({ ref,
+          content: fs.readFileSync(resolveProposalInput(repoDir, ref.split('#')[0]!, 'authoritative intent'), 'utf8') }));
+        const collected = collectProposalContext({ repoDir, intentFile: blueprint.intentRefs[0]!.split('#')[0]! });
+        const context = buildProposalContext({ ...collected, files: collected.files.map(({ path, content }) => ({ path, content })), authoritativeIntentRefs: refs });
+        const proposal = prepareAuthoredDraft({ context, blueprint, proposalId,
+          candidateVersion: typeof args['candidate-version'] === 'string' ? args['candidate-version'] : undefined });
+        const cfg = resolveExtraction(proposal.candidate.extraction, proposal.candidate.constraints);
+        const graph = makeExtractor('ast', cfg).extract(repoDir, context.repository.revision);
+        const manifest = typeof args['mutation-manifest'] === 'string'
+          ? JSON.parse(fs.readFileSync(resolveProposalInput(repoDir, args['mutation-manifest'], '--mutation-manifest'), 'utf8')) as unknown : undefined;
+        const packet = buildReviewPacket({ proposal, baseBlueprint, graph,
+          ...currentReviewIdentities(graph.coverage.extractor, cfg.profile),
+          repositoryPolicyDiff: collectRepositoryPolicyDiff(repoDir),
+          sourceProof: buildSourceReviewProof(repoDir, proposal.candidate, manifest),
+        });
+        const quarantine = prepareQuarantineRoot({ repoDir, out: DEFAULT_PROPOSAL_OUT, governedDirs: DEFAULT_GOVERNED_DIRS });
+        const staging = createProposalStagingDirectory(quarantine);
+        writeProposalFile(path.join(staging, 'draft-plan.json'), stableStringify(proposal.plan));
+        writeProposalFile(path.join(staging, `${proposal.candidate.metadata.id}.blueprint.json`), stableStringify(proposal.candidate));
+        writeProposalFile(path.join(staging, 'proposal.json'), stableStringify(proposal));
+        writeProposalFile(path.join(staging, 'review-packet.json'), stableStringify(packet));
+        writeProposalFile(path.join(staging, 'review.txt'), renderReviewPacketText(packet));
+        writeProposalFile(path.join(staging, 'review.html'), renderReviewPacketHtml(packet));
+        const finalDir = finalizeProposalDirectory(staging, proposalId);
+        process.stdout.write(`bce review prepare: ${repoRelative(repoDir, finalDir)}; packet sha256:${packet.packetDigest}; approval ${packet.approval.status}; local authored preparation, no model call\n`);
+      } catch (e) { die(`authored review preparation refused: ${(e as Error).message}`, 2); }
+      return;
+    }
     let packetPath: string;
     try { packetPath = resolveProposalInput(repoDir, requiredStringArg(args, 'packet', '--packet is required'), '--packet'); }
     catch (error) { die((error as Error).message, 2); }
@@ -1349,7 +1396,9 @@ async function main(): Promise<void> {
     const repoDir = fs.realpathSync(requestedRepo);
     const blueprintPath = resolveProposalInput(repoDir, requiredStringArg(args, 'blueprint', '--blueprint is required'), '--blueprint');
     const blueprint = readCanonicalCandidate(blueprintPath);
-    const existingPolicyPath = path.join(repoDir, '.blueprints', `${blueprint.metadata.id}.blueprint.json`);
+    const matches = discoverBlueprints(path.join(repoDir, '.blueprints')).filter((file) => readBlueprint(file).metadata.id === blueprint.metadata.id);
+    if (matches.length > 1) die('ratification target blueprint identity is ambiguous', 2);
+    const existingPolicyPath = matches[0] ?? path.join(repoDir, '.blueprints', `${blueprint.metadata.id}.blueprint.json`);
     const existingDraft = blueprintPath !== existingPolicyPath && fs.existsSync(existingPolicyPath)
       ? readBlueprint(resolveProposalInput(repoDir, repoRelative(repoDir, existingPolicyPath), 'existing policy'))
       : null;
@@ -1357,7 +1406,7 @@ async function main(): Promise<void> {
       die(`ratify refuses to replace existing ${existingDraft.metadata.status} policy; use bce amend`, 2);
     }
     const { packet, decision, assertFresh } = await verifyLandingEvidence(args, repoDir, blueprintPath, blueprint, existingDraft);
-    const proof = policyProof(repoDir, blueprint, false);
+    const proof = policyProof(repoDir, blueprint, false, packet.artifacts.sourceProof);
     try {
       const result = ratifyBlueprint({
         repoDir,
@@ -1381,7 +1430,7 @@ async function main(): Promise<void> {
         expectedCandidateDigest: packet.provenance.candidateDigest,
         expectedBaseDigest: packet.provenance.baseDigest,
       });
-      process.stdout.write(`bce ratify: ${result.entry.fromRef} -> ${result.entry.toRef}; approved with ${proof} proof\n`);
+      process.stdout.write(`bce ratify: ${result.entry.fromRef} -> ${result.entry.toRef}; ${result.entry.reviewerAuthentication?.reviewMode ?? 'non-author-reviewed'} with ${proof} proof\n`);
     } catch (e) {
       if (e instanceof PolicyHistoryError) die(e.message, 2);
       throw e;
@@ -1406,7 +1455,7 @@ async function main(): Promise<void> {
     if (typeof args.compatibility === 'string' && args.compatibility !== compatibility) {
       die(`--compatibility '${args.compatibility}' contradicts deterministic review classification '${compatibility}'`, 2);
     }
-    const proof = policyProof(repoDir, replacement, false);
+    const proof = policyProof(repoDir, replacement, false, packet.artifacts.sourceProof);
     try {
       const result = amendBlueprint({
         repoDir,
@@ -2140,11 +2189,6 @@ async function main(): Promise<void> {
       throw e;
     }
     const target: GateMode = downgrade ? 'advisory' : 'enforced';
-    if (current === target) {
-      // Idempotent no-op is honest, not an error — but it writes nothing (no phantom ceremony record).
-      process.stdout.write(`bce graduate: already in '${target}' mode — no change, no record written.\n`);
-      return;
-    }
     // The rationale gate: a DOWNGRADE (enforced→advisory) MUST carry a rationale; a GRADUATE
     // (advisory→enforced) MAY. Both are recorded. Never a silent posture relax.
     const rationaleArg = typeof args['rationale'] === 'string' ? (args['rationale'] as string).trim() : '';
@@ -2160,14 +2204,19 @@ async function main(): Promise<void> {
       rationaleArg.length > 0
         ? rationaleArg
         : `Graduated to enforced: the gate now blocks the build on any non-pass verdict.`;
-    const recordPath = appendGraduationRecord(repoDir, direction, current, target, rationale);
-    const configPath = writeModeConfig(repoDir, target, path.relative(repoDir, recordPath) || GRADUATION_RECORD_RELPATH);
+    try {
+      if (!transitionAdoptionMode(repoDir, target, rationale)) {
+        process.stdout.write(`bce graduate: already in '${target}' mode — no change, no record written.\n`);
+        return;
+      }
+    }
+    catch (e) { die((e as Error).message, 2); }
     const recorded = readGraduationRecord(repoDir);
     process.stdout.write(
       `bce graduate: ${current} → ${target}. Recorded in ${GRADUATION_RECORD_RELPATH} ` +
         `(${recorded.length} ceremony entr${recorded.length === 1 ? 'y' : 'ies'} total); ${MODE_CONFIG_BASENAME} updated.\n`,
     );
-    void configPath;
+    void direction;
     return;
   }
 
@@ -2274,6 +2323,8 @@ async function main(): Promise<void> {
       `  bce review decide --repo <dir> --packet <path> --decision approve|reject|request-changes\n` +
       `       --github-repo <owner/name> --github-pull <n> --github-review <id>  Derives identity, rationale, and time from SCM.\n` +
       `       Requires BCE_GITHUB_TOKEN or GITHUB_TOKEN. Records only; never mutates policy.\n` +
+      `  bce review prepare --repo <dir> --blueprint <authored.json> --proposal-id <id> (--base <approved.json> | --new) [--candidate-version <x.y.z>] [--mutation-manifest <path>]\n` +
+      `  GitHub selectors: --github-repo owner/name --github-pull <n> --github-review <id> [--review-mode self-ratified]\n` +
       `  bce ratify --repo <dir> --blueprint <reviewed-draft> --packet <path> --decision <approved-decision.json> <GitHub selector>\n` +
       `  bce amend --repo <dir> --blueprint <current> --replacement <reviewed-draft> --packet <path> --decision <approved-decision.json> <GitHub selector>\n` +
       `       <GitHub selector> = --github-repo <owner/name> --github-pull <n> --github-review <id>.\n` +

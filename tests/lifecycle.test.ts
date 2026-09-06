@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -5,8 +6,9 @@ import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { doctorRepository, checkEngineUpgrade } from '../src/lifecycle.js';
-import { amendBlueprint, ratifyBlueprint, readPolicyHistory } from '../src/policy-history.js';
+import { amendBlueprint, ratifyBlueprint, readPolicyHistory, auditAdoption, transitionAdoptionMode } from '../src/policy-history.js';
 import { stableStringify } from '../src/report.js';
+import { writeModeConfig, readGraduationRecord, resolveMode } from '../src/mode.js';
 import { reviewDigest } from '../src/review.js';
 
 const ROOT = path.join(__dirname, '..');
@@ -318,6 +320,64 @@ describe('ratify/amend — attended policy ceremonies', () => {
     expect(JSON.parse(fs.readFileSync(blueprint, 'utf8')).metadata.version).toBe('0.2.0');
   });
 
+  it('keeps ratify → graduate → amend coherent, including explicit self-ratification', () => {
+    const { dir, blueprint } = governedRepo();
+    writeModeConfig(dir, 'advisory');
+    const candidate = JSON.parse(fs.readFileSync(blueprint, 'utf8'));
+    const candidateDigest = reviewDigest(candidate);
+    const authenticated = review(candidateDigest, null);
+    ratifyBlueprint({ repoDir: dir, blueprintPath: blueprint,
+      review: { ...authenticated, authentication: { ...authenticated.authentication, reviewMode: 'self-ratified' } },
+      proof: 'extractor-real', assertFresh: () => {}, expectedCandidateDigest: candidateDigest, expectedBaseDigest: null });
+    expect(auditAdoption(dir)).toContain('ratified-advisory');
+    expect(transitionAdoptionMode(dir, 'enforced', 'The approved policy now blocks violations.')).toBe(true);
+    expect(auditAdoption(dir)).toContain('ratified-enforced');
+    expect(JSON.parse(fs.readFileSync(path.join(dir, '.bce-adoption.json'), 'utf8'))).toMatchObject({
+      ratified: true, reviewMode: 'self-ratified', state: 'ratified-enforced', blueprintRef: 'luna-chat-extension@0.1.1', mode: 'enforced',
+    });
+    expect(transitionAdoptionMode(dir, 'enforced', 'already enforced')).toBe(false);
+    expect(readGraduationRecord(dir)).toHaveLength(1);
+    const current = JSON.parse(fs.readFileSync(blueprint, 'utf8'));
+    const replacement = { ...current, metadata: { ...current.metadata, version: '0.2.0', status: 'draft' } };
+    const replacementPath = path.join(dir, 'replacement.json');
+    fs.writeFileSync(replacementPath, stableStringify(replacement));
+    amendBlueprint({ repoDir: dir, blueprintPath: blueprint, replacementPath,
+      review: review(reviewDigest(replacement), reviewDigest(current)), compatibility: 'compatible', proof: 'extractor-real',
+      assertFresh: () => {}, expectedCandidateDigest: reviewDigest(replacement), expectedBaseDigest: reviewDigest(current) });
+    expect(auditAdoption(dir)).toContain('luna-chat-extension@0.2.0');
+    expect(auditAdoption(dir)).toContain('non-author-reviewed');
+    const manifestPath = path.join(dir, '.bce-adoption.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    for (const change of [{ mode: 'advisory' }, { ratified: false }, { blueprintRef: 'luna-chat-extension@9.0.0' }, { reviewMode: 'self-ratified' }]) {
+      fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, ...change }));
+      expect(() => auditAdoption(dir)).toThrow();
+    }
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    fs.writeFileSync(blueprint, JSON.stringify({ ...replacement, metadata: { ...replacement.metadata, status: 'approved' }, intentRefs: ['changed'] }));
+    expect(() => auditAdoption(dir)).toThrow(/matching authenticated policy history/);
+  });
+
+  it('graduation records unratified enforcement truthfully and refuses symlink or contradictory records before writes', () => {
+    const { dir } = governedRepo();
+    writeModeConfig(dir, 'advisory');
+    const manifestPath = path.join(dir, '.bce-adoption.json');
+    const proposed = { schemaVersion: '1', state: 'proposed', ratified: false, mode: 'advisory', blueprintRef: 'luna-chat-extension@0.1.0' };
+    fs.writeFileSync(manifestPath, JSON.stringify(proposed));
+    transitionAdoptionMode(dir, 'enforced', 'Block even while steward ratification is pending.');
+    expect(auditAdoption(dir)).toContain('enforced-unratified');
+    fs.writeFileSync(manifestPath, JSON.stringify(proposed));
+    expect(() => transitionAdoptionMode(dir, 'enforced', 'no-op')).toThrow(/contradicts/);
+    expect(readGraduationRecord(dir)).toHaveLength(1);
+    expect(resolveMode(dir).mode).toBe('enforced');
+    fs.unlinkSync(manifestPath);
+    const outside = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'bce-outside-')), 'manifest.json');
+    fs.writeFileSync(outside, JSON.stringify(proposed));
+    fs.symlinkSync(outside, manifestPath);
+    expect(() => transitionAdoptionMode(dir, 'advisory', 'Deliberate recorded downgrade.')).toThrow(/symbolic link/);
+    expect(JSON.parse(fs.readFileSync(outside, 'utf8'))).toEqual(proposed);
+    expect(readGraduationRecord(dir)).toHaveLength(1);
+  });
+
   it('refuses a symlinked governed directory without writing outside the repository', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-policy-link-'));
     const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-policy-outside-'));
@@ -335,5 +395,51 @@ describe('ratify/amend — attended policy ceremonies', () => {
       expectedCandidateDigest: candidateDigest, expectedBaseDigest: null,
     })).toThrow(/symbolic link|real in-repository/);
     expect(fs.readdirSync(outside)).toEqual([]);
+  });
+});
+
+describe('authored CLI review entrypoint', () => {
+  it('prepares and verifies an eligible packet from a committed local contract without an assistant', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-authored-cli-'));
+    fs.mkdirSync(path.join(dir, 'src'));
+    fs.mkdirSync(path.join(dir, 'docs'));
+    fs.mkdirSync(path.join(dir, '.blueprints'));
+    fs.writeFileSync(path.join(dir, 'src/service.ts'), 'export const value = 1;\n');
+    fs.writeFileSync(path.join(dir, 'docs/intent.md'), 'All dependencies must avoid axios.\n');
+    const candidate = {
+      apiVersion: 'blueprint-conformance/v1alpha1', kind: 'EngineeringBlueprint',
+      metadata: { id: 'authored-boundary', version: '0.1.0', status: 'draft' },
+      intentRefs: ['docs/intent.md'], scope: { repositories: ['example/repo'] },
+      architecture: { components: [], relationships: [] },
+      constraints: [{ id: 'no-axios', type: 'forbiddenDependency', from: '*', to: 'axios', severity: 'high' }],
+      evidenceRequirements: [], approvals: [], extraction: { profile: 'plugin-surface', paths: ['src/**/*.ts'], minFiles: 1 },
+    };
+    fs.writeFileSync(path.join(dir, '.blueprints/authored.blueprint.json'), stableStringify(candidate));
+    fs.writeFileSync(path.join(dir, '.blueprints/authored.teeth-mutations.json'), stableStringify({
+      schemaVersion: '1', blueprintRef: 'authored-boundary@0.1.0', allowedMutationRoots: ['src'],
+      cases: [{ id: 'plant-axios-import', constraintId: 'no-axios', expectedEvidencePath: 'src/service.ts',
+        operation: { kind: 'appendText', target: 'src/service.ts',
+          preconditionSha256: createHash('sha256').update('export const value = 1;\n').digest('hex'),
+          content: '\nimport axios from "axios";\n' } }],
+    }));
+    const git = (args: string[]) => {
+      const result = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
+      expect(result.status, result.stderr).toBe(0);
+      return result.stdout.trim();
+    };
+    git(['init', '-b', 'main']);
+    git(['add', 'src', 'docs', '.blueprints']);
+    git(['-c', 'user.name=Test Steward', '-c', 'user.email=steward@example.com', 'commit', '-m', 'test: authored contract']);
+    git(['remote', 'add', 'origin', 'https://github.com/example/repo.git']);
+    git(['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    const prepared = cli(['review', 'prepare', '--repo', dir, '--blueprint', '.blueprints/authored.blueprint.json', '--new', '--proposal-id', 'first-ceremony']);
+    expect(prepared.status, prepared.out).toBe(0);
+    expect(prepared.out).toContain('approval eligible');
+    const packet = '.bce/proposals/first-ceremony/review-packet.json';
+    const verified = cli(['review', 'verify', '--repo', dir, '--packet', packet]);
+    expect(verified.status, verified.out).toBe(0);
+    expect(JSON.parse(fs.readFileSync(path.join(dir, '.blueprints/authored.blueprint.json'), 'utf8'))).toEqual(candidate);
+    fs.appendFileSync(path.join(dir, 'src/service.ts'), 'export const newValue = 2;\n');
+    expect(cli(['review', 'verify', '--repo', dir, '--packet', packet]).status).toBe(2);
   });
 });

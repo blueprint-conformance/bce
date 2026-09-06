@@ -120,7 +120,10 @@ satisfy one declared approval requirement; a packet with multiple requirements i
 aggregate authenticated-decision flow exists.
 
 Use `request-changes` or `reject` with a GitHub `CHANGES_REQUESTED` review; `approve` requires an
-`APPROVED` review. Then resolve that exact forge record:
+`APPROVED` review under the default non-author policy. One-human repositories can use the explicit
+[base-authorized solo-steward path](solo-steward-ratification.md), which requires a `COMMENTED`
+review and records `self-ratified`. Authored blueprints can also use `review prepare` without an LLM.
+Then resolve that exact forge record:
 
 ```bash
 export BCE_GITHUB_TOKEN='<token able to read the pull request>'
@@ -136,8 +139,8 @@ npx --no-install bce review decide \
 
 BCE calls only the fixed GitHub API origin, with a ten-second timeout and an incrementally enforced
 one-MiB response limit. It requires an open pull request whose base repository, base branch, base
-head SHA, head, and selected review commit match the packet, refuses the pull-request author and
-Bot/App identities, requires the reviewer's latest state, and rechecks that the reviewer currently
+head SHA, head, and selected review commit match the packet, refuses the pull-request author under
+the default non-author policy and always refuses Bot/App identities, requires the reviewer's latest state, and rechecks that the reviewer currently
 has `maintain` or `admin` repository permission. It derives
 the reviewer, rationale, decision time, reference, permission, and assertion digest from those
 responses. The resulting file is content-addressed under the canonical proposal `decisions/`

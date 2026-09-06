@@ -439,6 +439,20 @@ export const ReviewTeethReportSchema = z
   })
   .strict();
 
+/** Offline replay binds observed mutant graphs. Landing re-executes the source mutations. */
+export const ReviewSourceProofSchema = z.object({
+  blueprintDigest: ReviewDigestSchema,
+  sourceTreeDigest: ReviewDigestSchema,
+  manifestJson: NonEmptyString,
+  cases: z.array(z.object({
+    constraintId: NonEmptyString,
+    expectedEvidencePath: NonEmptyString,
+    allowedCollateralConstraints: z.array(NonEmptyString),
+    graph: ReviewArchitectureGraphSchema,
+  }).strict()).min(1),
+}).strict();
+export type ReviewSourceProof = z.infer<typeof ReviewSourceProofSchema>;
+
 export const BlueprintReviewPacketSchema = z
   .object({
     schemaVersion: z.literal('1'),
@@ -458,6 +472,7 @@ export const BlueprintReviewPacketSchema = z
         baseBlueprint: EngineeringBlueprintSchema.nullable(),
         graph: ReviewArchitectureGraphSchema,
         repositoryPolicyDiff: RepositoryPolicyDiffSchema,
+        sourceProof: ReviewSourceProofSchema.optional(),
       })
       .strict(),
     contract: BlueprintInspectionSchema,
@@ -500,6 +515,7 @@ export const AuthenticatedReviewerSchema = z
     id: NonEmptyString,
     authentication: z
       .object({
+        reviewMode: z.literal('self-ratified').optional(),
         method: z.enum(['scm', 'sso']),
         issuer: NonEmptyString,
         subject: NonEmptyString,

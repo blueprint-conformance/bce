@@ -120,6 +120,7 @@ const PAGES = [
 
   { route: 'guides', kind: 'section-index', section: 'Guides', nav: 'Guides' },
   { route: 'guides/adopt-existing-repo', source: 'docs/adopt-existing-repo.md', section: 'Guides' },
+  { route: 'guides/solo-steward-ratification', source: 'docs/solo-steward-ratification.md', section: 'Guides' },
   { route: 'guides/adoption-lifecycle', source: 'docs/adoption-lifecycle.md', section: 'Guides' },
   { route: 'guides/agent-loop', source: 'docs/agent-loop.md', section: 'Guides' },
   { route: 'guides/constraint-guide', source: 'docs/constraint-guide.md', section: 'Guides' },

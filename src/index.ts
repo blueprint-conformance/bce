@@ -93,7 +93,7 @@ export type { ComplianceReport, Violation } from './report.js';
 
 export { assessTeeth, ConstraintTeeth } from './teeth.js';
 export type { TeethReport, RefutabilityWitness } from './teeth.js';
-export { assessExtractorTeethCorpus, TeethMutationManifestSchema } from './extractor-teeth.js';
+export { assessExtractorTeethCorpus, buildSourceReviewProof, discoverTeethManifest, TeethMutationManifestSchema } from './extractor-teeth.js';
 export type { TeethMutationManifest, ExtractorTeethReport, ExtractorTeethCaseResult } from './extractor-teeth.js';
 export { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 export type { TeethWaiver } from './teeth-waiver.js';
@@ -104,7 +104,7 @@ export { runGate, discoverBlueprints, blueprintTouchesChanges, resolveTreeRevisi
 export type { GateResult, GateReportDoc, ComputedGate } from './gate.js';
 export { doctorRepository, checkEngineUpgrade } from './lifecycle.js';
 export type { DoctorReport, DoctorCheck, DoctorCheckStatus, EngineUpgradeCheck } from './lifecycle.js';
-export { readPolicyHistory, semverGreater, PolicyHistoryError, POLICY_HISTORY_RELPATH } from './policy-history.js';
+export { auditAdoption, readPolicyHistory, semverGreater, PolicyHistoryError, POLICY_HISTORY_RELPATH } from './policy-history.js';
 export type { PolicyHistoryEntry, PolicyOperation } from './policy-history.js';
 export { classifyPolicyChanges } from './policy-change.js';
 export type { PolicyChangeClass, FileChange, ClassifiedChange, PolicyChangeReport } from './policy-change.js';
@@ -227,6 +227,7 @@ export {
   inspectBlueprint,
   explainConstraint,
   compareBlueprintPolicy,
+  prepareAuthoredDraft,
   buildReviewPacket,
   verifyReviewPacket,
   recordReviewDecision,

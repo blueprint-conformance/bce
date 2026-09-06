@@ -8,6 +8,7 @@ function githubFetch(
   overrides: Record<string, unknown> = {},
   packet = makeReviewFixture().packet,
   pullOverrides: Record<string, unknown> = {},
+  policy: unknown = { schemaVersion: '1', mode: 'solo-steward', steward: { githubUserId: 2 } },
 ): typeof fetch {
   const body = [
     `BCE-Review-Packet: sha256:${packet.packetDigest}`,
@@ -20,6 +21,7 @@ function githubFetch(
   ].join('\n');
   return (async (url: string | URL | Request) => {
     const value = String(url);
+    if (value.includes('/contents/.bce-governance.json?ref=')) return new Response(JSON.stringify({ type: 'file', encoding: 'base64', content: Buffer.from(JSON.stringify(policy)).toString('base64') }));
     if (value.endsWith('/reviews/456')) {
       return new Response(JSON.stringify({
         id: 456,
@@ -132,6 +134,28 @@ describe('GitHub SCM review authentication', () => {
         base: { ref: 'release', sha: 'other-base', repo: { id: 99, full_name: 'example/repo' } },
       }),
     })).rejects.toThrow(/base ref and SHA/);
+  });
+
+  it('authenticates an explicitly base-authorized solo steward without inventing an independent approval', async () => {
+    const packet = makeReviewFixture().packet;
+    const body = [
+      `BCE-Review-Packet: sha256:${packet.packetDigest}`,
+      `BCE-Candidate: sha256:${packet.provenance.candidateDigest}`,
+      'BCE-Decision: approve', 'BCE-Approval-Role: platform-owner', 'BCE-Approval-Stage: ratify',
+      'BCE-Review-Mode: self-ratified', '', 'I accept this policy as its solo steward; independent review is not claimed.',
+    ].join('\n');
+    const attempt = (policy?: unknown, overrides: Record<string, unknown> = {}) => authenticateGitHubDecision({
+      packet, decision: 'approve', selector: { ...selector, reviewMode: 'self-ratified' }, token: 'test-token',
+      fetchImpl: githubFetch({ body, state: 'COMMENTED', ...overrides }, packet, { user: { id: 2 } }, policy),
+    });
+    await expect(attempt()).resolves.toMatchObject({ reviewer: { authentication: { reviewMode: 'self-ratified' } } });
+    await expect(attempt({ schemaVersion: '1', mode: 'solo-steward', steward: { githubUserId: 3 } })).rejects.toThrow(/base-authorized/);
+    await expect(attempt({ schemaVersion: '1', mode: 'team' })).rejects.toThrow(/governance/);
+    await expect(attempt(undefined, { body: body.replace('BCE-Review-Mode: self-ratified\n', '') })).rejects.toThrow(/BCE-Review-Mode/);
+    await expect(attempt(undefined, { state: 'APPROVED' })).rejects.toThrow(/COMMENTED/);
+    await expect(authenticateGitHubDecision({ packet, decision: 'approve', selector, token: 'test-token',
+      fetchImpl: githubFetch({ body, state: 'COMMENTED' }, packet, { user: { id: 2 } }),
+    })).rejects.toThrow(/APPROVED/);
   });
 
   it('stops reading a chunked GitHub response at the 1 MiB cap', async () => {

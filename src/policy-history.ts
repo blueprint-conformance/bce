@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { parseBlueprint, type EngineeringBlueprint } from './schema.js';
 import { stableStringify } from './report.js';
 import { reviewDigest } from './review.js';
+import { resolveMode, formatGraduationRecord, formatModeConfig, readGraduationRecord, MODE_CONFIG_BASENAME, GRADUATION_RECORD_RELPATH, type GateMode } from './mode.js';
 
 export const POLICY_HISTORY_RELPATH = path.join('.blueprints', 'POLICY-HISTORY.jsonl');
 export const TRANSITION_LOCK_BASENAME = '.bce-policy-transition.lock';
@@ -27,6 +28,7 @@ export interface PolicyHistoryEntry {
   reviewer: string;
   reviewerType: 'human-asserted' | 'scm-authenticated';
   reviewerAuthentication?: {
+    reviewMode?: 'self-ratified' | undefined;
     method: 'scm' | 'sso';
     issuer: string;
     subject: string;
@@ -38,6 +40,7 @@ export interface PolicyHistoryEntry {
   recordedAt: string;
   compatibility: 'initial-ratification' | 'compatible' | 'breaking' | 'tightening' | 'weakening';
   proof: 'extractor-real' | 'reviewed-evaluator-waiver';
+  outputDigest?: string;
 }
 
 export class PolicyHistoryError extends Error {
@@ -140,7 +143,7 @@ function safeAbsolute(root: string, input: string, label: string): string {
 function openRegular(target: string, writable: boolean, label: string): number {
   try {
     const fd = fs.openSync(target, (writable ? fs.constants.O_RDWR : fs.constants.O_RDONLY) | NOFOLLOW);
-    if (!fs.fstatSync(fd).isFile()) {
+    if (!fs.fstatSync(fd).isFile() || (writable && fs.fstatSync(fd).nlink !== 1)) {
       fs.closeSync(fd);
       throw new PolicyHistoryError(`${label} must be a regular file`);
     }
@@ -241,7 +244,7 @@ function executeTransition(args: {
   priorTargetRaw?: string;
   output: string;
   entry: PolicyHistoryEntry;
-  adoption?: { fd: number; path: string; prior: string; output: string };
+  adoption?: AdoptionUpdate;
 }): void {
   const historyPath = path.join(args.policyRoot, 'POLICY-HISTORY.jsonl');
   assertSafeAncestors(args.root, historyPath, 'policy history');
@@ -253,6 +256,7 @@ function executeTransition(args: {
     fs.writeSync(historyFd, `${JSON.stringify(JSON.parse(stableStringify(args.entry)))}\n`, undefined, 'utf8');
     fs.fsyncSync(historyFd);
     if (args.adoption) {
+      args.adoption.fd ??= fs.openSync(args.adoption.path, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_EXCL | NOFOLLOW, 0o600);
       writeFd(args.adoption.fd, args.adoption.output);
       if (!sameOpenFile(args.adoption.path, args.adoption.fd)) throw new PolicyHistoryError('adoption record changed during transition');
     }
@@ -278,11 +282,14 @@ function executeTransition(args: {
     } catch (rollbackError) {
       rollbackFailures.push(`policy: ${(rollbackError as Error).message}`);
     }
-    if (args.adoption) {
+    if (args.adoption?.fd !== undefined) {
       try {
         if (!sameOpenFile(args.adoption.path, args.adoption.fd)) throw new Error('adoption path changed');
-        writeFd(args.adoption.fd, args.adoption.prior);
-        if (readFd(args.adoption.fd, 'adoption rollback target') !== args.adoption.prior) throw new Error('adoption bytes were not restored');
+        if (args.adoption.prior === undefined) fs.unlinkSync(args.adoption.path);
+        else {
+          writeFd(args.adoption.fd, args.adoption.prior);
+          if (readFd(args.adoption.fd, 'adoption rollback target') !== args.adoption.prior) throw new Error('adoption bytes were not restored');
+        }
       } catch (rollbackError) {
         rollbackFailures.push(`adoption: ${(rollbackError as Error).message}`);
       }
@@ -316,7 +323,7 @@ export function ratifyBlueprint(args: {
   let preserveTransitionLock = false;
   let sourceFd: number | undefined;
   let targetFd: number | undefined;
-  let adoption: { fd: number; path: string; prior: string; output: string } | undefined;
+  let adoption: AdoptionUpdate | undefined;
   let newTarget = false;
   let target = '';
   try {
@@ -331,7 +338,9 @@ export function ratifyBlueprint(args: {
     if (reviewDigest(current) !== args.expectedCandidateDigest || args.review.evidence.candidateDigest !== args.expectedCandidateDigest) {
       throw new PolicyHistoryError('ratification source does not match the reviewed candidate digest');
     }
-    target = inside(policyRoot, source) ? source : path.join(policyRoot, `${current.metadata.id}.blueprint.json`);
+    const targets = fs.readdirSync(policyRoot).filter((name) => name.endsWith('.blueprint.json')).map((name) => safeAbsolute(root, path.join(policyRoot, name), 'policy target')).filter((file) => parseRawBlueprint(fs.readFileSync(file, 'utf8'), 'policy target', false).metadata.id === current.metadata.id);
+    if (targets.length > 1) throw new PolicyHistoryError('ratification target blueprint identity is ambiguous');
+    target = inside(policyRoot, source) ? source : targets[0] ?? path.join(policyRoot, `${current.metadata.id}.blueprint.json`);
     assertSafeAncestors(root, target, 'policy target');
     let priorTargetRaw: string | undefined;
     if (target === source) {
@@ -365,17 +374,8 @@ export function ratifyBlueprint(args: {
     const blueprint = parseBlueprint({ ...current, metadata: { ...current.metadata, version: bumpPatch(current.metadata.version), status: 'approved' } });
     const toRef = `${blueprint.metadata.id}@${blueprint.metadata.version}`;
     const entry = historyEntry('ratify', blueprint.metadata.id, fromRef, toRef, 'initial-ratification', args.review, args.proof);
-    const adoptionPath = path.join(root, '.bce-adoption.json');
-    if (fs.existsSync(adoptionPath)) {
-      assertSafeAncestors(root, adoptionPath, 'adoption record');
-      const fd = openRegular(adoptionPath, true, 'adoption record');
-      const prior = readFd(fd, 'adoption record');
-      const data = JSON.parse(prior) as Record<string, unknown>;
-      data.ratified = true;
-      data.state = 'ratified-advisory';
-      data.blueprintRef = toRef;
-      adoption = { fd, path: adoptionPath, prior, output: stableStringify(data) };
-    }
+    entry.outputDigest = reviewDigest(blueprint);
+    adoption = prepareAdoptionUpdate(root, fromRef, toRef, entry);
     args.assertFresh();
     if (targetFd === undefined) {
       targetFd = fs.openSync(target, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | NOFOLLOW, 0o600);
@@ -388,7 +388,7 @@ export function ratifyBlueprint(args: {
     throw error;
   } finally {
     const removeNewTarget = newTarget && target !== '' && targetFd !== undefined && sameOpenFile(target, targetFd);
-    if (adoption) fs.closeSync(adoption.fd);
+    if (adoption?.fd !== undefined) fs.closeSync(adoption.fd);
     if (sourceFd !== undefined) fs.closeSync(sourceFd);
     if (targetFd !== undefined) fs.closeSync(targetFd);
     if (removeNewTarget) fs.unlinkSync(target);
@@ -416,6 +416,7 @@ export function amendBlueprint(args: {
   let preserveTransitionLock = false;
   let targetFd: number | undefined;
   let replacementFd: number | undefined;
+  let adoption: ReturnType<typeof prepareAdoptionUpdate>;
   try {
     const target = safeAbsolute(root, args.blueprintPath, 'policy target');
     if (!inside(policyRoot, target)) throw new PolicyHistoryError('policy transitions may modify only files under .blueprints/');
@@ -438,13 +439,16 @@ export function amendBlueprint(args: {
     const fromRef = `${current.metadata.id}@${current.metadata.version}`;
     const toRef = `${replacement.metadata.id}@${replacement.metadata.version}`;
     const entry = historyEntry('amend', current.metadata.id, fromRef, toRef, args.compatibility, args.review, args.proof);
+    entry.outputDigest = reviewDigest(replacement);
+    adoption = prepareAdoptionUpdate(root, fromRef, toRef, entry);
     args.assertFresh();
-    executeTransition({ root, policyRoot, target, targetFd, priorTargetRaw, output: stableStringify(replacement), entry });
+    executeTransition({ root, policyRoot, target, targetFd, priorTargetRaw, output: stableStringify(replacement), entry, ...(adoption ? { adoption } : {}) });
     return { blueprint: replacement, entry };
   } catch (error) {
     preserveTransitionLock = error instanceof PolicyHistoryError && error.preserveTransitionLock;
     throw error;
   } finally {
+    if (adoption?.fd !== undefined) fs.closeSync(adoption.fd);
     if (replacementFd !== undefined) fs.closeSync(replacementFd);
     if (targetFd !== undefined) fs.closeSync(targetFd);
     if (preserveTransitionLock) preserveLock(lock);
@@ -465,4 +469,144 @@ export function readPolicyHistory(repoDir: string): PolicyHistoryEntry[] {
     try { return JSON.parse(line) as PolicyHistoryEntry; }
     catch (error) { throw new PolicyHistoryError(`${POLICY_HISTORY_RELPATH} line ${i + 1} invalid: ${(error as Error).message}`); }
   });
+}
+
+function adoptionState(ratified: boolean, mode: GateMode): string {
+  return ratified ? `ratified-${mode}` : mode === 'advisory' ? 'proposed' : 'enforced-unratified';
+}
+
+function readAdoption(root: string): Record<string, unknown> | undefined {
+  const target = path.join(root, '.bce-adoption.json');
+  assertSafeAncestors(root, target, 'adoption record');
+  if (!fs.existsSync(target)) return undefined;
+  const fd = openRegular(target, false, 'adoption record');
+  try {
+    const value = JSON.parse(readFd(fd, 'adoption record')) as Record<string, unknown>;
+    if (!value || Array.isArray(value) || value.schemaVersion !== '1' || typeof value.ratified !== 'boolean' ||
+        typeof value.blueprintRef !== 'string' || !/^.+@\d+\.\d+\.\d+$/.test(value.blueprintRef) ||
+        !['advisory', 'enforced'].includes(String(value.mode)) ||
+        value.state !== adoptionState(value.ratified, value.mode as GateMode)) {
+      throw new PolicyHistoryError('adoption record has invalid or contradictory lifecycle fields');
+    }
+    return value;
+  } finally { fs.closeSync(fd); }
+}
+
+interface AdoptionUpdate { fd?: number; path: string; prior?: string; output: string }
+
+function prepareAdoptionUpdate(root: string, fromRef: string, toRef: string, entry: PolicyHistoryEntry):
+  AdoptionUpdate | undefined {
+  const mode = resolveMode(root).mode;
+  const reviewMode = entry.reviewerAuthentication?.reviewMode ?? 'non-author-reviewed';
+  const target = path.join(root, '.bce-adoption.json');
+  const data = readAdoption(root);
+  if (!data) return { path: target, output: stableStringify({ schemaVersion: '1', blueprintRef: toRef, ratified: true, state: adoptionState(true, mode), mode, reviewMode }) };
+  // Other blueprints may have their own ceremonies without changing the adopted contract.
+  if (String(data.blueprintRef).split('@')[0] !== fromRef.split('@')[0]) return undefined;
+  if (data.blueprintRef !== fromRef) throw new PolicyHistoryError('adoption blueprint reference is stale');
+  if (data.mode !== mode) throw new PolicyHistoryError('adoption mode contradicts actual enforcement mode');
+  const fd = openRegular(target, true, 'adoption record');
+  try {
+    const prior = readFd(fd, 'adoption record');
+    if (stableStringify(JSON.parse(prior)) !== stableStringify(data)) throw new PolicyHistoryError('adoption changed during transition');
+    return { fd, path: target, prior, output: stableStringify({ ...data, ratified: true,
+      state: adoptionState(true, mode), mode, blueprintRef: toRef,
+      reviewMode: entry.reviewerAuthentication?.reviewMode ?? 'non-author-reviewed' }) };
+  } catch (e) { fs.closeSync(fd); throw e; }
+}
+
+/** Refuse contradictory truth records, including stale refs and unrecorded approvals. */
+export function auditAdoption(repoDir: string): string | undefined {
+  const root = fs.realpathSync(repoDir);
+  if (fs.existsSync(path.join(root, '.blueprints', TRANSITION_LOCK_BASENAME))) throw new PolicyHistoryError('unfinished policy transition; attended recovery required');
+  const data = readAdoption(root);
+  if (!data) return undefined;
+  const mode = resolveMode(root).mode;
+  if (data.mode !== mode) throw new PolicyHistoryError('adoption mode contradicts actual enforcement mode');
+  const policyRoot = path.join(root, '.blueprints');
+  assertSafeAncestors(root, policyRoot, 'policy directory');
+  const blueprints = fs.readdirSync(policyRoot).filter((file) => file.endsWith('.blueprint.json')).map((file) => {
+    const target = safeAbsolute(root, path.join(policyRoot, file), 'adopted blueprint');
+    return parseBlueprint(JSON.parse(fs.readFileSync(target, 'utf8')));
+  });
+  const matching = blueprints.filter((bp) => `${bp.metadata.id}@${bp.metadata.version}` === data.blueprintRef);
+  if (matching.length !== 1) throw new PolicyHistoryError('adoption blueprint reference is missing, stale, or ambiguous');
+  const bp = matching[0]!;
+  if ((bp.metadata.status === 'approved') !== data.ratified) throw new PolicyHistoryError('blueprint approval status contradicts adoption ratification');
+  if (data.ratified) {
+    const latest = readPolicyHistory(root).filter((entry) => entry.blueprintId === bp.metadata.id).at(-1);
+    if (!latest || latest.toRef !== data.blueprintRef || latest.reviewerType !== 'scm-authenticated' || !latest.reviewerAuthentication || !latest.reviewEvidence ||
+        (latest.outputDigest !== undefined && latest.outputDigest !== reviewDigest(bp))) {
+      throw new PolicyHistoryError('adoption ratification lacks matching authenticated policy history');
+    }
+    const reviewMode = latest.reviewerAuthentication.reviewMode ?? 'non-author-reviewed';
+    if (data.reviewMode !== reviewMode) throw new PolicyHistoryError('adoption review mode contradicts policy history');
+  }
+  const graduation = readGraduationRecord(root).at(-1);
+  if (graduation && graduation.to !== mode) throw new PolicyHistoryError('graduation history contradicts enforcement mode');
+  return `${data.state}: ${data.blueprintRef}; ${data.ratified ? data.reviewMode : 'ratification pending'}`;
+}
+
+/** One lock covers mode, graduation history and adoption. A torn write keeps the gate blocked. */
+export function transitionAdoptionMode(repoDir: string, target: GateMode, rationale: string): boolean {
+  const root = fs.realpathSync(repoDir);
+  auditAdoption(root);
+  const policyRoot = ensurePolicyRoot(root);
+  const lock = acquireLock(policyRoot);
+  let preserve = false;
+  try {
+    const current = resolveMode(root).mode;
+    const adoption = readAdoption(root);
+    if (adoption && adoption.mode !== current) throw new PolicyHistoryError('adoption mode contradicts actual enforcement mode; repair the record explicitly');
+    if (current === target) return false;
+    if (target === 'advisory' && rationale.trim().length < 10) throw new PolicyHistoryError('downgrade requires a substantive rationale');
+    const paths = [path.join(root, MODE_CONFIG_BASENAME), path.join(root, GRADUATION_RECORD_RELPATH),
+      ...(adoption ? [path.join(root, '.bce-adoption.json')] : [])];
+    const prior = paths.map((file) => {
+      assertSafeAncestors(root, file, 'graduation target');
+      if (!fs.existsSync(file)) return undefined;
+      const stat = fs.lstatSync(file);
+      if (!stat.isFile() || stat.nlink !== 1) throw new PolicyHistoryError('graduation target must be a regular unshared file');
+      return fs.readFileSync(file, 'utf8');
+    });
+    const outputs = [
+      formatModeConfig(target, GRADUATION_RECORD_RELPATH.split(path.sep).join('/')),
+      formatGraduationRecord(prior[1], target === 'enforced' ? 'graduate' : 'downgrade', current, target, rationale),
+      ...(adoption ? [stableStringify({ ...adoption, mode: target, state: adoptionState(adoption.ratified as boolean, target) })] : []),
+    ];
+    const handles: Array<{ path: string; fd: number; prior: string | undefined }> = [];
+    try {
+      for (const [index, file] of paths.entries()) {
+        assertSafeAncestors(root, file, 'graduation target');
+        const fd = prior[index] === undefined
+          ? fs.openSync(file, fs.constants.O_RDWR | fs.constants.O_CREAT | fs.constants.O_EXCL | NOFOLLOW, 0o600)
+          : openRegular(file, true, 'graduation target');
+        handles.push({ path: file, fd, prior: prior[index] });
+        if (prior[index] !== undefined && readFd(fd, 'graduation target') !== prior[index]) throw new PolicyHistoryError('graduation target changed during transition');
+      }
+      for (const [index, handle] of handles.entries()) {
+        if (!sameOpenFile(handle.path, handle.fd)) throw new PolicyHistoryError('graduation target path changed');
+        writeFd(handle.fd, outputs[index]!);
+        if (!sameOpenFile(handle.path, handle.fd)) throw new PolicyHistoryError('graduation target changed during write');
+      }
+    } catch (e) {
+      const failures: string[] = [];
+      for (const handle of handles) {
+        try {
+          if (!sameOpenFile(handle.path, handle.fd)) throw new Error('graduation target path changed');
+          if (handle.prior === undefined) fs.unlinkSync(handle.path);
+          else {
+            writeFd(handle.fd, handle.prior);
+            if (readFd(handle.fd, 'graduation recovery') !== handle.prior) throw new Error('graduation bytes were not restored');
+          }
+        } catch (failure) { failures.push((failure as Error).message); }
+      }
+      if (failures.length) {
+        preserve = true;
+        throw new PolicyHistoryError(`graduation failed (${failures.join('; ')}); transition lock retained for attended recovery`, true);
+      }
+      throw e;
+    } finally { for (const handle of handles) fs.closeSync(handle.fd); }
+    return true;
+  } finally { if (preserve) preserveLock(lock); else releaseLock(lock); }
 }

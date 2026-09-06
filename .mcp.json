@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "bce": {
+      "command": "node",
+      "args": [
+        "dist/mcp-server.js"
+      ]
+    }
+  }
+}

@@ -5,6 +5,10 @@
 # Explicit policy and distribution surfaces. Keep these lines even though `*` currently
 # resolves to the same team: they are machine-auditable and survive future ownership splits.
 /.blueprints/** @blueprint-conformance/maintainers
+/.bce-governance.json @blueprint-conformance/maintainers
+/.agents/skills/** @blueprint-conformance/maintainers
+/.mcp.json @blueprint-conformance/maintainers
+/.codex/config.toml @blueprint-conformance/maintainers
 /.bce-mode.json @blueprint-conformance/maintainers
 /.bce-adoption.json @blueprint-conformance/maintainers
 /.engine-pin.json @blueprint-conformance/maintainers

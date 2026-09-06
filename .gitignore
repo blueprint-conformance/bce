@@ -23,6 +23,7 @@ gate-stdout.txt
 teeth-report.json
 teeth-skill-standard.json
 extractor-teeth-report.json
+extractor-teeth-skill-standard.json
 compliance-report.json
 architecture-graph.json
 evidence-record.json

@@ -1,3 +1,4 @@
+import { ReviewSourceProofSchema, type ReviewSourceProof } from './review-contracts.js';
 /** Pure, deterministic implementation of the AI-first blueprint review core. */
 import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
@@ -175,7 +176,6 @@ export function compileDraftPlan(args: {
   const contextFailures = verifyContext(context);
   if (contextFailures.length > 0) throw new Error(`invalid proposal context: ${contextFailures.join('; ')}`);
   if (plan.contextDigest !== context.contextDigest) throw new Error('draft plan is bound to a different proposal context');
-  if (plan.proposalId !== plan.metadata.id) throw new Error('draft plan proposalId must equal the blueprint metadata id');
   const anchorFailures = verifyPlanAnchors(context, plan);
   if (anchorFailures.length > 0) throw new Error(`invalid draft plan anchors: ${anchorFailures.join('; ')}`);
 
@@ -226,6 +226,39 @@ export function compileDraftPlan(args: {
     ...body,
     digests: { ...body.digests, proposal: reviewDigest(body) },
   });
+}
+
+/** A human-selected existing contract enters the same review machinery without model generation. */
+export function prepareAuthoredDraft(args: {
+  context: ProposalContext; blueprint: EngineeringBlueprint; proposalId: string; candidateVersion?: string | undefined;
+}): BlueprintProposal {
+  const { status, ...metadata } = args.blueprint.metadata;
+  void status;
+  const source = args.context.authoritativeIntentRefs[0];
+  if (!source) throw new Error('authored review requires readable authoritative intent');
+  const assertion = (claim: string) => ({
+    claim, basis: 'source-backed-intent' as const,
+    anchors: [{ kind: 'intent-reference' as const, ref: source.ref, sha256: source.sha256 }],
+    uncertainty: { level: 'high' as const, reason: 'Author-selected policy; automated preparation does not establish intent correctness.' },
+    alternatives: [], knownBlindSpots: ['The steward must check that this contract implements the cited intent.'],
+  });
+  const plan = BlueprintDraftPlanSchema.parse({
+    schemaVersion: '1', kind: 'BlueprintDraftPlan', proposalId: args.proposalId, contextDigest: args.context.contextDigest,
+    metadata: { ...metadata, version: args.candidateVersion ?? metadata.version },
+    scope: { ...args.blueprint.scope, assertions: [assertion('Review the authored scope against the cited intent.')] },
+    architecture: args.blueprint.architecture,
+    clauses: args.blueprint.constraints.map((constraint) => ({ constraint, assertions: [assertion(`Review authored clause ${constraint.id} against the cited intent.`)] })),
+    evidenceRequirements: args.blueprint.evidenceRequirements, approvals: args.blueprint.approvals,
+    extraction: args.blueprint.extraction, minEngineVersion: args.blueprint.minEngineVersion,
+    knownBlindSpots: ['Local authored preparation; no model generation or independent review is claimed.'],
+  });
+  const proposal = compileDraftPlan({ context: args.context, plan,
+    promptDigest: reviewDigest({ method: 'local-authored-preparation', schemaVersion: '1' }),
+    generationDigest: reviewDigest({ method: 'local-authored-preparation', blueprint: args.blueprint }),
+  });
+  const expected = parseBlueprint({ ...args.blueprint, metadata: { ...metadata, version: plan.metadata.version, status: 'draft' } });
+  if (!same(expected, proposal.candidate)) throw new Error('authored blueprint cannot be represented losslessly by the review plan');
+  return proposal;
 }
 
 function verifyProposal(proposal: BlueprintProposal): string[] {
@@ -760,6 +793,7 @@ export function buildReviewPacket(args: {
   extractor: ReviewExtractorIdentity;
   toolchain: ReviewToolchainIdentity;
   repositoryPolicyDiff: RepositoryPolicyDiff;
+  sourceProof?: ReviewSourceProof | undefined;
   resolvedScope?: { matchedFiles: string[]; excludedPaths?: string[]; excludedClasses?: string[] };
 }): BlueprintReviewPacket {
   const proposal = BlueprintProposalSchema.parse(detached(args.proposal));
@@ -771,7 +805,7 @@ export function buildReviewPacket(args: {
   const extractor = ReviewExtractorIdentitySchema.parse(detached(args.extractor));
   const toolchain = ReviewToolchainIdentitySchema.parse(detached(args.toolchain));
   const repositoryPolicyDiff = RepositoryPolicyDiffSchema.parse(detached(args.repositoryPolicyDiff));
-  if (proposal.context.repository.identity !== proposal.candidate.scope.repositories[0] && !proposal.candidate.scope.repositories.includes(proposal.context.repository.identity)) {
+  if (!proposal.candidate.scope.repositories.some((repo) => repo.replace(/^github\.com\//, '').toLowerCase() === proposal.context.repository.identity.replace(/^github\.com\//, '').toLowerCase())) {
     throw new Error('candidate scope does not include the proposal-context repository identity');
   }
   if (graph.ctRepoRevision !== proposal.context.repository.revision) {
@@ -784,6 +818,22 @@ export function buildReviewPacket(args: {
 
   const conformance = evaluate(proposal.candidate, graph, extractor.profile, proposal.context.repository.identity);
   const proof = assessTeeth(proposal.candidate, graph, extractor.profile);
+  const sourceProof = args.sourceProof === undefined ? undefined : ReviewSourceProofSchema.parse(detached(args.sourceProof));
+  if (sourceProof) {
+    if (sourceProof.blueprintDigest !== reviewDigest(proposal.candidate)) throw new Error('source proof candidate digest mismatch');
+    if (conformance.verdict !== 'pass') throw new Error('source proof requires a clean passing candidate');
+    const ids = sourceProof.cases.map((item) => item.constraintId).sort();
+    if (!same(ids, proposal.candidate.constraints.map((item) => item.id).sort())) throw new Error('source proof must cover each constraint exactly once');
+    for (const item of sourceProof.cases) {
+      const report = evaluate(proposal.candidate, item.graph as ArchitectureGraph, extractor.profile);
+      const violations = report.violations.filter((violation) => violation.constraintId === item.constraintId);
+      const fileOnly = proposal.candidate.constraints.find((constraint) => constraint.id === item.constraintId)?.type === 'forbiddenFile';
+      if (!violations.length || violations.some((violation) => fileOnly ? violation.evidenceRef !== item.expectedEvidencePath : !violation.evidenceRef.startsWith(`${item.expectedEvidencePath}#L`)) ||
+          report.violations.some((violation) => violation.constraintId !== item.constraintId && !item.allowedCollateralConstraints.includes(violation.constraintId))) {
+        throw new Error(`source proof mutant does not replay for ${item.constraintId}`);
+      }
+    }
+  }
   const resolvedScope = {
     matchedFiles: args.resolvedScope?.matchedFiles ?? graph.coverage.scannedFiles ?? [],
     excludedPaths: args.resolvedScope?.excludedPaths ?? proposal.context.excluded.paths,
@@ -806,7 +856,7 @@ export function buildReviewPacket(args: {
     ...contract.clauses
       .filter((clause) => clause.proof.gradeability !== 'graded')
       .map((clause) => `Constraint ${clause.constraintId} is ${clause.proof.gradeability}.`),
-    ...proof.witnesses
+    ...(sourceProof ? [] : proof.witnesses)
       .filter((witness) => witness.verdict !== ConstraintTeeth.TOOTHED)
       .map((witness) =>
         witness.verdict === ConstraintTeeth.EVALUATOR_REFUTABLE
@@ -835,7 +885,7 @@ export function buildReviewPacket(args: {
     kind: 'BlueprintReviewPacket' as const,
     proposalId: proposal.proposalId,
     identity: { repository: proposal.context.repository, engine, extractor, toolchain },
-    artifacts: { proposal, baseBlueprint, graph, repositoryPolicyDiff },
+    artifacts: { proposal, baseBlueprint, graph, repositoryPolicyDiff, ...(sourceProof ? { sourceProof } : {}) },
     contract,
     semanticDiff,
     conformance,
@@ -904,6 +954,7 @@ export function verifyReviewPacket(
       extractor: packet.identity.extractor,
       toolchain: packet.identity.toolchain,
       repositoryPolicyDiff: packet.artifacts.repositoryPolicyDiff,
+      sourceProof: packet.artifacts.sourceProof,
       resolvedScope: {
         matchedFiles: packet.contract.resolvedScope.matchedFiles,
         excludedPaths: packet.contract.resolvedScope.excludedPaths,

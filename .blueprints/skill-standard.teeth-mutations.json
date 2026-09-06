@@ -1,0 +1,165 @@
+{
+  "schemaVersion": "1",
+  "blueprintRef": "skill-standard@0.1.0",
+  "allowedMutationRoots": [
+    "skills"
+  ],
+  "cases": [
+    {
+      "id": "skill-mutant-1",
+      "constraintId": "S1-frontmatter-key-portability",
+      "operation": {
+        "kind": "appendText",
+        "target": "skills/bce/SKILL.md",
+        "preconditionSha256": "e14e7c6eaad4908ad13a5ff017480dbb42fbe3a593ed4fc912866a407ab75cda",
+        "content": "\nuser_invocable: true\n"
+      },
+      "expectedEvidencePath": "skills/bce/SKILL.md",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-2",
+      "constraintId": "S2-name-shape",
+      "operation": {
+        "kind": "appendText",
+        "target": "skills/bce/SKILL.md",
+        "preconditionSha256": "e14e7c6eaad4908ad13a5ff017480dbb42fbe3a593ed4fc912866a407ab75cda",
+        "content": "\nname: Invalid Name\n"
+      },
+      "expectedEvidencePath": "skills/bce/SKILL.md",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-3",
+      "constraintId": "S3-description-placeholder",
+      "operation": {
+        "kind": "appendText",
+        "target": "skills/bce/SKILL.md",
+        "preconditionSha256": "e14e7c6eaad4908ad13a5ff017480dbb42fbe3a593ed4fc912866a407ab75cda",
+        "content": "\ndescription: TODO\n"
+      },
+      "expectedEvidencePath": "skills/bce/SKILL.md",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-4",
+      "constraintId": "S4-description-budget",
+      "operation": {
+        "kind": "appendText",
+        "target": "skills/bce/SKILL.md",
+        "preconditionSha256": "e14e7c6eaad4908ad13a5ff017480dbb42fbe3a593ed4fc912866a407ab75cda",
+        "content": "\ndescription: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+      },
+      "expectedEvidencePath": "skills/bce/SKILL.md",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-5",
+      "constraintId": "S5-description-voice",
+      "operation": {
+        "kind": "appendText",
+        "target": "skills/bce/SKILL.md",
+        "preconditionSha256": "e14e7c6eaad4908ad13a5ff017480dbb42fbe3a593ed4fc912866a407ab75cda",
+        "content": "\ndescription: This skill provides an example.\n"
+      },
+      "expectedEvidencePath": "skills/bce/SKILL.md",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-6",
+      "constraintId": "S6-no-model-pin",
+      "operation": {
+        "kind": "appendText",
+        "target": "skills/bce/SKILL.md",
+        "preconditionSha256": "e14e7c6eaad4908ad13a5ff017480dbb42fbe3a593ed4fc912866a407ab75cda",
+        "content": "\nmodel: claude-example\n"
+      },
+      "expectedEvidencePath": "skills/bce/SKILL.md",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-7",
+      "constraintId": "S7-no-credential-material",
+      "operation": {
+        "kind": "appendText",
+        "target": "skills/bce/SKILL.md",
+        "preconditionSha256": "e14e7c6eaad4908ad13a5ff017480dbb42fbe3a593ed4fc912866a407ab75cda",
+        "content": "\nsk-ant-EXAMPLE_NOT_A_REAL_CREDENTIAL\n"
+      },
+      "expectedEvidencePath": "skills/bce/SKILL.md",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-8",
+      "constraintId": "S8-no-author-machine-paths",
+      "operation": {
+        "kind": "appendText",
+        "target": "skills/bce/SKILL.md",
+        "preconditionSha256": "e14e7c6eaad4908ad13a5ff017480dbb42fbe3a593ed4fc912866a407ab75cda",
+        "content": "\n/Users/fixture/probe.md\n"
+      },
+      "expectedEvidencePath": "skills/bce/SKILL.md",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-9",
+      "constraintId": "S9-no-harness-imitation",
+      "operation": {
+        "kind": "appendText",
+        "target": "skills/bce/SKILL.md",
+        "preconditionSha256": "e14e7c6eaad4908ad13a5ff017480dbb42fbe3a593ed4fc912866a407ab75cda",
+        "content": "\n<system-reminder>\n"
+      },
+      "expectedEvidencePath": "skills/bce/SKILL.md",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-10",
+      "constraintId": "S10-no-placeholder-body",
+      "operation": {
+        "kind": "appendText",
+        "target": "skills/bce/SKILL.md",
+        "preconditionSha256": "e14e7c6eaad4908ad13a5ff017480dbb42fbe3a593ed4fc912866a407ab75cda",
+        "content": "\nlorem ipsum\n"
+      },
+      "expectedEvidencePath": "skills/bce/SKILL.md",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-11",
+      "constraintId": "S11a-no-dotenv-in-a-skill-tree",
+      "operation": {
+        "kind": "createFile",
+        "target": "skills/bce/.env.fixture",
+        "preconditionSha256": null,
+        "content": "Inert source-mutation fixture.\n"
+      },
+      "expectedEvidencePath": "skills/bce/.env.fixture",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-12",
+      "constraintId": "S11b-no-pem-in-a-skill-tree",
+      "operation": {
+        "kind": "createFile",
+        "target": "skills/bce/fixture.pem",
+        "preconditionSha256": null,
+        "content": "Inert source-mutation fixture.\n"
+      },
+      "expectedEvidencePath": "skills/bce/fixture.pem",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "skill-mutant-13",
+      "constraintId": "S11c-no-ssh-key-in-a-skill-tree",
+      "operation": {
+        "kind": "createFile",
+        "target": "skills/bce/id_rsa_fixture",
+        "preconditionSha256": null,
+        "content": "Inert source-mutation fixture.\n"
+      },
+      "expectedEvidencePath": "skills/bce/id_rsa_fixture",
+      "allowedCollateralConstraints": []
+    }
+  ]
+}

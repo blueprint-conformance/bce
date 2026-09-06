@@ -15,8 +15,10 @@ The shortest safe path from “new repository” to a self-correcting BCE gate i
 4. A human steward reviews the exact packet in a pull request. `bce review decide` resolves identity,
    current maintain/admin permission, rationale, time, commit, and review state from GitHub; `bce
    ratify` re-authenticates that decision, digest-checks the inputs, bumps the version, and appends
-   policy history. Local self-attestation flags are not accepted. The resulting landing commit needs
-   the repository's normal fresh CODEOWNER/required approval before merge.
+   policy history and coherent adoption state. A one-human repository may explicitly configure
+   [solo-steward ratification](solo-steward-ratification.md) on the trusted base; its GitHub COMMENT
+   review is labelled self-ratified. Local self-attestation flags are not accepted. The resulting landing commit needs
+   the repository's normal required checks and configured human-review policy before merge.
 5. Use `bce gate` on every pull request. Agents use MCP `doctor_repository`, `run_gate`,
    `assess_teeth`, and `check_baseline` to diagnose and repair code. MCP cannot ratify or amend.
 6. Existing debt may be captured once through a reviewed baseline. Thereafter `bce baseline --check`

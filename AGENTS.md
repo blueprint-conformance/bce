@@ -67,3 +67,13 @@ self-gate and the admin-override incident policy.
 
 [`llms.txt`](llms.txt) is the compact, link-first index of this repository for an agent that prefers a
 flat map. It points at the same documents as the table above.
+
+## Self-adoption integration
+
+Project skills are installed under `.agents/skills/` from the canonical `skills/` tree.
+Run `node scripts/sync-self-agent-skills.mjs` after editing a canonical skill; CI checks freshness.
+Build first, then the project MCP configuration runs `node dist/mcp-server.js` from this checkout.
+Use MCP `run_gate {}` as the live-tree done-check, or `node dist/cli.js gate --repo .`.
+Review `.bce-governance.json` for the explicit solo-steward authority. A self-ratified decision
+claims no independent review. Changes to policy, agent configuration, or installed skills require
+the human owner's review.

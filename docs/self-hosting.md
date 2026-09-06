@@ -165,3 +165,17 @@ real create/replace/append/delete mutation, and the CLI refuses missing, duplica
 out-of-scope, protected-surface, syntax-invalid, or collateral mutations. This proves the current
 47 clauses can bite the current extraction/evaluation path; it does not prove the blueprint is a
 complete specification of every desirable property.
+
+## Full self-adoption
+
+The source checkout installs its canonical skills under `.agents/skills/` and runs its built MCP
+server through `.mcp.json` and `.codex/config.toml`. CI checks the installed skills for drift and
+exercises the actual project MCP configuration. The enforced mode is explicit in `.bce-mode.json`.
+
+[The solo-steward ceremony](solo-steward-ratification.md) describes the live GitHub decision path.
+`.bce-governance.json` identifies the steward; it establishes no independent review. The acceptance
+check for a completed lifecycle is `node dist/cli.js doctor --repo .`: real-source teeth, matching
+approved policy and adoption history, exact CI pin, project integrations, and full gate must agree.
+A missing ceremony remains a warning until its authenticated history exists. Both blueprints now
+carry digest-bound source mutation manifests: 47 engine clauses and 13 skill-standard clauses.
+The latter includes exact file evidence for forbidden files, without inventing line numbers.

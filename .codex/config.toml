@@ -1,0 +1,3 @@
+[mcp_servers.bce]
+command = "node"
+args = ["dist/mcp-server.js"]
