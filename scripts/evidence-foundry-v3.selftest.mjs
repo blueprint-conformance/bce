@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -689,5 +689,58 @@ assertRefuses(() => validatePowerDesign(root, latePower, powerDesign), /not comp
 const powerExtra = clone(powerDesign);
 powerExtra.stages[0].assumptions.unsealedGuess = 0.4;
 assertRefuses(() => validatePowerDesign(root, protocol, powerExtra), /additional properties/);
+
+const canaryTestRootName = `.canary-publication-selftest-${process.pid}`;
+const canaryTestRoot = join(root, canaryTestRootName);
+const canaryScript = join(root, 'scripts', 'run-model-evaluation-canary.mjs');
+const runCanaryRefusal = (extraArguments, pattern) => {
+  const result = spawnSync(process.execPath, [
+    canaryScript,
+    '--ollama-model', 'must-not-be-contacted',
+    '--client', 'bce-ollama-tool-client',
+    '--runtime-derivation', 'must-not-be-read.json',
+    ...extraArguments,
+  ], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 2, result.stderr || result.stdout);
+  assert.match(result.stderr, pattern);
+};
+rmSync(canaryTestRoot, { recursive: true, force: true });
+mkdirSync(canaryTestRoot);
+try {
+  const existingRoot = `${canaryTestRootName}/existing`;
+  mkdirSync(join(root, existingRoot));
+  runCanaryRefusal([
+    '--public-replay-root', existingRoot,
+    '--out', `${existingRoot}/qualification-attestation.json`,
+  ], /public replay destination already exists/);
+
+  runCanaryRefusal([
+    '--public-replay-root', `../${canaryTestRootName}-escape`,
+    '--out', join(dirname(root), `${canaryTestRootName}-escape`, 'qualification-attestation.json'),
+  ], /normalized repository-relative path without traversal/);
+  assert.equal(existsSync(join(dirname(root), `${canaryTestRootName}-escape`)), false);
+
+  symlinkSync(canaryTestRoot, join(canaryTestRoot, 'linked-parent'), 'dir');
+  const symlinkRoot = `${canaryTestRootName}/linked-parent/publication`;
+  runCanaryRefusal([
+    '--public-replay-root', symlinkRoot,
+    '--out', `${symlinkRoot}/qualification-attestation.json`,
+  ], /path traverses a symlink/);
+
+  const nonFirstPartyRoot = `${canaryTestRootName}/non-first-party`;
+  const nonFirstParty = spawnSync(process.execPath, [
+    canaryScript,
+    '--ollama-model', 'must-not-be-contacted',
+    '--client', 'codex',
+    '--runtime-derivation', 'must-not-be-read.json',
+    '--public-replay-root', nonFirstPartyRoot,
+    '--out', `${nonFirstPartyRoot}/qualification-attestation.json`,
+  ], { cwd: root, encoding: 'utf8' });
+  assert.equal(nonFirstParty.status, 2, nonFirstParty.stderr || nonFirstParty.stdout);
+  assert.match(nonFirstParty.stderr, /requires the first-party bce-ollama-tool-client/);
+  assert.equal(existsSync(join(root, nonFirstPartyRoot)), false);
+} finally {
+  rmSync(canaryTestRoot, { recursive: true, force: true });
+}
 
 console.log('Evidence Foundry v3 foundation self-test: PASS');

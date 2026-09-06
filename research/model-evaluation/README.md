@@ -218,11 +218,26 @@ npm run model-eval:canary -- \
   --ollama-model MODEL \
   --reasoning-effort low \
   --runtime-derivation research/model-evaluation/studies/evidence-foundry-v3/release-runtime/runtime-derivation.json \
-  --out /path/to/canary-attestation.json \
-  --restricted-runs /access-controlled/path
+  --public-replay-root research/model-evaluation/studies/evidence-foundry-v3/qualification-primary \
+  --out research/model-evaluation/studies/evidence-foundry-v3/qualification-primary/qualification-attestation.json
 ```
 
-The canary exits `0` only when qualified and `4` when its completed report is non-qualified. The
+`--public-replay-root` is an explicit confirmatory mode. It accepts only the first-party client and
+a new, normalized repository-relative directory whose parent already exists. After both registered
+arms complete, it copies the sealed fixture and complete CAS/run ledger into the schema-fixed
+`bundle/` and `runs/` paths beside canonical `terminal-records.jsonl`, emits a v2
+attestation bound to the treatment release commit, and replays that attestation before atomically
+publishing the standalone qualification directory. Copy that whole directory into the confirmatory
+bundle and point the cell's sealed qualification-attestation path at its
+`qualification-attestation.json`; replay paths resolve from that file's directory, so no nesting or
+rewriting is needed. An incomplete or safety-halted denominator, a symlink, traversal, existing
+destination, digest mismatch, or failed replay publishes nothing. Omitting the option preserves the
+v1 diagnostic behavior; use `--restricted-runs /access-controlled/path` when retaining that private
+evidence.
+
+The canary exits `0` only when qualified and `4` when its completed v1 report is non-qualified.
+Public replay mode instead refuses without publishing when the run cannot produce a fully replayable
+v2 qualification. The
 sealed study controller exits `0` only when the registered denominator is complete, `4` when an
 operator limit leaves a resumable registered run incomplete, `3` for a valid safety halt, `2` for a
 pre-exposure configuration refusal, and `1` for corruption or an unexpected controller failure. A

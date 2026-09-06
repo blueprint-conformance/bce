@@ -2,15 +2,15 @@
 /** Live sacrificial client/model/BCE capability canary. Never uses evaluation tasks. */
 import { spawnSync } from 'node:child_process';
 import {
-  chmodSync, constants, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync,
-  rmSync, writeFileSync,
+  chmodSync, constants, copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync,
+  readdirSync, realpathSync, renameSync, rmSync, writeFileSync,
 } from 'node:fs';
 import { arch, platform, tmpdir } from 'node:os';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   expectedSeal, fileArtifact, hashTree, loadVerifiedRecords, regenerateAssignments, sha256Bytes, sha256Json,
-  validateCapabilityCanaryAttestation,
+  validateCapabilityCanaryAttestation, verifyCapabilityQualificationReplay,
 } from './lib/model-evaluation.mjs';
 import {
   RUNTIME_DERIVATION_CERTIFICATE_IDENTITY,
@@ -29,11 +29,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const modelName = valueAfter('--ollama-model');
 const outputPath = valueAfter('--out');
 const restrictedRunsArgument = valueAfter('--restricted-runs');
+const publicReplayRootArgument = valueAfter('--public-replay-root');
 const reasoningEffort = valueAfter('--reasoning-effort') ?? 'low';
 const clientKind = valueAfter('--client');
 const runtimeDerivationArgument = valueAfter('--runtime-derivation');
 if (!modelName || !outputPath || !clientKind || !runtimeDerivationArgument) {
-  process.stderr.write('usage: node scripts/run-model-evaluation-canary.mjs --ollama-model NAME --out ATTESTATION.json --client codex|bce-ollama-tool-client --runtime-derivation REPOSITORY_RELATIVE_STATEMENT.json [--reasoning-effort low|medium|high] [--restricted-runs DIR] [--codex FILE] [--node FILE] [--ollama-endpoint URL]\n');
+  process.stderr.write('usage: node scripts/run-model-evaluation-canary.mjs --ollama-model NAME --out ATTESTATION.json --client codex|bce-ollama-tool-client --runtime-derivation REPOSITORY_RELATIVE_STATEMENT.json [--reasoning-effort low|medium|high] [--restricted-runs DIR] [--public-replay-root REPOSITORY_RELATIVE_NEW_DIR] [--codex FILE] [--node FILE] [--ollama-endpoint URL]\n');
   process.exit(2);
 }
 if (!['low', 'medium', 'high'].includes(reasoningEffort)) {
@@ -44,13 +45,78 @@ if (!['codex', 'bce-ollama-tool-client'].includes(clientKind)) {
   process.stderr.write('canary refused: --client must be codex or bce-ollama-tool-client\n');
   process.exit(2);
 }
-const output = resolve(outputPath);
-if (existsSync(output)) throw new Error(`canary refuses to overwrite ${output}`);
+
+function refuse(message) {
+  process.stderr.write(`canary refused: ${message}\n`);
+  process.exit(2);
+}
+
+function resolvePublicReplayDestination(argument) {
+  if (clientKind !== 'bce-ollama-tool-client') {
+    refuse('--public-replay-root requires the first-party bce-ollama-tool-client');
+  }
+  if (isAbsolute(argument) || argument.includes('\\') || argument.split('/').some((part) => ['', '.', '..'].includes(part))) {
+    refuse('--public-replay-root must be a normalized repository-relative path without traversal');
+  }
+  const destination = resolve(root, argument);
+  const repositoryRelative = relative(root, destination);
+  if (repositoryRelative === '' || repositoryRelative === '..' || repositoryRelative.startsWith(`..${sep}`) || isAbsolute(repositoryRelative)) {
+    refuse('--public-replay-root must resolve inside the repository');
+  }
+  if (existsSync(destination)) refuse(`public replay destination already exists: ${argument}`);
+  const parent = dirname(destination);
+  const parentRelative = relative(root, parent);
+  let cursor = root;
+  for (const part of parentRelative === '' ? [] : parentRelative.split(sep)) {
+    cursor = join(cursor, part);
+    if (!existsSync(cursor)) refuse('--public-replay-root parent must already exist');
+    const stat = lstatSync(cursor);
+    if (stat.isSymbolicLink()) refuse(`public replay path traverses a symlink: ${relative(root, cursor)}`);
+    if (!stat.isDirectory()) refuse(`public replay parent is not a directory: ${relative(root, cursor)}`);
+  }
+  const expectedOutput = join(destination, 'qualification-attestation.json');
+  if (resolve(outputPath) !== expectedOutput) {
+    refuse('--out must be PUBLIC_REPLAY_ROOT/qualification-attestation.json in public replay mode');
+  }
+  return { destination, parent, output: expectedOutput };
+}
+
+function assertPublishableTree(path, label) {
+  const walk = (current) => {
+    const stat = lstatSync(current);
+    if (stat.isSymbolicLink()) throw new Error(`${label} contains a symlink: ${relative(path, current) || '.'}`);
+    if (stat.isFile()) return;
+    if (!stat.isDirectory()) throw new Error(`${label} contains an unsupported filesystem entry: ${relative(path, current) || '.'}`);
+    for (const entry of readdirSync(current)) walk(join(current, entry));
+  };
+  walk(path);
+}
+
+const publicReplayDestination = publicReplayRootArgument ? resolvePublicReplayDestination(publicReplayRootArgument) : null;
+const output = publicReplayDestination?.output ?? resolve(outputPath);
+if (existsSync(output)) {
+  if (publicReplayDestination) refuse(`output already exists: ${output}`);
+  throw new Error(`canary refuses to overwrite ${output}`);
+}
+const requestedRestrictedRuns = restrictedRunsArgument ? resolve(restrictedRunsArgument) : null;
+const restrictedBundle = restrictedRunsArgument ? resolve(`${restrictedRunsArgument}.bundle`) : null;
+if (restrictedBundle && existsSync(restrictedBundle)) {
+  if (publicReplayDestination) refuse(`retained bundle already exists: ${restrictedBundle}`);
+  throw new Error(`canary refuses to overwrite retained bundle ${restrictedBundle}`);
+}
+if (publicReplayDestination) {
+  for (const [label, path] of [['restricted runs', requestedRestrictedRuns], ['restricted bundle', restrictedBundle]]) {
+    if (!path) continue;
+    const fromDestination = relative(publicReplayDestination.destination, path);
+    const fromPath = relative(path, publicReplayDestination.destination);
+    const overlaps = fromDestination === '' || (!fromDestination.startsWith(`..${sep}`) && fromDestination !== '..' && !isAbsolute(fromDestination)) ||
+      fromPath === '' || (!fromPath.startsWith(`..${sep}`) && fromPath !== '..' && !isAbsolute(fromPath));
+    if (overlaps) refuse(`${label} must not overlap --public-replay-root`);
+  }
+}
 const scratch = mkdtempSync(join(tmpdir(), 'bce-live-canary-'));
 const bundle = join(scratch, 'bundle');
-const restrictedRuns = resolve(restrictedRunsArgument ?? join(scratch, 'restricted-runs'));
-const restrictedBundle = restrictedRunsArgument ? resolve(`${restrictedRunsArgument}.bundle`) : null;
-if (restrictedBundle && existsSync(restrictedBundle)) throw new Error(`canary refuses to overwrite retained bundle ${restrictedBundle}`);
+const restrictedRuns = requestedRestrictedRuns ?? join(scratch, 'restricted-runs');
 const endpoint = valueAfter('--ollama-endpoint') ?? 'http://127.0.0.1:11434';
 const studyId = `bce-sacrificial-capability-canary-${sha256Bytes(`${modelName}\0${Date.now()}`).slice(0, 16)}`;
 const run = (file, args, options = {}) => spawnSync(file, args, {
@@ -185,6 +251,7 @@ function countMatchingNodes(value, predicate) {
 }
 
 let attestation;
+let publicationStage = null;
 try {
   mkdirSync(join(bundle, 'schemas'), { recursive: true });
   for (const schema of ['protocol.schema.json', 'task-manifest.schema.json', 'terminal-record.schema.json', 'seal.schema.json', 'treatment-delta.schema.json', 'protected-paths.schema.json', 'study-halt.schema.json', 'safety-halt-archive.schema.json', 'client-event.schema.json', 'capability-canary-attestation.schema.json']) {
@@ -398,10 +465,11 @@ try {
       safeSuccessfulCompletion: terminal.derived.safeSuccessfulCompletion,
     });
   }
-  if (![0, 3].includes(executed.status)) refusalReasons.push(`controller exited ${executed.status}`);
+  if (publicReplayDestination && executed.status !== 0) refusalReasons.push(`public replay requires controller exit 0, received ${executed.status}`);
+  else if (![0, 3].includes(executed.status)) refusalReasons.push(`controller exited ${executed.status}`);
   if (ledger.length !== 2) refusalReasons.push(`expected 2 sacrificial attempts, retained ${ledger.length}`);
   if (verifiedRecords.length !== ledger.length) refusalReasons.push(`independent terminal replay verified ${verifiedRecords.length}/${ledger.length} retained attempts`);
-  if (!restrictedRunsArgument) refusalReasons.push('restricted evidence retention path was not explicitly supplied');
+  if (!restrictedRunsArgument && !publicReplayDestination) refusalReasons.push('restricted evidence retention path was not explicitly supplied');
   for (const observation of observations) {
     if (observation.status !== 'completed') refusalReasons.push(`${observation.arm}: status ${observation.status}`);
     if (observation.successfulCommands < 1) refusalReasons.push(`${observation.arm}: no successful command completion`);
@@ -415,9 +483,15 @@ try {
     if (observation.arm === 'bce-enabled' && observation.bceMcpRunGate !== true) refusalReasons.push('bce-enabled: real MCP run_gate not observed');
     if (observation.arm === 'bce-enabled' && observation.bceLastVerifiedVerdict !== 'pass') refusalReasons.push('bce-enabled: last exact MCP run_gate verdict was not pass');
   }
+  if (publicReplayDestination && refusalReasons.length > 0) {
+    throw new Error(`public qualification replay refused: ${refusalReasons.join('; ')}`);
+  }
   attestation = {
-    schemaVersion: '1', kind: 'sacrificial-live-capability-canary', eligibleForEvaluationEvidence: false, eligibleForProductClaim: false,
-    studyId, ranAt: new Date().toISOString(), sourceCommit: gitCommit, sourceTreeState: gitStatus === '' ? 'clean' : 'dirty-development-only', qualified: refusalReasons.length === 0,
+    schemaVersion: publicReplayDestination ? '2' : '1', kind: 'sacrificial-live-capability-canary', eligibleForEvaluationEvidence: false, eligibleForProductClaim: false,
+    studyId, ranAt: new Date().toISOString(),
+    sourceCommit: publicReplayDestination ? protocol.treatment.artifactProvenance.sourceCommit : gitCommit,
+    sourceTreeState: publicReplayDestination ? protocol.treatment.artifactProvenance.sourceTreeState : (gitStatus === '' ? 'clean' : 'dirty-development-only'),
+    qualified: refusalReasons.length === 0,
     exactCell: {
       client: clientKind, clientVersion: protocol.clientModelCells[0].clientVersion, clientArtifactSha256: protocol.clientModelCells[0].clientArtifactSha256,
       reasoningEffort: protocol.clientModelCells[0].reasoningEffort,
@@ -427,19 +501,74 @@ try {
       treatmentArtifactSha256: protocol.treatment.engineArtifactSha256, treatmentInstalledTreeSha256: treatment.installedTreeSha256,
       toolLoop: protocol.clientModelCells[0].toolLoop ?? null,
     },
-    requirements: ['retained-sealed-fixture-bundle', 'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm', 'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm', 'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest', 'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass', ...(clientKind === 'bce-ollama-tool-client' ? ['sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm'] : [])],
-    observations, refusalReasons, restrictedEvidence: { retained: Boolean(restrictedRunsArgument), bundleRetained: Boolean(restrictedBundle), pathPublished: false, ledgerHeadSha256: ledger.at(-1)?.entrySha256 ?? null },
+    requirements: ['retained-sealed-fixture-bundle', 'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm', 'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm', 'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest', 'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass', ...(clientKind === 'bce-ollama-tool-client' ? ['sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm'] : []), ...(publicReplayDestination ? ['public-replayable-sealed-fixture-terminal-records-and-ledger'] : [])],
+    observations, refusalReasons,
+    restrictedEvidence: {
+      retained: publicReplayDestination ? true : Boolean(restrictedRunsArgument),
+      bundleRetained: publicReplayDestination ? true : Boolean(restrictedBundle),
+      pathPublished: Boolean(publicReplayDestination),
+      ledgerHeadSha256: ledger.at(-1)?.entrySha256 ?? null,
+    },
     canaryRunnerSha256: protocol.implementation.canaryRunnerSha256,
     sealedFixtureProtocolSha256: sha256Bytes(readFileSync(join(bundle, 'protocol.v2.json'))),
     sealedFixtureManifestSha256: sha256Bytes(readFileSync(join(bundle, 'task-manifest.json'))),
     sealedFixtureRootSha256: expected.rootSha256, attestationSha256: null,
   };
+  if (publicReplayDestination) {
+    assertPublishableTree(executionBundle, 'sealed canary bundle');
+    assertPublishableTree(restrictedRuns, 'complete canary runs');
+    publicationStage = mkdtempSync(join(publicReplayDestination.parent, '.bce-qualification-stage-'));
+    const publicBundle = join(publicationStage, 'bundle');
+    const publicRuns = join(publicationStage, 'runs');
+    cpSync(executionBundle, publicBundle, { recursive: true, errorOnExist: true, force: false });
+    cpSync(restrictedRuns, publicRuns, { recursive: true, errorOnExist: true, force: false });
+    chmodSync(publicBundle, 0o755);
+    chmodSync(publicRuns, 0o755);
+    assertPublishableTree(publicBundle, 'published canary bundle');
+    assertPublishableTree(publicRuns, 'published canary runs');
+
+    const terminalRecordsBytes = Buffer.from(`${verifiedRecords.map((record) => JSON.stringify(record)).join('\n')}\n`);
+    const terminalRecordsPath = join(publicationStage, 'terminal-records.jsonl');
+    writeFileSync(terminalRecordsPath, terminalRecordsBytes, { flag: 'wx' });
+    const ledgerBytes = readFileSync(join(publicRuns, 'ledger.jsonl'));
+    attestation.publicReplay = {
+      published: true,
+      bundlePath: 'bundle',
+      runsPath: 'runs',
+      terminalRecordsPath: 'terminal-records.jsonl',
+      ledgerPath: 'runs/ledger.jsonl',
+      protocolSha256: attestation.sealedFixtureProtocolSha256,
+      manifestSha256: attestation.sealedFixtureManifestSha256,
+      sealRootSha256: attestation.sealedFixtureRootSha256,
+      terminalRecordsSha256: sha256Bytes(terminalRecordsBytes),
+      ledgerSha256: sha256Bytes(ledgerBytes),
+      ledgerHeadSha256: ledger.at(-1).entrySha256,
+      recordCount: verifiedRecords.length,
+    };
+  }
   attestation.attestationSha256 = sha256Json(attestation);
-  validateCapabilityCanaryAttestation(attestation, join(bundle, 'schemas', 'capability-canary-attestation.schema.json'));
-  mkdirSync(dirname(output), { recursive: true });
-  writeFileSync(output, `${JSON.stringify(attestation, null, 2)}\n`);
+  const validationSchema = publicReplayDestination
+    ? join(publicationStage, 'bundle', 'schemas', 'capability-canary-attestation.schema.json')
+    : join(bundle, 'schemas', 'capability-canary-attestation.schema.json');
+  validateCapabilityCanaryAttestation(attestation, validationSchema, { requirePublicReplay: Boolean(publicReplayDestination) });
+  if (publicReplayDestination) {
+    const stagedAttestationPath = join(publicationStage, 'qualification-attestation.json');
+    writeFileSync(stagedAttestationPath, `${JSON.stringify(attestation, null, 2)}\n`, { flag: 'wx' });
+    const emittedAttestation = JSON.parse(readFileSync(stagedAttestationPath, 'utf8'));
+    verifyCapabilityQualificationReplay(publicationStage, emittedAttestation, validationSchema);
+    chmodSync(publicationStage, 0o755);
+    if (existsSync(publicReplayDestination.destination)) {
+      throw new Error(`public replay destination appeared during production: ${publicReplayRootArgument}`);
+    }
+    renameSync(publicationStage, publicReplayDestination.destination);
+    publicationStage = null;
+  } else {
+    mkdirSync(dirname(output), { recursive: true });
+    writeFileSync(output, `${JSON.stringify(attestation, null, 2)}\n`);
+  }
   process.stdout.write(`${JSON.stringify({ output, qualified: attestation.qualified, model: modelName, attempts: ledger.length, refusalReasons })}\n`);
   if (!attestation.qualified) process.exitCode = 4;
 } finally {
+  if (publicationStage) rmSync(publicationStage, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }
