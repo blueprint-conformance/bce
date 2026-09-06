@@ -107,10 +107,16 @@ The v2 protocol self-test drives the same verifier and analyzer through a fully 
 self-asserted outcomes, policy weakening, incomplete denominators, and missing telemetry presented
 as zero. Synthetic results are harness tests only and are ineligible for product claims.
 
-The confirmatory matrix uses 75 tasks per arm in each cell. This is a statistical coherence fix,
-not scope inflation: with zero false blocks, the 95% Wilson upper bound is about 11.35% at 30 trials
-and about 4.87% at 75. The frozen 5% decision threshold was therefore impossible to satisfy under
-the earlier 30-trial denominator. The threshold was not weakened.
+The retained v2 synthetic 600-trial apparatus used 75 tasks per arm in each cell. That historical
+denominator was a statistical coherence fix, not scope inflation: with zero false blocks, the 95%
+Wilson upper bound is about 11.35% at 30 trials and about 4.87% at 75. The frozen 5% decision
+threshold was therefore impossible to satisfy under the earlier 30-trial denominator. V2 remains
+an executable apparatus test; Evidence Foundry v3 above supersedes it as the forward efficacy
+program with a separately gated 120-pair primary stage.
+
+Published pilot directories are byte-immutable evidence archives. Forward-looking language inside
+their retained result narratives records the plan at publication time; it does not override the
+current v3 registry and protocol.
 
 The real-controller self-test uses the separate eight-attempt pilot with a deterministic no-model
 fixture. It proves the macOS sandbox is read-default-deny, denies hidden-input reads and

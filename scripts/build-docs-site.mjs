@@ -406,6 +406,9 @@ record and the docs build turns red. The machine-readable source is
 - **Sealed-input root:** \`${evidence.study.sealRootSha256}\`
 - **Full record:** [accelerated-v6/RESULTS.md](research/model-evaluation/pilots/accelerated-v6/RESULTS.md)
 
+The byte-immutable v6 record preserves its then-current v2 next-step language. That historical plan
+is superseded by the Evidence Foundry v3 registry and lifecycle shown above.
+
 ## What remains unestablished
 
 ${unestablished}

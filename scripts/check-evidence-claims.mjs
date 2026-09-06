@@ -33,8 +33,11 @@ try {
     /\bcanonical\s+(?:four-cell,\s+baseline\/BCE\s+)?600-(?:attempt|trial)\s+confirmatory\b/gi,
     /\bheld-out,\s+provider-identified\s+600-trial\s+confirmatory study\b/gi,
     /\bcanonical controlled coding-agent study\b[^.]{0,240}\bresearch:model-eval-readiness\b/gis,
+    /\b(?:honest\s+)?next\s+(?:causal\s+)?efficacy\s+step\b[^.]{0,240}\b(?:600(?:-|\s+)(?:attempt|trial)s?|four[- ]cell|75\s+tasks?\s+per\s+arm)\b/gis,
+    /\bthe\s+confirmatory\s+matrix\s+uses\s+75\s+tasks?\s+per\s+arm\b/gi,
   ];
   const failures = [];
+  const immutablePilotArchive = /^research\/model-evaluation\/pilots\/accelerated-v[1-6]\//;
   const publicFiles = new Set(['README.md', 'STATUS.md', 'PRODUCT.md', 'llms.txt']);
   const collectMarkdown = (path) => {
     if (!existsSync(path)) return;
@@ -62,10 +65,12 @@ try {
         }
       }
     }
-    for (const pattern of obsoleteForwardStudyClaims) {
-      for (const match of content.matchAll(pattern)) {
-        const line = content.slice(0, match.index).split(/\r?\n/).length;
-        failures.push(`${path}:${line}: obsolete v2 study presented as the current forward study`);
+    if (!immutablePilotArchive.test(path)) {
+      for (const pattern of obsoleteForwardStudyClaims) {
+        for (const match of content.matchAll(pattern)) {
+          const line = content.slice(0, match.index).split(/\r?\n/).length;
+          failures.push(`${path}:${line}: obsolete v2 study presented as the current forward study`);
+        }
       }
     }
   }

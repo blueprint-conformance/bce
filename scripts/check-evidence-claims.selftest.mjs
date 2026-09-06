@@ -236,6 +236,16 @@ reject('obsolete v2 study restored as current', () => {
   writeFileSync(join(fixture, boundary.path), `${originals.get(boundary.path)}\nThe canonical 600-trial confirmatory study is the current forward study.\n`);
 }, 'obsolete v2 study presented as the current forward study');
 
+reject('legacy 600-attempt design restored as the next efficacy step', () => {
+  const path = matrix.publicBoundaries.find((entry) => entry.path === 'PRODUCT.md').path;
+  writeFileSync(join(fixture, path), `${originals.get(path)}\nThe honest next efficacy step remains a 600-attempt four-cell matrix.\n`);
+}, 'obsolete v2 study presented as the current forward study');
+
+reject('legacy 75-per-arm matrix restored as unqualified current design', () => {
+  const path = matrix.publicBoundaries.find((entry) => entry.path === 'PRODUCT.md').path;
+  writeFileSync(join(fixture, path), `${originals.get(path)}\nThe confirmatory matrix uses 75 tasks per arm.\n`);
+}, 'obsolete v2 study presented as the current forward study');
+
 restore();
 const accepted = execFileSync(process.execPath, [checker, '--root', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`clean evidence claim set did not pass:\n${accepted}`);

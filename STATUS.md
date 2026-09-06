@@ -123,6 +123,8 @@ source tree.
   client/model qualification, assignment proof, and public pre-run seal are unset. Primary-stage
   readiness therefore refuses and no comparative result is claimed. The older four-cell,
   600-attempt v2 contract remains an executable synthetic apparatus format, not the current study.
+- Forward-looking “next study” language preserved inside byte-immutable pilot result archives is
+  historical planning from the time of publication. The v3 registry above is the current authority.
 - Accelerated instrumentation pilot v1 was publicly sealed before exposure and retained all eight
   attempts. All eight client invocations exited before a model response or task change was observed
   because the outer sandbox also denied the NVM-installed Codex artifact under the maintainer home;
