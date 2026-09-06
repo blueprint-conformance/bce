@@ -23,6 +23,8 @@ module boundaries. Node 22+ is required; the contract remains pre-1.0.
   <img src="assets/badges/tests.svg" alt="tests: 920">
 </p>
 
+[Watch BCE govern its own main branch](https://blueprint-conformance.github.io/bce/trust/#self-adoption-status): live GitHub stages, authenticated self-adoption, and explicit evidence boundaries.
+
 ## Run a real gate
 
 Three commands. No account, hosted service, API key, or repository setup:

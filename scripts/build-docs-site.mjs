@@ -67,6 +67,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEvidenceClaims } from './lib/evidence-claims.mjs';
+import { selfAdoptionHtml } from './lib/self-adoption-site.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let RELEASE_STATE;
@@ -126,6 +127,7 @@ const PAGES = [
   { route: 'guides/constraint-guide', source: 'docs/constraint-guide.md', section: 'Guides' },
   { route: 'guides/typescript-module-graph', source: 'docs/typescript-module-graph.md', section: 'Guides' },
   { route: 'guides/python-module-graph', source: 'docs/python-module-graph.md', section: 'Guides' },
+  { route: 'guides/live-self-adoption', source: 'docs/live-self-adoption.md', section: 'Guides' },
   { route: 'guides/self-hosting', source: 'docs/self-hosting.md', section: 'Guides' },
   { route: 'guides/accelerated-dogfooding', source: 'docs/accelerated-dogfooding.md', section: 'Guides' },
   { route: 'guides/agent-estate', source: 'docs/fleet-dogfooding.md', section: 'Guides' },
@@ -1111,6 +1113,11 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
       pageBody = pageBody.slice(match[0].length);
     }
   }
+  const livePipeline = route === '' || route === 'trust';
+  if (livePipeline) {
+    const panel = selfAdoptionHtml(repoRoot, relativeUrl(route, 'guides/live-self-adoption', true));
+    pageBody = route === '' ? pageBody.replace(/<h2\b/, panel + '\n<h2') : pageBody.replace('</h1>', '</h1>\n' + panel);
+  }
   const source = sourceFile
     ? `<p class="source">Source: <a href="${REPO_BLOB}${sourceFile}" rel="noopener">${escapeHtml(sourceFile)}</a></p>`
     : '';
@@ -1140,6 +1147,7 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
 <meta name="twitter:image" content="${SOCIAL_IMAGE_URL}">
 <meta name="twitter:image:alt" content="${escapeHtml(SOCIAL_IMAGE_ALT)}">
 <link rel="stylesheet" href="${cssHref}">
+${livePipeline ? `<script type="module" src="${'../'.repeat(depth) || './'}assets/self-adoption-status.mjs"></script>` : ''}
 </head>
 <body${route === '' ? ' class="landing"' : ''}>
 ${landingHero}
@@ -1161,7 +1169,46 @@ ${source}
 `;
 }
 
-const STYLESHEET = `/* bce documentation site — one local stylesheet, no external assets. */
+const STYLESHEET = `
+/* A read-only status pipeline scoped to this panel; the established docs shell is unchanged. */
+.self-adoption { margin: 1.5rem 0 2rem; padding: 1.25rem; border: 1px solid var(--line); border-radius: 12px; background: var(--quote); }
+.self-adoption-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .65rem; margin-bottom: .8rem; }
+.self-adoption h2 { border: 0; padding: 0; margin: 0; font-size: 1.2rem; }
+.self-adoption > p { font-size: .87rem; line-height: 1.6; }
+.pipeline-overall { font-size: .73rem; font-weight: 700; }
+.self-adoption-pipeline { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .6rem; list-style: none; padding: 0; margin: 1.2rem 0; }
+.self-adoption-pipeline li { min-width: 0; margin: 0; border-top: 2px solid var(--line); padding-top: .75rem; }
+.self-adoption-pipeline a { display: block; font-size: .78rem; font-weight: 650; overflow-wrap: anywhere; min-height: 2.7em; }
+.self-adoption-pipeline [data-state] { display: block; margin-top: .45rem; font-size: .72rem; }
+.self-adoption [data-state=passed] { color: #176347; }
+.self-adoption [data-state=failed] { color: #b42335; }
+.self-adoption [data-state=running] { color: #65500a; }
+.self-adoption-pipeline li[data-state=passed] { border-color: #43856b; }
+.self-adoption-pipeline li[data-state=failed] { border-color: #b42335; }
+.self-adoption-refresh { display: flex; gap: 1rem; align-items: start; justify-content: space-between; margin-bottom: 1rem; }
+.self-adoption-refresh p { color: var(--muted); font-size: .74rem; margin: 0; }
+.self-adoption button { flex: none; min-height: 44px; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; font-size: .75rem; cursor: pointer; }
+.self-adoption button:hover { border-color: var(--accent); }
+.self-adoption button:disabled { cursor: wait; opacity: .7; }
+.self-adoption a:focus-visible, .self-adoption button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.self-adoption .self-adoption-record { padding-top: .85rem; border-top: 1px solid var(--line); font-size: .8rem; }
+.self-adoption .self-adoption-limit { color: var(--muted); font-size: .75rem; margin-bottom: 0; }
+@media (prefers-color-scheme: dark) {
+  .self-adoption [data-state=passed] { color: #81dbaf; }
+  .self-adoption [data-state=failed] { color: #ff9caf; }
+  .self-adoption [data-state=running] { color: #ead29a; }
+}
+@media (max-width: 600px) {
+  .self-adoption { padding: 1rem; }
+  .self-adoption-pipeline { grid-template-columns: 1fr; gap: .55rem; }
+  .self-adoption-pipeline li { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; padding-top: .6rem; border-top-width: 1px; }
+  .self-adoption-pipeline a { min-height: 0; font-size: .85rem; }
+  .self-adoption-pipeline [data-state] { margin-top: 0; flex: none; }
+  .self-adoption-refresh { flex-direction: column; gap: .6rem; }
+}
+@media print { .self-adoption button { display: none; } }
+
+/* bce documentation site — one local stylesheet, no external assets. */
 :root {
   --bg: #ffffff; --fg: #1b1f24; --muted: #5a6472; --line: #d8dee6;
   --accent: #0b5fff; --code-bg: #f5f7fa; --quote: #f2f6ff;
@@ -1366,6 +1413,7 @@ function main() {
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(path.join(outDir, 'assets'), { recursive: true });
   fs.writeFileSync(path.join(outDir, 'assets/site.css'), STYLESHEET);
+  fs.copyFileSync(path.join(repoRoot, 'assets/site/self-adoption-status.mjs'), path.join(outDir, 'assets/self-adoption-status.mjs'));
 
   // ---- schemas: byte-for-byte, at the paths their $id names ---------------
   const schemaDir = path.join(repoRoot, 'spec/schemas');
@@ -1503,6 +1551,10 @@ function main() {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'index.html'), html);
 
+    if (p.route === '' || p.route === 'trust') {
+      headings.push({ level: 2, id: 'self-adoption-status', text: 'We use BCE to govern BCE.' });
+      hrefs.push({ href: linkTo(p.route, 'guides/live-self-adoption'), internal: true, targetRoute: 'guides/live-self-adoption', fragment: '' });
+    }
     const anchors = new Set(headings.map((h) => h.id));
     produced.set(p.route, { anchors, hrefs });
   }

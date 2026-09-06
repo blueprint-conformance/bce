@@ -56,6 +56,7 @@ no skip flags — a refusal is a red, not a pass.
 
 ## The engine gates itself
 
+- [Live self-adoption](docs/live-self-adoption.md): read the GitHub-backed main-commit pipeline, its refresh behavior, authenticated records, and evidence boundaries.
 - [Self-hosting](docs/self-hosting.md): bce gates its own tree; Lane A/B, the bootstrap-0 exception, the Lane-A pin ceremony, the admin-override incident policy.
 - [Corpus map](corpus/CORPUS-MAP.md): the seeded-defect corpus (recall denominator) and its relation to the paper corpus.
 - [This repo's blueprint](.blueprints/engine.blueprint.json): the contract the self-gate enforces.
