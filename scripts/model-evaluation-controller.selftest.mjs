@@ -656,7 +656,7 @@ function verifyConfirmatoryQualificationReplay() {
       requirements,
       observations,
       refusalReasons: [],
-      restrictedEvidence: { retained: true, bundleRetained: true, pathPublished: false, ledgerHeadSha256: ledger.at(-1).entrySha256 },
+      restrictedEvidence: { retained: true, bundleRetained: true, pathPublished: true, ledgerHeadSha256: ledger.at(-1).entrySha256 },
       publicReplay: {
         published: true,
         bundlePath: 'artifacts/qualification/bundle',
@@ -704,6 +704,7 @@ function verifyConfirmatoryQualificationReplay() {
     const legacy = structuredClone(attestation);
     legacy.schemaVersion = '1';
     delete legacy.publicReplay;
+    legacy.restrictedEvidence.pathPublished = false;
     legacy.requirements = legacy.requirements.filter((requirement) => requirement !== 'public-replayable-sealed-fixture-terminal-records-and-ledger');
     legacy.attestationSha256 = null;
     legacy.attestationSha256 = sha256Json(legacy);
