@@ -49,11 +49,21 @@ describe('doctor — read-only lifecycle readiness', () => {
       expect(report.checks.length).toBeGreaterThan(10);
       expect(report.checks.some((c) => c.id === 'agents/mcp' && c.status === 'pass')).toBe(true);
       expect(report.checks.some((c) => c.id === 'gate/full-sweep' && c.status === 'pass')).toBe(true);
+      const proofs = report.checks.filter((c) => c.id.endsWith('/proof'));
+      expect(proofs).toHaveLength(2);
+      for (const proof of proofs) {
+        expect(proof.status, proof.detail).toBe('pass');
+        expect(proof.detail).toMatch(/^extractor-real-proven: ([1-9]\d*)\/\1 source mutants killed$/);
+      }
       // The development shell may itself be below the package's Node >=22 contract; doctor must
       // report that honestly while the repository's lifecycle surfaces remain structurally sound.
       expect(report.checks.filter((c) => c.status === 'refusal' && c.id !== 'runtime/node')).toEqual([]);
     },
-    120_000, // full live-repository sweep; loaded parallel workers measured 68s on 2026-09-05
+    // This functional integration proof executes all 60 source mutants, plus the full gate.
+    // Post-merge run 34052319358 took 121.4s on Windows/Node 22 and 114.3s on Node 24
+    // under parallel suite load. Give this one test a finite 5-minute budget; runtime
+    // performance assertions and the global test timeout remain separate and unchanged.
+    300_000,
   );
 
   it('a repo with zero blueprints is a typed refusal', () => {
