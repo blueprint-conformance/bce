@@ -23,9 +23,9 @@ name: docs-site-check
 # self-test runs FIRST and plants a probe against each of those checks in turn,
 # requiring each to refuse. Only then is a pass worth anything.
 #
-# No install step: the build and its self-test are dependency-free (node
-# built-ins only), the same discipline as tools/verify-chain.mjs. The whole
-# check is a few seconds and cannot be broken by a registry outage.
+# The build and its adversarial self-test remain dependency-free (node built-ins
+# only). The public evidence-claim gate intentionally uses the full Ajv-backed
+# verifier, so its dependencies are installed exactly from package-lock.json.
 # ==============================================================================
 
 on:
@@ -70,6 +70,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: 22.22.2
+          cache: npm
 
       # ----------------------------------------------------------------------
       # NEGATIVE SELF-TEST — before the real build's verdict is trusted, prove
@@ -79,6 +80,9 @@ jobs:
       # ----------------------------------------------------------------------
       - name: Self-test — every check must refuse its own probe
         run: node scripts/docs-site-selftest.mjs
+
+      - name: Install locked evidence verifier dependencies
+        run: npm ci --ignore-scripts
 
       - name: Public evidence claims remain bounded
         run: npm run test:evidence-claims

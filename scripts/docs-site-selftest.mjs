@@ -174,7 +174,26 @@ function verifyPagesTruthGate() {
   if (/continue-on-error\s*:|if\s*:\s*\$\{\{\s*always\(\)/.test(workflow)) {
     harness('Pages workflow may not bypass a failed evidence-claim gate');
   }
-  console.log('docs-site-selftest: Pages deploy is ordered behind the full evidence-claim gate.');
+  if (!/^\s*node-version: 22\.22\.2\s*$/m.test(workflow) || !/^\s*cache: npm\s*$/m.test(workflow)) {
+    harness('Pages workflow must use pinned Node 22.22.2 with the npm lockfile cache');
+  }
+
+  const checkWorkflow = fs.readFileSync(path.join(repoRoot, '.github/workflows/docs-site-check.yml'), 'utf8');
+  const checkInstall = checkWorkflow.indexOf('run: npm ci --ignore-scripts');
+  const checkClaimGate = checkWorkflow.indexOf('run: npm run test:evidence-claims');
+  const checkBuild = checkWorkflow.indexOf('run: node scripts/build-docs-site.mjs');
+  if ([checkInstall, checkClaimGate, checkBuild].some((index) => index < 0) ||
+      !(checkInstall < checkClaimGate && checkClaimGate < checkBuild)) {
+    harness('docs-site workflow must install locked dependencies and pass the full evidence-claim gate before build');
+  }
+  if ((checkWorkflow.match(/^\s*run: npm run test:evidence-claims\s*$/gm) ?? []).length !== 1 ||
+      /continue-on-error\s*:|if\s*:\s*\$\{\{\s*always\(\)/.test(checkWorkflow)) {
+    harness('docs-site workflow may not bypass its exact evidence-claim gate');
+  }
+  if (!/^\s*node-version: 22\.22\.2\s*$/m.test(checkWorkflow) || !/^\s*cache: npm\s*$/m.test(checkWorkflow)) {
+    harness('docs-site workflow must use pinned Node 22.22.2 with the npm lockfile cache');
+  }
+  console.log('docs-site-selftest: Pages deploy and docs check are ordered behind the full evidence-claim gate.');
 }
 
 /**
