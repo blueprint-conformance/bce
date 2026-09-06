@@ -41,6 +41,8 @@ and supply a strictly higher `--candidate-version 0.2.0`. The proposal ID identi
 it can differ from the durable blueprint ID so later amendments get fresh immutable directories.
 Preparation requires readable repository-local intent references and preserves the authored policy
 losslessly, apart from the selected version and draft status. It refuses unrepresentable fields.
+Authored packets carry the cited intent sources, extracted graph, and source proof; unrelated
+repository files are bound by the worktree digest without copying their contents into the packet.
 
 The packet, candidate, rendered review, and any later decision live under `.bce/proposals/<proposal-id>/`.
 Preparation changes no governed policy. Commit the inputs before preparation: source changes outside

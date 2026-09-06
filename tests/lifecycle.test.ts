@@ -406,6 +406,7 @@ describe('authored CLI review entrypoint', () => {
     fs.mkdirSync(path.join(dir, '.blueprints'));
     fs.writeFileSync(path.join(dir, 'src/service.ts'), 'export const value = 1;\n');
     fs.writeFileSync(path.join(dir, 'docs/intent.md'), 'All dependencies must avoid axios.\n');
+    fs.writeFileSync(path.join(dir, 'docs/unrelated.md'), 'UNRELATED_SOURCE_NOT_SELECTED_FOR_REVIEW\n');
     const candidate = {
       apiVersion: 'blueprint-conformance/v1alpha1', kind: 'EngineeringBlueprint',
       metadata: { id: 'authored-boundary', version: '0.1.0', status: 'draft' },
@@ -436,6 +437,7 @@ describe('authored CLI review entrypoint', () => {
     expect(prepared.status, prepared.out).toBe(0);
     expect(prepared.out).toContain('approval eligible');
     const packet = '.bce/proposals/first-ceremony/review-packet.json';
+    expect(fs.readFileSync(path.join(dir, packet), 'utf8')).not.toContain('UNRELATED_SOURCE_NOT_SELECTED_FOR_REVIEW');
     const verified = cli(['review', 'verify', '--repo', dir, '--packet', packet]);
     expect(verified.status, verified.out).toBe(0);
     expect(JSON.parse(fs.readFileSync(path.join(dir, '.blueprints/authored.blueprint.json'), 'utf8'))).toEqual(candidate);
