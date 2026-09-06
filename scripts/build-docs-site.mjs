@@ -183,6 +183,92 @@ const PAGES = [
 // build instead of a dead link here, and the link-target check, which turns
 // a renamed check-release-citation.mjs into a red build too.
 // ---------------------------------------------------------------------------
+function foundryLifecycleCopy(evidence) {
+  const study = evidence.foundryStudy;
+  const protocol = evidence.foundryProtocol;
+  const stages = protocol.stages;
+  const completedLifecycle = stages.filter((stage) => stage.lifecycle === 'complete');
+  const completed = completedLifecycle.filter((stage) => stage.resultEvidence !== null);
+  const awaitingAnchor = stages.filter((stage) =>
+    stage.lifecycle === 'running' && stage.lifecycleEvidence?.disposition === 'complete-awaiting-anchor');
+  const halted = stages.filter((stage) =>
+    stage.lifecycle === 'safety-halted' && stage.lifecycleEvidence?.disposition === 'safety-halt');
+  const stageIds = (entries) => entries.map((stage) => `\`${stage.id}\``).join(', ');
+  const claimClasses = study.currentClaimClasses.map((claimClass) => `\`${claimClass}\``).join(', ');
+  const claimBoundary = `Current public claim classes: ${claimClasses}. This status does not state an effect magnitude.`;
+  const progress = `${completed.length} of ${stages.length} registered stages carry externally anchored complete evidence.`;
+
+  if (completed.length !== completedLifecycle.length) {
+    harness('trust page cannot render a completed Evidence Foundry v3 stage without result evidence');
+  }
+
+  if (protocol.lifecycle === 'design-draft') {
+    if (stages.some((stage) => stage.lifecycle !== 'design-draft')) {
+      harness('trust page cannot render a design-draft program with a non-draft stage');
+    }
+    return {
+      headline: '**Evidence Foundry v3 is in design (`design-draft`). No stage execution is recorded.**',
+      detail: `${claimBoundary} The real task manifest, exact release and client/model cells, ` +
+        'assignments, and public pre-run seal remain unset.',
+      command: 'npm run research:evidence-foundry-v3-ready -- --stage primary-confirmatory',
+      commandPurpose: 'see every current design blocker',
+    };
+  }
+
+  if (protocol.lifecycle === 'frozen-ready-not-run') {
+    if (!study.ready || stages.some((stage) => stage.lifecycle !== 'frozen-ready-not-run')) {
+      harness('trust page cannot render frozen-ready-not-run without verified program readiness');
+    }
+    return {
+      headline: '**Evidence Foundry v3 is frozen and verified execution-ready; no registered stage has started.**',
+      detail: `${claimBoundary} ${progress}`,
+      command: 'npm run research:evidence-foundry-v3-ready',
+      commandPurpose: 'verify the frozen program and its execution prerequisites',
+    };
+  }
+
+  if (protocol.lifecycle === 'running') {
+    if (awaitingAnchor.length > 1 || (awaitingAnchor.length === 0 && completed.length === 0)) {
+      harness('trust page cannot render running without one awaiting-anchor stage or prior anchored completion');
+    }
+    const active = awaitingAnchor.length === 1
+      ? `${stageIds(awaitingAnchor)} has a full-denominator public replay and is awaiting its external result anchor.`
+      : 'No later stage is in flight; the next registered transport stage has not started.';
+    return {
+      headline: `**Evidence Foundry v3 is running. ${active}**`,
+      detail: `${progress} ${claimBoundary}`,
+      command: 'npm run evidence:verify',
+      commandPurpose: 'replay the public evidence and exact claim boundary',
+    };
+  }
+
+  if (protocol.lifecycle === 'safety-halted') {
+    if (halted.length !== 1) {
+      harness('trust page cannot render a safety-halted program without exactly one replay-bound halted stage');
+    }
+    return {
+      headline: `**Evidence Foundry v3 is safety-halted at ${stageIds(halted)}. A replayable partial prefix is retained; the halted stage unlocks no efficacy claim.**`,
+      detail: `${progress} ${claimBoundary}`,
+      command: 'npm run evidence:verify',
+      commandPurpose: 'replay the retained evidence and exact no-claim boundary',
+    };
+  }
+
+  if (protocol.lifecycle === 'complete') {
+    if (completed.length !== stages.length) {
+      harness('trust page cannot render a complete program before every stage carries anchored result evidence');
+    }
+    return {
+      headline: `**Evidence Foundry v3 is complete. ${progress}**`,
+      detail: claimBoundary,
+      command: 'npm run evidence:verify',
+      commandPurpose: 'replay the public evidence and exact bounded claim classes',
+    };
+  }
+
+  harness(`trust page cannot render unsupported Evidence Foundry v3 lifecycle: ${protocol.lifecycle}`);
+}
+
 function trustMd() {
   // Witness count: derived, never restated. The ledger's own headline is the
   // one source; if its shape changes, refuse rather than guess (exit 2 — the
@@ -243,6 +329,7 @@ function trustMd() {
     .filter((claim) => claim.status !== 'unestablished')
     .map((claim) => `| ${claim.claim} | ${statusLabel[claim.status]} | ${classLabel[claim.evidenceClass]} |`)
     .join('\n');
+  const foundryStatus = foundryLifecycleCopy(evidence);
 
   return `# Trust and evidence
 
@@ -279,9 +366,10 @@ measured. ${infrastructureErrors} baseline infrastructure timeout remains in the
 
 ## Next claim-bearing study
 
-**Evidence Foundry v3 is ${evidence.foundryStudy.lifecycle} and not execution-ready. Its current
-claim class is \`${evidence.foundryStudy.currentClaimClasses.join(', ')}\`.** The first stage is
-deliberately bounded so a useful answer does not wait for every transport cell.
+${foundryStatus.headline}
+
+${foundryStatus.detail} The first stage is deliberately bounded so a useful answer does not wait
+for every transport cell.
 
 | Registered scope | Value |
 | --- | ---: |
@@ -291,10 +379,8 @@ deliberately bounded so a useful answer does not wait for every transport cell.
 | Retained attempts | ${evidence.foundryStudy.primaryStage.retainedAttempts} |
 | Later transport stages | ${evidence.foundryStudy.prospectiveStageCount - 1} |
 
-The real task manifest, exact release and primary client/model cell, assignments, and public
-pre-run seal remain unset. [Inspect the v3 protocol](research/model-evaluation/studies/evidence-foundry-v3/protocol.json)
-or run \`npm run research:evidence-foundry-v3-ready -- --stage primary-confirmatory\` to see every
-current blocker.
+[Inspect the v3 protocol](research/model-evaluation/studies/evidence-foundry-v3/protocol.json) or run
+\`${foundryStatus.command}\` to ${foundryStatus.commandPurpose}.
 
 ## Verify the public record
 
