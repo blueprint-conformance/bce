@@ -172,6 +172,18 @@ function resolveSealedDirectory(root, path, label) {
   return directory;
 }
 
+function assertClosedRegularTree(root, label) {
+  const walk = (path) => {
+    const stat = lstatSync(path);
+    const relativePath = posixRelative(root, path) || '.';
+    if (stat.isSymbolicLink()) throw new Error(`${label}: symbolic-link artifacts are refused (${relativePath})`);
+    if (stat.isFile()) return;
+    if (!stat.isDirectory()) throw new Error(`${label}: unsupported filesystem entry (${relativePath})`);
+    for (const name of readdirSync(path).sort()) walk(resolve(path, name));
+  };
+  walk(root);
+}
+
 export function hashTree(root, { includeNodeModules = false } = {}) {
   const base = realpathSync(root);
   const entries = [];
@@ -491,7 +503,9 @@ function deriveQualificationObservation(record, replay) {
 }
 
 export function verifyCapabilityQualificationReplay(packageRootInput, attestation, schemaPath) {
-  const root = resolve(packageRootInput);
+  const requestedRoot = resolve(packageRootInput);
+  assertClosedRegularTree(requestedRoot, 'public qualification package');
+  const root = realpathSync(requestedRoot);
   validateCapabilityCanaryAttestation(attestation, schemaPath, { requirePublicReplay: true });
   const publicReplay = attestation.publicReplay;
   const bundleRoot = resolveSealedDirectory(root, publicReplay.bundlePath, 'public qualification bundle');

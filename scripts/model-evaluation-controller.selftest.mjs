@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Drive the real controller with a no-model fixture through normal and faulted exposed runs. */
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
@@ -684,6 +684,34 @@ function verifyConfirmatoryQualificationReplay() {
     const schemaPath = join(root, 'research', 'model-evaluation', 'schemas', 'capability-canary-attestation.schema.json');
     verifyCapabilityQualificationReplay(qualificationPackage, attestation, schemaPath);
 
+    const expectNestedSymlinkRefusal = (label, containedPath) => {
+      const original = readFileSync(containedPath);
+      const outsidePath = join(scratch, `outside-qualification-${label}`);
+      writeFileSync(outsidePath, original);
+      rmSync(containedPath);
+      symlinkSync(outsidePath, containedPath);
+      try {
+        try {
+          verifyCapabilityQualificationReplay(qualificationPackage, attestation, schemaPath);
+          throw new Error(`${label} out-of-package symlink was accepted`);
+        } catch (error) {
+          if (!/public qualification package: symbolic-link artifacts are refused/.test(error.message)) throw error;
+        }
+      } finally {
+        rmSync(containedPath, { force: true });
+        writeFileSync(containedPath, original);
+        rmSync(outsidePath, { force: true });
+      }
+    };
+    expectNestedSymlinkRefusal(
+      'terminal',
+      join(publicRuns, 'trials', replay.records[0].trialId, 'a0', 'terminal.json'),
+    );
+    expectNestedSymlinkRefusal(
+      'cas',
+      join(publicRuns, replay.records[0].evidence.patch.path),
+    );
+
     const standaloneAttestationBytes = readFileSync(standaloneAttestationPath);
     const composedPackageRelative = 'artifacts/vendor/qualification-v2';
     const composedPackage = join(bundle, composedPackageRelative);
@@ -1012,5 +1040,5 @@ executeSymlinkReplayRefusal();
 executeProviderIdentityDriftRefusal();
 executeMissingActiveProviderRefusal();
 executeFirstClassSafetyHalt();
-process.stdout.write('model-evaluation controller self-test: PASS (registered fsync-backed run + checkpoint chain; arm-blind evaluator; exact replay bytes; outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable; first-party typed exec broker denied provider/external network, forks, oracle reads, protected writes, and toolchain writes with bijective controller evidence; public qualification replay rederived both arms and refused invented digest/boolean, legacy v1 confirmatory use, arbitrary signer, mismatched/non-canonical Sigstore payloads, and missing package-byte match; allowed-path symlink replay refused before oracles; provider digest drift and missing-active failures retained without erasing policy evidence; pre-trigger, replayed, and tampered safety-halt states fail closed; first-class halt exits 3; checkpoint fork and aggregate tamper refused; pilot recommendation impossible)\n');
+process.stdout.write('model-evaluation controller self-test: PASS (registered fsync-backed run + checkpoint chain; arm-blind evaluator; exact replay bytes; outer-only strict sandbox + MCP done-check preflight; 8/8 normal rows; nested-sandbox regression refused; 8/8 caught faults terminalized; hard crash recovered; credential retired before hosted model command; credential-free loopback provider identity stable; first-party typed exec broker denied provider/external network, forks, oracle reads, protected writes, and toolchain writes with bijective controller evidence; public qualification replay rederived both arms and refused invented digest/boolean, legacy v1 confirmatory use, out-of-package terminal/CAS symlinks, arbitrary signer, mismatched/non-canonical Sigstore payloads, and missing package-byte match; allowed-path symlink replay refused before oracles; provider digest drift and missing-active failures retained without erasing policy evidence; pre-trigger, replayed, and tampered safety-halt states fail closed; first-class halt exits 3; checkpoint fork and aggregate tamper refused; pilot recommendation impossible)\n');
 rmSync(scratch, { recursive: true, force: true });
