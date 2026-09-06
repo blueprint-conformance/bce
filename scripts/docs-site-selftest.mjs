@@ -308,8 +308,9 @@ const PROBES = [
     expect: '',
     verify: (dir) => {
       const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
-      return page.includes('Evidence Foundry v3 is frozen and verified execution-ready') &&
+      return page.includes('Evidence Foundry v3 is frozen, and its primary stage is verified execution-ready') &&
         page.includes('0 of 4 registered stages carry externally anchored complete evidence') &&
+        page.includes('research:evidence-foundry-v3-ready -- --stage primary-confirmatory') &&
         page.includes('<code>no-efficacy-claim</code>')
         ? null
         : 'the frozen-ready fixture did not render its verified readiness and exact no-claim boundary';

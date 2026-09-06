@@ -217,13 +217,13 @@ function foundryLifecycleCopy(evidence) {
 
   if (protocol.lifecycle === 'frozen-ready-not-run') {
     if (!study.ready || stages.some((stage) => stage.lifecycle !== 'frozen-ready-not-run')) {
-      harness('trust page cannot render frozen-ready-not-run without verified program readiness');
+      harness('trust page cannot render frozen-ready-not-run without verified primary-stage readiness');
     }
     return {
-      headline: '**Evidence Foundry v3 is frozen and verified execution-ready; no registered stage has started.**',
+      headline: '**Evidence Foundry v3 is frozen, and its primary stage is verified execution-ready; no registered stage has started.**',
       detail: `${claimBoundary} ${progress}`,
-      command: 'npm run research:evidence-foundry-v3-ready',
-      commandPurpose: 'verify the frozen program and its execution prerequisites',
+      command: 'npm run research:evidence-foundry-v3-ready -- --stage primary-confirmatory',
+      commandPurpose: 'verify the frozen primary stage and its execution prerequisites',
     };
   }
 
