@@ -30,7 +30,7 @@ import {
   verifyStageBundleForLifecycle,
   verifyStudyRegistry,
 } from './lib/evidence-foundry-v3.mjs';
-import { expectedSeal } from './lib/model-evaluation.mjs';
+import { expectedSeal, verifyBundle } from './lib/model-evaluation.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (path) => JSON.parse(readFileSync(resolve(root, path), 'utf8'));
@@ -133,6 +133,14 @@ try {
     cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
   });
   assert.equal(replayed.status, 0, `portable public replay fixture refused: ${replayed.stderr}`);
+  const portableVerification = verifyBundle(portableBundle, { requireSealed: true, verifyHostArtifacts: false });
+  assert.equal(portableVerification.ok, true, portableVerification.refusals.join('\n'));
+  assert.ok(portableVerification.historicalImplementations.length > 0, 'fixture no longer exercises historical implementation verification');
+  assert.equal(
+    portableVerification.historicalImplementations.every(({ source }) => source === 'content-addressed-public-archive'),
+    true,
+    'portable replay depends on Git history instead of the content-addressed public implementation archive',
+  );
   const terminalRecordsPath = join(portableResults, 'terminal-records.jsonl');
   const terminalRecordBytes = readFileSync(terminalRecordsPath);
   rmSync(terminalRecordsPath);
