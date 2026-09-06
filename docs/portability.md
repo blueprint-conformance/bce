@@ -39,3 +39,16 @@ A passing PR run does not establish post-merge health. Release verification must
 release-relevant workflows, including all six portability legs, to finish on the merged `main`
 revision. The [live pipeline](live-self-adoption.md) continues to display the observed revision's
 actual result, including failures and pending checks.
+
+## Documentation proof budget
+
+The documentation self-test stages a fresh tree and rebuilds the site for each control. Its budget
+scales at 16 seconds per control, with a ten-minute ceiling. Every planted defect must still be
+refused for its intended reason, and the clean tree and positive controls must still build.
+
+The [post-merge Windows/Node 24 run at `09e8608`](https://github.com/blueprint-conformance/bce/actions/runs/34064098402/job/101569716183)
+completed the doctor proof in 99 seconds, then failed because the documentation proof took 284.7
+seconds against its former 240-second ceiling. This separate timeout was found by waiting for the
+entire post-merge matrix. The documentation budget now accounts for the cost of repeatedly copying
+and rebuilding the full site on supported runners; the correction adds no retries, exclusions, or
+changes to production performance budgets.
