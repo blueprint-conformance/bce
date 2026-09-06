@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyzeModelEvaluationRecords } from './lib/model-evaluation-analysis.mjs';
-import { canonicalJson, expectedSeal, sha256Bytes, sha256Json } from './lib/model-evaluation.mjs';
+import { canonicalJson, expectedSeal, sha256Bytes, sha256Json, verifyBundle, verifyRunRegistration } from './lib/model-evaluation.mjs';
 import { SAFETY_HALT_ARCHIVE_SCHEMA_PATH, verifyPublishedSafetyHalt } from './lib/model-evaluation-halt.mjs';
 import { localProviderProofMatches, localProviderProofWellFormed } from './lib/model-evaluation-provider.mjs';
 
@@ -20,6 +20,8 @@ const protocol = readJson(join(bundleRoot, 'protocol.v2.json'));
 const manifest = readJson(join(bundleRoot, 'task-manifest.json'));
 const seal = readJson(join(bundleRoot, 'seal.json'));
 const summary = readJson(join(resultsRoot, 'summary.json'));
+const sealedBundle = verifyBundle(bundleRoot, { requireSealed: true, verifyHostArtifacts: false });
+if (!sealedBundle.ok) throw new Error(`public bundle verification failed: ${sealedBundle.refusals.join('; ')}`);
 if (summary.resultSha256 !== sha256Json({ ...summary, resultSha256: null })) throw new Error('public summary self-digest mismatch');
 const safetyHalted = summary.resultKind === 'safety-halt-archive' && summary.runDisposition?.status === 'safety-halt';
 if (safetyHalted) {
@@ -71,6 +73,9 @@ if (protocol.phase === 'pilot' && (seal.attestation?.eligibleForProductClaim !==
     (safetyHalted ? summary.archive.claimDecision.decision !== 'not-evaluated-safety-halted-partial-run' : summary.analysis.productDecision.decision !== 'ineligible-instrumentation-pilot-no-efficacy-decision'))) {
   throw new Error('pilot export is not permanently claim-ineligible');
 }
+if (protocol.phase === 'confirmatory' && (summary.withheldPublicEvidence?.commitments?.length ?? 0) !== 0) {
+  throw new Error('confirmatory evidence withholds outcome artifacts');
+}
 
 const terminalBytes = readFileSync(join(resultsRoot, 'terminal-records.jsonl'));
 const ledgerBytes = readFileSync(join(resultsRoot, 'ledger.jsonl'));
@@ -78,6 +83,31 @@ if (sha256Bytes(terminalBytes) !== summary.publicReplay.terminalRecordsSha256) t
 if (sha256Bytes(ledgerBytes) !== summary.publicReplay.ledgerSha256) throw new Error('ledger export digest mismatch');
 const records = terminalBytes.toString('utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
 const ledger = ledgerBytes.toString('utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
+const registeredRun = ledger.some((entry) => entry.runId !== undefined && entry.runId !== null);
+let runRegistration = null;
+if (registeredRun) {
+  const registrationBytes = readFileSync(join(resultsRoot, 'run-registration.json'));
+  const checkpointBytes = readFileSync(join(resultsRoot, 'checkpoints.jsonl'));
+  if (sha256Bytes(registrationBytes) !== summary.publicReplay.runRegistrationSha256 ||
+      sha256Bytes(checkpointBytes) !== summary.publicReplay.checkpointsSha256) throw new Error('registered run export digest mismatch');
+  runRegistration = verifyRunRegistration(resultsRoot, sealedBundle);
+  const checkpoints = checkpointBytes.toString('utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
+  if (checkpoints.length !== ledger.length) throw new Error('public checkpoint/ledger denominator mismatch');
+  let previousCheckpoint = null;
+  for (let index = 0; index < checkpoints.length; index += 1) {
+    const checkpoint = checkpoints[index];
+    if (checkpoint.schemaVersion !== '1' || checkpoint.runId !== runRegistration.runId || checkpoint.sequence !== index ||
+        checkpoint.committedTrials !== index + 1 || checkpoint.ledgerHeadSha256 !== ledger[index].entrySha256 ||
+        checkpoint.terminalRecordSha256 !== ledger[index].recordSha256 || checkpoint.previousCheckpointSha256 !== previousCheckpoint ||
+        checkpoint.checkpointSha256 !== sha256Json({ ...checkpoint, checkpointSha256: null })) {
+      throw new Error(`public checkpoint ${index} does not bind the registered ledger prefix`);
+    }
+    previousCheckpoint = checkpoint.checkpointSha256;
+  }
+  if (previousCheckpoint !== summary.publicReplay.checkpointHeadSha256) throw new Error('public checkpoint head mismatch');
+} else if (summary.publicReplay.runRegistrationSha256 !== undefined && summary.publicReplay.runRegistrationSha256 !== null) {
+  throw new Error('summary claims a run registration for a legacy ledger');
+}
 const plannedTrials = manifest.assignments.length;
 if (records.length !== summary.verifiedTrials || ledger.length !== records.length ||
     (safetyHalted ? (records.length === 0 || records.length > plannedTrials || summary.runDisposition.plannedTrials !== plannedTrials || summary.runDisposition.committedTrials !== records.length || summary.runDisposition.unexposedTrials !== plannedTrials - records.length) : records.length !== plannedTrials)) {
@@ -102,6 +132,9 @@ for (let index = 0; index < records.length; index += 1) {
   const record = recordsByTrial.get(assignment.trialId);
   const entry = ledger[index];
   if (!record || record.recordSha256 !== sha256Json({ ...record, recordSha256: null })) throw new Error(`${assignment.trialId}: terminal digest mismatch`);
+  if (registeredRun && (record.bindings.runId !== runRegistration.runId || entry.runId !== runRegistration.runId || entry.schemaVersion !== '2')) {
+    throw new Error(`${assignment.trialId}: terminal or ledger differs from the registered run`);
+  }
   if (canonicalJson(record.assignment) !== canonicalJson({ cellId: assignment.cellId, repositoryId: assignment.repositoryId, taskId: assignment.taskId, arm: assignment.arm, orderIndex: assignment.orderIndex }) || record.pairId !== assignment.pairId) {
     throw new Error(`${assignment.trialId}: terminal assignment mismatch`);
   }
@@ -141,6 +174,9 @@ for (let index = 0; index < records.length; index += 1) {
   const functional = safetyHalted ? null : publicArtifact(record, 'functionalOracle');
   const architecture = safetyHalted ? null : publicArtifact(record, 'architectureOracle');
   const policy = publicArtifact(record, 'policyDiff');
+  const patch = safetyHalted ? null : publicArtifact(record, 'patch');
+  const finalTree = safetyHalted ? null : publicArtifact(record, 'finalTree');
+  const evaluation = !safetyHalted && record.evidence.evaluation ? publicArtifact(record, 'evaluation') : null;
   const preparation = publicArtifact(record, 'preparation');
   const isolation = publicArtifact(record, 'isolationProof');
   const cell = protocol.clientModelCells.find((item) => item.id === assignment.cellId);
@@ -148,6 +184,29 @@ for (let index = 0; index < records.length; index += 1) {
   const repository = manifest.repositories.find((item) => item.id === assignment.repositoryId);
   const hardenedEvidenceRequired = typeof protocol.implementation.referenceVerifierSha256 === 'string';
   if (record.bindings.sealRootSha256 !== seal.rootSha256 || record.bindings.preparedTreeSha256 !== repository.preparedTreeSha256 || preparation.preparedTreeSha256 !== repository.preparedTreeSha256 || record.bindings.treatmentConfigSha256 !== preparation.treatmentConfigSha256) throw new Error(`${record.trialId}: frozen binding mismatch`);
+  if (!safetyHalted && protocol.phase === 'confirmatory' && record.status === 'completed' && evaluation === null) throw new Error(`${record.trialId}: completed confirmatory result lacks blinded evaluation`);
+  if (!safetyHalted && evaluation !== null && (evaluation.armBlind !== true || evaluation.resultSha256 !== sha256Json({ ...evaluation, resultSha256: null }) ||
+      evaluation.neutralTreeSha256 !== finalTree.neutralTreeSha256 ||
+      canonicalJson(evaluation.visible) !== canonicalJson({ nonBceAccepted: visible?.nonBceAccepted, nonBceRuns: visible?.nonBceRuns }) ||
+      canonicalJson(evaluation.functional) !== canonicalJson(functional) || canonicalJson(evaluation.architecture) !== canonicalJson(architecture))) {
+    throw new Error(`${record.trialId}: blinded evaluation does not bind the public outcomes`);
+  }
+  if (!safetyHalted && patch.format === 'bce-replay-patch/v1') {
+    const paths = patch.changes.map((change) => change.path);
+    if (new Set(paths).size !== paths.length || canonicalJson([...paths].sort()) !== canonicalJson([...(finalTree.changedPaths ?? [])].sort())) {
+      throw new Error(`${record.trialId}: replay patch path inventory mismatch`);
+    }
+    for (const change of patch.changes) {
+      const operation = change.after === null ? 'delete' : change.after?.type === 'file' ? 'write' : 'unsupported';
+      if (change.operation !== operation) throw new Error(`${record.trialId}: replay operation mismatch for ${String(change.path)}`);
+      if (operation === 'write') {
+        const bytes = Buffer.from(change.contentBase64, 'base64');
+        if (bytes.toString('base64') !== change.contentBase64 || bytes.byteLength !== change.after.bytes || sha256Bytes(bytes) !== change.after.sha256) {
+          throw new Error(`${record.trialId}: replay bytes mismatch for ${String(change.path)}`);
+        }
+      } else if (change.contentBase64 !== null) throw new Error(`${record.trialId}: non-write replay operation carries content`);
+    }
+  } else if (!safetyHalted && protocol.phase === 'confirmatory' && patch.available !== false) throw new Error(`${record.trialId}: confirmatory result lacks exact replay bytes`);
   if (isolation.driver !== protocol.isolation.executionDriver || isolation.driverSha256 !== protocol.isolation.executionDriverSha256 || !isolation.oracleReadDenied || !isolation.protectedWriteDenied ||
       (protocol.isolation.clientSandboxMode !== undefined && isolation.clientSandboxMode !== protocol.isolation.clientSandboxMode) ||
       (protocol.isolation.clientExecutableStagingRequired === true && isolation.clientExecutableStagedSha256 !== cell.clientArtifactSha256) ||
@@ -179,7 +238,6 @@ for (let index = 0; index < records.length; index += 1) {
       (cell.client === 'codex' && isolation.clientSessionObserved === true && (isolation.credentialRetiredBeforeModelToolExecution !== true || isolation.modelToolExecutionObservedBeforeCredentialRetirement !== false)) ||
       (cell.client === 'codex' && record.status === 'completed' && isolation.clientSessionObserved !== true)) throw new Error(`${record.trialId}: client isolation proof mismatch`);
   if (safetyHalted) {
-    if (record.status !== 'infrastructure-error') throw new Error(`${record.trialId}: safety-halt prefix contains a non-infrastructure terminal`);
     if (record.schemaVersion === '3') {
       if (typeof policy.assessmentComplete !== 'boolean' || typeof policy.mutationObserved !== 'boolean' ||
           typeof policy.failClosedForOutcome !== 'boolean' || policy.mutation !== policy.mutationObserved ||

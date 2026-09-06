@@ -1,0 +1,127 @@
+name: Evidence Foundry registry runtime derivation
+
+# Builds the exact treatment runtime only from the previously captured npm
+# tarball, then externally binds the input and output bytes through Sigstore.
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact main commit containing the captured registry evidence
+        type: string
+        required: true
+      release_source_commit:
+        description: Exact release-tag commit bound by npm provenance
+        type: string
+        required: true
+      package_artifact_path:
+        description: Repository-relative captured npm tarball
+        type: string
+        required: true
+      registry_record_path:
+        description: Repository-relative registry verification record
+        type: string
+        required: true
+      output_directory:
+        description: New repository-relative directory for immutable runtime evidence
+        type: string
+        required: true
+        default: research/model-evaluation/studies/evidence-foundry-v3/release-runtime
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-foundry-runtime-${{ inputs.source_commit }}-${{ inputs.release_source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  derive:
+    name: derive exact registry runtime and issue GitHub OIDC proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      RELEASE_SOURCE_COMMIT: ${{ inputs.release_source_commit }}
+      PACKAGE_ARTIFACT_PATH: ${{ inputs.package_artifact_path }}
+      REGISTRY_RECORD_PATH: ${{ inputs.registry_record_path }}
+      OUTPUT_DIRECTORY: ${{ inputs.output_directory }}
+    steps:
+      - name: Refuse mutable or ambiguous source selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::source_commit must be a full lowercase commit SHA"; exit 1; }
+          [[ "$RELEASE_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::release_source_commit must be a full lowercase commit SHA"; exit 1; }
+          [ "$GITHUB_REF" = "refs/heads/main" ] || { echo "::error::runtime derivations may be issued only from protected main"; exit 1; }
+          [ "$SOURCE_COMMIT" = "$GITHUB_SHA" ] || { echo "::error::source_commit must equal the exact main workflow commit"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ inputs.source_commit }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: 22.22.2
+          cache: npm
+
+      - name: Install verifier dependencies
+        run: npm ci
+
+      - name: Derive runtime from exact captured registry bytes
+        run: >-
+          node scripts/create-evidence-foundry-runtime-derivation.mjs
+          --package "$PACKAGE_ARTIFACT_PATH"
+          --registry-record "$REGISTRY_RECORD_PATH"
+          --release-source-commit "$RELEASE_SOURCE_COMMIT"
+          --out-dir "$OUTPUT_DIRECTORY"
+
+      - name: Sign exact derivation statement through Sigstore transparency
+        run: >-
+          node node_modules/@sigstore/cli/bin/run attest
+          "$OUTPUT_DIRECTORY/runtime-derivation.json"
+          --output-file "$OUTPUT_DIRECTORY/runtime-derivation.sigstore"
+          --timeout 60
+
+      - name: Reverify fixed workflow identity and emit integration values
+        shell: bash
+        run: |
+          set -euo pipefail
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/evidence-foundry-runtime-derivation.yml@${GITHUB_REF}"
+          node node_modules/@sigstore/cli/bin/run verify "$OUTPUT_DIRECTORY/runtime-derivation.sigstore" \
+            --certificate-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-uri "$identity"
+          IDENTITY="$identity" node --input-type=module <<'NODE'
+          import { createHash } from 'node:crypto';
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { join } from 'node:path';
+          const dir = process.env.OUTPUT_DIRECTORY;
+          const sha256 = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
+          const statementPath = join(dir, 'runtime-derivation.json');
+          const bundlePath = join(dir, 'runtime-derivation.sigstore');
+          const statement = JSON.parse(readFileSync(statementPath, 'utf8'));
+          writeFileSync(join(dir, 'runtime-derivation-values.json'), `${JSON.stringify({
+            runtimeArtifactPath: `${dir}/${statement.runtime.archiveName}`,
+            runtimeArtifactSha256: statement.runtime.artifactSha256,
+            installedTreeSha256: statement.runtime.installedTreeSha256,
+            runtimeDerivation: {
+              statementPath: `${dir}/runtime-derivation.json`,
+              statementSha256: sha256(statementPath),
+              bundlePath: `${dir}/runtime-derivation.sigstore`,
+              bundleSha256: sha256(bundlePath),
+              certificateIssuer: 'https://token.actions.githubusercontent.com',
+              certificateIdentityURI: process.env.IDENTITY,
+            },
+          }, null, 2)}\n`);
+          NODE
+
+      - name: Retain exact release-to-runtime chain for protocol integration
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: evidence-foundry-registry-runtime-${{ inputs.release_source_commit }}
+          path: ${{ inputs.output_directory }}
+          if-no-files-found: error
+          retention-days: 90

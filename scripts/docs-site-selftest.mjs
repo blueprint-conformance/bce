@@ -23,12 +23,98 @@
  *   2 — harness failure (cannot stage the tree, cannot run the build).
  */
 import * as fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const V6_SUMMARY = 'research/model-evaluation/pilots/accelerated-v6/results/summary.json';
+const CLAIM_MATRIX = 'research/claim-evidence-matrix.json';
+const FOUNDRY_REGISTRY = 'research/model-evaluation/studies/index.v3.json';
+const FOUNDRY_PROTOCOL = 'research/model-evaluation/studies/evidence-foundry-v3/protocol.json';
+const NO_EFFICACY_CLAIM = 'no-efficacy-claim';
+const PRIMARY_CLAIM = 'bounded-primary-causal-effect-exact-cell-release-and-task-population';
+const TRANSPORT_CLAIM = 'bounded-transportability-causal-effect-exact-cell-release-and-task-population';
+const DEFAULT_ADOPTION_CLAIM = 'bounded-default-adoption-decision-all-preregistered-cells-exact-release-and-task-population';
+const DUMMY_SHA256 = 'a'.repeat(64);
+const FOUNDRY_STAGE_IDS = ['primary-confirmatory', 'transport-a', 'transport-b', 'transport-c'];
+
+const canonical = (value) => {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+  }
+  return value;
+};
+const sha256Json = (value) => createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
+const sha256Bytes = (value) => createHash('sha256').update(value).digest('hex');
+
+const lifecycleEvidence = (disposition) => ({
+  disposition,
+  resultsPath: 'research/model-evaluation/studies/evidence-foundry-v3/results/primary-confirmatory',
+  resultSha256: DUMMY_SHA256,
+  checkpointHeadSha256: DUMMY_SHA256,
+});
+
+const resultEvidence = () => ({
+  resultsPath: 'research/model-evaluation/studies/evidence-foundry-v3/results/complete-stage',
+  resultSha256: DUMMY_SHA256,
+  checkpointHeadSha256: DUMMY_SHA256,
+  externalAnchorPath: 'research/model-evaluation/studies/evidence-foundry-v3/results/anchor.json',
+  externalAnchorSha256: DUMMY_SHA256,
+  externalAnchorBundlePath: 'research/model-evaluation/studies/evidence-foundry-v3/results/anchor.sigstore',
+  externalAnchorBundleSha256: DUMMY_SHA256,
+  externalAnchorCertificateIssuer: 'https://token.actions.githubusercontent.com',
+  externalAnchorCertificateIdentityURI: 'https://github.com/blueprint-conformance/bce/.github/workflows/evidence-foundry-anchor.yml@refs/heads/main',
+});
+
+const foundryStages = (lifecycle, overrides = {}) => Object.fromEntries(
+  FOUNDRY_STAGE_IDS.map((stageId) => [stageId, overrides[stageId] ?? { lifecycle }]),
+);
+
+function writeFoundryLifecycle(dir, { lifecycle, ready = false, claims, stages }) {
+  const protocolPath = path.join(dir, FOUNDRY_PROTOCOL);
+  const protocol = JSON.parse(fs.readFileSync(protocolPath, 'utf8'));
+  protocol.lifecycle = lifecycle;
+  protocol.currentClaimClasses = claims;
+  for (const stage of protocol.stages) {
+    const next = stages[stage.id];
+    if (!next) harness(`foundry lifecycle fixture omitted ${stage.id}`);
+    stage.lifecycle = next.lifecycle;
+    stage.lifecycleEvidence = next.lifecycleEvidence ?? null;
+    stage.resultEvidence = next.resultEvidence ?? null;
+  }
+  const protocolBytes = `${JSON.stringify(protocol, null, 2)}\n`;
+  fs.writeFileSync(protocolPath, protocolBytes);
+  const protocolSha256 = sha256Bytes(protocolBytes);
+
+  const registryPath = path.join(dir, FOUNDRY_REGISTRY);
+  const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+  const entry = registry.studies.find((study) => study.studyId === protocol.studyId);
+  if (!entry) harness('foundry lifecycle fixture cannot find its registry entry');
+  entry.protocolSha256 = protocolSha256;
+  entry.lifecycle = lifecycle;
+  entry.evidenceClass = lifecycle === 'design-draft'
+    ? 'confirmatory-program-design'
+    : 'confirmatory-staged-causal-study';
+  entry.currentClaimClasses = claims;
+  const registryBytes = `${JSON.stringify(registry, null, 2)}\n`;
+  fs.writeFileSync(registryPath, registryBytes);
+
+  const matrixPath = path.join(dir, CLAIM_MATRIX);
+  const matrix = JSON.parse(fs.readFileSync(matrixPath, 'utf8'));
+  const study = matrix.studies.find((candidate) => candidate.id === 'evidence-foundry-v3');
+  if (!study) harness('foundry lifecycle fixture cannot find its claim-index study');
+  study.protocolSha256 = protocolSha256;
+  study.registrySha256 = sha256Bytes(registryBytes);
+  study.lifecycle = lifecycle;
+  study.evidenceClass = entry.evidenceClass;
+  study.ready = ready;
+  study.currentClaimClasses = claims;
+  fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`);
+}
 
 // The WHOLE tree is staged, minus build output and history. The build resolves
 // every documentation link against the real tree — a doc may legitimately link
@@ -46,11 +132,14 @@ function stage() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-docs-site-'));
   fs.cpSync(repoRoot, dir, {
     recursive: true,
-    // Other parallel tests briefly create repo-local .tmp-* harness roots. They
-    // are not part of the committed tree and may disappear during cpSync.
+    // Other parallel tests briefly create repo-local harness roots. They are
+    // not part of the committed tree and may disappear during cpSync.
     filter: (src) => {
       const basename = path.basename(src);
-      return !SKIP.has(basename) && !basename.startsWith('.tmp-');
+      return !SKIP.has(basename) &&
+        !basename.startsWith('.tmp-') &&
+        !basename.startsWith('.canary-publication-selftest-') &&
+        !basename.startsWith('.bce-completed-stage-portability-');
     },
   });
   if (!fs.existsSync(path.join(dir, 'scripts/build-docs-site.mjs'))) {
@@ -66,6 +155,45 @@ function runBuild(dir) {
   });
   if (r.error) harness(`could not run the build: ${r.error.message}`);
   return { code: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
+}
+
+function verifyPagesTruthGate() {
+  const workflow = fs.readFileSync(path.join(repoRoot, '.github/workflows/publish-schemas.yml'), 'utf8');
+  const lockedInstall = workflow.indexOf('run: npm ci --ignore-scripts');
+  const claimGate = workflow.indexOf('run: npm run test:evidence-claims');
+  const build = workflow.indexOf('run: node scripts/build-docs-site.mjs');
+  const upload = workflow.indexOf('uses: actions/upload-pages-artifact@');
+  const deploy = workflow.indexOf('uses: actions/deploy-pages@');
+  if ([lockedInstall, claimGate, build, upload, deploy].some((index) => index < 0) ||
+      !(lockedInstall < claimGate && claimGate < build && build < upload && upload < deploy)) {
+    harness('Pages workflow must install locked dependencies and pass the full evidence-claim gate before build, upload, and deploy');
+  }
+  if ((workflow.match(/^\s*run: npm run test:evidence-claims\s*$/gm) ?? []).length !== 1) {
+    harness('Pages workflow must execute the exact evidence-claim gate once');
+  }
+  if (/continue-on-error\s*:|if\s*:\s*\$\{\{\s*always\(\)/.test(workflow)) {
+    harness('Pages workflow may not bypass a failed evidence-claim gate');
+  }
+  if (!/^\s*node-version: 22\.22\.2\s*$/m.test(workflow) || !/^\s*cache: npm\s*$/m.test(workflow)) {
+    harness('Pages workflow must use pinned Node 22.22.2 with the npm lockfile cache');
+  }
+
+  const checkWorkflow = fs.readFileSync(path.join(repoRoot, '.github/workflows/docs-site-check.yml'), 'utf8');
+  const checkInstall = checkWorkflow.indexOf('run: npm ci --ignore-scripts');
+  const checkClaimGate = checkWorkflow.indexOf('run: npm run test:evidence-claims');
+  const checkBuild = checkWorkflow.indexOf('run: node scripts/build-docs-site.mjs');
+  if ([checkInstall, checkClaimGate, checkBuild].some((index) => index < 0) ||
+      !(checkInstall < checkClaimGate && checkClaimGate < checkBuild)) {
+    harness('docs-site workflow must install locked dependencies and pass the full evidence-claim gate before build');
+  }
+  if ((checkWorkflow.match(/^\s*run: npm run test:evidence-claims\s*$/gm) ?? []).length !== 1 ||
+      /continue-on-error\s*:|if\s*:\s*\$\{\{\s*always\(\)/.test(checkWorkflow)) {
+    harness('docs-site workflow may not bypass its exact evidence-claim gate');
+  }
+  if (!/^\s*node-version: 22\.22\.2\s*$/m.test(checkWorkflow) || !/^\s*cache: npm\s*$/m.test(checkWorkflow)) {
+    harness('docs-site workflow must use pinned Node 22.22.2 with the npm lockfile cache');
+  }
+  console.log('docs-site-selftest: Pages deploy and docs check are ordered behind the full evidence-claim gate.');
 }
 
 /**
@@ -146,11 +274,9 @@ const PROBES = [
     exit: 0,
     expect: '',
   },
-  // The trust page's two state claims are tethered to the records they
-  // describe, not restated beside them. Three probes prove the tether has
-  // teeth in both directions: the count moves WITH the ledger, an unreadable
-  // ledger is refused rather than guessed at, and a citation record that has
-  // gains a provisional identifier and turns the build red instead of publishing it.
+  // The trust page's state claims are tethered to the records they describe,
+  // not restated beside them. These probes prove the witness derivation and
+  // the v6 denominator/eligibility/observation bindings have teeth.
   {
     name: 'trust page derives the witness count from the ledger',
     plant: (dir) => {
@@ -166,6 +292,204 @@ const PROBES = [
         : 'the staged ledger says Count: 3 but the built /trust page does not say ' +
           '"Independent witnesses: 3." — the count is a second hand-written copy, not a derivation';
     },
+  },
+  {
+    name: 'trust page derives the v6 observation from the sealed result index',
+    plant: (dir) => {
+      const summaryPath = path.join(dir, V6_SUMMARY);
+      const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+      const baseline = summary.analysis.cells['bce-reference-ollama-qwen3-8b'].arms['baseline-no-bce'];
+      baseline.safeSuccessfulCompletion.successes = 1;
+      baseline.safeSuccessfulCompletion.estimate = 0.125;
+      summary.analysis.resultSha256 = sha256Json({ ...summary.analysis, resultSha256: null });
+      summary.resultSha256 = sha256Json({ ...summary, resultSha256: null });
+      fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
+      const matrixPath = path.join(dir, CLAIM_MATRIX);
+      const matrix = JSON.parse(fs.readFileSync(matrixPath, 'utf8'));
+      matrix.studies[0].resultSha256 = summary.resultSha256;
+      fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`);
+    },
+    exit: 0,
+    expect: '',
+    verify: (dir) => {
+      const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
+      const css = fs.readFileSync(path.join(dir, '_site/assets/site.css'), 'utf8');
+      return page.includes('<td class="align-right">1/8 (12.5%)</td>') &&
+        css.includes('.anchor:focus-visible')
+        ? null
+        : 'the staged v6 result did not render as a derived, aligned observation with keyboard-visible permalinks';
+    },
+  },
+  {
+    name: 'trust page renders the data-bound Evidence Foundry v3 status',
+    plant: () => {},
+    exit: 0,
+    expect: '',
+    verify: (dir) => {
+      const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
+      return page.includes('Evidence Foundry v3 is in design') &&
+        page.includes('No stage execution is recorded') &&
+        page.includes('The byte-immutable v6 record preserves its then-current v2 next-step language') &&
+        page.includes('<td class="align-right">240</td>') &&
+        page.includes('<code>no-efficacy-claim</code>')
+        ? null
+        : 'the built /trust page omitted or rewrote the v3 lifecycle, claim boundary, or primary denominator';
+    },
+  },
+  {
+    name: 'trust page renders frozen verified readiness from the claim index',
+    plant: (dir) => writeFoundryLifecycle(dir, {
+      lifecycle: 'frozen-ready-not-run',
+      ready: true,
+      claims: [NO_EFFICACY_CLAIM],
+      stages: foundryStages('frozen-ready-not-run'),
+    }),
+    exit: 0,
+    expect: '',
+    verify: (dir) => {
+      const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
+      return page.includes('Evidence Foundry v3 is frozen, and its primary stage is verified execution-ready') &&
+        page.includes('0 of 4 registered stages carry externally anchored complete evidence') &&
+        page.includes('research:evidence-foundry-v3-ready -- --stage primary-confirmatory') &&
+        page.includes('<code>no-efficacy-claim</code>')
+        ? null
+        : 'the frozen-ready fixture did not render its verified readiness and exact no-claim boundary';
+    },
+  },
+  {
+    name: 'trust page renders running only as a replay awaiting its anchor',
+    plant: (dir) => writeFoundryLifecycle(dir, {
+      lifecycle: 'running',
+      claims: [NO_EFFICACY_CLAIM],
+      stages: foundryStages('frozen-ready-not-run', {
+        'primary-confirmatory': {
+          lifecycle: 'running',
+          lifecycleEvidence: lifecycleEvidence('complete-awaiting-anchor'),
+        },
+      }),
+    }),
+    exit: 0,
+    expect: '',
+    verify: (dir) => {
+      const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
+      return page.includes('Evidence Foundry v3 is running') &&
+        page.includes('has a full-denominator public replay and is awaiting its external result anchor') &&
+        page.includes('0 of 4 registered stages carry externally anchored complete evidence') &&
+        page.includes('<code>no-efficacy-claim</code>')
+        ? null
+        : 'the running fixture did not render the awaiting-anchor state without inventing a claim';
+    },
+  },
+  {
+    name: 'trust page renders partial anchored completion without widening the claim',
+    plant: (dir) => writeFoundryLifecycle(dir, {
+      lifecycle: 'running',
+      claims: [PRIMARY_CLAIM],
+      stages: foundryStages('frozen-ready-not-run', {
+        'primary-confirmatory': { lifecycle: 'complete', resultEvidence: resultEvidence() },
+      }),
+    }),
+    exit: 0,
+    expect: '',
+    verify: (dir) => {
+      const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
+      return page.includes('1 of 4 registered stages carry externally anchored complete evidence') &&
+        page.includes('No later stage is in flight; the next registered transport stage has not started') &&
+        page.includes(`<code>${PRIMARY_CLAIM}</code>`) &&
+        !page.includes(`<code>${DEFAULT_ADOPTION_CLAIM}</code>`)
+        ? null
+        : 'the partial-completion fixture did not render only its exact bounded primary claim';
+    },
+  },
+  {
+    name: 'trust page renders replay-bound safety halt as no efficacy claim',
+    plant: (dir) => writeFoundryLifecycle(dir, {
+      lifecycle: 'safety-halted',
+      claims: [NO_EFFICACY_CLAIM],
+      stages: foundryStages('frozen-ready-not-run', {
+        'primary-confirmatory': {
+          lifecycle: 'safety-halted',
+          lifecycleEvidence: lifecycleEvidence('safety-halt'),
+        },
+      }),
+    }),
+    exit: 0,
+    expect: '',
+    verify: (dir) => {
+      const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
+      return page.includes('Evidence Foundry v3 is safety-halted at') &&
+        page.includes('the halted stage unlocks no efficacy claim') &&
+        page.includes('<code>no-efficacy-claim</code>')
+        ? null
+        : 'the halted fixture did not render its replay boundary and exact no-claim state';
+    },
+  },
+  {
+    name: 'trust page renders complete program with exact bounded claim classes',
+    plant: (dir) => writeFoundryLifecycle(dir, {
+      lifecycle: 'complete',
+      claims: [PRIMARY_CLAIM, TRANSPORT_CLAIM, DEFAULT_ADOPTION_CLAIM],
+      stages: foundryStages('complete', Object.fromEntries(
+        FOUNDRY_STAGE_IDS.map((stageId) => [stageId, { lifecycle: 'complete', resultEvidence: resultEvidence() }]),
+      )),
+    }),
+    exit: 0,
+    expect: '',
+    verify: (dir) => {
+      const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
+      return page.includes('Evidence Foundry v3 is complete') &&
+        page.includes('4 of 4 registered stages carry externally anchored complete evidence') &&
+        page.includes(`<code>${PRIMARY_CLAIM}</code>`) &&
+        page.includes(`<code>${TRANSPORT_CLAIM}</code>`) &&
+        page.includes(`<code>${DEFAULT_ADOPTION_CLAIM}</code>`) &&
+        page.includes('This status does not state an effect magnitude')
+        ? null
+        : 'the complete fixture did not render every exact bounded claim class without a magnitude';
+    },
+  },
+  {
+    name: 'trust page refuses a running lifecycle without replay-bound awaiting-anchor evidence',
+    plant: (dir) => writeFoundryLifecycle(dir, {
+      lifecycle: 'running',
+      claims: [NO_EFFICACY_CLAIM],
+      stages: foundryStages('frozen-ready-not-run', {
+        'primary-confirmatory': { lifecycle: 'running' },
+      }),
+    }),
+    exit: 2,
+    expect: 'without one awaiting-anchor stage or prior anchored completion',
+  },
+  {
+    name: 'trust page refuses complete lifecycle without anchored result evidence',
+    plant: (dir) => writeFoundryLifecycle(dir, {
+      lifecycle: 'complete',
+      claims: [PRIMARY_CLAIM, TRANSPORT_CLAIM, DEFAULT_ADOPTION_CLAIM],
+      stages: foundryStages('complete'),
+    }),
+    exit: 2,
+    expect: 'completed Evidence Foundry v3 stage without result evidence',
+  },
+  {
+    name: 'trust page refuses a tampered v6 denominator',
+    plant: (dir) => {
+      const summaryPath = path.join(dir, V6_SUMMARY);
+      const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+      summary.verifiedTrials = 15;
+      fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
+    },
+    exit: 2,
+    expect: 'summary or analysis self-digest is invalid',
+  },
+  {
+    name: 'trust page refuses fabricated v6 product eligibility',
+    plant: (dir) => {
+      const matrixPath = path.join(dir, CLAIM_MATRIX);
+      const matrix = JSON.parse(fs.readFileSync(matrixPath, 'utf8'));
+      matrix.studies[0].eligibility.productEfficacy = true;
+      fs.writeFileSync(matrixPath, `${JSON.stringify(matrix, null, 2)}\n`);
+    },
+    exit: 2,
+    expect: 'ineligible for every product claim class',
   },
   {
     name: 'footer derives the public version from release state',
@@ -357,6 +681,7 @@ const PROBES = [
 
 function main() {
   let failures = 0;
+  verifyPagesTruthGate();
 
   // The clean tree must pass first. A staged tree that cannot build makes every
   // planted-probe refusal meaningless — it would refuse for the wrong reason.

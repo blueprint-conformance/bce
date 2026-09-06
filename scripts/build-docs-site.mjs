@@ -51,10 +51,10 @@
  *      blurbs, the paper placeholder), and a single literal NUL would make
  *      grep classify the file as binary, silently exempting that prose from
  *      the banned-phrase gate's sweep (`--binary-files=without-match`).
- *   7. The trust page's two state claims stay tethered to their records: the
- *      witness count is read from ATTESTATIONS.md's own headline, and the
- *      "pending, and ship-blocked" citation claim is asserted against
- *      CITATION.cff's actual placeholder tokens.
+ *   7. The trust page stays tethered to its records: the witness count is read
+ *      from ATTESTATIONS.md, citation state from CITATION.cff, and every v6
+ *      identity, denominator, observation, decision boundary, and digest from
+ *      the strict claim index plus sealed public result.
  *
  * Usage:
  *   node scripts/build-docs-site.mjs [--out <dir>] [--quiet]
@@ -66,6 +66,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadEvidenceClaims } from './lib/evidence-claims.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let RELEASE_STATE;
@@ -170,22 +171,104 @@ const PAGES = [
 
 // ---------------------------------------------------------------------------
 // The Trust / Evidence page. GENERATED, not a mapped source: the substance
-// lives in the records it links to — the witness ledger, the citation file,
-// the landing page's Evidence and limits section — and duplicating any of it here
-// would create a second copy to drift. This page only says where each record
-// is and the state each is honestly in — and neither state claim is
-// hand-written: the witness count is READ from ATTESTATIONS.md's own
-// headline at build time (the same one-source discipline as
-// blurbsFromLlmsTxt), and the citation claim is ASSERTED against
-// CITATION.cff's actual placeholder tokens, so the first witness row updates
-// this page and a landed DOI turns the build red until the copy is rewritten
-// deliberately — never a silently-false page. The page is rendered through
+// lives in the records it links to: the claim matrix and sealed v6 result,
+// witness ledger, citation file, and landing page's evidence boundary. The v6
+// observation table is derived from the sealed result; its topology, identity,
+// eligibility, denominators, and digests are cross-bound by evidence-claims.mjs.
+// The witness count is read from ATTESTATIONS.md, and the citation claim is
+// asserted against CITATION.cff's actual placeholder tokens. The page is rendered through
 // the same pipeline as every mapped document, so every link is validated by
 // the build's own checks — including the #evidence-and-limits anchor on the landing
 // page, which turns "the README dropped its evidence boundary" into a red
 // build instead of a dead link here, and the link-target check, which turns
 // a renamed check-release-citation.mjs into a red build too.
 // ---------------------------------------------------------------------------
+function foundryLifecycleCopy(evidence) {
+  const study = evidence.foundryStudy;
+  const protocol = evidence.foundryProtocol;
+  const stages = protocol.stages;
+  const completedLifecycle = stages.filter((stage) => stage.lifecycle === 'complete');
+  const completed = completedLifecycle.filter((stage) => stage.resultEvidence !== null);
+  const awaitingAnchor = stages.filter((stage) =>
+    stage.lifecycle === 'running' && stage.lifecycleEvidence?.disposition === 'complete-awaiting-anchor');
+  const halted = stages.filter((stage) =>
+    stage.lifecycle === 'safety-halted' && stage.lifecycleEvidence?.disposition === 'safety-halt');
+  const stageIds = (entries) => entries.map((stage) => `\`${stage.id}\``).join(', ');
+  const claimClasses = study.currentClaimClasses.map((claimClass) => `\`${claimClass}\``).join(', ');
+  const claimBoundary = `Current public claim classes: ${claimClasses}. This status does not state an effect magnitude.`;
+  const progress = `${completed.length} of ${stages.length} registered stages carry externally anchored complete evidence.`;
+
+  if (completed.length !== completedLifecycle.length) {
+    harness('trust page cannot render a completed Evidence Foundry v3 stage without result evidence');
+  }
+
+  if (protocol.lifecycle === 'design-draft') {
+    if (stages.some((stage) => stage.lifecycle !== 'design-draft')) {
+      harness('trust page cannot render a design-draft program with a non-draft stage');
+    }
+    return {
+      headline: '**Evidence Foundry v3 is in design (`design-draft`). No stage execution is recorded.**',
+      detail: `${claimBoundary} The real task manifest, exact release and client/model cells, ` +
+        'assignments, and public pre-run seal remain unset.',
+      command: 'npm run research:evidence-foundry-v3-ready -- --stage primary-confirmatory',
+      commandPurpose: 'see every current design blocker',
+    };
+  }
+
+  if (protocol.lifecycle === 'frozen-ready-not-run') {
+    if (!study.ready || stages.some((stage) => stage.lifecycle !== 'frozen-ready-not-run')) {
+      harness('trust page cannot render frozen-ready-not-run without verified primary-stage readiness');
+    }
+    return {
+      headline: '**Evidence Foundry v3 is frozen, and its primary stage is verified execution-ready; no registered stage has started.**',
+      detail: `${claimBoundary} ${progress}`,
+      command: 'npm run research:evidence-foundry-v3-ready -- --stage primary-confirmatory',
+      commandPurpose: 'verify the frozen primary stage and its execution prerequisites',
+    };
+  }
+
+  if (protocol.lifecycle === 'running') {
+    if (awaitingAnchor.length > 1 || (awaitingAnchor.length === 0 && completed.length === 0)) {
+      harness('trust page cannot render running without one awaiting-anchor stage or prior anchored completion');
+    }
+    const active = awaitingAnchor.length === 1
+      ? `${stageIds(awaitingAnchor)} has a full-denominator public replay and is awaiting its external result anchor.`
+      : 'No later stage is in flight; the next registered transport stage has not started.';
+    return {
+      headline: `**Evidence Foundry v3 is running. ${active}**`,
+      detail: `${progress} ${claimBoundary}`,
+      command: 'npm run evidence:verify',
+      commandPurpose: 'replay the public evidence and exact claim boundary',
+    };
+  }
+
+  if (protocol.lifecycle === 'safety-halted') {
+    if (halted.length !== 1) {
+      harness('trust page cannot render a safety-halted program without exactly one replay-bound halted stage');
+    }
+    return {
+      headline: `**Evidence Foundry v3 is safety-halted at ${stageIds(halted)}. A replayable partial prefix is retained; the halted stage unlocks no efficacy claim.**`,
+      detail: `${progress} ${claimBoundary}`,
+      command: 'npm run evidence:verify',
+      commandPurpose: 'replay the retained evidence and exact no-claim boundary',
+    };
+  }
+
+  if (protocol.lifecycle === 'complete') {
+    if (completed.length !== stages.length) {
+      harness('trust page cannot render a complete program before every stage carries anchored result evidence');
+    }
+    return {
+      headline: `**Evidence Foundry v3 is complete. ${progress}**`,
+      detail: claimBoundary,
+      command: 'npm run evidence:verify',
+      commandPurpose: 'replay the public evidence and exact bounded claim classes',
+    };
+  }
+
+  harness(`trust page cannot render unsupported Evidence Foundry v3 lifecycle: ${protocol.lifecycle}`);
+}
+
 function trustMd() {
   // Witness count: derived, never restated. The ledger's own headline is the
   // one source; if its shape changes, refuse rather than guess (exit 2 — the
@@ -220,10 +303,117 @@ function trustMd() {
     }
   }
 
+  let evidence;
+  try {
+    evidence = loadEvidenceClaims(repoRoot);
+  } catch (error) {
+    harness(`trust page evidence source is invalid: ${error.message}`);
+  }
+
+  const pct = (value) => `${Number((value * 100).toFixed(1))}%`;
+  const pp = (value, sign = false) => `${sign && value > 0 ? '+' : ''}${Number((value * 100).toFixed(1))} pp`;
+  const rate = (value) => `${value.successes}/${value.total} (${pct(value.estimate)})`;
+  const interval = (value, direction) => `${direction}${pp(value.estimate)} [${pp(value.low)}, ${pp(value.high)}]`;
+  const model = evidence.cell.identity.resolvedModel;
+  const infrastructureErrors = evidence.baseline.statuses?.['infrastructure-error'] ?? 0;
+  const unestablished = evidence.unestablished.map((claim) => `- ${claim.claim}.`).join('\n');
+  const statusLabel = {
+    'product-test-supported': 'Product-test supported',
+    'directional-observation': 'Directional only',
+  };
+  const classLabel = {
+    'first-party-mechanism-test': 'First-party mechanism tests',
+    'author-operated-instrumentation-pilot': 'Author-operated instrumentation pilot',
+  };
+  const supportedRows = evidence.matrix.claims
+    .filter((claim) => claim.status !== 'unestablished')
+    .map((claim) => `| ${claim.claim} | ${statusLabel[claim.status]} | ${classLabel[claim.evidenceClass]} |`)
+    .join('\n');
+  const foundryStatus = foundryLifecycleCopy(evidence);
+
   return `# Trust and evidence
 
-Where this project's credibility records live, and the state each one is in
-today. The records are the substance — this page only points at them.
+> **Current decision: no product-efficacy claim.** Accelerated v6 is a completed
+> author-operated instrumentation pilot. Its observations are useful for designing
+> the next study; they are not a recommendation to adopt BCE.
+
+## What the records support
+
+| Claim | State | Evidence |
+| --- | --- | --- |
+${supportedRows}
+
+## What v6 observed
+
+- **Design:** ${evidence.protocol.matrix.repositories} generated repositories,
+  ${evidence.manifest.tasks.length} repair/refactor tasks, ${evidence.summary.verifiedTrials} paired
+  attempts; every randomized attempt remains in the result.
+- **Cell:** \`${model}\` through \`${evidence.cell.identity.clientVersion}\`.
+- **Authority:** tasks and machine oracles were written by the maintainer; execution was
+  author-operated and machine-adjudicated.
+
+| Recorded outcome | Baseline | BCE enabled | Paired record |
+| --- | ---: | ---: | ---: |
+| Safe successful completion | ${rate(evidence.baseline.safeSuccessfulCompletion)} | ${rate(evidence.bce.safeSuccessfulCompletion)} | ${interval(evidence.safeEffect, '+')} |
+| Escaped defect, intention-to-treat | ${rate(evidence.baseline.escapedDefectItt)} | ${rate(evidence.bce.escapedDefectItt)} | ${interval(evidence.escapedEffect, 'reduction ')} |
+| Architecture conformance | ${rate(evidence.baseline.architectureConformance)} | ${rate(evidence.bce.architectureConformance)} | descriptive only |
+| Task success | ${rate(evidence.baseline.taskSuccess)} | ${rate(evidence.bce.taskSuccess)} | descriptive only |
+| Policy mutation | ${rate(evidence.baseline.policyMutation)} | ${rate(evidence.bce.policyMutation)} | ${pp(evidence.cell.pairedEffects.policyMutation.estimate, true)} |
+
+The paired visible elapsed-time ratio was ${evidence.elapsedRatio.median.toFixed(3)}×
+[${evidence.elapsedRatio.low.toFixed(3)}, ${evidence.elapsedRatio.high.toFixed(3)}]. Cost was not
+measured. ${infrastructureErrors} baseline infrastructure timeout remains in the denominator.
+
+## Next claim-bearing study
+
+${foundryStatus.headline}
+
+${foundryStatus.detail} The first stage is deliberately bounded so a useful answer does not wait
+for every transport cell.
+
+| Registered scope | Value |
+| --- | ---: |
+| Repository clusters | ${evidence.foundryStudy.primaryStage.repositoryClusters} |
+| Task shapes per repository | ${evidence.foundryStudy.primaryStage.tasksPerRepository} |
+| Paired tasks | ${evidence.foundryStudy.primaryStage.pairs} |
+| Retained attempts | ${evidence.foundryStudy.primaryStage.retainedAttempts} |
+| Later transport stages | ${evidence.foundryStudy.prospectiveStageCount - 1} |
+
+[Inspect the v3 protocol](research/model-evaluation/studies/evidence-foundry-v3/protocol.json) or run
+\`${foundryStatus.command}\` to ${foundryStatus.commandPurpose}.
+
+## Verify the public record
+
+From a clean checkout, one command installs the locked verifier dependencies, checks the claim
+boundary, re-derives the sealed input bundle, and replays the public result:
+
+\`\`\`sh
+npm ci --ignore-scripts && npm run evidence:verify
+\`\`\`
+
+The command is local and requires no model, Ollama service, API key, or paid credential. It verifies
+the published record; it does not rerun model inference or make the pilot independent.
+
+## Integrity anchors
+
+This page is generated from the public claim index and sealed v6 result. Change a
+denominator, model identity, eligibility flag, or digest without changing its source
+record and the docs build turns red. The machine-readable source is
+[research/claim-evidence-matrix.json](research/claim-evidence-matrix.json).
+
+- **Study:** \`${evidence.study.studyId}\`
+- **Result SHA-256:** \`${evidence.study.resultSha256}\`
+- **Sealed-input root:** \`${evidence.study.sealRootSha256}\`
+- **Full record:** [accelerated-v6/RESULTS.md](research/model-evaluation/pilots/accelerated-v6/RESULTS.md)
+
+The byte-immutable v6 record preserves its then-current v2 next-step language. That historical plan
+is superseded by the Evidence Foundry v3 registry and lifecycle shown above.
+
+## What remains unestablished
+
+${unestablished}
+
+## Other trust records
 
 - **What is measured, and by whom** — the landing page's
   [Evidence and limits](README.md#evidence-and-limits) section states the position in full:
@@ -598,14 +788,25 @@ function renderMarkdown(md, sourceFile, fromRoute, ctx, hrefSink) {
       flushParagraph();
       const cells = (row) => row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
       const header = cells(line);
+      const delimiters = cells(lines[i + 1]);
+      if (delimiters.length !== header.length) {
+        harness(`${sourceFile}:${i + 2}: table delimiter count differs from its header`);
+      }
+      const alignment = delimiters.map((cell) => {
+        const value = cell.trim();
+        if (value.startsWith(':') && value.endsWith(':')) return 'center';
+        if (value.endsWith(':')) return 'right';
+        return value.startsWith(':') ? 'left' : null;
+      });
+      const cellAttr = (index) => alignment[index] ? ` class="align-${alignment[index]}"` : '';
       i += 2;
       const body = [];
       while (i < lines.length && lines[i].trim().startsWith('|')) {
         body.push(cells(lines[i]));
         i += 1;
       }
-      const th = header.map((c) => `<th>${inline(c)}</th>`).join('');
-      const rows = body.map((r) => `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`).join('');
+      const th = header.map((c, index) => `<th${cellAttr(index)}>${inline(c)}</th>`).join('');
+      const rows = body.map((r) => `<tr>${r.map((c, index) => `<td${cellAttr(index)}>${inline(c)}</td>`).join('')}</tr>`).join('');
       out.push(`<div class="table-wrap"><table><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table></div>`);
       continue;
     }
@@ -1000,6 +1201,7 @@ code {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: .88em; background: var(--code-bg); padding: .1em .35em; border-radius: 3px;
 }
+p code, li code, td code { overflow-wrap: anywhere; word-break: break-word; }
 pre {
   background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px;
   padding: .85rem 1rem; overflow-x: auto;
@@ -1022,12 +1224,17 @@ blockquote > :last-child { margin-bottom: 0; }
 table { border-collapse: collapse; width: 100%; font-size: .93rem; }
 th, td { text-align: left; vertical-align: top; padding: .45rem .7rem; border: 1px solid var(--line); }
 th { background: var(--code-bg); font-weight: 600; }
+.align-center { text-align: center; }
+.align-right { text-align: right; font-variant-numeric: tabular-nums; }
 hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
 .anchor {
   margin-left: .4rem; opacity: 0; text-decoration: none; font-weight: 400; color: var(--muted);
 }
 h1:hover .anchor, h2:hover .anchor, h3:hover .anchor,
 h4:hover .anchor, h5:hover .anchor, h6:hover .anchor { opacity: 1; }
+.anchor:focus-visible {
+  opacity: 1; outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px;
+}
 .toc {
   border: 1px solid var(--line); border-radius: 6px; padding: .85rem 1rem;
   margin: 0 0 2rem; background: var(--code-bg); font-size: .92rem;

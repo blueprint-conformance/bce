@@ -178,6 +178,7 @@
     "haltVerifierSha256": null,
     "publicExporterSha256": null,
     "publicVerifierSha256": null,
+    "blindedEvaluatorSha256": null,
     "studyHaltSchemaSha256": null,
     "safetyHaltArchiveSchemaSha256": null,
     "canaryRunnerSha256": null,

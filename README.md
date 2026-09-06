@@ -20,7 +20,7 @@ module boundaries. Node 22+ is required; the contract remains pre-1.0.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 912">
+  <img src="assets/badges/tests.svg" alt="tests: 913">
 </p>
 
 ## Run a real gate
@@ -135,11 +135,14 @@ self-blueprint mutants, deterministic reports,
 and cross-platform CI. Those are first-party proofs on author-controlled infrastructure;
 [independent witnesses remain 0](ATTESTATIONS.md).
 
-Accelerated pilot v3 completed the evaluation path but saturated both arms. V4 then safety-halted
-at 6/24 after exposing an identity-comparator defect and an unqualified local agent/tool loop; its
-18 remaining assignments were never run and it produced no analysis. The held-out 600-trial study
-has not run. We do not yet claim that BCE makes agents more successful, cheaper, faster, or safer
-than a baseline. [Check the public truth ledger](STATUS.md) or
+Accelerated pilot v6 retained all 16 paired attempts in one exact local model/client cell. Its
+author-operated record contains useful directional observations, including 2/8 versus 3/8 safe
+successful completions, but it is permanently ineligible for a product decision. One baseline
+infrastructure timeout remains in the intention-to-treat denominator. The Evidence Foundry v3
+primary stage—120 paired tasks and 240 retained attempts—has not run; its later transport stages are
+separately gated. We do not claim that BCE makes agents more successful, cheaper, faster, or safer than a baseline.
+[Inspect and replay the public evidence](https://blueprint-conformance.github.io/bce/trust/),
+[check the public truth ledger](STATUS.md), or
 [inspect the study contract](research/model-evaluation/README.md).
 
 <!-- fleet-record:begin -->

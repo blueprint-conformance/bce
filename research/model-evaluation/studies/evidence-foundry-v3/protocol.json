@@ -1,0 +1,270 @@
+{
+  "schemaVersion": "3",
+  "studyId": "bce-evidence-foundry-causal-efficacy-v3",
+  "canonical": true,
+  "programKind": "causal-product-efficacy",
+  "studyMode": "staged-primary-then-transport",
+  "lifecycle": "design-draft",
+  "operatorModel": "solo-maintainer-machine-adjudicated",
+  "currentClaimClasses": [
+    "no-efficacy-claim"
+  ],
+  "researchQuestion": "Within each exact frozen client, model, release, repository, and task-population cell, what is the paired causal effect of adding the sealed BCE adoption bundle on safe successful completion?",
+  "arms": [
+    "baseline-no-bce",
+    "bce-enabled"
+  ],
+  "primaryOutcome": {
+    "id": "safe-successful-completion",
+    "formula": "completed AND identity-verified AND visible-pipeline-pass AND hidden-functional-oracle-pass AND blinded-architecture-oracle-pass AND no-policy-mutation AND within-budget",
+    "population": "intention-to-treat-all-randomized-attempts",
+    "failureHandling": "Every randomized attempt remains in the denominator; post-exposure infrastructure failure, timeout, refusal, oracle failure, policy mutation, and budget breach are false."
+  },
+  "claimPolicy": {
+    "primaryCompletionMayClaim": "bounded-primary-causal-effect-exact-cell-release-and-task-population",
+    "transportCompletionMayClaim": "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
+    "allStagesCompletionMayClaim": "bounded-default-adoption-decision-all-preregistered-cells-exact-release-and-task-population",
+    "independentReplicationRequiresIndependentOperator": true,
+    "releaseByteIdentityRequired": true,
+    "haltedOrIncompleteClaimClass": "no-efficacy-claim",
+    "alwaysIneligibleEvidence": [
+      "instrumentation-pilot",
+      "synthetic-rehearsal",
+      "development-exposed-task",
+      "safety-halted-prefix",
+      "unregistered-replacement-run",
+      "outcome-tuned-design",
+      "non-byte-identical-release"
+    ]
+  },
+  "releaseBinding": null,
+  "heldoutAccess": {
+    "status": "never-accessed",
+    "firstAccessAt": null,
+    "accessLedgerHeadSha256": null
+  },
+  "taskPopulation": {
+    "manifestPath": "research/model-evaluation/studies/evidence-foundry-v3/task-manifest.json",
+    "manifestSha256": null,
+    "status": "unpopulated",
+    "exposure": "never-exposed-to-development",
+    "repositoryClusters": 40,
+    "tasksPerRepository": 3,
+    "taskTypes": [
+      "repair",
+      "feature",
+      "refactor"
+    ],
+    "pairsPerCell": 120
+  },
+  "clientModelCells": [
+    {
+      "id": "primary-cell",
+      "stageId": "primary-confirmatory",
+      "role": "primary",
+      "client": null,
+      "executable": null,
+      "clientVersion": null,
+      "clientArtifactSha256": null,
+      "adapterArtifactSha256": null,
+      "requestedModel": null,
+      "resolvedModel": null,
+      "modelIdentitySource": null,
+      "modelIdentityEvidenceSha256": null,
+      "reasoningEffort": null,
+      "qualification": {
+        "status": "unqualified",
+        "attestationPath": null,
+        "attestationSha256": null
+      }
+    },
+    {
+      "id": "transport-cell-a",
+      "stageId": "transport-a",
+      "role": "transportability",
+      "client": null,
+      "executable": null,
+      "clientVersion": null,
+      "clientArtifactSha256": null,
+      "adapterArtifactSha256": null,
+      "requestedModel": null,
+      "resolvedModel": null,
+      "modelIdentitySource": null,
+      "modelIdentityEvidenceSha256": null,
+      "reasoningEffort": null,
+      "qualification": {
+        "status": "unqualified",
+        "attestationPath": null,
+        "attestationSha256": null
+      }
+    },
+    {
+      "id": "transport-cell-b",
+      "stageId": "transport-b",
+      "role": "transportability",
+      "client": null,
+      "executable": null,
+      "clientVersion": null,
+      "clientArtifactSha256": null,
+      "adapterArtifactSha256": null,
+      "requestedModel": null,
+      "resolvedModel": null,
+      "modelIdentitySource": null,
+      "modelIdentityEvidenceSha256": null,
+      "reasoningEffort": null,
+      "qualification": {
+        "status": "unqualified",
+        "attestationPath": null,
+        "attestationSha256": null
+      }
+    },
+    {
+      "id": "transport-cell-c",
+      "stageId": "transport-c",
+      "role": "transportability",
+      "client": null,
+      "executable": null,
+      "clientVersion": null,
+      "clientArtifactSha256": null,
+      "adapterArtifactSha256": null,
+      "requestedModel": null,
+      "resolvedModel": null,
+      "modelIdentitySource": null,
+      "modelIdentityEvidenceSha256": null,
+      "reasoningEffort": null,
+      "qualification": {
+        "status": "unqualified",
+        "attestationPath": null,
+        "attestationSha256": null
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "primary-confirmatory",
+      "stageType": "primary-confirmatory",
+      "dependsOn": [],
+      "clientModelCellId": "primary-cell",
+      "lifecycle": "design-draft",
+      "claimClass": "bounded-primary-causal-effect-exact-cell-release-and-task-population",
+      "claimScope": "Only the exact sealed primary client/model, byte-identical BCE release, and frozen task population.",
+      "powerDesignStageId": "primary-confirmatory",
+      "preregistration": "draft-unsealed",
+      "executionBundlePath": null,
+      "resultEvidence": null
+    },
+    {
+      "id": "transport-a",
+      "stageType": "transport-confirmatory",
+      "dependsOn": [
+        "primary-confirmatory"
+      ],
+      "clientModelCellId": "transport-cell-a",
+      "lifecycle": "design-draft",
+      "claimClass": "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
+      "claimScope": "Only the exact sealed transport A client/model, byte-identical BCE release, and frozen task population.",
+      "powerDesignStageId": "transport-a",
+      "preregistration": "draft-unsealed",
+      "executionBundlePath": null,
+      "resultEvidence": null
+    },
+    {
+      "id": "transport-b",
+      "stageType": "transport-confirmatory",
+      "dependsOn": [
+        "primary-confirmatory"
+      ],
+      "clientModelCellId": "transport-cell-b",
+      "lifecycle": "design-draft",
+      "claimClass": "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
+      "claimScope": "Only the exact sealed transport B client/model, byte-identical BCE release, and frozen task population.",
+      "powerDesignStageId": "transport-b",
+      "preregistration": "draft-unsealed",
+      "executionBundlePath": null,
+      "resultEvidence": null
+    },
+    {
+      "id": "transport-c",
+      "stageType": "transport-confirmatory",
+      "dependsOn": [
+        "primary-confirmatory"
+      ],
+      "clientModelCellId": "transport-cell-c",
+      "lifecycle": "design-draft",
+      "claimClass": "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
+      "claimScope": "Only the exact sealed transport C client/model, byte-identical BCE release, and frozen task population.",
+      "powerDesignStageId": "transport-c",
+      "preregistration": "draft-unsealed",
+      "executionBundlePath": null,
+      "resultEvidence": null
+    }
+  ],
+  "treatmentIsolation": {
+    "onlyRandomizedDifference": "sealed-bce-adoption-bundle-availability",
+    "baselineReceivesSameWrittenPolicy": true,
+    "baselineBceUnavailable": true,
+    "bceArmUsesSealedBundleOnly": true,
+    "agentMayEditPolicy": false,
+    "freshWorkspacePerAttempt": true,
+    "freshClientStatePerAttempt": true,
+    "sameNonBceToolsAndPermissions": true,
+    "oracleOutsideAgentWorkspace": true,
+    "networkDefaultDeny": true
+  },
+  "evaluator": {
+    "locking": "sealed-before-heldout-access",
+    "blindedToArm": true,
+    "agentFinalMessageAuthority": "diagnostic-only",
+    "deterministicPrimaryOracles": true,
+    "evaluatorId": "bce-arm-blind-deterministic-evaluator-v1",
+    "evaluatorArtifactPath": "scripts/model-evaluation-blinded-evaluator.mjs",
+    "evaluatorArtifactSha256": "4092e96c5d94028da827bd097623d06eea8fabdf9052c1ac6f0d008d1059f598",
+    "rubricPath": "research/model-evaluation/studies/evidence-foundry-v3/evaluator-rubric.json",
+    "rubricSha256": "f7e57badaf4fbd99d27e636ce7800147a30e257b084a6557c8664b4457f6efa5"
+  },
+  "attemptPolicy": {
+    "appendOnlyRawLedger": true,
+    "transparentRetryBeforeExposureOnly": true,
+    "postExposureRetry": "linked-diagnostic-only-never-replaces-randomized-attempt",
+    "primaryAttemptMayNotBeReplaced": true,
+    "terminalRecordsImmutable": true,
+    "runRegistrationBeforeFirstAttempt": true,
+    "durableFsyncBeforeNextAttempt": true,
+    "checkpointAfterEveryTerminal": true,
+    "exactReplayBytesRequired": true,
+    "externalCheckpointAnchorBeforeEfficacyClaim": true
+  },
+  "stoppingAndExclusions": {
+    "outcomeDependentStopping": false,
+    "haltedPrefixClaimClass": "no-efficacy-claim",
+    "randomizedExclusions": "none",
+    "postRandomizationExclusions": "none-from-primary-intention-to-treat-outcome",
+    "infrastructureFailures": "count-as-primary-failure-after-model-exposure"
+  },
+  "artifacts": {
+    "powerDesign": {
+      "path": "research/model-evaluation/studies/evidence-foundry-v3/power-design.json",
+      "sha256": "1fc3bbcb59d02eb78f65baea2e8060c5ebe22d82682ca6cf1ca2561c59148704"
+    },
+    "assignmentSeal": {
+      "path": "research/model-evaluation/studies/evidence-foundry-v3/assignment-seal.json",
+      "sha256": null
+    },
+    "rawLedger": {
+      "path": "research/model-evaluation/studies/evidence-foundry-v3/results/raw-ledger.jsonl",
+      "headSha256": null
+    },
+    "evaluatorLock": {
+      "path": "research/model-evaluation/studies/evidence-foundry-v3/evaluator-lock.json",
+      "sha256": "17fd07c56c644dea2b0e8a2cf024dc72c912c641d4102c1e006525994f76624e"
+    },
+    "integrityLock": {
+      "path": "research/model-evaluation/studies/evidence-foundry-v3/integrity-lock.json",
+      "sha256": "956aa7c732c545f0ffde46362faff49fbc10acc33982c1968add2c8a6cb785fa"
+    },
+    "results": {
+      "path": "research/model-evaluation/studies/evidence-foundry-v3/results/summary.json",
+      "sha256": null
+    }
+  }
+}

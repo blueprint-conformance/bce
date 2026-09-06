@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCE staged paired-cluster power design v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "studyId",
+    "status",
+    "method",
+    "generatedAt",
+    "heldoutAccessStatusAtGeneration",
+    "frozenBeforeHeldoutAccess",
+    "primaryMetric",
+    "estimand",
+    "direction",
+    "alpha",
+    "targetPower",
+    "stages",
+    "falseBlockGuard",
+    "validation"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "studyId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,127}$" },
+    "status": { "enum": ["draft-unvalidated", "validated-before-heldout-access"] },
+    "method": { "const": "paired-cluster-normal-approximation-v1" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "heldoutAccessStatusAtGeneration": { "const": "never-accessed" },
+    "frozenBeforeHeldoutAccess": { "const": true },
+    "primaryMetric": { "const": "safe-successful-completion" },
+    "estimand": { "const": "paired-risk-difference" },
+    "direction": { "const": "greater" },
+    "alpha": { "type": "number", "exclusiveMinimum": 0, "maximum": 0.05 },
+    "targetPower": { "type": "number", "minimum": 0.8, "exclusiveMaximum": 1 },
+    "stages": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/stagePower" }
+    },
+    "falseBlockGuard": { "$ref": "#/definitions/falseBlockGuard" },
+    "validation": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["validatorVersion", "validatedAt", "calculationsRecomputed", "allStagesMeetPower", "falseBlockGuardMet"],
+          "properties": {
+            "validatorVersion": { "const": "bce-evidence-foundry-v3-foundation-1" },
+            "validatedAt": { "type": "string", "format": "date-time" },
+            "calculationsRecomputed": { "const": true },
+            "allStagesMeetPower": { "type": "boolean" },
+            "falseBlockGuardMet": { "type": "boolean" }
+          }
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "claimClassId": {
+      "enum": [
+        "bounded-primary-causal-effect-exact-cell-release-and-task-population",
+        "bounded-transportability-causal-effect-exact-cell-release-and-task-population"
+      ]
+    },
+    "stagePower": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stageId",
+        "clientModelCellId",
+        "claimClass",
+        "plannedRepositoryClusters",
+        "pairsPerRepository",
+        "plannedPairs",
+        "assumptions",
+        "calculation"
+      ],
+      "properties": {
+        "stageId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "clientModelCellId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "claimClass": { "$ref": "#/definitions/claimClassId" },
+        "plannedRepositoryClusters": { "type": "integer", "minimum": 2 },
+        "pairsPerRepository": { "type": "integer", "minimum": 1 },
+        "plannedPairs": { "type": "integer", "minimum": 2 },
+        "assumptions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "nullRiskDifference",
+            "designAlternativeRiskDifference",
+            "discordantPairRateUnderAlternative",
+            "repositoryIntraclassCorrelation",
+            "attritionRate",
+            "varianceInflationGuard"
+          ],
+          "properties": {
+            "nullRiskDifference": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+            "designAlternativeRiskDifference": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "discordantPairRateUnderAlternative": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "repositoryIntraclassCorrelation": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+            "attritionRate": { "type": "number", "minimum": 0, "maximum": 0.2 },
+            "varianceInflationGuard": { "type": "number", "minimum": 1, "maximum": 3 }
+          }
+        },
+        "calculation": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "requiredPairsBeforeClustering",
+                "requiredPairsAfterClustering",
+                "requiredPairsAfterAttrition",
+                "requiredRepositoryClusters",
+                "plannedMeetsRequirement"
+              ],
+              "properties": {
+                "requiredPairsBeforeClustering": { "type": "integer", "minimum": 2 },
+                "requiredPairsAfterClustering": { "type": "integer", "minimum": 2 },
+                "requiredPairsAfterAttrition": { "type": "integer", "minimum": 2 },
+                "requiredRepositoryClusters": { "type": "integer", "minimum": 2 },
+                "plannedMeetsRequirement": { "type": "boolean" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "falseBlockGuard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "confidence",
+        "maximumRate",
+        "plannedBceTrialsPerStage",
+        "requiredZeroEventTrials",
+        "plannedMeetsRequirement"
+      ],
+      "properties": {
+        "method": { "const": "exact-zero-event-upper-bound-v1" },
+        "confidence": { "type": "number", "minimum": 0.9, "exclusiveMaximum": 1 },
+        "maximumRate": { "type": "number", "exclusiveMinimum": 0, "maximum": 0.1 },
+        "plannedBceTrialsPerStage": { "type": "integer", "minimum": 1 },
+        "requiredZeroEventTrials": { "type": "integer", "minimum": 1 },
+        "plannedMeetsRequirement": { "type": "boolean" }
+      }
+    }
+  }
+}

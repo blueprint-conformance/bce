@@ -153,7 +153,7 @@ if (!attestation) failures.push('ATTESTATIONS.md has no machine-readable count h
 else if (Number(attestation[1]) !== state.independentWitnesses) failures.push('independent witness count differs from ATTESTATIONS.md');
 if (state.independentWitnesses === 0) {
   requireText('STATUS.md', 'No independent user witness', 'independence claim');
-  const claim = json('research/claim-evidence-matrix.json').claims.find((item) => item.claim === 'BCE governance is independently enforced on GitHub');
+  const claim = json('research/claim-evidence-matrix.json').claims.find((item) => item.id === 'independent-governance');
   if (claim?.status !== 'unestablished') failures.push('independent governance claim must remain unestablished');
 }
 if (state.independentReview === 'unestablished-solo-maintainer') {

@@ -33,7 +33,7 @@ The distinguishing mechanism is a fail-closed, local-first architecture gate tha
 - Validation, extraction, gating, MCP discovery, and evidence verification work without a hosted service after installation.
 - Critical unsupported analysis, missing rules, unsafe paths, and unknown constraints fail closed.
 - GitHub README rendering constrains the public surface to portable Markdown, HTML supported by GitHub, and repository-owned assets.
-- Product efficacy is not established. The held-out, provider-identified 600-trial confirmatory study has not run, and the public page must not claim improved agent success, cost, latency, or safety.
+- Product efficacy is not established. The forward Evidence Foundry v3 primary stage (120 pairs, 240 retained attempts) has not run; three transport cells are separately gated after it. The public page must not claim improved agent success, cost, latency, or safety.
 - Independent witnesses remain at zero until an external party records a run.
 
 ## Brand Commitments
@@ -50,7 +50,7 @@ The distinguishing mechanism is a fail-closed, local-first architecture gate tha
 - Live RED/GREEN transcript and byte-for-byte proof: `docs/launch/hero-demo.txt`, `tests/root-readme-proof.test.ts`, and `scripts/hero-demo-record.mjs`.
 - Self-gate and mutation evidence: `.blueprints/`, `extractor-teeth-report.json`, and the repository workflows.
 - Public claim ledger: `STATUS.md`.
-- Reproducible completed-path pilot plus the latest safety-halted apparatus record and explicit limits: `research/model-evaluation/pilots/accelerated-v3/RESULTS.md`, `research/model-evaluation/pilots/accelerated-v4/RESULTS.md`, and `research/model-evaluation/README.md`.
+- Replayable v6 directional instrumentation record, earlier completed-path and safety-halt records, and explicit limits: `research/model-evaluation/pilots/accelerated-v6/RESULTS.md`, `research/model-evaluation/pilots/accelerated-v3/RESULTS.md`, `research/model-evaluation/pilots/accelerated-v4/RESULTS.md`, and `research/model-evaluation/README.md`. The v6 record is author-operated and permanently ineligible for a product-efficacy decision.
 - External but creator-maintained Action witness: `https://github.com/blueprint-conformance/bce-action-witness`.
 - Independent attestation ledger, currently zero: `ATTESTATIONS.md`.
 - No testimonials, customer logos, independent benchmarks, peer-reviewed paper, DOI, or causal efficacy result may be invented.

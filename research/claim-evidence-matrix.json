@@ -1,10 +1,127 @@
 {
-  "schemaVersion": "1",
+  "schemaVersion": "3",
+  "studies": [
+    {
+      "id": "accelerated-v6",
+      "label": "Accelerated v6 instrumentation pilot",
+      "evidenceClass": "author-operated-instrumentation-pilot",
+      "summary": "research/model-evaluation/pilots/accelerated-v6/results/summary.json",
+      "protocol": "research/model-evaluation/pilots/accelerated-v6/protocol.v2.json",
+      "manifest": "research/model-evaluation/pilots/accelerated-v6/task-manifest.json",
+      "studyId": "bce-accelerated-instrumentation-pilot-v6-2026-09-05",
+      "resultSha256": "bb6ef2317d7e4df0d38d08b6e808d918cfa6f71c9a28db8d31457fb8eeed787c",
+      "sealRootSha256": "e39339e36f221108d40b06abf6863b248e8ee776dc8b2fe32c6d40ff7e34694b",
+      "eligibility": {
+        "productEfficacy": false,
+        "defaultAdoption": false,
+        "cost": false,
+        "transportability": false,
+        "independentReplication": false
+      }
+    },
+    {
+      "id": "evidence-foundry-v3",
+      "label": "Evidence Foundry v3 forward confirmatory design",
+      "evidenceClass": "confirmatory-program-design",
+      "registry": "research/model-evaluation/studies/index.v3.json",
+      "protocol": "research/model-evaluation/studies/evidence-foundry-v3/protocol.json",
+      "powerDesign": "research/model-evaluation/studies/evidence-foundry-v3/power-design.json",
+      "studyId": "bce-evidence-foundry-causal-efficacy-v3",
+      "registrySha256": "90413354e2b8a72d6ad23e7236f4909709c26f2d0c88f9f2ac3f1b57ec57326c",
+      "protocolSha256": "72cc1a50fc714b1253e6904f564e2d13b27e764ab366077e5620913cced3c0bf",
+      "powerDesignSha256": "1fc3bbcb59d02eb78f65baea2e8060c5ebe22d82682ca6cf1ca2561c59148704",
+      "lifecycle": "design-draft",
+      "ready": false,
+      "currentClaimClasses": [
+        "no-efficacy-claim"
+      ],
+      "primaryStage": {
+        "stageId": "primary-confirmatory",
+        "repositoryClusters": 40,
+        "tasksPerRepository": 3,
+        "pairs": 120,
+        "retainedAttempts": 240
+      },
+      "prospectiveStageCount": 4
+    }
+  ],
   "claims": [
-    { "claim": "BCE deterministically detects its packaged seeded violations", "status": "product-test-supported", "evidence": "test suite and packaged consumer proof" },
-    { "claim": "BCE generalizes to held-out repositories", "status": "unestablished", "evidence": null },
-    { "claim": "BCE improves coding-agent outcomes", "status": "unestablished", "evidence": null },
-    { "claim": "BCE reduces cost or iteration count", "status": "unestablished", "evidence": null },
-    { "claim": "BCE governance is independently enforced on GitHub", "status": "unestablished", "evidence": null }
+    {
+      "id": "packaged-seeded-detection",
+      "claim": "BCE deterministically detects its packaged seeded violations",
+      "status": "product-test-supported",
+      "evidenceClass": "first-party-mechanism-test",
+      "studyId": null,
+      "evidence": [
+        "tests/recall-gate.test.ts",
+        "tests/recall-e2e-proof.test.ts",
+        "scripts/package-consumer-proof.mjs"
+      ]
+    },
+    {
+      "id": "accelerated-v6-directional-observation",
+      "claim": "Accelerated v6 produced directional observations in one exact author-operated local model/client cell",
+      "status": "directional-observation",
+      "evidenceClass": "author-operated-instrumentation-pilot",
+      "studyId": "accelerated-v6",
+      "evidence": [
+        "research/model-evaluation/pilots/accelerated-v6/RESULTS.md",
+        "research/model-evaluation/pilots/accelerated-v6/results/summary.json"
+      ]
+    },
+    {
+      "id": "heldout-generalization",
+      "claim": "BCE generalizes to held-out repositories",
+      "status": "unestablished",
+      "evidenceClass": null,
+      "studyId": null,
+      "evidence": null
+    },
+    {
+      "id": "coding-agent-outcomes",
+      "claim": "BCE improves coding-agent outcomes",
+      "status": "unestablished",
+      "evidenceClass": null,
+      "studyId": null,
+      "evidence": null
+    },
+    {
+      "id": "cost-or-iteration",
+      "claim": "BCE reduces cost or iteration count",
+      "status": "unestablished",
+      "evidenceClass": null,
+      "studyId": null,
+      "evidence": null
+    },
+    {
+      "id": "independent-governance",
+      "claim": "BCE governance is independently enforced on GitHub",
+      "status": "unestablished",
+      "evidenceClass": null,
+      "studyId": null,
+      "evidence": null
+    }
+  ],
+  "publicBoundaries": [
+    {
+      "path": "README.md",
+      "required": "We do not claim that BCE makes agents more successful, cheaper, faster, or safer than a baseline."
+    },
+    {
+      "path": "PRODUCT.md",
+      "required": "Product efficacy is not established."
+    },
+    {
+      "path": "STATUS.md",
+      "required": "No controlled study establishes generalizable product efficacy."
+    },
+    {
+      "path": "research/README.md",
+      "required": "Accelerated v6 is directional instrumentation evidence, not product-efficacy evidence."
+    },
+    {
+      "path": "docs/scale-and-detection.md",
+      "required": "The forward controlled coding-agent study is Evidence Foundry v3."
+    }
   ]
 }

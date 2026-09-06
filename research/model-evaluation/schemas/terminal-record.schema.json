@@ -29,6 +29,7 @@
       "additionalProperties": false,
       "required": ["sealRootSha256", "protocolSha256", "manifestSha256", "runnerSha256", "clientArtifactSha256", "adapterSha256", "requestedModel", "resolvedModel", "modelIdentitySource", "baseTreeSha256", "preparedTreeSha256", "treatmentConfigSha256"],
       "properties": {
+        "runId": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
         "sealRootSha256": { "$ref": "#/definitions/digest" },
         "protocolSha256": { "$ref": "#/definitions/digest" },
         "manifestSha256": { "$ref": "#/definitions/digest" },
@@ -69,7 +70,8 @@
         "visiblePipeline": { "$ref": "#/definitions/artifact" },
         "functionalOracle": { "$ref": "#/definitions/artifact" },
         "architectureOracle": { "$ref": "#/definitions/artifact" },
-        "policyDiff": { "$ref": "#/definitions/artifact" }
+        "policyDiff": { "$ref": "#/definitions/artifact" },
+        "evaluation": { "$ref": "#/definitions/artifact" }
       }
     },
     "derived": {

@@ -75,6 +75,7 @@ protocol.implementation = {
     haltVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'lib', 'model-evaluation-halt.mjs'))),
     publicExporterSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'export-model-evaluation-public.mjs'))),
     publicVerifierSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'verify-model-evaluation-public.mjs'))),
+    blindedEvaluatorSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'model-evaluation-blinded-evaluator.mjs'))),
     studyHaltSchemaSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'study-halt.schema.json'))),
     safetyHaltArchiveSchemaSha256: sha256Bytes(readFileSync(join(root, 'research', 'model-evaluation', 'schemas', 'safety-halt-archive.schema.json'))),
     canaryRunnerSha256: sha256Bytes(readFileSync(join(root, 'scripts', 'run-model-evaluation-canary.mjs'))),

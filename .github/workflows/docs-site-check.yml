@@ -23,9 +23,9 @@ name: docs-site-check
 # self-test runs FIRST and plants a probe against each of those checks in turn,
 # requiring each to refuse. Only then is a pass worth anything.
 #
-# No install step: the build and its self-test are dependency-free (node
-# built-ins only), the same discipline as tools/verify-chain.mjs. The whole
-# check is a few seconds and cannot be broken by a registry outage.
+# The build and its adversarial self-test remain dependency-free (node built-ins
+# only). The public evidence-claim gate intentionally uses the full Ajv-backed
+# verifier, so its dependencies are installed exactly from package-lock.json.
 # ==============================================================================
 
 on:
@@ -40,6 +40,11 @@ on:
       - 'README.md'
       - 'scripts/build-docs-site.mjs'
       - 'scripts/docs-site-selftest.mjs'
+      - 'scripts/check-evidence-claims.mjs'
+      - 'scripts/check-evidence-claims.selftest.mjs'
+      - 'scripts/lib/evidence-claims.mjs'
+      - 'research/claim-evidence-matrix.json'
+      - 'research/model-evaluation/pilots/accelerated-v6/**'
       - 'scripts/gen-fleet-evidence.mjs'
       - 'scripts/verify-public-release.mjs'
       - 'scripts/verify-public-release.selftest.mjs'
@@ -65,6 +70,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: 22.22.2
+          cache: npm
 
       # ----------------------------------------------------------------------
       # NEGATIVE SELF-TEST — before the real build's verdict is trusted, prove
@@ -74,6 +80,12 @@ jobs:
       # ----------------------------------------------------------------------
       - name: Self-test — every check must refuse its own probe
         run: node scripts/docs-site-selftest.mjs
+
+      - name: Install locked evidence verifier dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Public evidence claims remain bounded
+        run: npm run test:evidence-claims
 
       - name: Public-release verifier refuses false registry metadata
         run: node scripts/verify-public-release.selftest.mjs
@@ -118,6 +130,7 @@ jobs:
           require _site/agents/index.html
           require _site/rfcs/index.html
           require _site/paper/index.html
+          require _site/trust/index.html
 
           # Every schema in the tree is published, at the exact path its `$id`
           # names, byte-for-byte. This is the pre-existing behaviour of

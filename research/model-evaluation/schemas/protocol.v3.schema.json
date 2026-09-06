@@ -1,0 +1,501 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCE staged causal-efficacy protocol v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "studyId",
+    "canonical",
+    "programKind",
+    "studyMode",
+    "lifecycle",
+    "operatorModel",
+    "currentClaimClasses",
+    "researchQuestion",
+    "arms",
+    "primaryOutcome",
+    "claimPolicy",
+    "releaseBinding",
+    "heldoutAccess",
+    "taskPopulation",
+    "clientModelCells",
+    "stages",
+    "treatmentIsolation",
+    "evaluator",
+    "attemptPolicy",
+    "stoppingAndExclusions",
+    "artifacts"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "3" },
+    "studyId": { "$ref": "#/definitions/studyId" },
+    "canonical": { "const": true },
+    "programKind": { "const": "causal-product-efficacy" },
+    "studyMode": { "const": "staged-primary-then-transport" },
+    "lifecycle": { "$ref": "#/definitions/lifecycle" },
+    "operatorModel": { "const": "solo-maintainer-machine-adjudicated" },
+    "currentClaimClasses": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/claimClassId" }
+    },
+    "researchQuestion": { "type": "string", "minLength": 60 },
+    "arms": { "const": ["baseline-no-bce", "bce-enabled"] },
+    "primaryOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "formula", "population", "failureHandling"],
+      "properties": {
+        "id": { "const": "safe-successful-completion" },
+        "formula": { "type": "string", "minLength": 40 },
+        "population": { "const": "intention-to-treat-all-randomized-attempts" },
+        "failureHandling": { "type": "string", "minLength": 40 }
+      }
+    },
+    "claimPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primaryCompletionMayClaim",
+        "transportCompletionMayClaim",
+        "allStagesCompletionMayClaim",
+        "independentReplicationRequiresIndependentOperator",
+        "releaseByteIdentityRequired",
+        "haltedOrIncompleteClaimClass",
+        "alwaysIneligibleEvidence"
+      ],
+      "properties": {
+        "primaryCompletionMayClaim": { "const": "bounded-primary-causal-effect-exact-cell-release-and-task-population" },
+        "transportCompletionMayClaim": { "const": "bounded-transportability-causal-effect-exact-cell-release-and-task-population" },
+        "allStagesCompletionMayClaim": { "const": "bounded-default-adoption-decision-all-preregistered-cells-exact-release-and-task-population" },
+        "independentReplicationRequiresIndependentOperator": { "const": true },
+        "releaseByteIdentityRequired": { "const": true },
+        "haltedOrIncompleteClaimClass": { "const": "no-efficacy-claim" },
+        "alwaysIneligibleEvidence": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "instrumentation-pilot",
+              "synthetic-rehearsal",
+              "development-exposed-task",
+              "safety-halted-prefix",
+              "unregistered-replacement-run",
+              "outcome-tuned-design",
+              "non-byte-identical-release"
+            ]
+          }
+        }
+      }
+    },
+    "releaseBinding": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/definitions/releaseBinding" }
+      ]
+    },
+    "heldoutAccess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "firstAccessAt", "accessLedgerHeadSha256"],
+      "properties": {
+        "status": { "enum": ["never-accessed", "accessed-after-seal"] },
+        "firstAccessAt": { "type": ["string", "null"], "format": "date-time" },
+        "accessLedgerHeadSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
+      }
+    },
+    "taskPopulation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifestPath",
+        "manifestSha256",
+        "status",
+        "exposure",
+        "repositoryClusters",
+        "tasksPerRepository",
+        "taskTypes",
+        "pairsPerCell"
+      ],
+      "properties": {
+        "manifestPath": { "$ref": "#/definitions/relativeJsonPath" },
+        "manifestSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "status": { "enum": ["unpopulated", "frozen"] },
+        "exposure": { "enum": ["never-exposed-to-development", "development-exposed"] },
+        "repositoryClusters": { "type": "integer", "minimum": 2 },
+        "tasksPerRepository": { "type": "integer", "minimum": 1 },
+        "taskTypes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["repair", "feature", "refactor"] }
+        },
+        "pairsPerCell": { "type": "integer", "minimum": 2 }
+      }
+    },
+    "clientModelCells": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/clientModelCell" }
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/stage" }
+    },
+    "treatmentIsolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "onlyRandomizedDifference",
+        "baselineReceivesSameWrittenPolicy",
+        "baselineBceUnavailable",
+        "bceArmUsesSealedBundleOnly",
+        "agentMayEditPolicy",
+        "freshWorkspacePerAttempt",
+        "freshClientStatePerAttempt",
+        "sameNonBceToolsAndPermissions",
+        "oracleOutsideAgentWorkspace",
+        "networkDefaultDeny"
+      ],
+      "properties": {
+        "onlyRandomizedDifference": { "const": "sealed-bce-adoption-bundle-availability" },
+        "baselineReceivesSameWrittenPolicy": { "const": true },
+        "baselineBceUnavailable": { "const": true },
+        "bceArmUsesSealedBundleOnly": { "const": true },
+        "agentMayEditPolicy": { "const": false },
+        "freshWorkspacePerAttempt": { "const": true },
+        "freshClientStatePerAttempt": { "const": true },
+        "sameNonBceToolsAndPermissions": { "const": true },
+        "oracleOutsideAgentWorkspace": { "const": true },
+        "networkDefaultDeny": { "const": true }
+      }
+    },
+    "evaluator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "locking",
+        "blindedToArm",
+        "agentFinalMessageAuthority",
+        "deterministicPrimaryOracles",
+        "evaluatorId",
+        "evaluatorArtifactPath",
+        "evaluatorArtifactSha256",
+        "rubricPath",
+        "rubricSha256"
+      ],
+      "properties": {
+        "locking": { "const": "sealed-before-heldout-access" },
+        "blindedToArm": { "const": true },
+        "agentFinalMessageAuthority": { "const": "diagnostic-only" },
+        "deterministicPrimaryOracles": { "const": true },
+        "evaluatorId": { "type": ["string", "null"], "minLength": 3 },
+        "evaluatorArtifactPath": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/relativeFilePath" }] },
+        "evaluatorArtifactSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "rubricPath": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/relativeJsonPath" }] },
+        "rubricSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
+      }
+    },
+    "attemptPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "appendOnlyRawLedger",
+        "transparentRetryBeforeExposureOnly",
+        "postExposureRetry",
+        "primaryAttemptMayNotBeReplaced",
+        "terminalRecordsImmutable",
+        "runRegistrationBeforeFirstAttempt",
+        "durableFsyncBeforeNextAttempt",
+        "checkpointAfterEveryTerminal",
+        "exactReplayBytesRequired",
+        "externalCheckpointAnchorBeforeEfficacyClaim"
+      ],
+      "properties": {
+        "appendOnlyRawLedger": { "const": true },
+        "transparentRetryBeforeExposureOnly": { "const": true },
+        "postExposureRetry": { "const": "linked-diagnostic-only-never-replaces-randomized-attempt" },
+        "primaryAttemptMayNotBeReplaced": { "const": true },
+        "terminalRecordsImmutable": { "const": true },
+        "runRegistrationBeforeFirstAttempt": { "const": true },
+        "durableFsyncBeforeNextAttempt": { "const": true },
+        "checkpointAfterEveryTerminal": { "const": true },
+        "exactReplayBytesRequired": { "const": true },
+        "externalCheckpointAnchorBeforeEfficacyClaim": { "const": true }
+      }
+    },
+    "stoppingAndExclusions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcomeDependentStopping", "haltedPrefixClaimClass", "randomizedExclusions", "postRandomizationExclusions", "infrastructureFailures"],
+      "properties": {
+        "outcomeDependentStopping": { "const": false },
+        "haltedPrefixClaimClass": { "const": "no-efficacy-claim" },
+        "randomizedExclusions": { "const": "none" },
+        "postRandomizationExclusions": { "const": "none-from-primary-intention-to-treat-outcome" },
+        "infrastructureFailures": { "const": "count-as-primary-failure-after-model-exposure" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["powerDesign", "assignmentSeal", "rawLedger", "evaluatorLock", "integrityLock", "results"],
+      "properties": {
+        "powerDesign": { "$ref": "#/definitions/artifactRef" },
+        "assignmentSeal": { "$ref": "#/definitions/artifactRef" },
+        "rawLedger": { "$ref": "#/definitions/ledgerRef" },
+        "evaluatorLock": { "$ref": "#/definitions/artifactRef" },
+        "integrityLock": { "$ref": "#/definitions/artifactRef" },
+        "results": { "$ref": "#/definitions/artifactRef" }
+      }
+    }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "studyId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,127}$" },
+    "relativeJsonPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[a-zA-Z0-9._/-]+\\.json$"
+    },
+    "relativeFilePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[a-zA-Z0-9._/-]+$"
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/definitions/relativeJsonPath" },
+        "sha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
+      }
+    },
+    "ledgerRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "headSha256"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[a-zA-Z0-9._/-]+\\.jsonl$" },
+        "headSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
+      }
+    },
+    "lifecycle": { "enum": ["design-draft", "frozen-ready-not-run", "running", "safety-halted", "complete"] },
+    "claimClassId": {
+      "enum": [
+        "no-efficacy-claim",
+        "apparatus-validation-only",
+        "bounded-primary-causal-effect-exact-cell-release-and-task-population",
+        "bounded-transportability-causal-effect-exact-cell-release-and-task-population",
+        "bounded-default-adoption-decision-all-preregistered-cells-exact-release-and-task-population",
+        "independent-replication-exact-frozen-scope"
+      ]
+    },
+    "releaseBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageName",
+        "studyId",
+        "version",
+        "gitCommit",
+        "sourceTreeSha256",
+        "packageArtifactPath",
+        "packageArtifactSha256",
+        "npmIntegrity",
+        "registryTarballUrl",
+        "runtimeArtifactPath",
+        "runtimeArtifactSha256",
+        "installedTreeSha256",
+        "registryVerification",
+        "runtimeDerivation",
+        "releaseStatePath",
+        "releaseStateSha256",
+        "attestationPath",
+        "attestationSha256"
+      ],
+      "properties": {
+        "packageName": { "const": "bce-engine" },
+        "studyId": { "$ref": "#/definitions/studyId" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+        "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "sourceTreeSha256": { "$ref": "#/definitions/sha256" },
+        "packageArtifactPath": { "$ref": "#/definitions/relativeFilePath" },
+        "packageArtifactSha256": { "$ref": "#/definitions/sha256" },
+        "npmIntegrity": { "type": "string", "pattern": "^sha512-[A-Za-z0-9+/]+=*$" },
+        "registryTarballUrl": { "type": "string", "pattern": "^https://registry\\.npmjs\\.org/bce-engine/-/bce-engine-[0-9A-Za-z.-]+\\.tgz$" },
+        "runtimeArtifactPath": { "$ref": "#/definitions/relativeFilePath" },
+        "runtimeArtifactSha256": { "$ref": "#/definitions/sha256" },
+        "installedTreeSha256": { "$ref": "#/definitions/sha256" },
+        "registryVerification": { "$ref": "#/definitions/registryVerification" },
+        "runtimeDerivation": { "$ref": "#/definitions/runtimeDerivation" },
+        "releaseStatePath": { "$ref": "#/definitions/relativeJsonPath" },
+        "releaseStateSha256": { "$ref": "#/definitions/sha256" },
+        "attestationPath": { "$ref": "#/definitions/relativeJsonPath" },
+        "attestationSha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "attestationPath", "attestationSha256"],
+      "properties": {
+        "status": { "enum": ["unqualified", "qualified-before-stage-exposure"] },
+        "attestationPath": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/relativeJsonPath" }] },
+        "attestationSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] }
+      }
+    },
+    "clientModelCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "stageId",
+        "role",
+        "client",
+        "executable",
+        "clientVersion",
+        "clientArtifactSha256",
+        "adapterArtifactSha256",
+        "requestedModel",
+        "resolvedModel",
+        "modelIdentitySource",
+        "modelIdentityEvidenceSha256",
+        "reasoningEffort",
+        "qualification"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "stageId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "role": { "enum": ["primary", "transportability"] },
+        "client": { "type": ["string", "null"], "minLength": 2 },
+        "executable": { "type": ["string", "null"], "minLength": 1 },
+        "clientVersion": { "type": ["string", "null"], "minLength": 1 },
+        "clientArtifactSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "adapterArtifactSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "requestedModel": { "type": ["string", "null"], "minLength": 1 },
+        "resolvedModel": { "type": ["string", "null"], "minLength": 1 },
+        "modelIdentitySource": { "type": ["string", "null"], "minLength": 5 },
+        "modelIdentityEvidenceSha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "reasoningEffort": { "type": ["string", "null"], "minLength": 1 },
+        "qualification": { "$ref": "#/definitions/qualification" }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "stageType", "dependsOn", "clientModelCellId", "lifecycle", "claimClass", "claimScope", "powerDesignStageId", "preregistration", "executionBundlePath", "resultEvidence"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "stageType": { "enum": ["primary-confirmatory", "transport-confirmatory"] },
+        "dependsOn": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" }
+        },
+        "clientModelCellId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "lifecycle": { "$ref": "#/definitions/lifecycle" },
+        "claimClass": {
+          "enum": [
+            "bounded-primary-causal-effect-exact-cell-release-and-task-population",
+            "bounded-transportability-causal-effect-exact-cell-release-and-task-population"
+          ]
+        },
+        "claimScope": { "type": "string", "minLength": 40 },
+        "powerDesignStageId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "preregistration": { "enum": ["draft-unsealed", "sealed-before-heldout-access"] },
+        "executionBundlePath": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/relativeDirectoryPath" }] },
+        "lifecycleEvidence": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["disposition", "resultsPath", "resultSha256", "checkpointHeadSha256"],
+              "properties": {
+                "disposition": { "enum": ["complete-awaiting-anchor", "safety-halt"] },
+                "resultsPath": { "$ref": "#/definitions/relativeDirectoryPath" },
+                "resultSha256": { "$ref": "#/definitions/sha256" },
+                "checkpointHeadSha256": { "$ref": "#/definitions/sha256" }
+              }
+            }
+          ]
+        },
+        "resultEvidence": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "resultsPath",
+                "resultSha256",
+                "checkpointHeadSha256",
+                "externalAnchorPath",
+                "externalAnchorSha256",
+                "externalAnchorBundlePath",
+                "externalAnchorBundleSha256",
+                "externalAnchorCertificateIssuer",
+                "externalAnchorCertificateIdentityURI"
+              ],
+              "properties": {
+                "resultsPath": { "$ref": "#/definitions/relativeDirectoryPath" },
+                "resultSha256": { "$ref": "#/definitions/sha256" },
+                "checkpointHeadSha256": { "$ref": "#/definitions/sha256" },
+                "externalAnchorPath": { "$ref": "#/definitions/relativeJsonPath" },
+                "externalAnchorSha256": { "$ref": "#/definitions/sha256" },
+                "externalAnchorBundlePath": { "$ref": "#/definitions/relativeFilePath" },
+                "externalAnchorBundleSha256": { "$ref": "#/definitions/sha256" },
+                "externalAnchorCertificateIssuer": { "const": "https://token.actions.githubusercontent.com" },
+                "externalAnchorCertificateIdentityURI": {
+                  "type": "string",
+                  "const": "https://github.com/blueprint-conformance/bce/.github/workflows/evidence-foundry-anchor.yml@refs/heads/main"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "relativeDirectoryPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[a-zA-Z0-9._/-]*[a-zA-Z0-9._-]$"
+    },
+    "registryVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recordPath", "recordSha256"],
+      "properties": {
+        "recordPath": { "$ref": "#/definitions/relativeJsonPath" },
+        "recordSha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "runtimeDerivation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statementPath",
+        "statementSha256",
+        "bundlePath",
+        "bundleSha256",
+        "certificateIssuer",
+        "certificateIdentityURI"
+      ],
+      "properties": {
+        "statementPath": { "$ref": "#/definitions/relativeJsonPath" },
+        "statementSha256": { "$ref": "#/definitions/sha256" },
+        "bundlePath": { "$ref": "#/definitions/relativeFilePath" },
+        "bundleSha256": { "$ref": "#/definitions/sha256" },
+        "certificateIssuer": { "const": "https://token.actions.githubusercontent.com" },
+        "certificateIdentityURI": {
+          "const": "https://github.com/blueprint-conformance/bce/.github/workflows/evidence-foundry-runtime-derivation.yml@refs/heads/main"
+        }
+      }
+    }
+  }
+}

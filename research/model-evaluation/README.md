@@ -1,4 +1,4 @@
-# BCE product-efficacy study v2
+# BCE product-efficacy studies
 
 This directory is the canonical contract for measuring whether the **BCE adoption bundle** changes
 coding-agent outcomes. The primary outcome is not a BCE invocation or a green BCE report. It is
@@ -35,6 +35,58 @@ A solo maintainer can run a causal comparison inside a frozen task set by using 
 machine oracles outside the agent workspace. A solo maintainer cannot manufacture independent human
 adjudication. Raw blinded human labels remain an optional later evidence layer.
 
+## Evidence Foundry v3: primary answer first
+
+The forward confirmatory program is registered in `studies/index.v3.json`. It starts with one
+bounded primary cell over 40 repository clusters and three task shapes per repository: 120 paired
+tasks, or 240 retained attempts. Three preregistered transport cells follow only after the primary
+stage completes. This staging avoids making the first bounded causal answer wait for all four
+client/model cells; it does not broaden that answer beyond the exact primary cell, release bytes,
+and frozen task population.
+
+The v3 registry binds the arm-blind deterministic evaluator and rubric, the run-registration and
+durability contract, per-terminal checkpoints, exact changed-file replay bytes, immutable legacy
+archives, and the pre-access power calculation. Registry validity and stage readiness are separate
+checks: the initial frozen gate and default readiness report cover the exact primary stage, while
+each later transport stage is selected explicitly after its dependency completes:
+
+```sh
+npm run research:evidence-foundry-v3
+npm run research:evidence-foundry-v3-ready -- --stage primary-confirmatory
+```
+
+The second command currently exits `2` because the real task manifest, release artifact and
+attestation, assignment seal, and exact primary client/model qualification are deliberately absent.
+Those are evidence inputs, not values this repository can truthfully synthesize. The evaluator and
+integrity locks are already byte-bound and verified. A target stage cannot become ready from those
+digests alone: it must also pass the complete sealed v2 confirmatory-bundle verifier, including the
+task/oracle artifacts, regenerated paired assignments, two-arm capability attestation, frozen
+implementation bytes, treatment runtime, and Sigstore pre-run seal. A lifecycle string cannot
+unlock an efficacy claim; completion also requires full-denominator public replay plus an external,
+self-digested checkpoint anchor.
+
+The lifecycle is the last **publicly verified** state, not an operator progress flag. The registry
+refuses `frozen-ready-not-run` unless the complete readiness matrix recomputes green. During private
+execution that remains the public state. A stage may move to `running` only after its complete
+terminal records, registered ledger, checkpoint chain, and sanitized public result replay are
+published; here `running` means “complete result awaiting the fixed GitHub OIDC anchor,” not an
+unevidenced live pulse. A safety halt similarly requires the replayable non-empty halted prefix.
+Both states derive the first heldout-access timestamp and current ledger head from public terminal
+bytes. After a complete replay is committed, the anchor path is selected by that stage's sealed
+`lifecycleEvidence`, never by a workflow caller:
+
+```sh
+gh workflow run evidence-foundry-anchor.yml \
+  -f source_commit=MAIN_COMMIT \
+  -f stage_id=primary-confirmatory \
+  -f protocol_path=research/model-evaluation/studies/evidence-foundry-v3/protocol.json
+```
+
+Each stage owns a one-cell v2 execution bundle. That cell is `primary` within its stage-local paired
+experiment; v3 separately classifies the stage as the program primary or a transportability stage.
+Claim-bearing local-provider cells are admitted only for the first-party tool client with its exact
+sealed two-arm capability qualification. Other local-provider clients remain pilot-only.
+
 ## Lifecycle
 
 ```text
@@ -50,15 +102,21 @@ readiness command must refuse that state:
 npm run research:model-eval-readiness
 ```
 
-The protocol self-test drives the same verifier and analyzer through a fully materialized synthetic
+The v2 protocol self-test drives the same verifier and analyzer through a fully materialized synthetic
 600-trial bundle, then proves they reject arm-blocked assignment, missing/modified artifacts,
 self-asserted outcomes, policy weakening, incomplete denominators, and missing telemetry presented
 as zero. Synthetic results are harness tests only and are ineligible for product claims.
 
-The confirmatory matrix uses 75 tasks per arm in each cell. This is a statistical coherence fix,
-not scope inflation: with zero false blocks, the 95% Wilson upper bound is about 11.35% at 30 trials
-and about 4.87% at 75. The frozen 5% decision threshold was therefore impossible to satisfy under
-the earlier 30-trial denominator. The threshold was not weakened.
+The retained v2 synthetic 600-trial apparatus used 75 tasks per arm in each cell. That historical
+denominator was a statistical coherence fix, not scope inflation: with zero false blocks, the 95%
+Wilson upper bound is about 11.35% at 30 trials and about 4.87% at 75. The frozen 5% decision
+threshold was therefore impossible to satisfy under the earlier 30-trial denominator. V2 remains
+an executable apparatus test; Evidence Foundry v3 above supersedes it as the forward efficacy
+program with a separately gated 120-pair primary stage.
+
+Published pilot directories are byte-immutable evidence archives. Forward-looking language inside
+their retained result narratives records the plan at publication time; it does not override the
+current v3 registry and protocol.
 
 The real-controller self-test uses the separate eight-attempt pilot with a deterministic no-model
 fixture. It proves the macOS sandbox is read-default-deny, denies hidden-input reads and
@@ -120,11 +178,13 @@ sends a model request. V4 binds the provider-returned Ollama version, model name
 artifact size, and post-attempt active model. That identity strength does not widen the pilot's
 claim scope.
 
-The treatment is an exact local candidate, not a claim about the npm release. Its builder resolves
-pinned runtime dependencies once before sealing, removes install-only lock metadata that embeds
-host paths, archives the complete executable runtime tree, and the controller later extracts it
-without registry access and verifies the installed-tree digest. The sealed provenance leaves
-`publishedPackageByteMatch` explicitly unknown.
+Confirmatory treatment runtimes are derived only from the exact tarball retained by the registry
+capture. The `evidence-foundry-runtime-derivation.yml` workflow verifies that tarball's npm/SLSA
+provenance, installs it with pinned npm, archives the complete runtime tree, and signs a closed
+input-package/output-runtime statement through the workflow's GitHub OIDC identity. The canary and
+v3 verifier both reject a runtime whose archive or installed-tree digest differs from that statement;
+new confirmatory bundles record `publishedPackageByteMatch: true`. Historical pilot archives keep
+their original local-candidate provenance and remain claim-ineligible.
 
 For Codex subscription authentication, the controller copies only `auth.json` into disposable
 state, proves initialization access, then deletes that file on the first
@@ -133,7 +193,7 @@ The sealed adapter also sets shell environment inheritance to none. A dedicated 
 credential remains the confirmatory-study standard; this pilot does not claim credential-broker
 isolation.
 
-Local Ollama pilots use a different, credential-free cell. The controller refuses non-loopback
+Local Ollama cells use a different, credential-free path. The controller refuses non-loopback
 endpoints, allows the model process to reach one sealed loopback port only, proves external and
 wrong-port connections fail with an OS permission denial, checks Ollama version and model artifact
 digest before exposure, and requires `/api/ps` to return the exact active model name and digest
@@ -160,17 +220,52 @@ call in the BCE arm. Mentions, shell guesses, resource-list failures, and other 
 count. A non-qualified canary is useful apparatus evidence but cannot authorize a new pilot.
 
 ```sh
+node scripts/capture-evidence-foundry-registry.mjs \
+  --version VERSION \
+  --source-commit RELEASE_COMMIT \
+  --out-dir PATH/TO/registry-capture
+
+gh workflow run evidence-foundry-runtime-derivation.yml \
+  -f source_commit=MAIN_COMMIT \
+  -f release_source_commit=RELEASE_COMMIT \
+  -f package_artifact_path=PATH/TO/bce-engine-VERSION.tgz \
+  -f registry_record_path=PATH/TO/registry-verification.json \
+  -f output_directory=research/model-evaluation/studies/evidence-foundry-v3/release-runtime
+
+# After the workflow succeeds, download its artifact into the same output directory.
+gh run download RUN_ID \
+  --name evidence-foundry-registry-runtime-RELEASE_COMMIT \
+  --dir research/model-evaluation/studies/evidence-foundry-v3/release-runtime
+
 npm run model-eval:canary -- \
+  --client bce-ollama-tool-client \
   --ollama-model MODEL \
   --reasoning-effort low \
-  --out /path/to/canary-attestation.json \
-  --restricted-runs /access-controlled/path
+  --runtime-derivation research/model-evaluation/studies/evidence-foundry-v3/release-runtime/runtime-derivation.json \
+  --public-replay-root research/model-evaluation/studies/evidence-foundry-v3/qualification-primary \
+  --out research/model-evaluation/studies/evidence-foundry-v3/qualification-primary/qualification-attestation.json
 ```
 
-The canary exits `0` only when qualified and `4` when its completed report is non-qualified. The
-sealed study controller exits `0` for ordinary completion or an operator limit, `3` for a valid
-safety halt, `2` for a pre-exposure configuration refusal, and `1` for corruption or an unexpected
-controller failure. A v2 halt binds the seal, protocol, manifest, runner, halt schema, exact ledger
+`--public-replay-root` is an explicit confirmatory mode. It accepts only the first-party client and
+a new, normalized repository-relative directory whose parent already exists. After both registered
+arms complete, it copies the sealed fixture and complete CAS/run ledger into the schema-fixed
+`bundle/` and `runs/` paths beside canonical `terminal-records.jsonl`, emits a v2
+attestation bound to the treatment release commit, and replays that attestation before atomically
+publishing the standalone qualification directory. Copy that whole directory into the confirmatory
+bundle and point the cell's sealed qualification-attestation path at its
+`qualification-attestation.json`; replay paths resolve from that file's directory, so no nesting or
+rewriting is needed. An incomplete or safety-halted denominator, a symlink, traversal, existing
+destination, digest mismatch, or failed replay publishes nothing. Omitting the option preserves the
+v1 diagnostic behavior; use `--restricted-runs /access-controlled/path` when retaining that private
+evidence.
+
+The canary exits `0` only when qualified and `4` when its completed v1 report is non-qualified.
+Public replay mode instead refuses without publishing when the run cannot produce a fully replayable
+v2 qualification. The
+sealed study controller exits `0` only when the registered denominator is complete, `4` when an
+operator limit leaves a resumable registered run incomplete, `3` for a valid safety halt, `2` for a
+pre-exposure configuration refusal, and `1` for corruption or an unexpected controller failure. A
+v2 halt binds the seal, protocol, manifest, runner, halt schema, exact ledger
 bytes/head, canonical terminal prefix, and the first triggering rule/threshold/trial. Rerunning a
 halted study verifies or materializes that halt and exits `3`; it never resumes the denominator.
 

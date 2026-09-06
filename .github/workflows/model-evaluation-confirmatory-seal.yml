@@ -1,0 +1,72 @@
+name: confirmatory model-evaluation seal
+
+# One fixed signing ceremony. It cannot sign a caller-selected file or a PR
+# checkout: the OIDC identity below is meaningful only for the canonical subject
+# committed on main, after its root is re-derived from the confirmatory bundle.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-evaluation-confirmatory-seal
+  cancel-in-progress: false
+
+jobs:
+  sign-confirmatory-seal:
+    if: ${{ github.repository == 'blueprint-conformance/bce' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.22.2
+          cache: npm
+
+      - name: Install locked verifier dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Re-derive the fixed confirmatory subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { expectedSeal, canonicalJson, verifyBundle } from './scripts/lib/model-evaluation.mjs';
+          const root = 'research/model-evaluation/confirmatory';
+          const verification = verifyBundle(root, { requireSealed: false, verifyHostArtifacts: false });
+          if (!verification.ok) throw new Error(`confirmatory draft refused:\n${verification.refusals.join('\n')}`);
+          if (verification.protocol.phase !== 'confirmatory') throw new Error('fixed signing target is not a confirmatory study');
+          const subject = JSON.parse(readFileSync(`${root}/seal-subject.json`, 'utf8'));
+          const derived = { schemaVersion: '1', rootSha256: expectedSeal(root, verification.protocol, verification.manifest).rootSha256 };
+          if (canonicalJson(subject) !== canonicalJson(derived)) throw new Error('confirmatory seal subject does not match the re-derived bundle root');
+          NODE
+
+      - name: Sign and verify the fixed subject with this workflow identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          subject='research/model-evaluation/confirmatory/seal-subject.json'
+          identity='https://github.com/blueprint-conformance/bce/.github/workflows/model-evaluation-confirmatory-seal.yml@refs/heads/main'
+          node node_modules/@sigstore/cli/bin/run attest "$subject" \
+            --output-file confirmatory-seal.sigstore
+          node node_modules/@sigstore/cli/bin/run verify confirmatory-seal.sigstore \
+            --certificate-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-uri "$identity"
+
+      - name: Retain signed subject for seal assembly
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: confirmatory-model-evaluation-seal-${{ github.sha }}
+          path: |
+            research/model-evaluation/confirmatory/seal-subject.json
+            confirmatory-seal.sigstore
+          if-no-files-found: error
+          retention-days: 90

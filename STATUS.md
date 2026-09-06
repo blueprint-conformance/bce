@@ -1,6 +1,6 @@
 # Project status
 
-Last reviewed: 2026-09-05. This file is the authoritative public claim ledger for the current
+Last reviewed: 2026-09-06. This file is the authoritative public claim ledger for the current
 source tree.
 
 ## Distribution
@@ -114,12 +114,17 @@ source tree.
 - No independent user witness has completed the adoption journey. The external consumer above
   is creator-maintained and therefore does not change the independent-witness count.
 - The author-designed seeded corpus is a regression suite, not a held-out benchmark.
-- No controlled study shows that BCE improves autonomous-agent outcomes, completion rate, cost,
-  or escaped-defect rate relative to a baseline.
-- The canonical four-cell, baseline/BCE 600-attempt confirmatory design exists, but its exact
-  provider-identified clients/models, 25 held-out repositories, 75 tasks/reference patches,
-  isolation driver, BCE artifact, assignment proof, and public Sigstore seal are unset. Readiness
-  therefore refuses and no comparative result is claimed.
+- No controlled study establishes generalizable product efficacy. Accelerated v6 is a completed,
+  paired author-operated instrumentation pilot in one exact local model/client cell; it provides
+  directional observations only and is permanently ineligible for a product decision.
+- The forward Evidence Foundry v3 design registers a 120-pair, 240-attempt primary stage over 40
+  repository clusters and three task shapes, followed by three separately gated transport cells.
+  It remains `design-draft`: the held-out task manifest, exact release artifact, primary
+  client/model qualification, assignment proof, and public pre-run seal are unset. Primary-stage
+  readiness therefore refuses and no comparative result is claimed. The older four-cell,
+  600-attempt v2 contract remains an executable synthetic apparatus format, not the current study.
+- Forward-looking “next study” language preserved inside byte-immutable pilot result archives is
+  historical planning from the time of publication. The v3 registry above is the current authority.
 - Accelerated instrumentation pilot v1 was publicly sealed before exposure and retained all eight
   attempts. All eight client invocations exited before a model response or task change was observed
   because the outer sandbox also denied the NVM-installed Codex artifact under the maintainer home;
@@ -148,9 +153,14 @@ source tree.
   conservative policy-mutation flags are unknown assessments, not observed edits. Restricted
   diagnostics also show the exact local client/model tool loop was not qualified. The public v4
   archive proves only the sealed prefix, terminal artifacts, ledger, and halt. It contains no
-  efficacy analysis or product decision. V5 requires fresh inputs and a live sacrificial tool-loop
-  canary before sealing. The canary mechanism now exists, but no exact cell is qualified until a
-  clean public implementation commit passes all command/edit/telemetry/router/MCP criteria.
+  efficacy analysis or product decision. V6 then qualified a first-party Ollama tool-loop cell,
+  sealed fresh inputs, and retained all 16 paired attempts. Its public result reports 2/8 baseline
+  versus 3/8 BCE safe successful completions and 2/8 versus 0/8 escaped defects. One baseline
+  infrastructure timeout remains in the intention-to-treat denominator. The task selection,
+  oracles, operation, and infrastructure were maintainer-controlled, so these are directional
+  observations from one exact cell—not product efficacy, a default recommendation, cost evidence,
+  transportability evidence, or independent replication. Run `npm run evidence:verify` to replay
+  the claim boundary, sealed inputs, and public result.
 - No conventional precision/recall study with independent annotation has been completed.
 - No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;

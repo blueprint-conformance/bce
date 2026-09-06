@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BCE registry-release runtime derivation statement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "package",
+    "builder",
+    "runtime",
+    "createdAt",
+    "statementSha256"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1" },
+    "kind": { "const": "registry-package-runtime-derivation" },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "sourceCommit",
+        "registryTarballUrl",
+        "artifactPath",
+        "artifactSha256",
+        "npmIntegrity",
+        "registryVerificationPath",
+        "registryVerificationSha256"
+      ],
+      "properties": {
+        "name": { "const": "bce-engine" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+        "sourceCommit": { "$ref": "#/definitions/gitCommit" },
+        "registryTarballUrl": { "type": "string", "pattern": "^https://registry\\.npmjs\\.org/bce-engine/-/bce-engine-[0-9A-Za-z.-]+\\.tgz$" },
+        "artifactPath": { "$ref": "#/definitions/relativeFilePath" },
+        "artifactSha256": { "$ref": "#/definitions/sha256" },
+        "npmIntegrity": { "type": "string", "pattern": "^sha512-[A-Za-z0-9+/]+=*$" },
+        "registryVerificationPath": { "$ref": "#/definitions/relativeJsonPath" },
+        "registryVerificationSha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "builder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflowSourceCommit",
+        "workflowRunUrl",
+        "nodeVersion",
+        "npmVersion",
+        "platform",
+        "architecture",
+        "installCommand"
+      ],
+      "properties": {
+        "workflowSourceCommit": { "$ref": "#/definitions/gitCommit" },
+        "workflowRunUrl": { "type": "string", "pattern": "^https://github\\.com/blueprint-conformance/bce/actions/runs/[1-9][0-9]*/attempts/[1-9][0-9]*$" },
+        "nodeVersion": { "type": "string", "pattern": "^v22\\.[0-9]+\\.[0-9]+$" },
+        "npmVersion": { "const": "11.19.1" },
+        "platform": { "const": "linux" },
+        "architecture": { "enum": ["x64", "arm64"] },
+        "installCommand": { "const": "corepack npm@11.19.1 --registry=https://registry.npmjs.org/ install --ignore-scripts --no-audit --no-fund --package-lock=true" }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archiveName", "artifactSha256", "installedTreeSha256"],
+      "properties": {
+        "archiveName": { "const": "bce-treatment-runtime.tgz" },
+        "artifactSha256": { "$ref": "#/definitions/sha256" },
+        "installedTreeSha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "createdAt": { "type": "string", "minLength": 20 },
+    "statementSha256": { "$ref": "#/definitions/sha256" }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "relativeFilePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[a-zA-Z0-9._/-]*[a-zA-Z0-9._-]$"
+    },
+    "relativeJsonPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[a-zA-Z0-9._/-]+\\.json$"
+    }
+  }
+}

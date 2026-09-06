@@ -4,6 +4,33 @@
   "title": "BCE sacrificial capability canary attestation",
   "type": "object",
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "schemaVersion": { "const": "2" } } },
+      "then": {
+        "properties": {
+          "publicReplay": {},
+          "restrictedEvidence": {
+            "type": "object",
+            "properties": { "pathPublished": { "const": true } }
+          }
+        },
+        "required": ["publicReplay"]
+      }
+    },
+    {
+      "if": { "properties": { "schemaVersion": { "const": "1" } } },
+      "then": {
+        "properties": {
+          "publicReplay": false,
+          "restrictedEvidence": {
+            "type": "object",
+            "properties": { "pathPublished": { "const": false } }
+          }
+        }
+      }
+    }
+  ],
   "required": [
     "schemaVersion", "kind", "eligibleForEvaluationEvidence", "eligibleForProductClaim",
     "studyId", "ranAt", "sourceCommit", "sourceTreeState", "qualified", "exactCell",
@@ -12,7 +39,7 @@
     "sealedFixtureRootSha256", "attestationSha256"
   ],
   "properties": {
-    "schemaVersion": { "const": "1" },
+    "schemaVersion": { "enum": ["1", "2"] },
     "kind": { "const": "sacrificial-live-capability-canary" },
     "eligibleForEvaluationEvidence": { "const": false },
     "eligibleForProductClaim": { "const": false },
@@ -95,8 +122,31 @@
       "properties": {
         "retained": { "type": "boolean" },
         "bundleRetained": { "type": "boolean" },
-        "pathPublished": { "const": false },
+        "pathPublished": { "type": "boolean" },
         "ledgerHeadSha256": { "anyOf": [{ "$ref": "#/definitions/sha256" }, { "type": "null" }] }
+      }
+    },
+    "publicReplay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "published", "bundlePath", "runsPath", "terminalRecordsPath", "ledgerPath",
+        "protocolSha256", "manifestSha256", "sealRootSha256", "terminalRecordsSha256",
+        "ledgerSha256", "ledgerHeadSha256", "recordCount"
+      ],
+      "properties": {
+        "published": { "const": true },
+        "bundlePath": { "const": "bundle" },
+        "runsPath": { "const": "runs" },
+        "terminalRecordsPath": { "const": "terminal-records.jsonl" },
+        "ledgerPath": { "const": "runs/ledger.jsonl" },
+        "protocolSha256": { "$ref": "#/definitions/sha256" },
+        "manifestSha256": { "$ref": "#/definitions/sha256" },
+        "sealRootSha256": { "$ref": "#/definitions/sha256" },
+        "terminalRecordsSha256": { "$ref": "#/definitions/sha256" },
+        "ledgerSha256": { "$ref": "#/definitions/sha256" },
+        "ledgerHeadSha256": { "$ref": "#/definitions/sha256" },
+        "recordCount": { "const": 2 }
       }
     },
     "canaryRunnerSha256": { "$ref": "#/definitions/sha256" },

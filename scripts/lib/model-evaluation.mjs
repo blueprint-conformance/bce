@@ -10,7 +10,7 @@ import {
   realpathSync,
   statSync,
 } from 'node:fs';
-import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   localProviderProofMatches,
@@ -20,6 +20,39 @@ import { verifyOllamaClientEvents } from './model-evaluation-client-events.mjs';
 
 export const ARMS = ['baseline-no-bce', 'bce-enabled'];
 export const ASSIGNMENT_ALGORITHM = 'bce-sha256-rank-paired-v1';
+const TREATMENT_DELTA_CONTRACT = {
+  onlyAllowedArmDifferences: [
+    'exact BCE engine artifact installed in the trial workspace',
+    'task-specific EngineeringBlueprint encoding the same written policy both arms receive',
+    'project-scoped BCE Agent Skill',
+    'project-scoped BCE MCP configuration',
+    'visible pipeline includes the BCE done-check',
+  ],
+  mustRemainByteIdentical: [
+    'base task tree before treatment materialization',
+    'task prompt and written architecture rule',
+    'client executable and client version',
+    'requested and resolved model identity',
+    'reasoning effort and model parameters',
+    'non-BCE tools and permissions',
+    'network policy',
+    'time, token, turn, and cost ceilings',
+    'visible functional tests',
+    'hidden functional oracle',
+    'independent architecture oracle',
+    'protected-path classifier',
+  ],
+  forbiddenTreatmentDifferences: [
+    'additional architecture facts unavailable to baseline',
+    'different task wording',
+    'different resource budgets',
+    'different repository revision',
+    'different non-BCE tools',
+    'outcome-dependent retry or stopping',
+  ],
+};
+export const CONFIRMATORY_SIGSTORE_ISSUER = 'https://token.actions.githubusercontent.com';
+export const CONFIRMATORY_SIGSTORE_IDENTITY = 'https://github.com/blueprint-conformance/bce/.github/workflows/model-evaluation-confirmatory-seal.yml@refs/heads/main';
 
 export const FROZEN_IMPLEMENTATIONS = {
   verifierSha256: fileURLToPath(import.meta.url),
@@ -32,6 +65,7 @@ export const FROZEN_IMPLEMENTATIONS = {
   haltVerifierSha256: fileURLToPath(new URL('./model-evaluation-halt.mjs', import.meta.url)),
   publicExporterSha256: fileURLToPath(new URL('../export-model-evaluation-public.mjs', import.meta.url)),
   publicVerifierSha256: fileURLToPath(new URL('../verify-model-evaluation-public.mjs', import.meta.url)),
+  blindedEvaluatorSha256: fileURLToPath(new URL('../model-evaluation-blinded-evaluator.mjs', import.meta.url)),
   studyHaltSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/study-halt.schema.json', import.meta.url)),
   safetyHaltArchiveSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/safety-halt-archive.schema.json', import.meta.url)),
   canaryRunnerSha256: fileURLToPath(new URL('../run-model-evaluation-canary.mjs', import.meta.url)),
@@ -42,6 +76,12 @@ export const FROZEN_IMPLEMENTATIONS = {
   ollamaClientEventSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/client-event.schema.json', import.meta.url)),
   capabilityCanaryAttestationSchemaSha256: fileURLToPath(new URL('../../research/model-evaluation/schemas/capability-canary-attestation.schema.json', import.meta.url)),
 };
+
+const SOURCE_REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const ATTESTED_IMPLEMENTATIONS_ROOT = resolve(
+  SOURCE_REPOSITORY_ROOT,
+  'research/model-evaluation/attested-implementations/by-git-commit',
+);
 
 export function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -55,12 +95,40 @@ export function canonicalJson(value) {
   return JSON.stringify(canonical(value));
 }
 
+function globMatches(path, glob) {
+  const marker = '__DOUBLE_STAR__';
+  const escaped = glob.replace(/\*\*/g, marker).replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*').replaceAll(marker, '.*');
+  return new RegExp(`^${escaped}$`).test(path);
+}
+
 export function sha256Bytes(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
 export function sha256Json(value) {
   return sha256Bytes(canonicalJson(value));
+}
+
+export function verifyRunRegistration(runsRoot, bundle) {
+  const path = resolve(runsRoot, 'run-registration.json');
+  const registration = JSON.parse(readFileSync(path, 'utf8'));
+  const identity = {
+    studyId: bundle.protocol.studyId,
+    sealRootSha256: bundle.seal.rootSha256,
+    protocolSha256: sha256Bytes(readFileSync(resolve(bundle.root, 'protocol.v2.json'))),
+    manifestSha256: sha256Bytes(readFileSync(resolve(bundle.root, 'task-manifest.json'))),
+    runnerSha256: bundle.protocol.implementation.runnerSha256,
+    plannedTrials: bundle.manifest.assignments.length,
+  };
+  const expectedRunId = sha256Json({ schemaVersion: 'bce-model-evaluation-run/v1', ...identity });
+  const keys = ['schemaVersion', 'runId', 'registeredAt', ...Object.keys(identity), 'registrationSha256'].sort();
+  if (canonicalJson(Object.keys(registration).sort()) !== canonicalJson(keys) || registration.schemaVersion !== '1' ||
+      registration.runId !== expectedRunId || !Number.isFinite(Date.parse(registration.registeredAt ?? '')) ||
+      registration.registrationSha256 !== sha256Json({ ...registration, registrationSha256: null }) ||
+      canonicalJson(Object.fromEntries(Object.keys(identity).map((key) => [key, registration[key]]))) !== canonicalJson(identity)) {
+    throw new Error('run registration does not bind the exact sealed study');
+  }
+  return registration;
 }
 
 export function fileArtifact(path, root, mediaType = 'application/octet-stream') {
@@ -104,7 +172,36 @@ function resolveSealedFile(root, path, label) {
   return canonical;
 }
 
-export function hashTree(root, { includeNodeModules = false } = {}) {
+function resolveSealedDirectory(root, path, label) {
+  const directory = resolveSealedFile(root, path, label);
+  if (!statSync(directory).isDirectory()) throw new Error(`${label}: not a directory`);
+  return directory;
+}
+
+function assertClosedRegularTree(root, label) {
+  const walk = (path) => {
+    const stat = lstatSync(path);
+    const relativePath = posixRelative(root, path) || '.';
+    if (stat.isSymbolicLink()) throw new Error(`${label}: symbolic-link artifacts are refused (${relativePath})`);
+    if (stat.isFile()) return;
+    if (!stat.isDirectory()) throw new Error(`${label}: unsupported filesystem entry (${relativePath})`);
+    for (const name of readdirSync(path).sort()) walk(resolve(path, name));
+  };
+  walk(root);
+}
+
+function canonicalTreeMode(stat, type, platform) {
+  if (platform !== 'win32') return stat.mode & 0o777;
+  // Windows does not expose the POSIX mode bits used when study trees are
+  // sealed on Linux/macOS. Reconstruct the only portable modes: ordinary
+  // files, directories, and symlinks. A genuinely executable file remains
+  // fail-closed on Windows because its sealed 0755 digest will not match 0644.
+  if (type === 'directory') return 0o755;
+  if (type === 'symlink') return 0o777;
+  return 0o644;
+}
+
+export function hashTree(root, { includeNodeModules = false, platform = process.platform } = {}) {
   const base = realpathSync(root);
   const entries = [];
   const walk = (dir) => {
@@ -114,13 +211,13 @@ export function hashTree(root, { includeNodeModules = false } = {}) {
       const rel = posixRelative(base, absolute);
       const stat = lstatSync(absolute);
       if (stat.isDirectory()) {
-        entries.push({ path: `${rel}/`, type: 'directory', mode: stat.mode & 0o777 });
+        entries.push({ path: `${rel}/`, type: 'directory', mode: canonicalTreeMode(stat, 'directory', platform) });
         walk(absolute);
       } else if (stat.isSymbolicLink()) {
-        entries.push({ path: rel, type: 'symlink', mode: stat.mode & 0o777, target: readlinkSync(absolute) });
+        entries.push({ path: rel, type: 'symlink', mode: canonicalTreeMode(stat, 'symlink', platform), target: readlinkSync(absolute) });
       } else if (stat.isFile()) {
         const bytes = readFileSync(absolute);
-        entries.push({ path: rel, type: 'file', mode: stat.mode & 0o777, bytes: bytes.byteLength, sha256: sha256Bytes(bytes) });
+        entries.push({ path: rel, type: 'file', mode: canonicalTreeMode(stat, 'file', platform), bytes: bytes.byteLength, sha256: sha256Bytes(bytes) });
       } else {
         throw new Error(`tree contains unsupported entry type: ${rel}`);
       }
@@ -141,12 +238,70 @@ function validateOrThrow(value, schemaPath, label) {
   if (!validate(value)) throw new Error(`${label}: ${ajv.errorsText(validate.errors, { separator: '; ' })}`);
 }
 
-export function validateCapabilityCanaryAttestation(attestation, schemaPath) {
+export function validateCapabilityCanaryAttestation(attestation, schemaPath, { requirePublicReplay = false } = {}) {
   validateOrThrow(attestation, schemaPath, 'capability canary attestation');
   if (attestation.attestationSha256 !== sha256Json({ ...attestation, attestationSha256: null })) {
     throw new Error('capability canary attestation self-digest does not recompute');
   }
+  if (requirePublicReplay && attestation.schemaVersion !== '2') {
+    throw new Error('confirmatory qualification requires a v2 attestation with retained public replay evidence');
+  }
   return true;
+}
+
+export function validateConfirmatorySealSigner(attestation) {
+  if (attestation?.kind !== 'sigstore-github-oidc' || attestation.eligibleForProductClaim !== true ||
+      attestation.certificateIssuer !== CONFIRMATORY_SIGSTORE_ISSUER ||
+      attestation.certificateIdentityURI !== CONFIRMATORY_SIGSTORE_IDENTITY ||
+      attestation.identity !== CONFIRMATORY_SIGSTORE_IDENTITY) {
+    throw new Error(`confirmatory seal requires exact signer ${CONFIRMATORY_SIGSTORE_IDENTITY} issued by ${CONFIRMATORY_SIGSTORE_ISSUER}`);
+  }
+  return true;
+}
+
+export function verifyConfirmatorySigstoreSubject(subjectInput, bundleInput, signatureVerifier) {
+  const subjectBytes = Buffer.isBuffer(subjectInput) ? subjectInput : Buffer.from(subjectInput);
+  const bundleBytes = Buffer.isBuffer(bundleInput) ? bundleInput : Buffer.from(bundleInput);
+  let bundle;
+  try {
+    bundle = JSON.parse(bundleBytes.toString('utf8'));
+  } catch (error) {
+    throw new Error(`confirmatory Sigstore bundle is not JSON: ${error.message}`);
+  }
+  const encoded = bundle?.dsseEnvelope?.payload;
+  if (typeof encoded !== 'string' || encoded.length === 0 || encoded.length % 4 !== 0 ||
+      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) {
+    throw new Error('confirmatory Sigstore DSSE payload is not canonical base64');
+  }
+  const payloadBytes = Buffer.from(encoded, 'base64');
+  if (payloadBytes.toString('base64') !== encoded) {
+    throw new Error('confirmatory Sigstore DSSE payload is not canonical base64');
+  }
+  if (!payloadBytes.equals(subjectBytes)) {
+    throw new Error('confirmatory Sigstore DSSE payload does not equal the exact seal subject bytes');
+  }
+  if (typeof signatureVerifier !== 'function') throw new Error('confirmatory Sigstore signature verifier is unavailable');
+  signatureVerifier();
+  return true;
+}
+
+function qualificationExactCell(protocol, cell, configuration) {
+  return {
+    client: cell.client,
+    clientVersion: cell.clientVersion,
+    clientArtifactSha256: cell.clientArtifactSha256,
+    reasoningEffort: cell.reasoningEffort,
+    requestedModel: cell.requestedModel,
+    resolvedModel: cell.resolvedModel,
+    provider: cell.localProvider,
+    runtimeVersion: protocol.isolation.runtimeVersion,
+    runtimeArtifactSha256: protocol.isolation.runtimeArtifactSha256,
+    controllerSha256: protocol.implementation.runnerSha256,
+    implementation: protocol.implementation,
+    treatmentArtifactSha256: protocol.treatment.engineArtifactSha256,
+    treatmentInstalledTreeSha256: protocol.treatment.installedTreeSha256,
+    toolLoop: configuration ? { ...configuration, qualificationAttestation: null } : null,
+  };
 }
 
 function rank(seed, domain, id) {
@@ -256,6 +411,22 @@ function verifyArtifact(root, artifact, label, refusals) {
   }
 }
 
+function addSealedTreePaths(paths, root, relativeRoot, label) {
+  const directory = resolveSealedDirectory(root, relativeRoot, label);
+  const walk = (current) => {
+    for (const name of readdirSync(current).sort()) {
+      const absolute = resolve(current, name);
+      const stat = lstatSync(absolute);
+      const path = posixRelative(root, absolute);
+      if (stat.isSymbolicLink()) throw new Error(`${label}: symbolic-link public replay artifacts are refused (${path})`);
+      if (stat.isDirectory()) walk(absolute);
+      else if (stat.isFile()) paths.add(path);
+      else throw new Error(`${label}: unsupported public replay entry (${path})`);
+    }
+  };
+  walk(directory);
+}
+
 function collectExpectedSealEntries(bundleDir, protocol, manifest) {
   const paths = new Set([
     'protocol.v2.json',
@@ -276,6 +447,22 @@ function collectExpectedSealEntries(bundleDir, protocol, manifest) {
   if (protocol.treatment.engineArtifact) paths.add(protocol.treatment.engineArtifact);
   for (const cell of protocol.clientModelCells ?? []) {
     for (const artifact of [cell.toolLoop?.systemPrompt, cell.toolLoop?.commonToolContract, cell.toolLoop?.clientEventSchema, cell.toolLoop?.qualificationAttestation].filter(Boolean)) paths.add(artifact.path);
+    const qualificationArtifact = cell.toolLoop?.qualificationAttestation;
+    if (qualificationArtifact) {
+      const qualificationAttestationPath = resolveSealedFile(bundleDir, qualificationArtifact.path, `${cell.id} qualification attestation`);
+      const attestation = JSON.parse(readFileSync(qualificationAttestationPath, 'utf8'));
+      if (attestation.schemaVersion === '2') {
+        const packagePrefix = posixRelative(bundleDir, dirname(qualificationAttestationPath));
+        const packagePath = (path, label) => {
+          assertRelativePath(path, label);
+          return packagePrefix ? `${packagePrefix}/${path}` : path;
+        };
+        addSealedTreePaths(paths, bundleDir, packagePath(attestation.publicReplay.bundlePath, `${cell.id} public qualification bundle path`), `${cell.id} public qualification bundle`);
+        addSealedTreePaths(paths, bundleDir, packagePath(attestation.publicReplay.runsPath, `${cell.id} public qualification runs path`), `${cell.id} public qualification runs`);
+        paths.add(packagePath(attestation.publicReplay.terminalRecordsPath, `${cell.id} public qualification terminal-records path`));
+        paths.add(packagePath(attestation.publicReplay.ledgerPath, `${cell.id} public qualification ledger path`));
+      }
+    }
   }
   for (const task of manifest.tasks) for (const artifact of artifactRefs(task)) paths.add(artifact.path);
   const entries = [...paths].sort().map((path) => {
@@ -287,8 +474,122 @@ function collectExpectedSealEntries(bundleDir, protocol, manifest) {
 }
 
 export function expectedSeal(bundleDir, protocol, manifest) {
-  const entries = collectExpectedSealEntries(bundleDir, protocol, manifest);
+  const entries = collectExpectedSealEntries(realpathSync(bundleDir), protocol, manifest);
   return { entries, rootSha256: sha256Json(entries) };
+}
+
+const QUALIFICATION_REQUIREMENTS = [
+  'retained-sealed-fixture-bundle', 'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm',
+  'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm',
+  'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest',
+  'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass',
+  'sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm',
+];
+const PUBLIC_QUALIFICATION_REQUIREMENT = 'public-replayable-sealed-fixture-terminal-records-and-ledger';
+
+function deriveQualificationObservation(record, replay) {
+  const task = replay.bundle.manifest.tasks.find((entry) => entry.id === record.assignment.taskId);
+  const transcript = readJsonArtifact(replay.runsRoot, record.evidence.transcript, `${record.trialId}/qualification transcript`);
+  const patch = readJsonArtifact(replay.runsRoot, record.evidence.patch, `${record.trialId}/qualification patch`);
+  const isolation = readJsonArtifact(replay.runsRoot, record.evidence.isolationProof, `${record.trialId}/qualification isolation`);
+  const documents = transcript.rawUsage ?? [];
+  const successfulCommands = documents.filter((node) =>
+    node?.type === 'tool.result' && node.payload?.name === 'exec' &&
+    node.payload?.ok === true && node.payload?.result?.exitCode === 0).length;
+  const exactAllowedFileEdit = patch.changes?.length === 1 && task.allowedPaths.length === 1 && patch.changes[0].path === task.allowedPaths[0] &&
+    record.derived.policyAssessmentComplete === true && record.derived.policyMutationObserved === false;
+  return {
+    trialId: record.trialId,
+    arm: record.assignment.arm,
+    status: record.status,
+    recordSha256: record.recordSha256,
+    successfulCommands,
+    exactAllowedFileEdit,
+    telemetryUsable: Number.isInteger(record.telemetry.agentTurns) && record.telemetry.agentTurns > 0 &&
+      Number.isInteger(record.telemetry.inputTokens) && record.telemetry.inputTokens > 0 &&
+      Number.isInteger(record.telemetry.outputTokens) && record.telemetry.outputTokens > 0,
+    toolRouterErrors: documents.filter((node) => node?.type === 'tool.rejected').length,
+    bceMcpRunGate: record.assignment.arm === 'bce-enabled' ? record.mechanism.mcpToolCalls >= 1 && record.mechanism.bceGateCalls >= 1 : null,
+    bceLastVerifiedVerdict: record.assignment.arm === 'bce-enabled' ? record.mechanism.bceVerdictSequence?.at(-1) ?? null : null,
+    clientEventChainVerified: transcript.sealedClientEventVerification?.passed === true && typeof transcript.sealedClientEventVerification?.eventChainHeadSha256 === 'string',
+    execBrokerControllerVerified: transcript.sealedClientEventVerification?.passed === true && transcript.sealedClientEventVerification?.execBrokerError === null &&
+      Array.isArray(transcript.sealedClientEventVerification?.execBrokerControllerEvidence) && transcript.sealedClientEventVerification.execBrokerControllerEvidence.length > 0,
+    providerIdentityStable: isolation.providerIdentityStable === true,
+    safeSuccessfulCompletion: record.derived.safeSuccessfulCompletion,
+  };
+}
+
+export function verifyCapabilityQualificationReplay(packageRootInput, attestation, schemaPath) {
+  const requestedRoot = resolve(packageRootInput);
+  assertClosedRegularTree(requestedRoot, 'public qualification package');
+  const root = realpathSync(requestedRoot);
+  validateCapabilityCanaryAttestation(attestation, schemaPath, { requirePublicReplay: true });
+  const publicReplay = attestation.publicReplay;
+  const bundleRoot = resolveSealedDirectory(root, publicReplay.bundlePath, 'public qualification bundle');
+  const runsRoot = resolveSealedDirectory(root, publicReplay.runsPath, 'public qualification runs');
+  const protocolBytes = readFileSync(resolveSealedFile(bundleRoot, 'protocol.v2.json', 'public qualification protocol'));
+  const manifestBytes = readFileSync(resolveSealedFile(bundleRoot, 'task-manifest.json', 'public qualification manifest'));
+  if (sha256Bytes(protocolBytes) !== publicReplay.protocolSha256 || sha256Bytes(protocolBytes) !== attestation.sealedFixtureProtocolSha256) {
+    throw new Error('public qualification protocol digest mismatch');
+  }
+  if (sha256Bytes(manifestBytes) !== publicReplay.manifestSha256 || sha256Bytes(manifestBytes) !== attestation.sealedFixtureManifestSha256) {
+    throw new Error('public qualification manifest digest mismatch');
+  }
+  const replay = loadVerifiedRecords(bundleRoot, runsRoot, { verifyHostArtifacts: false });
+  replay.runsRoot = runsRoot;
+  if (replay.bundle.seal.rootSha256 !== publicReplay.sealRootSha256 || replay.bundle.seal.rootSha256 !== attestation.sealedFixtureRootSha256) {
+    throw new Error('public qualification seal root digest mismatch');
+  }
+  if (replay.bundle.protocol.studyId !== attestation.studyId || replay.bundle.protocol.phase !== 'pilot' ||
+      replay.bundle.protocol.claimScope !== 'sacrificial-apparatus-capability-only-no-product-efficacy-cost-latency-safety-or-adoption-claim' ||
+      replay.bundle.manifest.repositories.length !== 1 || replay.bundle.manifest.tasks.length !== 1 || replay.records.length !== 2 ||
+      replay.bundle.manifest.assignments.length !== 2) {
+    throw new Error('public qualification replay is not the exact two-arm sacrificial canary fixture');
+  }
+  const [qualificationRepository] = replay.bundle.manifest.repositories;
+  const [qualificationTask] = replay.bundle.manifest.tasks;
+  if (qualificationRepository.developmentExposed !== true || qualificationTask.repositoryId !== qualificationRepository.id ||
+      qualificationTask.classification !== 'pilot-development-only' || qualificationTask.constraintClass !== 'apparatus-capability' ||
+      qualificationTask.provenance?.developmentExposed !== true ||
+      qualificationTask.provenance?.source !== 'dedicated sacrificial apparatus fixture' ||
+      qualificationTask.provenance?.selectionRule !== 'fixed capability proof unrelated to evaluation tasks') {
+    throw new Error('public qualification replay is not permanently scoped to development-exposed apparatus evidence');
+  }
+  const qualificationCell = replay.bundle.protocol.clientModelCells[0];
+  if (replay.bundle.protocol.clientModelCells.length !== 1 || qualificationCell.client !== 'bce-ollama-tool-client' ||
+      canonicalJson(attestation.exactCell) !== canonicalJson(qualificationExactCell(replay.bundle.protocol, qualificationCell, qualificationCell.toolLoop))) {
+    throw new Error('public qualification replay does not bind the attested exact client/model/provider/runtime/controller/treatment/tool-loop cell');
+  }
+  if (attestation.sourceCommit !== replay.bundle.protocol.treatment.artifactProvenance.sourceCommit ||
+      attestation.sourceTreeState !== replay.bundle.protocol.treatment.artifactProvenance.sourceTreeState ||
+      attestation.canaryRunnerSha256 !== replay.bundle.protocol.implementation.canaryRunnerSha256) {
+    throw new Error('public qualification replay source or canary-runner identity mismatch');
+  }
+  const terminalBytes = readFileSync(resolveSealedFile(root, publicReplay.terminalRecordsPath, 'public qualification terminal records'));
+  const publishedRecords = terminalBytes.toString('utf8').split('\n').filter((line) => line.trim()).map((line) => JSON.parse(line));
+  if (sha256Bytes(terminalBytes) !== publicReplay.terminalRecordsSha256 || publicReplay.recordCount !== replay.records.length ||
+      canonicalJson(publishedRecords) !== canonicalJson(replay.records)) {
+    throw new Error('public qualification terminal records do not match the fully replayed attempts');
+  }
+  const ledgerBytes = readFileSync(resolveSealedFile(root, publicReplay.ledgerPath, 'public qualification ledger'));
+  const retainedLedgerBytes = readFileSync(resolveSealedFile(runsRoot, 'ledger.jsonl', 'retained qualification ledger'));
+  const ledger = ledgerBytes.toString('utf8').split('\n').filter((line) => line.trim()).map((line) => JSON.parse(line));
+  if (!ledgerBytes.equals(retainedLedgerBytes) || sha256Bytes(ledgerBytes) !== publicReplay.ledgerSha256 ||
+      ledger.at(-1)?.entrySha256 !== publicReplay.ledgerHeadSha256 ||
+      attestation.restrictedEvidence.ledgerHeadSha256 !== publicReplay.ledgerHeadSha256) {
+    throw new Error('public qualification ledger digest or head mismatch');
+  }
+  const observed = [...attestation.observations].sort((left, right) => left.trialId.localeCompare(right.trialId));
+  const derived = replay.records.map((record) => deriveQualificationObservation(record, replay)).sort((left, right) => left.trialId.localeCompare(right.trialId));
+  if (canonicalJson(observed) !== canonicalJson(derived)) {
+    throw new Error('public qualification observations do not rederive from the retained terminal evidence');
+  }
+  if (attestation.qualified !== true || attestation.refusalReasons.length !== 0 ||
+      QUALIFICATION_REQUIREMENTS.some((requirement) => !attestation.requirements.includes(requirement)) ||
+      !attestation.requirements.includes(PUBLIC_QUALIFICATION_REQUIREMENT)) {
+    throw new Error('public qualification replay does not prove the complete clean two-arm capability contract');
+  }
+  return { bundle: replay.bundle, records: replay.records, observations: derived };
 }
 
 function verifyQualificationAttestation(root, protocol, seal, cell, configuration, refusals) {
@@ -298,9 +599,10 @@ function verifyQualificationAttestation(root, protocol, seal, cell, configuratio
     return;
   }
   let attestation;
+  let attestationPath;
   try {
-    const path = resolveSealedFile(root, artifact.path, `${cell.id} qualification attestation`);
-    const bytes = readFileSync(path);
+    attestationPath = resolveSealedFile(root, artifact.path, `${cell.id} qualification attestation`);
+    const bytes = readFileSync(attestationPath);
     if (sha256Bytes(bytes) !== artifact.sha256) throw new Error('artifact digest mismatch');
     attestation = JSON.parse(bytes);
     validateOrThrow(attestation, resolve(root, 'schemas', 'capability-canary-attestation.schema.json'), `${cell.id} qualification attestation`);
@@ -311,22 +613,7 @@ function verifyQualificationAttestation(root, protocol, seal, cell, configuratio
   if (attestation.attestationSha256 !== sha256Json({ ...attestation, attestationSha256: null })) {
     refusals.push(`${cell.id}: qualification attestation self-digest does not recompute`);
   }
-  const expectedExactCell = {
-    client: cell.client,
-    clientVersion: cell.clientVersion,
-    clientArtifactSha256: cell.clientArtifactSha256,
-    reasoningEffort: cell.reasoningEffort,
-    requestedModel: cell.requestedModel,
-    resolvedModel: cell.resolvedModel,
-    provider: cell.localProvider,
-    runtimeVersion: protocol.isolation.runtimeVersion,
-    runtimeArtifactSha256: protocol.isolation.runtimeArtifactSha256,
-    controllerSha256: protocol.implementation.runnerSha256,
-    implementation: protocol.implementation,
-    treatmentArtifactSha256: protocol.treatment.engineArtifactSha256,
-    treatmentInstalledTreeSha256: protocol.treatment.installedTreeSha256,
-    toolLoop: { ...configuration, qualificationAttestation: null },
-  };
+  const expectedExactCell = qualificationExactCell(protocol, cell, configuration);
   if (canonicalJson(attestation.exactCell) !== canonicalJson(expectedExactCell)) {
     refusals.push(`${cell.id}: qualification attestation does not bind the exact client/model/provider/runtime/controller/treatment/tool-loop cell`);
   }
@@ -345,17 +632,17 @@ function verifyQualificationAttestation(root, protocol, seal, cell, configuratio
     attestation.observations.find((observation) => observation.arm === 'baseline-no-bce')?.bceLastVerifiedVerdict === null &&
     attestation.observations.find((observation) => observation.arm === 'bce-enabled')?.bceMcpRunGate === true &&
     attestation.observations.find((observation) => observation.arm === 'bce-enabled')?.bceLastVerifiedVerdict === 'pass';
-  const requiredClaims = [
-    'retained-sealed-fixture-bundle', 'independent-terminal-replay-all-attempts', 'successful-command-completion-each-arm',
-    'exact-single-allowed-file-edit-each-arm', 'usable-token-and-turn-telemetry-each-arm',
-    'zero-tool-router-errors-each-arm', 'stable-provider-name-and-digest',
-    'bce-enabled-exact-successful-mcp-run-gate', 'bce-enabled-last-exact-mcp-verdict-pass',
-    'sealed-client-event-chain-each-arm', 'controller-bijective-exec-broker-evidence-each-arm',
-  ];
   if (attestation.qualified !== true || attestation.sourceTreeState !== 'clean' || attestation.refusalReasons.length !== 0 ||
       attestation.restrictedEvidence.retained !== true || attestation.restrictedEvidence.bundleRetained !== true || !/^[0-9a-f]{64}$/.test(attestation.restrictedEvidence.ledgerHeadSha256 ?? '') ||
-      !observationEligible || requiredClaims.some((requirement) => !attestation.requirements.includes(requirement))) {
+      !observationEligible || QUALIFICATION_REQUIREMENTS.some((requirement) => !attestation.requirements.includes(requirement))) {
     refusals.push(`${cell.id}: qualification attestation does not prove the complete clean two-arm capability contract`);
+  }
+  if (protocol.phase === 'confirmatory') {
+    try {
+      verifyCapabilityQualificationReplay(dirname(attestationPath), attestation, resolve(root, 'schemas', 'capability-canary-attestation.schema.json'));
+    } catch (error) {
+      refusals.push(`${cell.id}: confirmatory qualification replay: ${error.message}`);
+    }
   }
 }
 
@@ -388,6 +675,9 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
   for (const required of ['.bce-runtime/**', '.blueprints/**', '.bce-mode.json']) {
     if (!treatmentDelta.allowedPathPatterns?.includes(required)) refusals.push(`treatment delta omits required materialization surface ${required}`);
   }
+  for (const [field, expected] of Object.entries(TREATMENT_DELTA_CONTRACT)) {
+    if (canonicalJson(treatmentDelta[field]) !== canonicalJson(expected)) refusals.push(`treatment delta ${field} differs from the executable v1 arm-parity contract`);
+  }
   for (const required of ['.blueprints/**', '.bce-runtime/**', '.github/**', 'tests/**']) {
     if (!protectedPaths.patterns?.includes(required)) refusals.push(`protected paths omit required policy/evaluator surface ${required}`);
   }
@@ -410,18 +700,34 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
     if (protocol.implementation?.[name] && protocol.implementation[name] !== runningDigest) {
       const commit = seal.attestation?.kind === 'local-git-commit' ? seal.attestation.gitCommit : null;
       let historicalDigest = null;
+      let historicalSource = null;
       if (/^[0-9a-f]{40}$/.test(commit ?? '')) {
+        const repositoryPath = posixRelative(SOURCE_REPOSITORY_ROOT, implementationPath);
+        try {
+          const archivedPath = resolveSealedFile(
+            ATTESTED_IMPLEMENTATIONS_ROOT,
+            `${commit}/${repositoryPath}`,
+            `${name} attested implementation`,
+          );
+          historicalDigest = sha256Bytes(readFileSync(archivedPath));
+          historicalSource = 'content-addressed-public-archive';
+        } catch {
+          // A full public Git checkout remains a valid fallback for older studies.
+        }
         const top = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8' });
-        if (top.status === 0) {
+        if (historicalDigest !== protocol.implementation[name] && top.status === 0) {
           const repositoryRoot = top.stdout.trim();
           const repositoryPath = posixRelative(repositoryRoot, implementationPath);
           if (repositoryPath !== '..' && !repositoryPath.startsWith('../')) {
             const blob = spawnSync('git', ['show', `${commit}:${repositoryPath}`], { cwd: repositoryRoot, encoding: null, maxBuffer: 64 * 1024 * 1024 });
-            if (blob.status === 0) historicalDigest = sha256Bytes(blob.stdout);
+            if (blob.status === 0) {
+              historicalDigest = sha256Bytes(blob.stdout);
+              historicalSource = 'public-git-history';
+            }
           }
         }
       }
-      if (historicalDigest === protocol.implementation[name]) historicalImplementations.push({ name, commit });
+      if (historicalDigest === protocol.implementation[name]) historicalImplementations.push({ name, commit, source: historicalSource });
       else refusals.push(`running ${name.replace(/Sha256$/, '')} digest differs from the frozen protocol implementation and the attested historical bytes are unavailable`);
     }
   }
@@ -554,6 +860,7 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
         if (manifest.tasks.some((task) => task.budget.maxTurns > configuration.limits.maximumTurns)) refusals.push(`${cell.id}: a task exceeds the frozen tool-loop turn cap`);
         if (seal.attestation?.kind !== 'synthetic-self-test') verifyQualificationAttestation(root, protocol, seal, cell, configuration, refusals);
       }
+      if (!cell.localProvider) refusals.push(`${cell.id}: first-party Ollama client lacks an exact frozen local provider`);
     } else if (cell.toolLoop != null) refusals.push(`${cell.id}: non-reference client unexpectedly declares toolLoop configuration`);
     if (cell.localProvider) {
       let endpoint = null;
@@ -562,7 +869,11 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
       if (endpoint && (endpoint.protocol !== 'http:' || !['127.0.0.1', '[::1]'].includes(endpoint.hostname) || !endpoint.port || endpoint.username || endpoint.password || endpoint.search || endpoint.hash || !['', '/'].includes(endpoint.pathname))) {
         refusals.push(`${cell.id}: local provider endpoint must be credential-free HTTP on one explicit loopback port with no path, query, or fragment`);
       }
-      if (protocol.phase !== 'pilot') refusals.push(`${cell.id}: local provider cells are currently permitted only in claim-ineligible pilots`);
+      const qualifiedFirstPartyConfirmatoryCell = protocol.phase === 'confirmatory' &&
+        cell.client === 'bce-ollama-tool-client' && cell.toolLoop?.qualificationAttestation != null;
+      if (protocol.phase !== 'pilot' && !qualifiedFirstPartyConfirmatoryCell) {
+        refusals.push(`${cell.id}: confirmatory local-provider cells require the first-party tool client and its exact sealed capability qualification`);
+      }
       if (!['codex', 'bce-ollama-tool-client'].includes(cell.client) && seal.attestation?.kind !== 'synthetic-self-test') refusals.push(`${cell.id}: no sealed local-provider adapter exists for ${cell.client}`);
       if (cell.localProvider.kind !== 'ollama' || cell.localProvider.authentication !== 'none') refusals.push(`${cell.id}: local provider must be unauthenticated Ollama`);
       if (protocol.isolation.modelNetworkPolicy !== 'loopback-only-single-endpoint') refusals.push(`${cell.id}: local provider requires loopback-only-single-endpoint isolation`);
@@ -585,6 +896,9 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
   }
   if (!/^[0-9a-f]{64}$/.test(protocol.treatment.installedTreeSha256 ?? '') || !protocol.treatment.artifactProvenance) {
     refusals.push('BCE treatment offline installed tree and source provenance are not frozen');
+  }
+  if (protocol.phase === 'confirmatory' && protocol.treatment.artifactProvenance?.publishedPackageByteMatch !== true) {
+    refusals.push('confirmatory treatment must prove an exact published-package byte match');
   }
   if (requireSealed && protocol.treatment.artifactProvenance?.sourceTreeState !== 'clean') {
     refusals.push('sealed execution requires a treatment artifact built from a clean source tree');
@@ -616,17 +930,26 @@ export function verifyBundle(bundleDir, { requireSealed = true, verifyHostArtifa
         refusals.push('pilot local-git seal does not bind its exact public commit URL');
       }
       if (protocol.phase === 'confirmatory') {
-        if (seal.attestation?.kind !== 'sigstore-github-oidc' || seal.attestation?.eligibleForProductClaim !== true) {
-          refusals.push('confirmatory seal requires a product-eligible Sigstore GitHub OIDC attestation');
-        } else {
+        try {
+          validateConfirmatorySealSigner(seal.attestation);
+        } catch (error) {
+          refusals.push(error.message);
+        }
+        if (seal.attestation?.kind === 'sigstore-github-oidc' && seal.attestation?.eligibleForProductClaim === true &&
+            seal.attestation.certificateIssuer === CONFIRMATORY_SIGSTORE_ISSUER &&
+            seal.attestation.certificateIdentityURI === CONFIRMATORY_SIGSTORE_IDENTITY &&
+            seal.attestation.identity === CONFIRMATORY_SIGSTORE_IDENTITY) {
           try {
             const subjectPath = resolveSealedFile(root, seal.attestation.subjectPath, 'Sigstore subject');
             const bundlePath = resolveSealedFile(root, seal.attestation.bundlePath, 'Sigstore bundle');
-            const subject = JSON.parse(readFileSync(subjectPath, 'utf8'));
+            const subjectBytes = readFileSync(subjectPath);
+            const subject = JSON.parse(subjectBytes.toString('utf8'));
             if (canonicalJson(subject) !== canonicalJson({ schemaVersion: '1', rootSha256: expected.rootSha256 })) throw new Error('subject file does not contain the computed seal root');
             const cli = resolve(fileURLToPath(new URL('../..', import.meta.url)), 'node_modules', '@sigstore', 'cli', 'bin', 'run');
-            const result = spawnSync(process.execPath, [cli, 'verify', bundlePath, '--certificate-issuer', seal.attestation.certificateIssuer, '--certificate-identity-uri', seal.attestation.certificateIdentityURI], { encoding: 'utf8' });
-            if (result.status !== 0) throw new Error(`Sigstore verification failed: ${String(result.stderr).trim()}`);
+            verifyConfirmatorySigstoreSubject(subjectBytes, readFileSync(bundlePath), () => {
+              const result = spawnSync(process.execPath, [cli, 'verify', bundlePath, '--certificate-issuer', seal.attestation.certificateIssuer, '--certificate-identity-uri', seal.attestation.certificateIdentityURI], { encoding: 'utf8' });
+              if (result.status !== 0) throw new Error(`Sigstore verification failed: ${String(result.stderr).trim()}`);
+            });
           } catch (error) { refusals.push(`confirmatory attestation verification: ${error.message}`); }
         }
       }
@@ -679,6 +1002,10 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
   }
   if (!record.primaryAttempt || record.retryOf !== null) throw new Error(`${terminalPath}: randomized denominator must use the immutable primary attempt`);
   if (record.bindings.sealRootSha256 !== bundle.seal.rootSha256) throw new Error(`${terminalPath}: seal binding mismatch`);
+  if (record.bindings.runId !== undefined && record.bindings.runId !== null) {
+    const registration = verifyRunRegistration(runsRoot, bundle);
+    if (record.bindings.runId !== registration.runId) throw new Error(`${terminalPath}: run binding differs from the registered run`);
+  }
   if (record.bindings.protocolSha256 !== sha256Bytes(readFileSync(resolve(bundle.root, 'protocol.v2.json')))) throw new Error(`${terminalPath}: protocol binding mismatch`);
   if (record.bindings.manifestSha256 !== sha256Bytes(readFileSync(resolve(bundle.root, 'task-manifest.json')))) throw new Error(`${terminalPath}: manifest binding mismatch`);
   if (record.bindings.runnerSha256 !== bundle.protocol.implementation.runnerSha256) throw new Error(`${terminalPath}: runner binding differs from protocol`);
@@ -701,10 +1028,68 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
   const functional = readJsonArtifact(runsRoot, record.evidence.functionalOracle, `${terminalPath}/functional oracle`);
   const architecture = readJsonArtifact(runsRoot, record.evidence.architectureOracle, `${terminalPath}/architecture oracle`);
   const policy = readJsonArtifact(runsRoot, record.evidence.policyDiff, `${terminalPath}/policy diff`);
+  const finalTree = readJsonArtifact(runsRoot, record.evidence.finalTree, `${terminalPath}/final tree`);
+  const patch = record.evidence.patch.mediaType === 'application/json'
+    ? readJsonArtifact(runsRoot, record.evidence.patch, `${terminalPath}/replay patch`)
+    : null;
   const transcript = readJsonArtifact(runsRoot, record.evidence.transcript, `${terminalPath}/transcript`);
+  const evaluation = record.evidence.evaluation
+    ? readJsonArtifact(runsRoot, record.evidence.evaluation, `${terminalPath}/blinded evaluation`)
+    : null;
   const task = bundle.manifest.tasks.find((entry) => entry.id === assignment.taskId);
   const hardenedEvidenceRequired = typeof bundle.protocol.implementation.referenceVerifierSha256 === 'string';
   if (preparation.successful !== true || preparation.preparedTreeSha256 !== repo.preparedTreeSha256) throw new Error(`${terminalPath}: preparation evidence does not match frozen prepared tree`);
+  if (preparation.treatmentDelta) {
+    if (preparation.treatmentConfigSha256 !== sha256Json(preparation.treatmentDelta)) throw new Error(`${terminalPath}: treatment preparation self-binding mismatch`);
+    if (preparation.treatmentDelta.arm !== assignment.arm || !Array.isArray(preparation.treatmentDelta.changes)) throw new Error(`${terminalPath}: treatment preparation arm or changes are invalid`);
+    if (assignment.arm === 'baseline-no-bce' && preparation.treatmentDelta.changes.length !== 0) throw new Error(`${terminalPath}: baseline preparation contains treatment changes`);
+    if (assignment.arm === 'bce-enabled') {
+      const paths = preparation.treatmentDelta.changes.map((change) => change.path);
+      if (duplicateValues(paths).length || paths.some((path) => !bundle.treatmentDelta.allowedPathPatterns.some((pattern) => globMatches(path, pattern)))) {
+        throw new Error(`${terminalPath}: BCE treatment changed a duplicated or undeclared path`);
+      }
+      if (!paths.includes('.bce-mode.json') || !paths.includes(`.blueprints/${task.id}.blueprint.json`) ||
+          !paths.some((path) => ['AGENTS.md', 'CLAUDE.md', '.cursorrules'].includes(path)) ||
+          !paths.some((path) => ['.mcp.json', '.codex/config.toml', '.cursor/mcp.json'].includes(path))) {
+        throw new Error(`${terminalPath}: BCE treatment omits a required mode, blueprint, agent-context, or MCP surface`);
+      }
+    }
+  } else if (record.status === 'completed' && record.bindings.runId) throw new Error(`${terminalPath}: registered completed attempt lacks executable treatment preparation evidence`);
+  if (bundle.protocol.phase === 'confirmatory' && record.status === 'completed' && evaluation === null) throw new Error(`${terminalPath}: completed confirmatory outcome lacks a blinded evaluation artifact`);
+  if (evaluation === null && (functional.executed !== false || architecture.executed !== false) && bundle.protocol.phase === 'confirmatory') {
+    throw new Error(`${terminalPath}: confirmatory oracle outcomes were produced outside the blinded evaluator`);
+  }
+  if (evaluation !== null) {
+    if (evaluation.armBlind !== true || !/^[0-9a-f]{64}$/.test(evaluation.evaluationId ?? '') ||
+        evaluation.resultSha256 !== sha256Json({ ...evaluation, resultSha256: null }) ||
+        evaluation.neutralTreeSha256 !== finalTree.neutralTreeSha256 ||
+        canonicalJson(evaluation.visible) !== canonicalJson({ nonBceAccepted: visible.nonBceAccepted, nonBceRuns: visible.nonBceRuns }) ||
+        canonicalJson(evaluation.functional) !== canonicalJson(functional) || canonicalJson(evaluation.architecture) !== canonicalJson(architecture)) {
+      throw new Error(`${terminalPath}: blinded evaluation does not bind the published neutral-tree outcomes`);
+    }
+  }
+  if (patch?.format === 'bce-replay-patch/v1') {
+    if (patch.schemaVersion !== '2' || !Array.isArray(patch.changes)) throw new Error(`${terminalPath}: replay patch shape is invalid`);
+    const replayPaths = patch.changes.map((change) => change.path);
+    if (duplicateValues(replayPaths).length || replayPaths.some((path) => typeof path !== 'string' || path.length === 0 || isAbsolute(path) || path.split(/[\\/]/).includes('..')) ||
+        canonicalJson([...replayPaths].sort()) !== canonicalJson([...(finalTree.changedPaths ?? [])].sort())) {
+      throw new Error(`${terminalPath}: replay patch paths are duplicated, unsafe, or differ from the final-tree inventory`);
+    }
+    for (const change of patch.changes) {
+      const expectedOperation = change.after === null ? 'delete' : change.after?.type === 'file' ? 'write' : 'unsupported';
+      if (change.operation !== expectedOperation) throw new Error(`${terminalPath}: replay operation disagrees with inventory for ${String(change.path)}`);
+      if (change.operation === 'write') {
+        let bytes;
+        try { bytes = Buffer.from(change.contentBase64, 'base64'); }
+        catch { throw new Error(`${terminalPath}: replay content is not base64 for ${String(change.path)}`); }
+        if (bytes.toString('base64') !== change.contentBase64 || bytes.byteLength !== change.after.bytes || sha256Bytes(bytes) !== change.after.sha256) {
+          throw new Error(`${terminalPath}: replay content does not match final inventory for ${String(change.path)}`);
+        }
+      } else if (change.contentBase64 !== null) throw new Error(`${terminalPath}: non-write replay operation carries content for ${String(change.path)}`);
+    }
+  } else if (bundle.protocol.phase === 'confirmatory' && patch?.available !== false) {
+    throw new Error(`${terminalPath}: confirmatory output lacks an exact replay patch`);
+  }
   if (record.bindings.treatmentConfigSha256 !== preparation.treatmentConfigSha256) throw new Error(`${terminalPath}: treatment binding differs from preparation evidence`);
   if (assignment.arm === 'baseline-no-bce' && record.bindings.treatmentConfigSha256 !== sha256Json({ arm: 'baseline-no-bce', changes: [] })) {
     throw new Error(`${terminalPath}: baseline treatment binding is not the frozen no-BCE configuration`);
@@ -812,8 +1197,8 @@ export function verifyTerminalRecord(record, { bundle, runsRoot, terminalPath = 
   return record;
 }
 
-export function loadVerifiedRecords(bundleDir, runsDir) {
-  const bundle = verifyBundle(bundleDir, { requireSealed: true });
+export function loadVerifiedRecords(bundleDir, runsDir, { verifyHostArtifacts = true } = {}) {
+  const bundle = verifyBundle(bundleDir, { requireSealed: true, verifyHostArtifacts });
   if (!bundle.ok) throw new Error(`bundle verification refused:\n${bundle.refusals.map((item) => `- ${item}`).join('\n')}`);
   const runsRoot = resolve(runsDir);
   const terminalFiles = [];
@@ -857,6 +1242,27 @@ export function loadVerifiedRecords(bundleDir, runsDir) {
     return entry;
   });
   if (ledger.length !== primary.length) throw new Error(`trial ledger/terminal mismatch: ${ledger.length} ledger entries, ${primary.length} primary records`);
+  const registeredLedger = ledger.some((entry) => entry.runId !== undefined && entry.runId !== null);
+  if (registeredLedger) {
+    const registration = verifyRunRegistration(runsRoot, bundle);
+    if (ledger.some((entry) => entry.schemaVersion !== '2' || entry.runId !== registration.runId)) {
+      throw new Error('trial ledger mixes registered and legacy entries');
+    }
+    const checkpointPath = resolve(runsRoot, 'checkpoints.jsonl');
+    const checkpoints = readFileSync(checkpointPath, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    if (checkpoints.length !== ledger.length) throw new Error('checkpoint/ledger denominator mismatch');
+    let previousCheckpointSha256 = null;
+    for (let index = 0; index < checkpoints.length; index += 1) {
+      const checkpoint = checkpoints[index];
+      if (checkpoint.schemaVersion !== '1' || checkpoint.runId !== registration.runId || checkpoint.sequence !== index ||
+          checkpoint.committedTrials !== index + 1 || checkpoint.ledgerHeadSha256 !== ledger[index].entrySha256 ||
+          checkpoint.terminalRecordSha256 !== ledger[index].recordSha256 || checkpoint.previousCheckpointSha256 !== previousCheckpointSha256 ||
+          checkpoint.checkpointSha256 !== sha256Json({ ...checkpoint, checkpointSha256: null })) {
+        throw new Error(`checkpoint ${index} does not bind the registered ledger prefix`);
+      }
+      previousCheckpointSha256 = checkpoint.checkpointSha256;
+    }
+  }
   const ledgerByTrial = new Map(ledger.map((entry) => [entry.trialId, entry]));
   for (const record of primary) {
     const entry = ledgerByTrial.get(record.trialId);

@@ -118,7 +118,12 @@
             "sourceTreeState": { "enum": ["clean", "dirty-development-only"] },
             "buildCommand": { "type": "string", "minLength": 20 },
             "classification": { "const": "exact-local-candidate-offline-runtime-closure" },
-            "publishedPackageByteMatch": { "type": "null" }
+            "publishedPackageByteMatch": {
+              "oneOf": [
+                { "const": true },
+                { "type": "null" }
+              ]
+            }
           }
         },
         "baselineReceivesWrittenPolicy": { "const": true },
@@ -182,7 +187,7 @@
     "implementation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["verifierSha256", "assignmentGeneratorSha256", "runnerSha256", "analyzerSha256", "analysisCoreSha256", "referenceVerifierSha256", "providerVerifierSha256", "haltVerifierSha256", "publicExporterSha256", "publicVerifierSha256", "studyHaltSchemaSha256", "safetyHaltArchiveSchemaSha256", "canaryRunnerSha256", "ollamaToolClientSha256", "ollamaToolClientEventVerifierSha256", "ollamaSystemPromptSha256", "ollamaCommonToolsSha256", "ollamaClientEventSchemaSha256"],
+      "required": ["verifierSha256", "assignmentGeneratorSha256", "runnerSha256", "analyzerSha256", "analysisCoreSha256", "referenceVerifierSha256", "providerVerifierSha256", "haltVerifierSha256", "publicExporterSha256", "publicVerifierSha256", "blindedEvaluatorSha256", "studyHaltSchemaSha256", "safetyHaltArchiveSchemaSha256", "canaryRunnerSha256", "ollamaToolClientSha256", "ollamaToolClientEventVerifierSha256", "ollamaSystemPromptSha256", "ollamaCommonToolsSha256", "ollamaClientEventSchemaSha256"],
       "properties": {
         "verifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "assignmentGeneratorSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
@@ -194,6 +199,7 @@
         "haltVerifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "publicExporterSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "publicVerifierSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
+        "blindedEvaluatorSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "studyHaltSchemaSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "safetyHaltArchiveSchemaSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
         "canaryRunnerSha256": { "anyOf": [{ "type": "null" }, { "$ref": "#/definitions/sha256" }] },
