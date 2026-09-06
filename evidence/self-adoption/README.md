@@ -11,3 +11,9 @@ No mode downgrade, independent review, independent replication, or product effic
 
 This initial commit records intent only. Ratification history and completion evidence are pending
 the exact packet-bound GitHub decision and the subsequent ceremony commit.
+
+The authored-context correction landed through [PR #72](https://github.com/blueprint-conformance/bce/pull/72).
+The ceremony runtime is packed from source `416a19d9662334eebea0835e979f15084b2878c2`, with tarball
+SHA-256 `6247894fb904d603c9f28e4e1b89843743bb1c5ec69eeb8eea0ac34f019706ed`. This is a source-built
+runtime, distinct from the immutable npm 0.3.0 release. No unrelated source contents are copied into
+the authored review packet; the complete worktree remains digest-bound.
