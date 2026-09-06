@@ -665,7 +665,7 @@
     "id": "bce-engine-architecture",
     "name": "bce engine self-conformance — the engine's own architecture, gated by the engine",
     "ownerRole": "maintainer",
-    "status": "approved",
+    "status": "draft",
     "stewardRole": "maintainer",
     "version": "0.1.1"
   },

@@ -1,0 +1,2507 @@
+{
+  "candidate": {
+    "apiVersion": "blueprint-conformance/v1alpha1",
+    "approvals": [
+      {
+        "role": "maintainer",
+        "stage": "ratify"
+      }
+    ],
+    "architecture": {
+      "components": [
+        {
+          "id": "cli",
+          "owner": "maintainers",
+          "type": "entrypoint"
+        },
+        {
+          "id": "mcp",
+          "owner": "maintainers",
+          "type": "entrypoint"
+        },
+        {
+          "id": "schema",
+          "owner": "maintainers",
+          "type": "pureModule"
+        },
+        {
+          "id": "evaluator",
+          "owner": "maintainers",
+          "type": "pureModule"
+        },
+        {
+          "id": "extractor",
+          "owner": "maintainers",
+          "type": "factsProducer"
+        },
+        {
+          "id": "io-shell",
+          "owner": "maintainers",
+          "type": "adapter"
+        },
+        {
+          "id": "proposal-core",
+          "owner": "maintainers",
+          "type": "pureModule"
+        },
+        {
+          "id": "review-core",
+          "owner": "maintainers",
+          "type": "pureModule"
+        },
+        {
+          "id": "assistant-io",
+          "owner": "maintainers",
+          "type": "adapter"
+        },
+        {
+          "id": "quarantine-io",
+          "owner": "maintainers",
+          "type": "adapter"
+        },
+        {
+          "id": "scm-review-io",
+          "owner": "maintainers",
+          "type": "adapter"
+        },
+        {
+          "id": "ts-morph",
+          "type": "externalDependency"
+        },
+        {
+          "id": "lezer-python",
+          "type": "externalDependency"
+        },
+        {
+          "id": "zod",
+          "type": "externalDependency"
+        }
+      ],
+      "relationships": [
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "evaluator",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "extractor",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "extractor",
+          "to": "ts-morph",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "extractor",
+          "to": "lezer-python",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "evaluator",
+          "to": "ts-morph",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "schema",
+          "to": "zod",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "schema",
+          "to": "ts-morph",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "evaluator",
+          "to": "io-shell",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "proposal-core",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "review-core",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "assistant-io",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "quarantine-io",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "proposal-core",
+          "to": "assistant-io",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "review-core",
+          "to": "quarantine-io",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "scm-review-io",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "scm-review-io",
+          "to": "review-core",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "review-core",
+          "to": "scm-review-io",
+          "type": "imports"
+        }
+      ]
+    },
+    "constraints": [
+      {
+        "from": "*",
+        "id": "only-extractors-may-import-ts-morph",
+        "policyRef": "policy/extraction-seam-isolation",
+        "scopePaths": [
+          "src/assistant-adapter.ts",
+          "src/baseline.ts",
+          "src/benchmark.ts",
+          "src/cli.ts",
+          "src/corpus.ts",
+          "src/emit.ts",
+          "src/evidence-bundle.ts",
+          "src/evidence-store.ts",
+          "src/extractor-teeth.ts",
+          "src/extractor-registry.ts",
+          "src/gate.ts",
+          "src/graph.ts",
+          "src/index.ts",
+          "src/lifecycle.ts",
+          "src/materializer.ts",
+          "src/mcp-server.ts",
+          "src/mode.ts",
+          "src/observations.ts",
+          "src/pin.ts",
+          "src/policy-change.ts",
+          "src/policy-history.ts",
+          "src/portfolio-collect.ts",
+          "src/portfolio-compile.ts",
+          "src/proposal-io.ts",
+          "src/python-extractor.ts",
+          "src/python-module-graph.ts",
+          "src/recall-gate.ts",
+          "src/report.ts",
+          "src/review-contracts.ts",
+          "src/review-render.ts",
+          "src/review.ts",
+          "src/runtime-identity.ts",
+          "src/safe-regex.ts",
+          "src/scm-review.ts",
+          "src/schema.ts",
+          "src/score.ts",
+          "src/teeth-waiver.ts",
+          "src/teeth.ts",
+          "src/violation-format.ts",
+          "src/violation-rollup.ts"
+        ],
+        "severity": "critical",
+        "to": "ts-morph",
+        "type": "forbiddenDependency"
+      },
+      {
+        "from": "*",
+        "id": "only-python-module-graph-may-import-lezer",
+        "policyRef": "policy/extraction-seam-isolation",
+        "scopePaths": [
+          "src/assistant-adapter.ts",
+          "src/baseline.ts",
+          "src/benchmark.ts",
+          "src/cli.ts",
+          "src/corpus.ts",
+          "src/emit.ts",
+          "src/evidence-bundle.ts",
+          "src/evidence-store.ts",
+          "src/extractor-teeth.ts",
+          "src/extractor-registry.ts",
+          "src/extractors.ts",
+          "src/gate.ts",
+          "src/graph.ts",
+          "src/index.ts",
+          "src/lifecycle.ts",
+          "src/materializer.ts",
+          "src/mcp-server.ts",
+          "src/mode.ts",
+          "src/observations.ts",
+          "src/pin.ts",
+          "src/policy-change.ts",
+          "src/policy-history.ts",
+          "src/portfolio-collect.ts",
+          "src/portfolio-compile.ts",
+          "src/proposal-io.ts",
+          "src/python-extractor.ts",
+          "src/recall-gate.ts",
+          "src/report.ts",
+          "src/review-contracts.ts",
+          "src/review-render.ts",
+          "src/review.ts",
+          "src/runtime-identity.ts",
+          "src/safe-regex.ts",
+          "src/scm-review.ts",
+          "src/schema.ts",
+          "src/score.ts",
+          "src/teeth-waiver.ts",
+          "src/teeth.ts",
+          "src/violation-format.ts",
+          "src/violation-rollup.ts"
+        ],
+        "severity": "critical",
+        "to": "@lezer",
+        "type": "forbiddenDependency"
+      },
+      {
+        "id": "runtime-dep-allowlist-approved-parsers",
+        "path": "src/**/*.ts",
+        "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod(?:/v3)?['\"]|ts-morph['\"]|@lezer/(?:common|python)['\"]|node:|\\.{1,2}/)",
+        "policyRef": "policy/runtime-dep-allowlist",
+        "severity": "critical",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "schema-imports-only-zod-and-safe-regex",
+        "path": "src/schema.ts",
+        "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod(?:/v3)?['\"]|\\./safe-regex\\.js['\"])",
+        "policyRef": "policy/schema-single-source-of-truth",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "evaluator-pure--report-imports-only-crypto-and-relative",
+        "path": "src/report.ts",
+        "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!node:crypto['\"]|\\.{1,2}/)",
+        "policyRef": "policy/pure-evaluator",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "evaluator-pure--score-imports-relative-only",
+        "path": "src/score.ts",
+        "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!\\.{1,2}/)",
+        "policyRef": "policy/pure-evaluator",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "evaluator-pure--teeth-imports-relative-only",
+        "path": "src/teeth.ts",
+        "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!\\.{1,2}/)",
+        "policyRef": "policy/pure-evaluator",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--benchmark",
+        "path": "src/benchmark.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--evidence-bundle",
+        "path": "src/evidence-bundle.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--lifecycle",
+        "path": "src/lifecycle.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--policy-change",
+        "path": "src/policy-change.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--policy-history",
+        "path": "src/policy-history.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--teeth-waiver",
+        "path": "src/teeth-waiver.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--baseline",
+        "path": "src/baseline.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--corpus",
+        "path": "src/corpus.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--emit",
+        "path": "src/emit.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--evidence-store",
+        "path": "src/evidence-store.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--extractor-teeth",
+        "path": "src/extractor-teeth.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--extractors",
+        "path": "src/extractors.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--gate",
+        "path": "src/gate.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--graph",
+        "path": "src/graph.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--index",
+        "path": "src/index.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--materializer",
+        "path": "src/materializer.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--mode",
+        "path": "src/mode.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--observations",
+        "path": "src/observations.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--pin",
+        "path": "src/pin.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--portfolio-collect",
+        "path": "src/portfolio-collect.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--portfolio-compile",
+        "path": "src/portfolio-compile.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--recall-gate",
+        "path": "src/recall-gate.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--report",
+        "path": "src/report.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "review-core-no-io-imports",
+        "path": "src/review*.ts",
+        "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"]node:(?:fs|child_process|https?|net|tls|dns)['\"]",
+        "policyRef": "policy/deterministic-review-core",
+        "severity": "critical",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--safe-regex",
+        "path": "src/safe-regex.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--schema",
+        "path": "src/schema.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--score",
+        "path": "src/score.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--teeth",
+        "path": "src/teeth.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--violation-format",
+        "path": "src/violation-format.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--violation-rollup",
+        "path": "src/violation-rollup.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--python-extractor",
+        "path": "src/python-extractor.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--python-module-graph",
+        "path": "src/python-module-graph.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--runtime-identity",
+        "path": "src/runtime-identity.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--extractor-registry",
+        "path": "src/extractor-registry.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--assistant-adapter",
+        "path": "src/assistant-adapter.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--proposal-io",
+        "path": "src/proposal-io.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--review-contracts",
+        "path": "src/review-contracts.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--review-render",
+        "path": "src/review-render.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--review",
+        "path": "src/review.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      },
+      {
+        "id": "only-cli-may-call-process-exit--scm-review",
+        "path": "src/scm-review.ts",
+        "pattern": "process\\.exit\\s*\\(",
+        "policyRef": "policy/library-modules-never-exit",
+        "severity": "high",
+        "type": "forbiddenPattern"
+      }
+    ],
+    "evidenceRequirements": [
+      {
+        "onMissing": "block",
+        "required": true,
+        "type": "staticAst"
+      }
+    ],
+    "extraction": {
+      "minFiles": 41,
+      "paths": [
+        "src/**/*.ts"
+      ],
+      "profile": "plugin-surface"
+    },
+    "intentRefs": [
+      "docs/self-hosting.md#the-architecture-this-blueprint-enforces"
+    ],
+    "kind": "EngineeringBlueprint",
+    "metadata": {
+      "id": "bce-engine-architecture",
+      "name": "bce engine self-conformance — the engine's own architecture, gated by the engine",
+      "ownerRole": "maintainer",
+      "status": "draft",
+      "stewardRole": "maintainer",
+      "version": "0.1.1"
+    },
+    "scope": {
+      "environments": [
+        "ci"
+      ],
+      "paths": [
+        "src/**/*.ts"
+      ],
+      "repositories": [
+        "blueprint-conformance/bce"
+      ]
+    }
+  },
+  "context": {
+    "authoritativeIntentRefs": [
+      {
+        "content": "# Self-hosting: the engine gates its own tree\n\n`bce` grades repositories against an authored `EngineeringBlueprint`. This repository is\nitself a repository — so it carries its own blueprint\n([`.blueprints/engine.blueprint.json`](../.blueprints/engine.blueprint.json)) and CI runs\nthe engine over the engine on every push and pull request\n([`.github/workflows/self-gate.yml`](../.github/workflows/self-gate.yml)).\n\nSelf-hosting is not a stunt. It is the cheapest continuous proof that:\n\n1. the engine's authored-artifact path (schema → extraction → evaluate → score → verdict)\n   works end-to-end on a real, non-trivial TypeScript repository;\n2. the engine's own architecture cannot silently drift — the same fail-closed gate its\n   users get is the gate its maintainers live under;\n3. dogfooding surfaces real engine gaps (see the `teeth` scopePaths fix below, found the\n   first time the engine assessed its own blueprint).\n\n## The architecture this blueprint enforces\n\nEvery constraint below was verified against the code **before** being authored — the\nblueprint records the real architecture, not an aspiration.\n\n| Claim | Constraint(s) | Mechanism |\n| --- | --- | --- |\n| Only `src/extractors.ts` may import `ts-morph`. Everything else consumes extracted facts through the seam (below). | `only-extractors-may-import-ts-morph` | `forbiddenDependency` on the AST import graph, `scopePaths` = every src file **except** `extractors.ts` |\n| Only `src/python-module-graph.ts` may import the pinned Lezer Python parser packages. | `only-python-module-graph-may-import-lezer` | `forbiddenDependency` on the AST import graph, `scopePaths` = every src file **except** `python-module-graph.ts` |\n| Runtime dependency allowlist is exactly `zod`, `ts-morph`, `@lezer/common`, and `@lezer/python`. Any other external package import is a violation. `node:` builtins are allowed globally and narrowed per-file below. | `runtime-dep-allowlist-approved-parsers` | anchored per-line `forbiddenPattern` over `src/**/*.ts` |\n| `src/schema.ts` (the single source of truth for the artifact shape) imports only `zod` plus the local `safe-regex` guard. | `schema-imports-only-zod-and-safe-regex` | per-file `forbiddenPattern` |\n| The evaluator is pure: `report.ts` may import only `node:crypto` (deterministic hashing) + local modules; `score.ts` and `teeth.ts` import local modules only. No fs, no network, no process, no child processes. | `evaluator-pure--*` (3 constraints) | per-file `forbiddenPattern` |\n| Proposal compilation and review semantics remain pure; only the assistant, SCM-authentication, quarantine, and CLI shells own I/O. | `review-core-no-io-imports` plus explicit component relationships | per-file `forbiddenPattern` + authored graph |\n| Only the two process-owning bins (`cli.ts` and `mcp-server.ts`) are exempt from the no-exit rule; every one of the 39 library modules returns or throws. | `only-cli-may-call-process-exit--*` (39 per-file constraints) | per-file `forbiddenPattern` |\n\nDesign notes, recorded honestly:\n\n- **Per-file constraints instead of glob negation.** A `forbiddenPattern` carries one\n  `path` glob and the glob language deliberately has no negation (\"every file except\n  `cli.ts`\" is not expressible). The blueprint therefore enumerates per-file constraints.\n  The obvious gap — a *new* src file arriving with no per-file constraint — is closed by\n  construction: `tests/self-blueprint.test.ts` (run inside the self-gate workflow) fails\n  whenever the actual `src/*.ts` set and the blueprint's coverage disagree, including\n  `extraction.minFiles`, which is pinned to the exact file count as a fail-closed scan\n  floor.\n- **What the content patterns can and cannot see.** The import-allowlist patterns are\n  anchored single-line matches (`import … from 'x'`, `export … from 'x'`, and the\n  multi-line closer `} from 'x'`). They do not see a dynamic `import('x')` expression.\n  The `ts-morph` seam constraint does not rely on them — it rides the AST import graph.\n- **Purity of the evaluator vs. wall-clock/randomness.** A content constraint forbidding\n  `Math.random(`/`Date.now(` in the evaluator would false-fire today: those tokens appear\n  in the evaluator's own *documentation comments* (they describe the mock-detection tooth).\n  Determinism is instead proven behaviorally by the determinism test suite. Recorded here\n  rather than silently narrowed.\n\n## The extractor / facts seam\n\nThe blueprint never talks to `ts-morph`. It talks to **facts**:\n\n- `RepositoryFactsExtractor` (`src/graph.ts`) is the seam interface:\n  `extract(repoDir, revision) → ArchitectureGraph`. The provider registry selects the mature\n  TypeScript AST, bounded line-scan, legacy Python import-surface, or structured Python module-graph\n  implementation. A provider refuses, loudly, any extractor mode or constraint surface it cannot\n  honor.\n- `ArchitectureGraph` is the entire fact surface the evaluator sees: `components`,\n  `guardEdges` (imports / provides / egress edges), and `coverage`\n  (`scannedFiles`, `patternScan`, `unsupported` — the declared-honest envelope).\n- The blueprint's `extraction` block drives the extractor: `profile`, `paths`,\n  `minFiles`; every `forbiddenDependency.to` is auto-unioned into the forbidden-import\n  scan set, and every `forbiddenPattern.pattern` into the content scan set — a constraint\n  can never be silently unscannable.\n- Adding a new language or surface means implementing the same interface and emitting the\n  same graph shape; `evaluate()`, `score`, `teeth`, and the CLI are unchanged. That is the\n  plugin seam this repository's own blueprint exercises end-to-end.\n\n## Lane A / Lane B\n\nTwo lanes can gate this tree:\n\n- **Lane B (live now)** — `self-gate.yml` builds the engine **from the commit under\n  review** and runs `gate` + `teeth` + the sync test with it. Fail-closed: any non-pass\n  verdict, toothless blueprint, or sync drift fails CI.\n- **Lane A (live)** — the last **published** engine, installed from the\n  public registry at an **exact version pin**, gates the tree. Lane A is independent of\n  the code under review, so it cannot be fooled by a defective change to the engine\n  itself.\n\nThe bootstrap-0 exception ended with the provenance-backed `bce-engine@0.1.0` publication.\nLane A now installs the exact `bce-engine@0.3.0` registry artifact independently, while Lane B continues to grade\nthe commit under review with its own build.\n\n**The flip:** the `lane-a-pinned-gate` job already exists in\n[`self-gate.yml`](../.github/workflows/self-gate.yml) — it reads the exact pin from\n[`.engine-pin.json`](../.engine-pin.json), and is **if-guarded on the pin being published AND\n`bce-engine@<pin>` actually resolving on npm**. The guard is open: the job installs\n`bce-engine@0.3.0` (exact pin, no range) and runs the same `gate` verb. The job is also a required\nbranch-protection check.\n\n## The Lane-A pin ceremony (forward reference)\n\nThe Lane-A flip is a **pin ceremony**, not a version range — and the distinction is the whole point\nof the lane. Lane A must be independent of the code under review, so it installs an **exact** version:\n\n- `bce-engine@0.3.0`, never `^0.3.0` or `~0.3.0` or `@latest`. A range would let a later publish\n  silently change the gate the tree is graded by, reintroducing the trusting-trust hole Lane A exists\n  to close.\n- The pin is bumped only by a deliberate, reviewed PR — the same way any load-bearing dependency pin\n  moves. Bumping the Lane-A pin is a governed act, recorded in the diff, because it changes the\n  independent grader every contributor is measured against.\n- The pinned engine is the **published** artifact from the public registry, so a defective change to\n  the engine in the PR under review cannot influence the Lane-A verdict: Lane A rebuilds nothing from\n  the branch.\n\nThe exact steps are written up in [`docs/pin-ceremony.md`](./pin-ceremony.md), and the live exact pin\nis recorded in [`.engine-pin.json`](../.engine-pin.json). On a pull request, Lane A selects that file\nfrom the event's exact base SHA; on push, it selects the merged tree. `v0.1.0` completed bootstrap;\nsubsequent pin bumps are therefore admitted by the previously published Lane-A engine.\n\n## Branch-protection incident policy (attended recovery, not a skip flag)\n\nA required, fail-closed check can occasionally block *its own fix* — the classic case is a change that\nreddens the gate whose only correct resolution is that very change (a corrected gate, a fixed\nextractor). This repository's current branch protection applies required checks to administrators;\nthere is no ordinary admin-merge bypass. Recovery therefore requires an explicit, temporary change\nto branch protection (or a separately reviewed forward fix), and its policy is **pre-written, not\nimprovised**:\n\n- A temporary protection change is **attended** — a human decides it, in the moment, with the red in\n  front of them, records the before-state, and restores that exact state immediately after the\n  forward fix lands.\n- Every such bypass produces a **mandatory public incident record** in this repository: what was red,\n  why the bypass was the correct forward action, and what re-greened the check afterward.\n\nThis is an *attended recovery path*, not a skip flag — and the distinction is exact. bce's \"no skip\nflag\" claim is a claim about **the engine**: there is no `--skip` / `--no-verify` / `--force` in `bce`\nthat turns a red green (the test suite asserts it). It is not a claim that repository administrators\ncannot reconfigure GitHub. The incident record and exact restoration are what keep that platform\nrecovery visible when it is used.\n\n## Reproducing the self-gate locally\n\n```sh\nnpm ci\nnpm run build\nnode dist/cli.js validate --blueprint .blueprints/engine.blueprint.json\nnode dist/cli.js gate  --repo . --repo-name blueprint-conformance/bce\nnpm run test:self-teeth-mutations\nnpx vitest run tests/self-blueprint.test.ts\n```\n\nExpected: blueprint VALID, gate score 100 (pass), and `extractor-real-proven` with all 47\nconstraints killed by 47 separately materialized source-tree mutants. The mutation manifest is\nregenerated from the blueprint and is freshness-checked before the real CLI proof runs. Tests are\ngreen. To watch the gate actually bite, add `import { Project } from 'ts-morph';` to\n`src/score.ts` and re-run the gate: it exits 1 with two violations (the seam constraint,\nvia the AST import edge, and the evaluator-purity pattern) — then revert.\n\n## What self-hosting already found\n\nAssessing the engine's own blueprint surfaced a real engine gap on day one: the\n`teeth` reddening mutation for `forbiddenDependency` injected its synthetic edge at a\nplaceholder path that could never match a `scopePaths`-narrowed constraint, so a\ngenuinely enforcing, scoped constraint was mislabeled `TRIVIALLY_GREEN`. Fixed in\n`src/teeth.ts` (the injected edge now lands at a concrete in-scope path) with a\ndiscriminating regression test in `tests/self-blueprint.test.ts`. The former evaluator-only gap is\nnow closed by `.blueprints/engine.teeth-mutations.json`: every self-blueprint clause maps to one\nreal create/replace/append/delete mutation, and the CLI refuses missing, duplicate, surviving,\nout-of-scope, protected-surface, syntax-invalid, or collateral mutations. This proves the current\n47 clauses can bite the current extraction/evaluation path; it does not prove the blueprint is a\ncomplete specification of every desirable property.\n\n## Full self-adoption\n\nThe source checkout installs its canonical skills under `.agents/skills/` and runs its built MCP\nserver through `.mcp.json` and `.codex/config.toml`. CI checks the installed skills for drift and\nexercises the actual project MCP configuration. The enforced mode is explicit in `.bce-mode.json`.\n\n[The solo-steward ceremony](solo-steward-ratification.md) describes the live GitHub decision path.\n`.bce-governance.json` identifies the steward; it establishes no independent review. The acceptance\ncheck for a completed lifecycle is `node dist/cli.js doctor --repo .`: real-source teeth, matching\napproved policy and adoption history, exact CI pin, project integrations, and full gate must agree.\nA missing ceremony remains a warning until its authenticated history exists. Both blueprints now\ncarry digest-bound source mutation manifests: 47 engine clauses and 13 skill-standard clauses.\nThe latter includes exact file evidence for forbidden files, without inventing line numbers.\n",
+        "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+        "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+      }
+    ],
+    "contextDigest": "d20c5c529c8f08dac142a12197f734ead096e3d991e6f97b289426ade13cdee4",
+    "excluded": {
+      "classes": [
+        "unselected-source-context"
+      ],
+      "paths": []
+    },
+    "files": [],
+    "humanIntent": "# Self-hosting: the engine gates its own tree\n\n`bce` grades repositories against an authored `EngineeringBlueprint`. This repository is\nitself a repository — so it carries its own blueprint\n([`.blueprints/engine.blueprint.json`](../.blueprints/engine.blueprint.json)) and CI runs\nthe engine over the engine on every push and pull request\n([`.github/workflows/self-gate.yml`](../.github/workflows/self-gate.yml)).\n\nSelf-hosting is not a stunt. It is the cheapest continuous proof that:\n\n1. the engine's authored-artifact path (schema → extraction → evaluate → score → verdict)\n   works end-to-end on a real, non-trivial TypeScript repository;\n2. the engine's own architecture cannot silently drift — the same fail-closed gate its\n   users get is the gate its maintainers live under;\n3. dogfooding surfaces real engine gaps (see the `teeth` scopePaths fix below, found the\n   first time the engine assessed its own blueprint).\n\n## The architecture this blueprint enforces\n\nEvery constraint below was verified against the code **before** being authored — the\nblueprint records the real architecture, not an aspiration.\n\n| Claim | Constraint(s) | Mechanism |\n| --- | --- | --- |\n| Only `src/extractors.ts` may import `ts-morph`. Everything else consumes extracted facts through the seam (below). | `only-extractors-may-import-ts-morph` | `forbiddenDependency` on the AST import graph, `scopePaths` = every src file **except** `extractors.ts` |\n| Only `src/python-module-graph.ts` may import the pinned Lezer Python parser packages. | `only-python-module-graph-may-import-lezer` | `forbiddenDependency` on the AST import graph, `scopePaths` = every src file **except** `python-module-graph.ts` |\n| Runtime dependency allowlist is exactly `zod`, `ts-morph`, `@lezer/common`, and `@lezer/python`. Any other external package import is a violation. `node:` builtins are allowed globally and narrowed per-file below. | `runtime-dep-allowlist-approved-parsers` | anchored per-line `forbiddenPattern` over `src/**/*.ts` |\n| `src/schema.ts` (the single source of truth for the artifact shape) imports only `zod` plus the local `safe-regex` guard. | `schema-imports-only-zod-and-safe-regex` | per-file `forbiddenPattern` |\n| The evaluator is pure: `report.ts` may import only `node:crypto` (deterministic hashing) + local modules; `score.ts` and `teeth.ts` import local modules only. No fs, no network, no process, no child processes. | `evaluator-pure--*` (3 constraints) | per-file `forbiddenPattern` |\n| Proposal compilation and review semantics remain pure; only the assistant, SCM-authentication, quarantine, and CLI shells own I/O. | `review-core-no-io-imports` plus explicit component relationships | per-file `forbiddenPattern` + authored graph |\n| Only the two process-owning bins (`cli.ts` and `mcp-server.ts`) are exempt from the no-exit rule; every one of the 39 library modules returns or throws. | `only-cli-may-call-process-exit--*` (39 per-file constraints) | per-file `forbiddenPattern` |\n\nDesign notes, recorded honestly:\n\n- **Per-file constraints instead of glob negation.** A `forbiddenPattern` carries one\n  `path` glob and the glob language deliberately has no negation (\"every file except\n  `cli.ts`\" is not expressible). The blueprint therefore enumerates per-file constraints.\n  The obvious gap — a *new* src file arriving with no per-file constraint — is closed by\n  construction: `tests/self-blueprint.test.ts` (run inside the self-gate workflow) fails\n  whenever the actual `src/*.ts` set and the blueprint's coverage disagree, including\n  `extraction.minFiles`, which is pinned to the exact file count as a fail-closed scan\n  floor.\n- **What the content patterns can and cannot see.** The import-allowlist patterns are\n  anchored single-line matches (`import … from 'x'`, `export … from 'x'`, and the\n  multi-line closer `} from 'x'`). They do not see a dynamic `import('x')` expression.\n  The `ts-morph` seam constraint does not rely on them — it rides the AST import graph.\n- **Purity of the evaluator vs. wall-clock/randomness.** A content constraint forbidding\n  `Math.random(`/`Date.now(` in the evaluator would false-fire today: those tokens appear\n  in the evaluator's own *documentation comments* (they describe the mock-detection tooth).\n  Determinism is instead proven behaviorally by the determinism test suite. Recorded here\n  rather than silently narrowed.\n\n## The extractor / facts seam\n\nThe blueprint never talks to `ts-morph`. It talks to **facts**:\n\n- `RepositoryFactsExtractor` (`src/graph.ts`) is the seam interface:\n  `extract(repoDir, revision) → ArchitectureGraph`. The provider registry selects the mature\n  TypeScript AST, bounded line-scan, legacy Python import-surface, or structured Python module-graph\n  implementation. A provider refuses, loudly, any extractor mode or constraint surface it cannot\n  honor.\n- `ArchitectureGraph` is the entire fact surface the evaluator sees: `components`,\n  `guardEdges` (imports / provides / egress edges), and `coverage`\n  (`scannedFiles`, `patternScan`, `unsupported` — the declared-honest envelope).\n- The blueprint's `extraction` block drives the extractor: `profile`, `paths`,\n  `minFiles`; every `forbiddenDependency.to` is auto-unioned into the forbidden-import\n  scan set, and every `forbiddenPattern.pattern` into the content scan set — a constraint\n  can never be silently unscannable.\n- Adding a new language or surface means implementing the same interface and emitting the\n  same graph shape; `evaluate()`, `score`, `teeth`, and the CLI are unchanged. That is the\n  plugin seam this repository's own blueprint exercises end-to-end.\n\n## Lane A / Lane B\n\nTwo lanes can gate this tree:\n\n- **Lane B (live now)** — `self-gate.yml` builds the engine **from the commit under\n  review** and runs `gate` + `teeth` + the sync test with it. Fail-closed: any non-pass\n  verdict, toothless blueprint, or sync drift fails CI.\n- **Lane A (live)** — the last **published** engine, installed from the\n  public registry at an **exact version pin**, gates the tree. Lane A is independent of\n  the code under review, so it cannot be fooled by a defective change to the engine\n  itself.\n\nThe bootstrap-0 exception ended with the provenance-backed `bce-engine@0.1.0` publication.\nLane A now installs the exact `bce-engine@0.3.0` registry artifact independently, while Lane B continues to grade\nthe commit under review with its own build.\n\n**The flip:** the `lane-a-pinned-gate` job already exists in\n[`self-gate.yml`](../.github/workflows/self-gate.yml) — it reads the exact pin from\n[`.engine-pin.json`](../.engine-pin.json), and is **if-guarded on the pin being published AND\n`bce-engine@<pin>` actually resolving on npm**. The guard is open: the job installs\n`bce-engine@0.3.0` (exact pin, no range) and runs the same `gate` verb. The job is also a required\nbranch-protection check.\n\n## The Lane-A pin ceremony (forward reference)\n\nThe Lane-A flip is a **pin ceremony**, not a version range — and the distinction is the whole point\nof the lane. Lane A must be independent of the code under review, so it installs an **exact** version:\n\n- `bce-engine@0.3.0`, never `^0.3.0` or `~0.3.0` or `@latest`. A range would let a later publish\n  silently change the gate the tree is graded by, reintroducing the trusting-trust hole Lane A exists\n  to close.\n- The pin is bumped only by a deliberate, reviewed PR — the same way any load-bearing dependency pin\n  moves. Bumping the Lane-A pin is a governed act, recorded in the diff, because it changes the\n  independent grader every contributor is measured against.\n- The pinned engine is the **published** artifact from the public registry, so a defective change to\n  the engine in the PR under review cannot influence the Lane-A verdict: Lane A rebuilds nothing from\n  the branch.\n\nThe exact steps are written up in [`docs/pin-ceremony.md`](./pin-ceremony.md), and the live exact pin\nis recorded in [`.engine-pin.json`](../.engine-pin.json). On a pull request, Lane A selects that file\nfrom the event's exact base SHA; on push, it selects the merged tree. `v0.1.0` completed bootstrap;\nsubsequent pin bumps are therefore admitted by the previously published Lane-A engine.\n\n## Branch-protection incident policy (attended recovery, not a skip flag)\n\nA required, fail-closed check can occasionally block *its own fix* — the classic case is a change that\nreddens the gate whose only correct resolution is that very change (a corrected gate, a fixed\nextractor). This repository's current branch protection applies required checks to administrators;\nthere is no ordinary admin-merge bypass. Recovery therefore requires an explicit, temporary change\nto branch protection (or a separately reviewed forward fix), and its policy is **pre-written, not\nimprovised**:\n\n- A temporary protection change is **attended** — a human decides it, in the moment, with the red in\n  front of them, records the before-state, and restores that exact state immediately after the\n  forward fix lands.\n- Every such bypass produces a **mandatory public incident record** in this repository: what was red,\n  why the bypass was the correct forward action, and what re-greened the check afterward.\n\nThis is an *attended recovery path*, not a skip flag — and the distinction is exact. bce's \"no skip\nflag\" claim is a claim about **the engine**: there is no `--skip` / `--no-verify` / `--force` in `bce`\nthat turns a red green (the test suite asserts it). It is not a claim that repository administrators\ncannot reconfigure GitHub. The incident record and exact restoration are what keep that platform\nrecovery visible when it is used.\n\n## Reproducing the self-gate locally\n\n```sh\nnpm ci\nnpm run build\nnode dist/cli.js validate --blueprint .blueprints/engine.blueprint.json\nnode dist/cli.js gate  --repo . --repo-name blueprint-conformance/bce\nnpm run test:self-teeth-mutations\nnpx vitest run tests/self-blueprint.test.ts\n```\n\nExpected: blueprint VALID, gate score 100 (pass), and `extractor-real-proven` with all 47\nconstraints killed by 47 separately materialized source-tree mutants. The mutation manifest is\nregenerated from the blueprint and is freshness-checked before the real CLI proof runs. Tests are\ngreen. To watch the gate actually bite, add `import { Project } from 'ts-morph';` to\n`src/score.ts` and re-run the gate: it exits 1 with two violations (the seam constraint,\nvia the AST import edge, and the evaluator-purity pattern) — then revert.\n\n## What self-hosting already found\n\nAssessing the engine's own blueprint surfaced a real engine gap on day one: the\n`teeth` reddening mutation for `forbiddenDependency` injected its synthetic edge at a\nplaceholder path that could never match a `scopePaths`-narrowed constraint, so a\ngenuinely enforcing, scoped constraint was mislabeled `TRIVIALLY_GREEN`. Fixed in\n`src/teeth.ts` (the injected edge now lands at a concrete in-scope path) with a\ndiscriminating regression test in `tests/self-blueprint.test.ts`. The former evaluator-only gap is\nnow closed by `.blueprints/engine.teeth-mutations.json`: every self-blueprint clause maps to one\nreal create/replace/append/delete mutation, and the CLI refuses missing, duplicate, surviving,\nout-of-scope, protected-surface, syntax-invalid, or collateral mutations. This proves the current\n47 clauses can bite the current extraction/evaluation path; it does not prove the blueprint is a\ncomplete specification of every desirable property.\n\n## Full self-adoption\n\nThe source checkout installs its canonical skills under `.agents/skills/` and runs its built MCP\nserver through `.mcp.json` and `.codex/config.toml`. CI checks the installed skills for drift and\nexercises the actual project MCP configuration. The enforced mode is explicit in `.bce-mode.json`.\n\n[The solo-steward ceremony](solo-steward-ratification.md) describes the live GitHub decision path.\n`.bce-governance.json` identifies the steward; it establishes no independent review. The acceptance\ncheck for a completed lifecycle is `node dist/cli.js doctor --repo .`: real-source teeth, matching\napproved policy and adoption history, exact CI pin, project integrations, and full gate must agree.\nA missing ceremony remains a warning until its authenticated history exists. Both blueprints now\ncarry digest-bound source mutation manifests: 47 engine clauses and 13 skill-standard clauses.\nThe latter includes exact file evidence for forbidden files, without inventing line numbers.\n",
+    "kind": "ProposalContext",
+    "repository": {
+      "identity": "github.com/blueprint-conformance/bce",
+      "revision": "8627ba30fa72dd80a90867f0b2eef959446c0954",
+      "worktreeDigest": "8a44828a6ac5e67fb000eb9d07a682caefcb3c4750dca0a2ee21f3f719e6d822"
+    },
+    "schemaVersion": "1"
+  },
+  "digests": {
+    "artifact": "78bc8f2ae2deb6879884217bd4eb812145d35e384e1d89c0dd2aef92a6796d65",
+    "context": "d20c5c529c8f08dac142a12197f734ead096e3d991e6f97b289426ade13cdee4",
+    "generation": "a69cd0c60d00050200c5cffface1cd3e74e2223eb4a75b98a39858f53d94ac46",
+    "plan": "de76bdedcaaa028abe2c41b9e50f1548969f3bc9264088859db9f82fd9e2dd0d",
+    "prompt": "52937b01127a174d82c32f14b40b599a1bc551f554706792c34e159216ad79d2",
+    "proposal": "d6646b73464df0c30dec950c5aed4a7a0c4258eceb4c58050a0c9839d53924d5"
+  },
+  "kind": "BlueprintProposal",
+  "plan": {
+    "approvals": [
+      {
+        "role": "maintainer",
+        "stage": "ratify"
+      }
+    ],
+    "architecture": {
+      "components": [
+        {
+          "id": "cli",
+          "owner": "maintainers",
+          "type": "entrypoint"
+        },
+        {
+          "id": "mcp",
+          "owner": "maintainers",
+          "type": "entrypoint"
+        },
+        {
+          "id": "schema",
+          "owner": "maintainers",
+          "type": "pureModule"
+        },
+        {
+          "id": "evaluator",
+          "owner": "maintainers",
+          "type": "pureModule"
+        },
+        {
+          "id": "extractor",
+          "owner": "maintainers",
+          "type": "factsProducer"
+        },
+        {
+          "id": "io-shell",
+          "owner": "maintainers",
+          "type": "adapter"
+        },
+        {
+          "id": "proposal-core",
+          "owner": "maintainers",
+          "type": "pureModule"
+        },
+        {
+          "id": "review-core",
+          "owner": "maintainers",
+          "type": "pureModule"
+        },
+        {
+          "id": "assistant-io",
+          "owner": "maintainers",
+          "type": "adapter"
+        },
+        {
+          "id": "quarantine-io",
+          "owner": "maintainers",
+          "type": "adapter"
+        },
+        {
+          "id": "scm-review-io",
+          "owner": "maintainers",
+          "type": "adapter"
+        },
+        {
+          "id": "ts-morph",
+          "type": "externalDependency"
+        },
+        {
+          "id": "lezer-python",
+          "type": "externalDependency"
+        },
+        {
+          "id": "zod",
+          "type": "externalDependency"
+        }
+      ],
+      "relationships": [
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "evaluator",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "extractor",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "extractor",
+          "to": "ts-morph",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "extractor",
+          "to": "lezer-python",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "evaluator",
+          "to": "ts-morph",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "schema",
+          "to": "zod",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "schema",
+          "to": "ts-morph",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "evaluator",
+          "to": "io-shell",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "proposal-core",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "review-core",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "assistant-io",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "quarantine-io",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "proposal-core",
+          "to": "assistant-io",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "review-core",
+          "to": "quarantine-io",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "cli",
+          "to": "scm-review-io",
+          "type": "imports"
+        },
+        {
+          "allowed": true,
+          "from": "scm-review-io",
+          "to": "review-core",
+          "type": "imports"
+        },
+        {
+          "allowed": false,
+          "from": "review-core",
+          "to": "scm-review-io",
+          "type": "imports"
+        }
+      ]
+    },
+    "clauses": [
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-extractors-may-import-ts-morph against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "from": "*",
+          "id": "only-extractors-may-import-ts-morph",
+          "policyRef": "policy/extraction-seam-isolation",
+          "scopePaths": [
+            "src/assistant-adapter.ts",
+            "src/baseline.ts",
+            "src/benchmark.ts",
+            "src/cli.ts",
+            "src/corpus.ts",
+            "src/emit.ts",
+            "src/evidence-bundle.ts",
+            "src/evidence-store.ts",
+            "src/extractor-teeth.ts",
+            "src/extractor-registry.ts",
+            "src/gate.ts",
+            "src/graph.ts",
+            "src/index.ts",
+            "src/lifecycle.ts",
+            "src/materializer.ts",
+            "src/mcp-server.ts",
+            "src/mode.ts",
+            "src/observations.ts",
+            "src/pin.ts",
+            "src/policy-change.ts",
+            "src/policy-history.ts",
+            "src/portfolio-collect.ts",
+            "src/portfolio-compile.ts",
+            "src/proposal-io.ts",
+            "src/python-extractor.ts",
+            "src/python-module-graph.ts",
+            "src/recall-gate.ts",
+            "src/report.ts",
+            "src/review-contracts.ts",
+            "src/review-render.ts",
+            "src/review.ts",
+            "src/runtime-identity.ts",
+            "src/safe-regex.ts",
+            "src/scm-review.ts",
+            "src/schema.ts",
+            "src/score.ts",
+            "src/teeth-waiver.ts",
+            "src/teeth.ts",
+            "src/violation-format.ts",
+            "src/violation-rollup.ts"
+          ],
+          "severity": "critical",
+          "to": "ts-morph",
+          "type": "forbiddenDependency"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-python-module-graph-may-import-lezer against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "from": "*",
+          "id": "only-python-module-graph-may-import-lezer",
+          "policyRef": "policy/extraction-seam-isolation",
+          "scopePaths": [
+            "src/assistant-adapter.ts",
+            "src/baseline.ts",
+            "src/benchmark.ts",
+            "src/cli.ts",
+            "src/corpus.ts",
+            "src/emit.ts",
+            "src/evidence-bundle.ts",
+            "src/evidence-store.ts",
+            "src/extractor-teeth.ts",
+            "src/extractor-registry.ts",
+            "src/extractors.ts",
+            "src/gate.ts",
+            "src/graph.ts",
+            "src/index.ts",
+            "src/lifecycle.ts",
+            "src/materializer.ts",
+            "src/mcp-server.ts",
+            "src/mode.ts",
+            "src/observations.ts",
+            "src/pin.ts",
+            "src/policy-change.ts",
+            "src/policy-history.ts",
+            "src/portfolio-collect.ts",
+            "src/portfolio-compile.ts",
+            "src/proposal-io.ts",
+            "src/python-extractor.ts",
+            "src/recall-gate.ts",
+            "src/report.ts",
+            "src/review-contracts.ts",
+            "src/review-render.ts",
+            "src/review.ts",
+            "src/runtime-identity.ts",
+            "src/safe-regex.ts",
+            "src/scm-review.ts",
+            "src/schema.ts",
+            "src/score.ts",
+            "src/teeth-waiver.ts",
+            "src/teeth.ts",
+            "src/violation-format.ts",
+            "src/violation-rollup.ts"
+          ],
+          "severity": "critical",
+          "to": "@lezer",
+          "type": "forbiddenDependency"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause runtime-dep-allowlist-approved-parsers against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "runtime-dep-allowlist-approved-parsers",
+          "path": "src/**/*.ts",
+          "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod(?:/v3)?['\"]|ts-morph['\"]|@lezer/(?:common|python)['\"]|node:|\\.{1,2}/)",
+          "policyRef": "policy/runtime-dep-allowlist",
+          "severity": "critical",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause schema-imports-only-zod-and-safe-regex against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "schema-imports-only-zod-and-safe-regex",
+          "path": "src/schema.ts",
+          "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod(?:/v3)?['\"]|\\./safe-regex\\.js['\"])",
+          "policyRef": "policy/schema-single-source-of-truth",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause evaluator-pure--report-imports-only-crypto-and-relative against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "evaluator-pure--report-imports-only-crypto-and-relative",
+          "path": "src/report.ts",
+          "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!node:crypto['\"]|\\.{1,2}/)",
+          "policyRef": "policy/pure-evaluator",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause evaluator-pure--score-imports-relative-only against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "evaluator-pure--score-imports-relative-only",
+          "path": "src/score.ts",
+          "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!\\.{1,2}/)",
+          "policyRef": "policy/pure-evaluator",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause evaluator-pure--teeth-imports-relative-only against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "evaluator-pure--teeth-imports-relative-only",
+          "path": "src/teeth.ts",
+          "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!\\.{1,2}/)",
+          "policyRef": "policy/pure-evaluator",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--benchmark against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--benchmark",
+          "path": "src/benchmark.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--evidence-bundle against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--evidence-bundle",
+          "path": "src/evidence-bundle.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--lifecycle against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--lifecycle",
+          "path": "src/lifecycle.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--policy-change against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--policy-change",
+          "path": "src/policy-change.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--policy-history against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--policy-history",
+          "path": "src/policy-history.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--teeth-waiver against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--teeth-waiver",
+          "path": "src/teeth-waiver.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--baseline against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--baseline",
+          "path": "src/baseline.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--corpus against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--corpus",
+          "path": "src/corpus.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--emit against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--emit",
+          "path": "src/emit.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--evidence-store against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--evidence-store",
+          "path": "src/evidence-store.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--extractor-teeth against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--extractor-teeth",
+          "path": "src/extractor-teeth.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--extractors against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--extractors",
+          "path": "src/extractors.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--gate against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--gate",
+          "path": "src/gate.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--graph against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--graph",
+          "path": "src/graph.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--index against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--index",
+          "path": "src/index.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--materializer against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--materializer",
+          "path": "src/materializer.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--mode against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--mode",
+          "path": "src/mode.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--observations against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--observations",
+          "path": "src/observations.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--pin against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--pin",
+          "path": "src/pin.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--portfolio-collect against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--portfolio-collect",
+          "path": "src/portfolio-collect.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--portfolio-compile against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--portfolio-compile",
+          "path": "src/portfolio-compile.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--recall-gate against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--recall-gate",
+          "path": "src/recall-gate.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--report against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--report",
+          "path": "src/report.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause review-core-no-io-imports against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "review-core-no-io-imports",
+          "path": "src/review*.ts",
+          "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"]node:(?:fs|child_process|https?|net|tls|dns)['\"]",
+          "policyRef": "policy/deterministic-review-core",
+          "severity": "critical",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--safe-regex against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--safe-regex",
+          "path": "src/safe-regex.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--schema against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--schema",
+          "path": "src/schema.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--score against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--score",
+          "path": "src/score.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--teeth against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--teeth",
+          "path": "src/teeth.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--violation-format against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--violation-format",
+          "path": "src/violation-format.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--violation-rollup against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--violation-rollup",
+          "path": "src/violation-rollup.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--python-extractor against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--python-extractor",
+          "path": "src/python-extractor.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--python-module-graph against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--python-module-graph",
+          "path": "src/python-module-graph.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--runtime-identity against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--runtime-identity",
+          "path": "src/runtime-identity.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--extractor-registry against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--extractor-registry",
+          "path": "src/extractor-registry.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--assistant-adapter against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--assistant-adapter",
+          "path": "src/assistant-adapter.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--proposal-io against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--proposal-io",
+          "path": "src/proposal-io.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--review-contracts against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--review-contracts",
+          "path": "src/review-contracts.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--review-render against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--review-render",
+          "path": "src/review-render.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--review against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--review",
+          "path": "src/review.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      },
+      {
+        "assertions": [
+          {
+            "alternatives": [],
+            "anchors": [
+              {
+                "kind": "intent-reference",
+                "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+                "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+              }
+            ],
+            "basis": "source-backed-intent",
+            "claim": "Review authored clause only-cli-may-call-process-exit--scm-review against the cited intent.",
+            "knownBlindSpots": [
+              "The steward must check that this contract implements the cited intent."
+            ],
+            "uncertainty": {
+              "level": "high",
+              "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+            }
+          }
+        ],
+        "constraint": {
+          "id": "only-cli-may-call-process-exit--scm-review",
+          "path": "src/scm-review.ts",
+          "pattern": "process\\.exit\\s*\\(",
+          "policyRef": "policy/library-modules-never-exit",
+          "severity": "high",
+          "type": "forbiddenPattern"
+        }
+      }
+    ],
+    "contextDigest": "d20c5c529c8f08dac142a12197f734ead096e3d991e6f97b289426ade13cdee4",
+    "evidenceRequirements": [
+      {
+        "onMissing": "block",
+        "required": true,
+        "type": "staticAst"
+      }
+    ],
+    "extraction": {
+      "minFiles": 41,
+      "paths": [
+        "src/**/*.ts"
+      ],
+      "profile": "plugin-surface"
+    },
+    "kind": "BlueprintDraftPlan",
+    "knownBlindSpots": [
+      "Local authored preparation; no model generation or independent review is claimed."
+    ],
+    "metadata": {
+      "id": "bce-engine-architecture",
+      "name": "bce engine self-conformance — the engine's own architecture, gated by the engine",
+      "ownerRole": "maintainer",
+      "stewardRole": "maintainer",
+      "version": "0.1.1"
+    },
+    "proposalId": "engine-self-adoption-20260906",
+    "schemaVersion": "1",
+    "scope": {
+      "assertions": [
+        {
+          "alternatives": [],
+          "anchors": [
+            {
+              "kind": "intent-reference",
+              "ref": "docs/self-hosting.md#the-architecture-this-blueprint-enforces",
+              "sha256": "cfa2ceb4f3ee9399e9dfff50273f718788da8e95fc3410b18d3ea54b35699b4e"
+            }
+          ],
+          "basis": "source-backed-intent",
+          "claim": "Review the authored scope against the cited intent.",
+          "knownBlindSpots": [
+            "The steward must check that this contract implements the cited intent."
+          ],
+          "uncertainty": {
+            "level": "high",
+            "reason": "Author-selected policy; automated preparation does not establish intent correctness."
+          }
+        }
+      ],
+      "environments": [
+        "ci"
+      ],
+      "paths": [
+        "src/**/*.ts"
+      ],
+      "repositories": [
+        "blueprint-conformance/bce"
+      ]
+    }
+  },
+  "proposalId": "engine-self-adoption-20260906",
+  "schemaVersion": "1"
+}

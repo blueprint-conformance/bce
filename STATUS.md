@@ -12,8 +12,11 @@ the skill standard now has its own 13-case live-source mutation manifest alongsi
 manifest. Team review retains the non-author approval
 default. These additions are not part of the immutable npm `v0.3.0` artifact. The project now
 has installed Agent Skills, its built MCP server configuration, and explicit enforced mode.
-The real ceremony and an honestly ready doctor are still pending until their authenticated
-records are committed; no independent review, replication, or product efficacy is claimed.
+The [real GitHub ceremony](evidence/self-adoption/README.md) amended the engine contract to
+`0.1.1` with all 47 constraints preserved. Authenticated history and adoption record agree on
+`ratified-enforced` and `self-ratified`; doctor reports ready with 60/60 live source mutants killed.
+The creator-maintained witness also completed authenticated ratification. No independent review,
+replication, or product efficacy is claimed.
 
 ## Distribution
 
