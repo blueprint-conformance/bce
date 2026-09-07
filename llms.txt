@@ -78,3 +78,5 @@ no skip flags — a refusal is a red, not a pass.
 ## Films
 
 - [Film library](docs/films.md): Context-spectrum interaction, reference architecture and historical agent-fleet films; explicit provenance boundaries and downloadable originals.
+
+- Paper working draft: https://blueprint-conformance.github.io/bce/paper/

@@ -48,7 +48,7 @@
  *      one of these refusals is exercised by scripts/docs-site-selftest.mjs.
  *   6. This script itself stays grep-scannable text — no literal NUL byte.
  *      It carries visitor-facing prose (the generated trust page, the section
- *      blurbs, the paper placeholder), and a single literal NUL would make
+ *      blurbs, the paper page), and a single literal NUL would make
  *      grep classify the file as binary, silently exempting that prose from
  *      the banned-phrase gate's sweep (`--binary-files=without-match`).
  *   7. The trust page stays tethered to its records: the witness count is read
@@ -66,6 +66,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { loadEvidenceClaims } from './lib/evidence-claims.mjs';
 import { selfAdoptionHtml } from './lib/self-adoption-site.mjs';
 import { publishAgentDocs } from './lib/agent-docs-site.mjs';
@@ -172,9 +173,11 @@ const PAGES = [
 
   { route: 'guides/faq', source: 'docs/faq.md', nav: 'FAQ', section: 'Guides' },
 
-  { route: 'paper', kind: 'paper', nav: 'Paper', section: null },
+  { route: 'paper', kind: 'paper', source: 'docs/paper.md', nav: 'Paper', section: null },
   { route: 'trust', kind: 'trust', nav: 'Trust', section: null },
 ];
+
+const PAPER = { file: 'assets/paper/blueprints-with-teeth-draft-2026-09-01.pdf', sha256: 'db93ac140e471bb186bb86dd874300374557841f4fbdc5ecc6aa15d7ba78ac26' };
 
 // ---------------------------------------------------------------------------
 // The Trust / Evidence page. GENERATED, not a mapped source: the substance
@@ -611,7 +614,7 @@ function emitImg({ src, alt, width, height }, sourceFile, fromRoute, ctx, hrefSi
  *  NEVER a literal byte. A literal NUL makes grep classify this file as
  *  binary, and the banned-phrase gate's `--binary-files=without-match` sweep
  *  then skips the file entirely — including the visitor-facing prose it
- *  carries (the trust page, the section blurbs, the paper placeholder),
+ *  carries (the trust page, the section blurbs, the paper page),
  *  exactly the copy genre that gate exists to police. Proven 2026-08-27: a
  *  phrase planted in a NUL-bearing copy of this file went uncaught by the
  *  gate's own scan command. Check 6 in main() refuses the build if a literal
@@ -1099,6 +1102,7 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
   const faviconHref = `${'../'.repeat(depth) || './'}assets/bce-avatar.svg`;
   const homeHref = relativeUrl(route, '', true);
   const docTitle = route === '' ? `${SITE_NAME} — ${SITE_TAGLINE}` : `${title} — ${SITE_NAME}`;
+  const description = route === 'paper' ? 'Read the working draft of Blueprints with Teeth by Mitchell Tieleman: architecture conformance, checker validation, and early deployment experience.' : SITE_DESCRIPTION;
   const canonicalHref = route === '' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}/${route}/`;
   // The README keeps its illustrated banner. The website starts with navigation
   // and a single semantic introduction, paired with the film inside main.
@@ -1126,7 +1130,7 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="${escapeHtml(SITE_DESCRIPTION)}">
+<meta name="description" content="${escapeHtml(description)}">
 <meta name="theme-color" content="#080919">
 <meta name="color-scheme" content="light dark">
 <title>${escapeHtml(docTitle)}</title>
@@ -1136,7 +1140,7 @@ ${sourceFile ? `<link rel="alternate" type="text/markdown" href="${SITE_ORIGIN}/
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="bce">
 <meta property="og:title" content="${escapeHtml(docTitle)}">
-<meta property="og:description" content="${escapeHtml(SITE_DESCRIPTION)}">
+<meta property="og:description" content="${escapeHtml(description)}">
 <meta property="og:url" content="${canonicalHref}">
 <meta property="og:image" content="${SOCIAL_IMAGE_URL}">
 <meta property="og:image:alt" content="${escapeHtml(SOCIAL_IMAGE_ALT)}">
@@ -1144,7 +1148,7 @@ ${sourceFile ? `<link rel="alternate" type="text/markdown" href="${SITE_ORIGIN}/
 <meta property="og:image:height" content="640">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escapeHtml(docTitle)}">
-<meta name="twitter:description" content="${escapeHtml(SITE_DESCRIPTION)}">
+<meta name="twitter:description" content="${escapeHtml(description)}">
 <meta name="twitter:image" content="${SOCIAL_IMAGE_URL}">
 <meta name="twitter:image:alt" content="${escapeHtml(SOCIAL_IMAGE_ALT)}">
 <link rel="stylesheet" href="${cssHref}">
@@ -1152,7 +1156,7 @@ ${sourceFile ? `<link rel="alternate" type="text/markdown" href="${SITE_ORIGIN}/
 ${route===''||route==='films'?`<link rel="stylesheet" href="${'../'.repeat(depth)||'./'}assets/films/library.css"><script defer src="${'../'.repeat(depth)||'./'}assets/films/library.js"></script>`:''}
 ${livePipeline ? `<script type="module" src="${'../'.repeat(depth) || './'}assets/self-adoption-status.mjs"></script>` : ''}
 </head>
-<body${route === '' ? ' class="landing"' : route==='films'?' class="film-library-page"':''}>
+<body${route === '' ? ' class="landing"' : route==='films'?' class="film-library-page"':route==='paper'?' class="paper-page"':''}>
 <a class="skip-link" href="#main-content">Skip to content</a>
 <header class="site-header">
   <a class="brand" href="${homeHref}"${route === '' ? ' aria-current="page"' : ''}><img src="${faviconHref}" alt="" width="28" height="28"><strong>${SITE_NAME}</strong> <span>${SITE_TAGLINE}</span></a>
@@ -1284,6 +1288,14 @@ blockquote {
 }
 blockquote > :last-child { margin-bottom: 0; }
 .table-wrap { overflow-x: auto; }
+.paper-page main { max-width: 900px; }
+.paper-page article > p, .paper-page article > blockquote { max-width: 72ch; }
+.paper-page h1 { font-size: clamp(32px, 5vw, 46px); letter-spacing: -.03em; }
+.paper-reader { margin-top: 32px; }
+.paper-download { margin-bottom: 12px; }
+.paper-download a { display: inline-flex; align-items: center; min-height: 44px; }
+.paper-reader object { display: block; width: 100%; height: 80vh; min-height: 600px; border: 1px solid var(--line); }
+@media (max-width: 700px) { .paper-reader object { display: none; } }
 /* The centred hero block. Images scale down on a narrow viewport rather than
    forcing the page to scroll sideways; the shields row wraps instead of
    overflowing. */
@@ -1401,11 +1413,15 @@ function main() {
   // ---- context: what maps to what -----------------------------------------
   const routeBySource = new Map();
   for (const p of PAGES) if (p.source) routeBySource.set(p.source, p.route);
-  const verbatimBySource = new Map([['llms.txt', 'llms.txt']]);
+  const verbatimBySource = new Map([['llms.txt', 'llms.txt'], [PAPER.file, PAPER.file]]);
+  let paperBytes;
+  try { paperBytes = fs.readFileSync(path.join(repoRoot, PAPER.file)); }
+  catch { harness('paper draft PDF is missing'); }
+  if (createHash('sha256').update(paperBytes).digest('hex') !== PAPER.sha256) harness('paper draft PDF identity mismatch');
   // Filled during rendering: every assets/*.svg a published page actually
   // references. Copying the whole directory instead would publish assets no
   // page uses and hide a typo'd src behind a file that happens to be there.
-  const ctx = { routeBySource, verbatimBySource, siteAssets: new Set(BRAND_ASSETS) };
+  const ctx = { routeBySource, verbatimBySource, siteAssets: new Set([...BRAND_ASSETS, PAPER.file]) };
 
   for (const p of PAGES) {
     if (p.section && !SECTION_ORDER.includes(p.section)) {
@@ -1543,13 +1559,12 @@ if(menu){document.addEventListener('click',e=>{if(!menu.contains(e.target))menu.
         `<a href="${specHref}">specification</a>.</p>\n<ul>${items}</ul>`;
       headings = [{ level: 1, id: 'json-schemas', text: 'JSON Schemas' }];
     } else if (p.kind === 'paper') {
-      title = 'Paper';
-      bodyHtml =
-        `<h1 id="paper">Paper</h1>\n` +
-        `<p><em>Placeholder — added at release.</em> The measurement this project reports is the ` +
-        `seeded-defect recall run described in the specification and reproduced in CI; the write-up ` +
-        `is linked here when it is published.</p>`;
-      headings = [{ level: 1, id: 'paper', text: 'Paper' }];
+      const entry = renderedBody.get(p.route);
+      title = 'Blueprints with Teeth — working draft';
+      headings = entry.r.headings;
+      hrefs.push(...entry.hrefs);
+      const pdfHref = relativeUrl(p.route, PAPER.file, false);
+      bodyHtml = entry.r.html + `<section class="paper-reader" aria-label="Read the paper"><div class="paper-download"><a href="${pdfHref}" download>Download the PDF</a></div><object data="${pdfHref}#view=FitH" type="application/pdf" aria-label="Blueprints with Teeth working draft, 36 pages"><p><a href="${pdfHref}">Open the working draft PDF</a></p></object></section>`;
     } else if (p.kind === 'trust') {
       // The pseudo source name carries no '/' on purpose: rewriteTarget
       // resolves link targets against the source's directory, and a bare name
@@ -1646,7 +1661,7 @@ if(menu){document.addEventListener('click',e=>{if(!menu.contains(e.target))menu.
   log(`build-docs-site: PASS`);
   log(`  pages     ${pageCount} (${path.relative(repoRoot, outDir)}/)`);
   log(`  schemas   ${schemaFiles.length} copied byte-for-byte to ${path.relative(repoRoot, outDir)}/schemas/`);
-  log(`  assets    ${ctx.siteAssets.size} referenced image(s) copied byte-for-byte`);
+  log(`  assets    ${ctx.siteAssets.size} referenced asset(s) copied byte-for-byte`);
   log(`  links     ${internal} internal (all resolve), ${external} external (not fetched)`);
 }
 

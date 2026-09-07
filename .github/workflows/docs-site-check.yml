@@ -48,6 +48,7 @@ on:
       - 'CONTRIBUTING.md'
       - 'assets/site/**'
       - 'assets/films/**'
+      - 'assets/paper/**'
       - 'scripts/lib/film-library.mjs'
       - 'scripts/film-library.selftest.mjs'
       - '.bce-adoption.json'

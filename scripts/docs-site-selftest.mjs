@@ -677,6 +677,18 @@ const PROBES = [
     },
     expect: 'link target does not exist in the tree',
   },
+  {
+    name: 'paper draft PDF missing',
+    plant: (dir) => fs.rmSync(path.join(dir, 'assets/paper/blueprints-with-teeth-draft-2026-09-01.pdf')),
+    exit: 2,
+    expect: 'paper draft PDF is missing',
+  },
+  {
+    name: 'paper draft PDF bytes changed',
+    plant: (dir) => fs.appendFileSync(path.join(dir, 'assets/paper/blueprints-with-teeth-draft-2026-09-01.pdf'), 'changed'),
+    exit: 2,
+    expect: 'paper draft PDF identity mismatch',
+  },
 ];
 
 function main() {
