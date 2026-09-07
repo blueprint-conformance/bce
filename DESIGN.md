@@ -353,3 +353,7 @@ Media delivery is prepared for a dated, versioned GitHub media release, currentl
 - **Don't** turn commands, diagnostics, or transcripts into image-only content.
 - **Don't** imply that agents may amend policy through the same loop that repairs code.
 - **Don't** invent customers, testimonials, awards, benchmarks, efficacy results, independent validation, or paper-like authority.
+
+### Paper page
+
+The Paper route is a reading surface for the dated, 36-page *Blueprints with Teeth* working draft. Lead with the title, subtitle, author and draft date, followed by a visible working-draft statement and direct PDF link. The brief orientation and historical measurement boundary precede an optional native PDF reader. Desktop uses a 900px reading surface with the PDF below; narrow screens retain direct open/download links without an embedded reader. The original PDF remains unchanged and the build verifies its SHA-256 identity. Publication of this draft does not create archival citation identifiers or change the separate planned-study protocol.
