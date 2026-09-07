@@ -1,0 +1,33 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:09.000
+Resolve. Validate. Compile. Resolve the blueprint and its inherited rules. Validate schema and authority. Compile work orders and execution policy. A conflict must return to review.
+
+2
+00:00:09.000 --> 00:00:18.000
+Observe what exists. Evaluate what is known. The observer coordinates repository evidence. The evaluator checks the rules. Coverage is examined explicitly, because an unobserved boundary cannot be treated as a pass.
+
+3
+00:00:18.000 --> 00:00:23.000
+Carry findings forward with their evidence. Assemble the evidence, determine decision readiness, and verify deployment. Learning returns as a new proposal.
+
+4
+00:00:23.000 --> 00:00:27.000
+The contracts reach all the way into code. At code level, the reference kernel makes these responsibilities concrete in TypeScript contracts, guards and evaluation functions.
+
+5
+00:00:27.000 --> 00:00:35.000
+Approval is checked before compilation. The compiler checks approval and repository scope before creating execution work. This excerpt is from the supplied reference kernel.
+
+6
+00:00:35.000 --> 00:00:44.000
+Incomplete observation stays explicit. The evaluator distinguishes a detected violation from incomplete observation. Missing coverage preserves an unknown result, rather than silently creating a pass.
+
+7
+00:00:44.000 --> 00:00:52.000
+The evidence remembers which change was checked. The evidence bundle links the blueprint version, repository subject, trace and findings. Its digest lets consumers check the bundle contents.
+
+8
+00:00:52.000 --> 00:01:01.000
+Here is one check from the published engine. Separately, the published BCE engine demonstrates one concrete boundary. A forbidden import fails the gate. Corrected code passes under the unchanged blueprint.

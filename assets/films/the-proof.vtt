@@ -1,0 +1,21 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:05.000
+One rule. A real check. The rule Domain code must not import the application layer. An example from the published BCE package.
+
+2
+00:00:05.000 --> 00:00:12.000
+This import crosses the line. packages/domain/order.ts · line 1 import { checkoutLabel } from '../app/view.js'; Domain → Application The domain layer now imports application code.
+
+3
+00:00:12.000 --> 00:00:20.000
+Caught at line 1. Excerpt from the actual gate output packages/domain/order.ts#L1 bce gate [enforced]: 1/1 blueprint(s) evaluated, 1 failing. Violation Exit 1 The enforced gate rejects this change.
+
+4
+00:00:20.000 --> 00:00:27.000
+Correct the code. Keep the rule. packages/domain/order.ts · corrected source export function priceOrder(order: Order): number { return order.total; } Blueprint unchanged Remove the application import and its use.
+
+5
+00:00:27.000 --> 00:00:34.000
+Same rule. Now it passes. Excerpt from the actual gate output bce gate [enforced]: 1/1 blueprint(s) evaluated, 0 failing. Pass Exit 0 BCE Open source · Apache-2.0 github.com/blueprint-conformance/bce

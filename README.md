@@ -26,6 +26,20 @@ module boundaries. Node 22+ is required; the contract remains pre-1.0.
 
 [Watch BCE govern its own main branch](https://blueprint-conformance.github.io/bce/trust/#self-adoption-status): live GitHub stages, authenticated self-adoption, and explicit evidence boundaries.
 
+## Watch the context move
+
+<p align="center">
+  <a href="https://blueprint-conformance.github.io/bce/films/#context-spectrum"><img src="https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/context-spectrum-preview.gif" alt="Animated preview of the architectural zoom from services to components and code. Open the complete interactive C1–C4 context spectrum."></a>
+</p>
+
+[Explore the interactive C1–C4 spectrum](https://blueprint-conformance.github.io/bce/assets/films/context-spectrum/index.html) · [Watch the films](https://blueprint-conformance.github.io/bce/films/) · [Read the static overview](docs/films.md)
+
+Follow context narrowing into work, inherited rules surviving the zoom, and findings returning as
+evidence for review. This illustrates the wider **reference architecture**; it is not a claim that
+the complete platform loop is released in BCE. C1–C4 here means architectural zoom levels, distinct
+from the engine’s constraint type identifiers. The brief preview plays once; the full film and
+interactive experience have playback controls.
+
 ## Start with your coding agent
 
 Give your existing agent this task:

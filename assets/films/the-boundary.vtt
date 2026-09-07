@@ -1,0 +1,17 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:05.000
+The code works. The architecture changed. Application Checkout flow Allowed direction Domain Order logic Was that intentional?
+
+2
+00:00:05.000 --> 00:00:11.000
+One import reverses the boundary. Application Checkout flow Allowed direction Forbidden direction Domain Order logic A small change can cross an agreed boundary.
+
+3
+00:00:11.000 --> 00:00:18.000
+Make the rule checkable. The rule Domain code must not import the application layer. Code change → BCE check → Violation BCE checks code against the rules you define.
+
+4
+00:00:18.000 --> 00:00:24.000
+Which rule do you keep repeating? In every prompt? In every code review? BCE Blueprint Conformance Engine github.com/blueprint-conformance/bce

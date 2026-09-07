@@ -1,0 +1,45 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:07.000
+Follow a governed change from the system’s purpose to code, then bring its evidence back.
+
+2
+00:00:07.000 --> 00:00:15.000
+The parent architecture forbids direct UI access to the data store. A closer view cannot silently remove that rule.
+
+3
+00:00:15.000 --> 00:00:24.000
+Keep the UI, context service and data store in focus. The other branches remain in the system, outside this change.
+
+4
+00:00:24.000 --> 00:00:33.000
+Scope, allowed tools, required evidence and stop conditions become explicit inputs to execution.
+
+5
+00:00:33.000 --> 00:00:40.000
+Compare the implementation’s observed dependency with the relationship authorised by the blueprint.
+
+6
+00:00:40.000 --> 00:00:48.000
+A direct UI → data-store edge breaks the boundary. Pull back to see which relationship the finding violates.
+
+7
+00:00:48.000 --> 00:00:56.000
+The work returns with a concrete finding. Correct the implementation while preserving the governing rule.
+
+8
+00:00:56.000 --> 00:01:05.000
+The corrected relationship, source revision and evaluation become evidence about this specific change.
+
+9
+00:01:05.000 --> 00:01:14.000
+With no violation observed, incomplete coverage still leaves the result unknown. Request the missing observation; an observed violation still fails.
+
+10
+00:01:14.000 --> 00:01:22.000
+Bring the scoped change, its inherited boundaries, findings and evidence back together for review.
+
+11
+00:01:22.000 --> 00:01:30.000
+A different architecture requires a reviewed blueprint change. The next loop starts with explicit intent and authority.

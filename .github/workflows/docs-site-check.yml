@@ -47,6 +47,9 @@ on:
       - 'AGENTS.md'
       - 'CONTRIBUTING.md'
       - 'assets/site/**'
+      - 'assets/films/**'
+      - 'scripts/lib/film-library.mjs'
+      - 'scripts/film-library.selftest.mjs'
       - '.bce-adoption.json'
       - '.blueprints/POLICY-HISTORY.jsonl'
       - 'scripts/check-evidence-claims.mjs'
@@ -193,6 +196,9 @@ jobs:
       # The flip has happened and Pages is enabled, so the assertion INVERTS
       # rather than disappears: the property worth holding now is that nobody
       # silently re-dormants the publisher and strands every schema `$id` at 404.
+      - name: Film catalog and playback contract
+        run: node scripts/film-library.selftest.mjs
+
       - name: The publish job is active
         shell: bash
         run: |

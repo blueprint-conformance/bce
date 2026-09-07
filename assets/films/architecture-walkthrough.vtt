@@ -1,0 +1,77 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:08.000
+An outcome becomes an engineering contract. Start with what the system is meant to achieve. The owner defines the outcome. A blueprint steward approves the engineering boundaries.
+
+2
+00:00:08.000 --> 00:00:16.000
+People, agents and systems share the same intent. Developers and agents implement the change. Repositories return facts and build evidence. Runtime environments return outcomes. Those relationships form one engineering loop.
+
+3
+00:00:16.000 --> 00:00:21.000
+Now open the system. Now zoom inside the platform and follow that approved intent through the services that carry it.
+
+4
+00:00:21.000 --> 00:00:25.000
+From the system to its services. The system boundary opens into experience, contract, execution and assurance services.
+
+5
+00:00:25.000 --> 00:00:34.000
+Approved intent becomes bounded work. The registry holds approved blueprint versions. The compiler turns intent into work orders, bounded by scope, policy and evidence requirements.
+
+6
+00:00:34.000 --> 00:00:43.000
+Execution produces something we can inspect. The agent runtime executes the work through governed tools and model routing. Changes reach repositories and CI. Observers collect facts for BCE to evaluate against the blueprint.
+
+7
+00:00:43.000 --> 00:00:48.000
+Evidence connects the result to a decision. The evaluation contributes to evidence. Decision and exception handling remain explicit before deployment verification.
+
+8
+00:00:48.000 --> 00:00:52.000
+Open the blueprint loop. Zoom again. Inside the loop, each component has a specific responsibility.
+
+9
+00:00:52.000 --> 00:01:01.000
+Resolve. Validate. Compile. Resolve the blueprint and its inherited rules. Validate schema and authority. Compile work orders and execution policy. A conflict must return to review.
+
+10
+00:01:01.000 --> 00:01:10.000
+Observe what exists. Evaluate what is known. The observer coordinates repository evidence. The evaluator checks the rules. Coverage is examined explicitly, because an unobserved boundary cannot be treated as a pass.
+
+11
+00:01:10.000 --> 00:01:15.000
+Carry findings forward with their evidence. Assemble the evidence, determine decision readiness, and verify deployment. Learning returns as a new proposal.
+
+12
+00:01:15.000 --> 00:01:19.000
+The contracts reach all the way into code. At code level, the reference kernel makes these responsibilities concrete in TypeScript contracts, guards and evaluation functions.
+
+13
+00:01:19.000 --> 00:01:27.000
+Approval is checked before compilation. The compiler checks approval and repository scope before creating execution work. This excerpt is from the supplied reference kernel.
+
+14
+00:01:27.000 --> 00:01:36.000
+Incomplete observation stays explicit. The evaluator distinguishes a detected violation from incomplete observation. Missing coverage preserves an unknown result, rather than silently creating a pass.
+
+15
+00:01:36.000 --> 00:01:44.000
+The evidence remembers which change was checked. The evidence bundle links the blueprint version, repository subject, trace and findings. Its digest lets consumers check the bundle contents.
+
+16
+00:01:44.000 --> 00:01:53.000
+Here is one check from the published engine. Separately, the published BCE engine demonstrates one concrete boundary. A forbidden import fails the gate. Corrected code passes under the unchanged blueprint.
+
+17
+00:01:53.000 --> 00:01:57.000
+Zoom back out: what does the result enable? Now zoom back out. The result belongs in a wider evidence and decision process.
+
+18
+00:01:57.000 --> 00:02:09.000
+Verify the deployment. Learn. Propose a change. An authorised decision leads to deployment and verification. Runtime outcomes feed learning. Learning proposes a blueprint change, and that proposal returns to review. Repairs and exceptions have visible paths.
+
+19
+00:02:09.000 --> 00:02:17.000
+What should an agent be allowed to change? That is the larger architecture around BCE: intent, execution, conformance, evidence and a reviewed evolution loop. What should an agent be allowed to change on its own?
