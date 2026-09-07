@@ -42,6 +42,10 @@ on:
       - 'scripts/docs-site-selftest.mjs'
       - 'scripts/self-adoption-status.selftest.mjs'
       - 'scripts/lib/self-adoption-site.mjs'
+      - 'scripts/lib/agent-docs-site.mjs'
+      - 'skills/**'
+      - 'AGENTS.md'
+      - 'CONTRIBUTING.md'
       - 'assets/site/**'
       - '.bce-adoption.json'
       - '.blueprints/POLICY-HISTORY.jsonl'
@@ -173,7 +177,7 @@ jobs:
           # that disappears is _site/assets/badges).
           while IFS= read -r d; do
             require "${d}/index.html"
-          done < <(find _site \( -path _site/assets -o -path _site/schemas \) -prune -o -type d ! -path _site -print)
+          done < <(find _site \( -path _site/assets -o -path _site/schemas -o -path _site/source \) -prune -o -type d ! -path _site -print)
 
           if [ "$missing" -ne 0 ]; then
             echo "docs-site-check: FAIL — the assembled site is missing expected files."

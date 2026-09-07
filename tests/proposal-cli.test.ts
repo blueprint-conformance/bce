@@ -202,7 +202,9 @@ describe('AI-first proposal/review CLI', () => {
     expect(landed.status, landed.stderr).toBe(0);
     const governed = JSON.parse(fs.readFileSync(path.join(root, '.blueprints', 'ai-first-boundary.blueprint.json'), 'utf8')) as { metadata: { status: string } };
     expect(governed.metadata.status).toBe('approved');
-  }, 30_000);
+  // Six real CLI processes exercise generation through authenticated landing. Under full-suite
+  // contention this takes >30s; use the suite's functional budget, preserving every assertion.
+  }, 60_000);
 
   it('rejects non-canonical packet byte tampering', () => {
     const { root, preload } = fixtureRepo();

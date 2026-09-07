@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -126,6 +126,10 @@ if (!JSON.stringify(pythonMcpRed).includes('domain-cannot-import-api') ||
 }
 
 const installed = JSON.parse(readFileSync(join(scratch, 'node_modules', 'bce-engine', 'package.json'), 'utf8'));
+if (!existsSync(join(installedRoot, 'spec', 'SPEC.md')) ||
+    !readFileSync(join(installedRoot, 'spec', 'SPEC.md')).equals(readFileSync(join(root, 'spec', 'SPEC.md')))) {
+  throw new Error('installed package must contain the exact normative specification its agent docs reference');
+}
 const releaseState = JSON.parse(readFileSync(join(scratch, 'node_modules', 'bce-engine', 'release-state.json'), 'utf8'));
 if (installed.engines?.node !== '>=22') throw new Error('packed package does not enforce Node >=22');
 const sourceVersion = releaseState.candidateVersion ?? releaseState.currentVersion;

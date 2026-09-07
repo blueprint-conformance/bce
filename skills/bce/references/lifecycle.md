@@ -17,9 +17,9 @@ The demo must produce GREEN and RED. A gate no one has seen fail is not evidence
 
 That immutable release includes both TypeScript/JavaScript and Python direct-module graphs.
 
-## Propose first
+## Optional provider-backed proposal
 
-When the installed exact release exposes `bce propose`, start from a committed repository state and
+Use this route when the user wants BCE to call a separately configured provider. Start from a committed repository state and
 an authoritative intent file:
 
 ```bash
@@ -36,10 +36,11 @@ the network call. Treat the model plan as untrusted: only the deterministic revi
 reviewable artifact, and it is still draft-only. Read `docs/ai-first-review.md` for the GitHub-bound
 decision and ratify/amend ceremony.
 
-## Manual author fallback
+## Draft with the current coding agent
 
-If no proposal adapter is available or the user explicitly requires an offline draft, derive the
-contract from the real tree. Never hand-write blueprint JSON: `author` owns schema, canonical
+For ordinary first adoption, derive one supported boundary from the user's intent and real tree
+using the current agent's reasoning. No additional model account is required. Use `author` rather
+than hand-writing blueprint JSON: it owns schema, canonical
 serialization, and the non-empty scope check.
 
 ```bash

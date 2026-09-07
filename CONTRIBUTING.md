@@ -5,6 +5,23 @@ public release. External contributions are open — issues and pull requests are
 in force now for the maintainer and the AI agents that operate under the maintainer's account, and is
 the guide external contributors will follow at release.
 
+## Start with an agent
+
+Coding agents are first-class contributors. Give yours [AGENTS.md](AGENTS.md), the concrete issue
+or reproduction, and the rule that should hold. It should inspect the relevant code, propose the
+smallest change, run focused tests and BCE's self-gate, and prepare a DCO-signed pull request with
+exact evidence. Use an isolated branch or worktree and preserve unrelated changes.
+
+A documentation fix, a reproducible bug, or an improved negative control is a useful first
+contribution; an independent adoption study is not required. Ask for help through a
+[bug report](https://github.com/blueprint-conformance/bce/issues/new?template=bug.yml) or a blank
+issue when the forms do not fit. Do not attach credentials or private repository content.
+
+Agents may prepare changes and evidence. Policy, security, release, ownership, baseline, and
+normative-format changes still follow the declared review process. A bot or agent account is not
+an independent human reviewer. External contributors use a fork; the maintainer's authenticated
+self-ratification path is not a requirement for contributing ordinary code or docs.
+
 ## Developer Certificate of Origin (DCO)
 
 All contributions must be signed off (`git commit -s`), certifying the

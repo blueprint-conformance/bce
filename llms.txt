@@ -1,14 +1,15 @@
 # bce — the blueprint conformance engine
 
-> A fail-closed architecture-conformance gate for AI-built systems. An AI can propose a draft from
-> bounded, disclosed repository context; bce deterministically reviews it, and an authenticated human
-> decides whether the exact packet may enter the policy ceremony. The resulting blueprint is a durable
+> A local, fail-closed architecture-conformance gate operated by coding agents. The current agent
+> authors a draft, runs the gate, diagnoses violations, and repairs code. An authenticated human
+> owns architectural intent and decides whether an exact review packet may enter the policy ceremony.
+> The resulting blueprint is a durable
 > architectural contract for a repository; bce measures the code against it and produces a
 > deterministic conformance score, a fail-closed required-check gate for merges, and hash-chained
 > evidence anyone can re-derive offline. TypeScript/JavaScript framework AST extraction is the
 > mature released path. The v0.3.0 release adds direct TypeScript/JavaScript and structured Python
-> module graphs while preserving the Python import-surface profile. The current source and registry
-> release are v0.3.0 at exact npm integrity
+> module graphs while preserving the Python import-surface profile. The immutable registry release
+> is v0.3.0; source main includes later changes labelled in the agent start guide. The npm integrity is
 > `sha512-KwWyEYOZu70xrQG5JYEyHNhz3eqTalno9d9+KUugytYBiWtHGO7Wpa+X/7xgi9xDc49V7OUchTJtN8Pu8T37iw==`;
 > verify registry metadata before installation. Compatibility remains pre-1.0.
 
@@ -19,6 +20,7 @@ no skip flags — a refusal is a red, not a pass.
 
 ## Start here
 
+- [Agent start guide](docs/agent-start.md): choose existing-gate repair, new-repository adoption, human inspection, or contribution; use the current coding agent without requiring a second model account.
 - [Quickstart (offline RED→fix→GREEN)](examples/quickstart/README.md): the guaranteed path, no API keys, five minutes.
 - [Quickstart summary](docs/quickstart.md): the one-screen version.
 - [Executable recipe catalog](docs/first-win.md): install v0.3.0, run `npx --no-install bce demo --list`, then a real GREEN/named-RED proof for extension contracts, tenant route guards, governed egress, TypeScript or Python module layering, or configuration allowlists.
@@ -34,6 +36,8 @@ no skip flags — a refusal is a red, not a pass.
 - [Run bce in an agent loop](docs/agent-loop.md): per-harness (Claude Code / Cursor / generic MCP); the violation→fix→re-gate loop.
 - [Integration snippets](integrations/README.md): drop-in CLAUDE.md / AGENTS.md / .cursorrules blocks + the MCP tools.
 - [Agent Skill](skills/README.md): proposal/review plus validate → run → teeth → gate as a loadable skill; copy `skills/bce` into `.claude/skills/`.
+- [BCE skill instructions](skills/bce/SKILL.md): load the operating instructions directly; preserve policy and read the structured gate result.
+- [Authoring and adoption reference](skills/bce/references/lifecycle.md): load only for a new boundary or a governed policy task; local authoring needs no second model account.
 
 ## Reference
 
@@ -41,7 +45,7 @@ no skip flags — a refusal is a red, not a pass.
 - [Visual guide to C1–C4](docs/constraint-guide.md): diagram-led explanation of required components, required edges, forbidden imports, and forbidden component paths.
 - [TypeScript module graph](docs/typescript-module-graph.md): direct-boundary selectors, deterministic resolution, unresolved-import behavior, and explicit non-goals.
 - [Python module graph](docs/python-module-graph.md): structured direct imports, explicit roots, fail-closed uncertainty, and explicit non-goals.
-- [Exit codes](docs/exit-codes.md): 0 = green, 1 = red/user-error, 2 = fail-closed refusal.
+- [Exit codes](docs/exit-codes.md): 0 = command success (advisory may still be RED), 1 = violation/user-error, 2 = fail-closed refusal; read the structured verdict.
 - [Report contract](docs/report-contract.md): the deterministic compliance report; determinism and canonical serialization.
 - [Evidence format](docs/evidence-format.md): the hash-chained evidence record + the zero-dependency verifier.
 - [Public evidence](research/model-evaluation/pilots/accelerated-v6/RESULTS.md): the completed v6 directional instrumentation record, its explicit claim boundary, and `npm run evidence:verify` replay command.
@@ -50,8 +54,9 @@ no skip flags — a refusal is a red, not a pass.
 
 ## Proposing and authoring blueprints
 
-- [AI-first proposal and review](docs/ai-first-review.md): preferred bounded proposal path with one immutable review packet.
-- [Blueprint-author prompt pack (manual fallback)](prompts/blueprint-author.md): drive an agent to draft a blueprint from an existing repo; always ends in `bce teeth` + human review.
+- [Ordered onboarding](docs/onboarding.md): preferred current-agent authoring path with no second model account.
+- [AI-first proposal and review](docs/ai-first-review.md): optional provider-backed proposal with bounded disclosure and one immutable review packet.
+- [Blueprint-author prompt pack](prompts/blueprint-author.md): drive an agent to draft a blueprint from an existing repo; always ends in `bce teeth` + human review.
 - [Prompt-pack validation](prompts/VALIDATION.md): the 5-public-repo acceptance runs.
 
 ## The engine gates itself

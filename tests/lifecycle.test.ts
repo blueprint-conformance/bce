@@ -30,6 +30,8 @@ describe('CLI discovery is read-only', () => {
     const help = cli(['baseline', '--help'], dir);
     expect(help.status, help.out).toBe(0);
     expect(help.out).toContain('bce — Blueprint Conformance Engine');
+    expect(help.out).toContain('bce baseline');
+    expect(help.out).not.toContain('  bce propose');
     expect(fs.readdirSync(path.join(dir, '.blueprints'))).toEqual(before);
     const version = cli(['gate', '--version'], dir);
     expect(version.status, version.out).toBe(0);
@@ -38,6 +40,13 @@ describe('CLI discovery is read-only', () => {
     const unknown = cli(['author', '--harness', 'nonsense'], dir);
     expect(unknown.status).toBe(1);
     expect(unknown.out).toContain('unknown option for bce author: --harness');
+    const authorHelp = cli(['help', 'author'], dir);
+    expect(authorHelp.status, authorHelp.out).toBe(0);
+    expect(authorHelp.out).toContain('--scope-paths');
+    expect(authorHelp.out).not.toContain('  bce baseline');
+    const unknownHelp = cli(['help', 'imaginary'], dir);
+    expect(unknownHelp.status).toBe(1);
+    expect(unknownHelp.out).toContain("unknown help topic 'imaginary'");
   });
 });
 

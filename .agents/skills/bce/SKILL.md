@@ -11,6 +11,10 @@ repair surface. Prefer the repository's BCE MCP server for diagnosis and working
 Use the CLI only when MCP is unavailable or the requested lifecycle operation is intentionally absent
 from MCP.
 
+For first adoption, use the current coding agent's reasoning and `author` to draft one supported
+boundary from stated intent. An additional provider call is optional. Resolve bundled references
+under the installed `node_modules/bce-engine/docs/` and `spec/`, not the consumer's own `docs/`.
+
 ## Choose the shortest workflow
 
 - **Existing repository is red:** follow the MCP-first repair loop below. Do not load lifecycle
@@ -20,7 +24,7 @@ from MCP.
 - **The user asks to inspect or compare policy:** call `inspect_blueprint`, `explain_constraint`, or
   `compare_blueprint_policy`; replay supplied evidence with `verify_review_packet`.
 - **The user asks to create or adopt a new rule:** read
-  `references/lifecycle.md` before acting. Prefer the AI-first `bce propose` flow when available;
+  `references/lifecycle.md` before acting. Use local `bce author`, or the optional `bce propose` adapter;
   governance changes use the CLI and require an authenticated human review.
 - **The user asks to tune an Agent Skill:** use the separate `skill-tuning` skill.
 
@@ -65,18 +69,18 @@ If the project has no working BCE MCP server, use the exact local package rather
 moving version:
 
 ```bash
-bce gate --repo . --extractor ast --all
+npx --no-install bce gate --repo . --extractor ast --all
 ```
 
 For an uncommitted repair, `gate` already scans the live tree. If you intentionally run one
 blueprint directly, add `--no-pin`; otherwise `run` grades committed `HEAD` by default:
 
 ```bash
-bce run --blueprint <path> --ct-repo . --no-pin --extractor ast --out compliance-report.json
+npx --no-install bce run --blueprint <path> --ct-repo . --no-pin --extractor ast --out compliance-report.json
 ```
 
 Exit `0` is a process pass only after reading advisory state and the report verdict. Exit `1` is a
-graded violation or structural refusal; exit `2` is a fail-closed scan/refusal condition. Treat `1`
+graded violation or usage/configuration error; exit `2` is a fail-closed scan/refusal condition. Treat `1`
 and `2` as RED.
 
 ## Policy boundary
@@ -101,5 +105,9 @@ Only load `references/lifecycle.md` when the task is to create, validate, prove,
 operate a contract. It contains the constraint grammar, extraction profiles, exact commands,
 advisory/baseline/graduation path, and CI invariants.
 
-The detailed specification and evidence semantics ship with the package under `spec/` and `docs/`.
-Prefer those local, version-matched files over a moving web page.
+Use the repository's existing package manager: `pnpm exec bce` or `yarn bce` replaces the npm runner.
+Do not fetch a package named `bce`, silently change package managers, or require a global install.
+
+Prefer local, version-matched package documentation. The immutable npm `0.3.0` tarball omits
+`spec/SPEC.md`; use https://github.com/blueprint-conformance/bce/blob/v0.3.0/spec/SPEC.md if absent.
+Current source includes offline `review prepare` and solo-steward ratification; npm `0.3.0` does not.

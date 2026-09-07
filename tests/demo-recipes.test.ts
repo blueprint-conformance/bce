@@ -89,6 +89,10 @@ describe('packaged architecture demo recipes', () => {
   });
 
   it('refuses missing, unknown, or ambiguous recipe selection', () => {
+    const positional = run(['demo', 'typescript-module-layering']);
+    expect(positional.status).toBe(1);
+    expect(positional.stderr).toContain("use 'bce demo --list' or 'bce demo --recipe <id>'");
+    expect(positional.stdout).not.toContain('GREEN');
     const missing = run(['demo', '--recipe']);
     expect(missing.status).toBe(1);
     expect(missing.stderr).toContain('--recipe requires an id');
@@ -108,5 +112,15 @@ describe('packaged architecture demo recipes', () => {
     const duplicateRecipe = run(['demo', '--recipe', 'all', '--recipe', 'extension-contract']);
     expect(duplicateRecipe.status).toBe(1);
     expect(duplicateRecipe.stderr).toContain('accepts exactly one --recipe selection');
+  });
+
+  it('the README named demo runs the requested architecture boundary', () => {
+    const readme = readFileSync(path.join(REPO_ROOT, 'README.md'), 'utf8');
+    const command = readme.match(/^npx --no-install bce demo --recipe ([a-z-]+)$/m);
+    expect(command).not.toBeNull();
+    const result = run(['demo', '--recipe', command![1]!]);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(`recipe ${command![1]}`);
+    expect(result.stdout).toContain(`bce demo: ${command![1]} discriminates GREEN from RED`);
   });
 });

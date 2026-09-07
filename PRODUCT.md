@@ -8,8 +8,8 @@ web
 
 ## Users
 
-- Primary user (inferred from the public repository, onboarding material, and the user's brief): a staff/principal engineer, architect, or OSS maintainer responsible for keeping architecture coherent while coding agents make changes quickly.
-- Secondary user (inferred): an AI coding agent that needs a deterministic, machine-readable done-check and a precise repair path.
+- Primary operator (explicit user direction): an AI coding agent that discovers, authors, inspects, runs, and repairs architecture contracts through local CLI and read-only MCP tools.
+- Human user: an engineer, architect, or maintainer who states intent, inspects the blueprint and evidence, and approves governed policy changes. The cockpit and inspection views support that review.
 
 ## Product Purpose
 

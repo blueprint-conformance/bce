@@ -933,6 +933,7 @@ async function main(): Promise<void> {
   const noPin = args['no-pin'] === true || args['no-pin'] === 'true';
 
   if (cmd === 'demo') {
+    if (args._.length !== 1) die(`unexpected demo argument '${args._[1]}'; use 'bce demo --list' or 'bce demo --recipe <id>'`, 1);
     const root = packageRoot();
     const recipeSelections = process.argv.slice(2).filter((arg) => arg === '--recipe').length;
     if (args.list !== undefined && args.list !== true) die(`--list does not accept a value`, 1);
@@ -2309,7 +2310,7 @@ async function main(): Promise<void> {
     die(`unknown portfolio subcommand: ${String(sub)} (expected compile | collect)`);
   }
 
-  process.stdout.write(
+  const helpText =
       `bce — Blueprint Conformance Engine\n\n` +
       `  bce demo [--list | --recipe <id|all>]  Package-only architecture RED/GREEN proofs\n` +
       `       No repository, account, configuration, network, or API key required. Zero arguments preserves the original extension-contract proof.\n` +
@@ -2377,9 +2378,20 @@ async function main(): Promise<void> {
       `       ${GRADUATION_RECORD_RELPATH}). Downgrade: bce graduate --downgrade --rationale "<why>"\n` +
       `       (enforced → advisory is REFUSED without a recorded rationale — never a silent relax).\n` +
       `  bce portfolio compile --portfolio <file> [--out-dir <dir>]\n` +
-      `  bce portfolio collect --registry <file> --reports-dir <dir>\n`,
-  );
-  if (cmd && cmd !== 'help') process.exit(1);
+      `  bce portfolio collect --registry <file> --reports-dir <dir>\n`;
+  const topicWords = (args._[0] === 'help' ? args._.slice(1) : args._).filter(word => word !== '-h');
+  const topic = helpRequested ? topicWords.join(' ') : '';
+  if (topic) {
+    const selected = helpText.split(/(?=^  bce )/m).filter(block =>
+      block.startsWith(`  bce ${topic === 'init' ? 'author' : topic} `));
+    if (selected.length === 0) die(`unknown help topic '${topic}'; run 'bce --help'`, 1);
+    process.stdout.write(`bce — Blueprint Conformance Engine\n\n${selected.join('')}\n`);
+    if (/^(ratify|amend|review decide)$/.test(topic)) {
+      process.stdout.write('GitHub selector: --github-repo <owner/name> --github-pull <n> --github-review <id> [--review-mode self-ratified]\n');
+    }
+    process.stdout.write('Use the installed docs/agent-start.md for the agent workflow. Help never runs a command.\n');
+  } else process.stdout.write(helpText);
+  if (cmd && cmd !== 'help') die(`unknown command '${cmd}'; run 'bce --help'`, 1);
 }
 
 void main().catch((error: unknown) => {

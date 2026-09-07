@@ -28,28 +28,44 @@ examples/quickstart/
 └── drift/src/greeting.plugin.ts                     # imports axios directly            → RED
 ```
 
-```bash
-mkdir bce-quickstart && cd bce-quickstart
+Check `node --version`: Node 22 or newer is required. Use a fresh directory.
+The commands below also work in PowerShell; each is a separate step.
+After installation, all BCE operations are local.
+
+```sh
+mkdir bce-quickstart
+cd bce-quickstart
 npm init -y
 npm view bce-engine@0.3.0 version dist.integrity
 npm install --save-dev --save-exact bce-engine@0.3.0
-cp -R node_modules/bce-engine/examples/quickstart .
-cd quickstart
-alias bce='../node_modules/.bin/bce'
-
-# 1. the contract parses and is not vacuous
-bce validate --blueprint blueprint/no-direct-http-client.blueprint.json
-bce teeth --blueprint blueprint/no-direct-http-client.blueprint.json --ct-repo clean --no-pin --extractor ast
-
-# 2. the clean tree passes (exit 0)
-bce gate --repo clean --blueprint-dir blueprint --extractor ast
-
-# 3. the drifted tree fails, naming the exact line (exit 1)
-bce gate --repo drift --blueprint-dir blueprint --extractor ast --all
-
-# 4. fix drift/src/greeting.plugin.ts to match clean/, re-gate → exit 0
-bce gate --repo drift --blueprint-dir blueprint --extractor ast
+node -e "require('node:fs').cpSync('node_modules/bce-engine/examples/quickstart', 'quickstart', {recursive:true})"
 ```
+
+Validate the contract and prove that the clean tree passes:
+
+```sh
+npx --no-install bce validate --blueprint quickstart/blueprint/no-direct-http-client.blueprint.json
+npx --no-install bce teeth --blueprint quickstart/blueprint/no-direct-http-client.blueprint.json --ct-repo quickstart/clean --no-pin --extractor ast
+npx --no-install bce gate --repo quickstart/clean --blueprint-dir quickstart/blueprint --extractor ast
+```
+
+Run the drifted tree separately. Expect exit `1` and an exact forbidden-import diagnosis. This is
+an intentional failure; do not join it to the repair step with `&&` or treat it as a failed install.
+
+```sh
+npx --no-install bce gate --repo quickstart/drift --blueprint-dir quickstart/blueprint --extractor ast --all
+```
+
+Fix the copied source and run the same rule again; expect exit `0`:
+
+```sh
+node -e "require('node:fs').copyFileSync('quickstart/clean/src/greeting.plugin.ts', 'quickstart/drift/src/greeting.plugin.ts')"
+npx --no-install bce gate --repo quickstart/drift --blueprint-dir quickstart/blueprint --extractor ast
+```
+
+No shell alias or global executable is needed. This edits only the disposable copied example,
+not the installed package or your repository’s policy.
+
 
 The exact package above is the provenance-backed public release recorded in
 [`STATUS.md`](../STATUS.md). The copy keeps the shipped example writable while the installed
@@ -69,10 +85,10 @@ can — and that a green verdict therefore means something.
   Cursor, or any MCP client as the done-check.
 - **Understand the adoption levers** — advisory mode and shrink-only baselines — in
   [`faq.md`](faq.md).
-- **Wire the complete stack** — exact commit install, contract, agent context, MCP, immutable CI,
+- **Wire the complete stack** — exact package install, contract, agent context, MCP, immutable CI,
   lifecycle, and evidence — in [`onboarding.md`](onboarding.md).
 
 ## Recommended next step
 
-- [`adopt-existing-repo.md`](adopt-existing-repo.md) — turn the gate on a repo that already drifts,
-  without a day-one wall of red.
+- [Ordered onboarding](onboarding.md) — have the current agent draft one real boundary and wire
+  advisory CLI, MCP, skills, and CI into your repository.

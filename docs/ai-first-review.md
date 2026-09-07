@@ -2,7 +2,7 @@
 
 > **Release status:** this surface is available in the exact `bce-engine@0.3.0` registry release.
 
-`bce propose` is the first repository-facing experience: a maintainer states intent, an AI drafts a
+`bce propose` is the optional provider-backed drafting path: a maintainer states intent, an AI drafts a
 plan, BCE deterministically compiles and tests the exact candidate, and a human reviews one immutable
 packet. The model never gains approval or policy-write authority.
 
@@ -12,6 +12,10 @@ packet. The model never gains approval or policy-write authority.
     <img src="../assets/diagrams/ai-review-authority.svg" alt="Bounded disclosed context reaches the assistant, whose output stays an untrusted draft in quarantine. Deterministic BCE validation, scope, gate, teeth, and semantic-diff checks produce an immutable review packet. Only an authenticated human review and attended ratification ceremony can move the candidate toward policy; the assistant has no approval or policy-write path.">
   </picture>
 </p>
+
+For drafting with your current coding agent and no additional provider call, use
+[ordered onboarding](onboarding.md). Source `main` additionally supports offline `review prepare`
+and [solo-steward ratification](solo-steward-ratification.md); those additions are not in npm `0.3.0`.
 
 ## 1. Freeze the state and state the intent
 

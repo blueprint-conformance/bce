@@ -4,7 +4,7 @@
 Blueprint conformance:
 - This repository is gated by an authored EngineeringBlueprint in .blueprints/. The blueprint is the
   durable architectural contract; the gate is how a change proves it still holds.
-- Run the gate before claiming a change is done: run `bce gate` (or the run_gate MCP tool if the
+- Run the gate before claiming a change is done: run `npx --no-install bce gate --repo . --all` (or the run_gate MCP tool if the
   bce-mcp server is connected). A green typecheck or test run is necessary but not sufficient — the
   change is not finished until the gate is green.
 - When the gate goes red, fix the code — never silently edit the blueprint. The red names the
@@ -15,3 +15,7 @@ Blueprint conformance:
   and only ever shrinks; never add a violation to it on your own initiative.
 - The gate is fail-closed: there are no skip flags. If it cannot honestly grade (malformed blueprint,
   partial scan), it errors — treat an error as a red, not a pass.
+
+Use the installed local binary (`pnpm exec bce` or `yarn bce` for those package managers). Prefer
+MCP `run_gate {}` when connected. Read `gateFailed`, `outcome`, and each report verdict: advisory
+`exitCode: 0` can still mean RED. An `isError` result or refusal cannot establish conformance.

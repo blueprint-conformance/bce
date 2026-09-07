@@ -1,8 +1,9 @@
 # Onboard the complete BCE stack
 
-This is the single path from “I know nothing about BCE” to a repository where the contract, local
-agent loop, MCP tools, and pull-request gate agree. Every surface is a thin adapter over the same
-engine; you do not need every optional adapter to trust the verdict.
+This is the agent-operated path to a first draft, a real RED/GREEN proof, and advisory repository
+wiring. Your existing coding agent does the work; a human states intent and approves policy.
+Ratification and enforcement are explicit later steps, not effects of installing the package.
+For an already-gated repository, start with the [agent repair loop](agent-start.md).
 
 ## What each piece does
 
@@ -20,8 +21,9 @@ standing rule. CI supplies enforcement. None of those duplicates conformance log
 
 ## 1. Install the exact release
 
-Node 22 or newer is required. Install the exact published version as a development dependency;
-both `bce` and `bce-mcp` become local project binaries:
+Node 22 or newer is required. Check `node --version` first. Use the repository’s existing package
+manager and workspace; preserve its lockfile. For npm, install the exact release as a development
+dependency. Both `bce` and `bce-mcp` become local project binaries:
 
 ```bash
 npm view bce-engine@0.3.0 version dist.integrity
@@ -29,37 +31,31 @@ npm install --save-dev --save-exact bce-engine@0.3.0
 npx --no-install bce demo
 ```
 
+For pnpm, use `pnpm add -D -E bce-engine@0.3.0` and `pnpm exec bce demo`. For Yarn with a `node_modules` install, use
+`yarn add --dev --exact bce-engine@0.3.0` and `yarn bce demo`. Run in the intended workspace;
+do not create a second lockfile. Generated MCP launchers assume a `node_modules` install; Yarn
+Plug’n’Play requires a harness-specific launcher and is not covered by this walkthrough. Substitute that local runner for `npx --no-install` below.
+
 `demo` must print one GREEN and one RED result. If it cannot go red, stop: you do not have a
 functional engine. Never use `latest` or a range for a merge gate.
 
-## 2. Start with an AI-first reviewed proposal
+## 2. Let the current agent draft one rule
 
-The preferred first repository action is to state intent and let the registered assistant draft
-inside quarantine. BCE then validates, scopes, grades, proves teeth, and compares the exact
-candidate before a human sees it:
+Have the coding agent read your repository instructions and architectural intent, inspect the real
+source tree, and choose one supported boundary. It can use its own reasoning and local tools; no
+second model account or API key is required. Record the intent in a repository document before
+proposing policy. `--intent-ref` should point to that actual intent, not an invented authority.
+For a GitHub-bound review, configure the real Git remote before authoring, or supply
+`--repository owner/repo` explicitly. A later change of repository identity requires a fresh
+draft and review packet; a local-folder identity is sufficient for an offline first proof.
 
-```bash
-export OPENAI_API_KEY='<credential supplied outside BCE>'
-npx --no-install bce propose \
-  --repo . \
-  --intent-file docs/architecture-intent.md \
-  --assistant openai-responses \
-  --assistant-model '<exact provider model id>' \
-  --new
-```
-
-The model cannot approve or install policy. Follow the [AI-first review ceremony](ai-first-review.md)
-to inspect the packet and bind a decision to a real pull-request review.
-
-### Manual draft path
-
-`bce author` remains the deterministic, offline lower-level path. Start with one important rule over
+`bce author` deterministically compiles the agent’s draft and checks its scope. Start with one important rule over
 files that already exist. This example bans direct `axios` imports from TypeScript/JavaScript source:
 
 ```bash
 npx --no-install bce author \
   --id no-direct-http-client \
-  --intent-ref architecture/network-boundary \
+  --intent-ref docs/architecture-intent.md \
   --constraint 'forbiddenDependency:axios:critical' \
   --extraction-profile plugin-surface \
   --scope-paths 'src/**/*.js,src/**/*.jsx,src/**/*.ts,src/**/*.tsx' \
@@ -68,10 +64,18 @@ npx --no-install bce author \
   --out bce-draft.json
 ```
 
-The command refuses a scope that matches zero files. To start from an executable architecture
+Create `docs/architecture-intent.md` with the intended network boundary first. This example assumes
+real TypeScript/JavaScript files under `src/`; adapt the scope to the repository instead of creating
+dummy files to make a scan pass. The command refuses a scope that matches zero files. To start from an executable architecture
 boundary or adapt a different repository layout, use [the First Win recipe catalog](first-win.md).
 The draft stays outside `.blueprints/` until the
 onboarding command installs it as a governed proposal.
+
+For a provider-backed draft instead, use [the optional `bce propose` adapter](ai-first-review.md).
+It emits `.bce/proposals/<id>/<id>.blueprint.json` and a review packet. Pass that emitted blueprint
+path to onboarding in place of `bce-draft.json`; do not assume the manual draft exists. Onboarding
+changes the repository, so prepare a fresh packet after the setup commit before seeking approval.
+The printed disclosure precedes the network request; it is not an interactive consent prompt.
 
 ## 3. Wire the repository
 
@@ -159,26 +163,30 @@ For a manual installation, copy the complete `node_modules/bce-engine/skills/bce
 `node_modules/bce-engine/skills/skill-tuning` directories into the skill directory your agent
 supports. Copy directories, not only `SKILL.md`, because `skill-tuning` has references.
 
-## 6. Review and ratify
+## 6. Review policy before enforcing
 
-Review the generated diff, the planted RED/GREEN proof, and `.bce-adoption.json`. The current landing
-ceremony requires a deterministic packet and a GitHub review; local identity/rationale flags are not
-authentication. If onboarding installed a manual draft first, use it as the explicit semantic base:
+Review the generated diff, planted RED/GREEN proof, and `.bce-adoption.json`. The repository is now
+an advisory proposal. `doctor` may report pending ratification or evaluator-only teeth; read those
+findings as remaining work, not as a failed package installation or permission to weaken the rule.
 
-```bash
-npx --no-install bce propose \
-  --repo . \
-  --intent-file docs/architecture-intent.md \
-  --assistant openai-responses \
-  --assistant-model '<exact provider model id>' \
-  --base .blueprints/no-direct-http-client.blueprint.json
-```
+Choose the ceremony supported by the exact artifact you installed:
 
-Inspect the emitted packet, obtain the bound SCM decision, then ratify the candidate in quarantine
-with `--packet`, `--decision`, `--github-repo`, `--github-pull`, and `--github-review` as shown in
-[the complete review guide](ai-first-review.md). Ratification re-fetches the forge review before it
-replaces the existing draft. Do not automate that command through MCP. Keep advisory mode until the
-team is ready to graduate.
+- **Published `0.3.0`:** the [provider-backed review guide](ai-first-review.md) prepares a packet and
+  authenticates a non-author GitHub reviewer with maintain/admin permission. An approving review
+  by the PR author does not satisfy that released path.
+- **Current source:** [offline review preparation and solo-steward ratification](solo-steward-ratification.md)
+  use `bce review prepare` with the locally authored draft and explicit, trusted-base governance.
+  This path does not need a second model call. It is source-only until a new release is published.
+
+Commit the intended setup and source state before preparing the packet. Changes to source, policy,
+or installed configuration after preparation make its evidence stale; prepare again rather than
+reusing an approval for different inputs. Agents can prepare the diff and exact review material;
+the authenticated human decision remains the authority.
+
+After ratification, use the [baseline and graduation ceremony](adopt-existing-repo.md) if needed,
+and verify GitHub branch protection actually requires the gate. `bce graduate` configures local
+mode; a workflow file alone does not prove merges are blocked. Do not present a one-human `0.3.0`
+installation as having completed solo ratification.
 
 ## 7. Emit reproducible evidence
 
@@ -198,11 +206,11 @@ created the artifacts or independently witnessed the run.
 
 | Symptom | Meaning / next move |
 |---|---|
-| `npx` tries to download a package named `bce` | the exact Git dependency did not build/install; check Node >=22 and that `node_modules/.bin/bce` exists |
+| `npx` tries to download a package named `bce` | the local engine dependency is missing or installation failed; check Node >=22 and that `node_modules/.bin/bce` exists |
 | doctor exits 1 | setup is gradeable but still needs an action; read the typed warning list |
 | doctor or gate exits 2 | BCE refused to claim a grade; fix discovery, scope, parser, extractor, or engine-floor cause |
 | `bce run` is green but ignores an uncommitted fix | use `--no-pin` locally; `run` is pinned by default. `bce gate` and MCP `run_gate` scan the live tree |
-| MCP tools do not appear | restart the harness and verify `npx --no-install bce-mcp` exists |
+| MCP tools do not appear | restart the harness; inspect its generated MCP config and verify `node_modules/bce-engine/dist/mcp-server.js` exists (running the stdio server interactively waits for input) |
 | CI never reports | remove workflow-level path filters and ensure the workflow event covers pull requests |
 | `evaluator-refutable` teeth | this is not extractor-real proof; seed a realistic mutation or obtain an explicit reviewed waiver |
 
