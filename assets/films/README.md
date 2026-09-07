@@ -1,6 +1,6 @@
 # Film collection
 
-The catalog is the durable index. It records ten films, their provenance boundaries, source-video identities, durations, dimensions, captions and readable descriptions. The original binaries and frame-derived posters live in the dated `media-2026-09-07` GitHub media release. This is a media collection, not an engine release; it does not change the registry version or release-state ledger.
+The catalog is the durable index. It records ten films, their provenance boundaries, source-video identities, durations, dimensions, timed walkthroughs and readable summaries. The original binaries and frame-derived posters live in the dated `media-2026-09-07` GitHub media release. This is a media collection, not an engine release; it does not change the registry version or release-state ledger.
 
 The homepage features the context spectrum; `/films/` preserves every selected cut; the repository README carries a short preview that plays once. The full interactive view is under `assets/films/context-spectrum/index.html`. Website players use native controls and `preload="none"`; they never autoplay or fetch all videos on arrival. The readable descriptions also work with scripting disabled.
 
