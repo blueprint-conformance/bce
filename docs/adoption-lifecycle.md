@@ -3,9 +3,10 @@
 The shortest safe path from “new repository” to a self-correcting BCE gate is:
 
 1. `bce doctor --repo .` diagnoses prerequisites without writing.
-2. Prefer [`bce propose`](ai-first-review.md): state intent, disclose bounded context, and receive a
-   validated draft plus deterministic review packet in quarantine. The offline `bce author` path and
-   [`bce onboard`](onboarding.md) remain available for manual onboarding and complete CI,
+2. Have the current coding agent use `bce author` to draft one supported rule from stated intent.
+   [`bce propose`](ai-first-review.md) is an optional provider-backed alternative with bounded
+   disclosure and a deterministic review packet in quarantine. Use
+   [`bce onboard`](onboarding.md) for complete CI,
    agent-context, and MCP wiring. The lower-level `bce adopt` command remains available for
    policy-only adoption with an exact published `bce-engine@X.Y.Z` pin.
    Adoption is advisory and proposal-only; generated CI has read-only permissions.

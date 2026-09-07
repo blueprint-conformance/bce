@@ -148,7 +148,7 @@ export function renderReviewPacketHtml(input: BlueprintReviewPacket, decisionInp
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BCE Blueprint Review — ${escapeHtml(packet.proposalId)}</title>
-<style>body{font:16px/1.5 system-ui,sans-serif;max-width:72rem;margin:2rem auto;padding:0 1rem;color:#17202a}code,pre{font-family:ui-monospace,monospace}.status{padding:.75rem;border:2px solid currentColor}.blocked{color:#8b1a10}.clause{border-top:1px solid #ccd1d1;padding:1rem 0}dt{font-weight:700;margin-top:.75rem}dd{margin-left:0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f7f8;padding:1rem}.meta,.empty{color:#566573}</style></head>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:72rem;margin:2rem auto;padding:0 1rem;color:#17202a;overflow-wrap:anywhere}code,pre{font-family:ui-monospace,monospace}.status{padding:.75rem;border:2px solid currentColor}.blocked{color:#8b1a10}.clause{border-top:1px solid #ccd1d1;padding:1rem 0}dt{font-weight:700;margin-top:.75rem}dd{margin-left:0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f7f8;padding:1rem}.meta,.empty{color:#566573}</style></head>
 <body><main>
   <h1>BCE Blueprint Review</h1>
   <p><strong>${escapeHtml(packet.proposalId)}</strong> · draft only</p>

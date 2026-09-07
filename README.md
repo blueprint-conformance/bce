@@ -7,9 +7,10 @@
 
 # Architecture rules your agents cannot quietly break
 
-`bce` is a local, deterministic merge gate for software architecture. You check a versioned
-`EngineeringBlueprint` into the repository; each change must conform or return an exact reason it
-cannot merge.
+`bce` gives coding agents a local, deterministic architecture check. A versioned
+`EngineeringBlueprint` records the repository's structural rules. Agents draft those rules from
+your intent, inspect the code, and repair violations; the same engine checks every pull request.
+Humans own the intent and approve policy changes. Agents operate the day-to-day loop.
 
 **Released support (`v0.3.0`):** mature TypeScript/JavaScript framework-surface AST extraction,
 direct TypeScript/JavaScript module boundaries, a Python import-surface MVP, and structured Python
@@ -20,10 +21,26 @@ module boundaries. Node 22+ is required; the contract remains pre-1.0.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 920">
+  <img src="assets/badges/tests.svg" alt="tests: 924">
 </p>
 
 [Watch BCE govern its own main branch](https://blueprint-conformance.github.io/bce/trust/#self-adoption-status): live GitHub stages, authenticated self-adoption, and explicit evidence boundaries.
+
+## Start with your coding agent
+
+Give your existing agent this task:
+
+```text
+Read https://blueprint-conformance.github.io/bce/llms.txt and its agent start guide.
+Inspect this repository and identify one supported architecture boundary from our stated intent.
+Use BCE to draft the rule, prove a real RED → code fix → GREEN, and wire the local agent loop.
+Keep setup advisory and present policy changes for my review. Report unsupported scope explicitly.
+```
+
+[The agent start guide](docs/agent-start.md) routes an existing gated repository straight to MCP
+`run_gate {}` and a new repository to local authoring and onboarding. Your current agent can do
+this with its own tools; BCE needs no additional model account for that path. The blueprint
+inspection tools and review cockpit let humans examine the same contract and evidence.
 
 ## Run a real gate
 
@@ -41,7 +58,7 @@ configuration widening, then run the boundary closest to your repository:
 
 ```bash
 npx --no-install bce demo --list
-npx --no-install bce demo typescript-module-layering
+npx --no-install bce demo --recipe module-layering
 ```
 
 [Run the released First Win recipes](docs/first-win.md), or keep the zero-argument proof above.

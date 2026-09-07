@@ -133,6 +133,7 @@
     "docs",
     "assets/diagrams",
     "spec/schemas",
+    "spec/SPEC.md",
     "spec/skill-standard",
     "examples",
     "evidence/example-chain",

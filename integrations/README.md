@@ -1,7 +1,8 @@
 # Integrations
 
 Everything in this directory is a **drop-in surface over the same engine** — none of it contains
-conformance logic. The index:
+conformance logic. Start with the [agent guide](../docs/agent-start.md) or [ordered onboarding](../docs/onboarding.md).
+The index:
 
 | Integration | File(s) | What it is |
 |-------------|---------|------------|
@@ -29,9 +30,10 @@ agent picks it up alongside everything else the repo already tells it.
 
 ## The three rules (identical across every snippet)
 
-1. **Run the gate before claiming a change is done.** `bce gate` (or the `run_gate` MCP tool) is the
+1. **Run the gate before claiming a change is done.** MCP `run_gate {}` or the installed local
+   `npx --no-install bce gate --repo . --all` is the
    done-check. A change is not finished until the gate is green — a passing typecheck or test run is
-   not a substitute.
+   not a substitute. Read the structured verdict: advisory exit code 0 can still report a violation.
 2. **Fix the code, never silently edit the blueprint.** When the gate goes red, the default is to
    change the code so it conforms. Editing the blueprint to make a red go away is changing the
    contract, not meeting it — do it only deliberately, in its own change, with review.

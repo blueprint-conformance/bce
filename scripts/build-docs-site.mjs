@@ -68,6 +68,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEvidenceClaims } from './lib/evidence-claims.mjs';
 import { selfAdoptionHtml } from './lib/self-adoption-site.mjs';
+import { publishAgentDocs } from './lib/agent-docs-site.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let RELEASE_STATE;
@@ -147,7 +148,7 @@ const PAGES = [
   { route: 'guides/credibility-hardening', source: 'docs/credibility-hardening-plan-2026-09-02.md', section: 'Guides' },
   { route: 'guides/credibility-hardening-closeout', source: 'docs/credibility-hardening-closeout-2026-09-02.md', section: 'Guides' },
 
-  { route: 'agents', kind: 'section-index', section: 'For Agents', nav: 'For Agents' },
+  { route: 'agents', source: 'docs/agent-start.md', section: 'For Agents', nav: 'For Agents' },
   // `title` overrides the source's own H1 for NAVIGATION only — the page still
   // renders the document unchanged. llms.txt opens with the project's name
   // rather than the document's, which as a card label says nothing.
@@ -466,9 +467,6 @@ const PUBLISHABLE_GLOBS = [
   { dir: 'prompts', recursive: false },
 ];
 
-// Files copied to the site verbatim, at a fixed route. `llms.txt` is served at
-// the site root because that is the convention agents look for.
-const VERBATIM = [{ source: 'llms.txt', route: 'llms.txt' }];
 
 // ---------------------------------------------------------------------------
 // Failure reporting. Two classes, two exit codes, mirroring tools/verify-chain.mjs:
@@ -1116,10 +1114,10 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
   const livePipeline = route === '' || route === 'trust';
   if (livePipeline) {
     const panel = selfAdoptionHtml(repoRoot, relativeUrl(route, 'guides/live-self-adoption', true));
-    pageBody = route === '' ? pageBody.replace(/<h2\b/, panel + '\n<h2') : pageBody.replace('</h1>', '</h1>\n' + panel);
+    pageBody = route === '' ? pageBody.replace(/(<h2 id="evidence-and-limits"[^>]*>[\s\S]*?<\/h2>)/, '$1\n' + panel) : pageBody.replace('</h1>', '</h1>\n' + panel);
   }
   const source = sourceFile
-    ? `<p class="source">Source: <a href="${REPO_BLOB}${sourceFile}" rel="noopener">${escapeHtml(sourceFile)}</a></p>`
+    ? `<p class="source"><a href="${SITE_ORIGIN}/source/${sourceFile}">Read Markdown</a> · Source: <a href="${REPO_BLOB}${sourceFile}" rel="noopener">${escapeHtml(sourceFile)}</a></p>`
     : '';
   return `<!doctype html>
 <html lang="en">
@@ -1131,6 +1129,7 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
 <meta name="color-scheme" content="light dark">
 <title>${escapeHtml(docTitle)}</title>
 <link rel="canonical" href="${canonicalHref}">
+${sourceFile ? `<link rel="alternate" type="text/markdown" href="${SITE_ORIGIN}/source/${sourceFile}">` : ''}
 <link rel="icon" href="${faviconHref}" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="bce">
@@ -1380,7 +1379,7 @@ function main() {
   // ---- context: what maps to what -----------------------------------------
   const routeBySource = new Map();
   for (const p of PAGES) if (p.source) routeBySource.set(p.source, p.route);
-  const verbatimBySource = new Map(VERBATIM.map((v) => [v.source, v.route]));
+  const verbatimBySource = new Map([['llms.txt', 'llms.txt']]);
   // Filled during rendering: every assets/*.svg a published page actually
   // references. Copying the whole directory instead would publish assets no
   // page uses and hide a typo'd src behind a file that happens to be there.
@@ -1427,10 +1426,9 @@ function main() {
     if (!fs.readFileSync(dest).equals(src)) problem(`schema copy differs from source: ${f}`);
   }
 
-  // ---- verbatim files ------------------------------------------------------
-  for (const v of VERBATIM) {
-    fs.writeFileSync(path.join(outDir, v.route), readSource(v.source));
-  }
+  // Plain-text entry points use HTTP-resolvable links, not repository-relative 404s.
+  publishAgentDocs({ repoRoot, outDir, sources: [...PAGES.flatMap(p => p.source ? [p.source] : []), ...walkMarkdown('skills', true, [])],
+    origin: SITE_ORIGIN, repository: 'blueprint-conformance/bce' });
 
   const blurbs = blurbsFromLlmsTxt();
   const produced = new Map(); // route -> { anchors:Set, hrefs:[] }
@@ -1545,7 +1543,7 @@ function main() {
       bodyHtml,
       headings,
       sourceFile: p.source ?? null,
-      wantToc: p.kind === undefined,
+      wantToc: p.kind === undefined && p.route !== 'agents',
     });
     const dir = p.route === '' ? outDir : path.join(outDir, p.route);
     fs.mkdirSync(dir, { recursive: true });

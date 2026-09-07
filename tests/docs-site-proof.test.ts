@@ -21,7 +21,7 @@
  *   - the published schemas under _site/schemas/ are byte-identical to
  *     spec/schemas/ — complete, nothing extra (the `$id` URLs keep naming
  *     exactly these bytes);
- *   - llms.txt is served verbatim at the site root;
+ *   - llms.txt and its plain Markdown links resolve from the public HTTP entry point;
  *   - the post-flip publisher remains active, runs for every main commit, and
  *     still owns both deploy steps, while the build-only docs-site-check
  *     workflow has grown no deploy machinery. An active publisher with a
@@ -103,10 +103,22 @@ describe('docs-site build (always-on, unfiltered by CI paths)', () => {
     }
   });
 
-  it('serves llms.txt verbatim at the site root', () => {
-    const identical = readFileSync(path.join(repoRoot, 'llms.txt'))
-      .equals(readFileSync(path.join(out, 'llms.txt')));
-    expect(identical).toBe(true);
+  it('serves an agent index whose Markdown links resolve to emitted text files', () => {
+    const index = readFileSync(path.join(out, 'llms.txt'), 'utf8');
+    expect(index).toContain('https://blueprint-conformance.github.io/bce/source/docs/agent-start.md');
+    for (const match of index.matchAll(/\]\(([^)]+)\)/g)) {
+      const target = new URL(match[1]!);
+      if (target.origin !== 'https://blueprint-conformance.github.io') continue;
+      if (!target.pathname.startsWith('/bce/source/')) continue;
+      const file = path.join(out, decodeURIComponent(target.pathname.slice('/bce/'.length)));
+      expect(existsSync(file), `agent index link does not resolve: ${target.href}`).toBe(true);
+      expect(readFileSync(file, 'utf8')).not.toContain('<!doctype html>');
+    }
+    const agent = readFileSync(path.join(out, 'agents', 'index.html'), 'utf8');
+    expect(agent).toContain('rel="alternate" type="text/markdown"');
+    expect(agent).toContain('Read Markdown');
+    expect(readFileSync(path.join(out, 'source', 'skills', 'bce', 'references', 'lifecycle.md'), 'utf8'))
+      .toContain('Draft with the current coding agent');
   });
 
   it('ships the BCE identity and share metadata on root and nested pages', () => {

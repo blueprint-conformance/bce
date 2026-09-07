@@ -100,7 +100,9 @@ skill and MCP configurations for every harness.
 
 ## Having an agent draft the first blueprint
 
-Use [`bce propose`](ai-first-review.md) when the installed release exposes it. The command sends only
+Have the current coding agent use `bce author` as described in [ordered onboarding](onboarding.md).
+It can draft locally without another model account. Use [`bce propose`](ai-first-review.md) when
+you want the optional provider-backed adapter. The command sends only
 the previewed bounded context to a registered adapter, compiles draft-only output, and emits a
 deterministic review packet automatically. The older
 [`prompts/blueprint-author.md`](../prompts/blueprint-author.md) pack remains a manual harness fallback;

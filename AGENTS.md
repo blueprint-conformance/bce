@@ -58,7 +58,10 @@ npm test          # the full vitest suite
 node dist/cli.js gate --repo . --repo-name blueprint-conformance/bce   # gate this repo
 ```
 
-Before you claim a change is done, all three workflows must be green. See
+Before you claim a change is done, all required PR checks must be green. For release or public-site
+work, also wait for all release-relevant post-merge workflows and all six portability legs on the
+exact merged `main` commit; a passing PR or Pages deployment is not completed release verification.
+See [the portability contract](docs/portability.md) and
 [`CONTRIBUTING.md`](CONTRIBUTING.md) for the DCO sign-off and agent-authored-PR conventions (gate
 green + evidence ref in the PR body), and [`docs/self-hosting.md`](docs/self-hosting.md) for the
 self-gate and the admin-override incident policy.
