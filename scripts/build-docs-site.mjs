@@ -1061,19 +1061,17 @@ function renderList(lines, start, sourceFile, fromRoute, ctx, hrefSink) {
 }
 
 // ---------------------------------------------------------------------------
-// Page template. One stylesheet, served from this site — no external asset of
-// any kind, so the site renders identically offline and leaks no request to a
-// third party.
+// Page template. Local styles and scripts; film media uses the pinned public archive.
 // ---------------------------------------------------------------------------
 
 function navHtml(fromRoute, currentRoute) {
   const entries = PAGES.filter((p) => p.nav);
-  return entries
-    .map((p) => {
-      const cls = p.route === currentRoute ? ' class="current" aria-current="page"' : '';
-      return `<a href="${relativeUrl(fromRoute, p.route, true)}"${cls}>${escapeHtml(p.nav)}</a>`;
-    })
-    .join('');
+  const primary = new Set(['films', 'guides/quickstart', 'agents']);
+  const isPrimary = (p) => primary.has(p.route);
+  const link = (p) => `<a href="${relativeUrl(fromRoute, p.route, true)}"${p.route === currentRoute ? ' class="current" aria-current="page"' : ''}>${escapeHtml(p.nav)}</a>`;
+  const references = entries.filter((p) => p.route !== '' && !isPrimary(p));
+  return entries.filter(isPrimary).map(link).join('') +
+    `<details class="nav-reference"><summary${references.some((p) => p.route === currentRoute) ? ' class="current"' : ''}>Docs</summary><div class="nav-reference-links">${references.map(link).join('')}</div></details>`;
 }
 
 function tocHtml(headings) {
@@ -1102,19 +1100,19 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
   const homeHref = relativeUrl(route, '', true);
   const docTitle = route === '' ? `${SITE_NAME} — ${SITE_TAGLINE}` : `${title} — ${SITE_NAME}`;
   const canonicalHref = route === '' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}/${route}/`;
-  // The landing hero is the product explanation, not article decoration. Lift only that first,
-  // already-sanitized hero block above the documentation shell so it keeps the approved engine
-  // composition at common desktop widths; every other page and image stays in the reading column.
+  // The README keeps its illustrated banner. The website starts with navigation
+  // and a single semantic introduction, paired with the film inside main.
   let pageBody = bodyHtml;
-  let landingHero = '';
+  let landingIntro = '';
   if (route === '') {
-    const match = pageBody.match(/^<p class="hero">[\s\S]*?<\/p>\n?/);
-    if (match) {
-      landingHero = match[0];
-      pageBody = pageBody.slice(match[0].length);
+    pageBody = pageBody.replace(/^<p class="hero">[\s\S]*?<\/p>\n?/, '');
+    pageBody = pageBody.replace(/<h2 id="watch-the-context-move">[\s\S]*?(?=<h2 id="start-with-your-coding-agent">)/, '');
+    const intro = pageBody.match(/^(<h1[\s\S]*?<\/h1>\s*<p>[\s\S]*?<\/p>)\s*/);
+    if (intro) {
+      landingIntro = intro[1];
+      pageBody = pageBody.slice(intro[0].length);
     }
   }
-  if(route==='')pageBody=pageBody.replace(/<h2 id="watch-the-context-move">[\s\S]*?(?=<h2 id="start-with-your-coding-agent">)/,'');
   const livePipeline = route === '' || route === 'trust';
   if (livePipeline) {
     const panel = selfAdoptionHtml(repoRoot, relativeUrl(route, 'guides/live-self-adoption', true));
@@ -1150,17 +1148,18 @@ ${sourceFile ? `<link rel="alternate" type="text/markdown" href="${SITE_ORIGIN}/
 <meta name="twitter:image" content="${SOCIAL_IMAGE_URL}">
 <meta name="twitter:image:alt" content="${escapeHtml(SOCIAL_IMAGE_ALT)}">
 <link rel="stylesheet" href="${cssHref}">
+<script defer src="${'../'.repeat(depth) || './'}assets/site-nav.js"></script>
 ${route===''||route==='films'?`<link rel="stylesheet" href="${'../'.repeat(depth)||'./'}assets/films/library.css"><script defer src="${'../'.repeat(depth)||'./'}assets/films/library.js"></script>`:''}
 ${livePipeline ? `<script type="module" src="${'../'.repeat(depth) || './'}assets/self-adoption-status.mjs"></script>` : ''}
 </head>
 <body${route === '' ? ' class="landing"' : route==='films'?' class="film-library-page"':''}>
-${landingHero}
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="site-header">
-  <a class="brand" href="${homeHref}"><strong>${SITE_NAME}</strong> <span>${SITE_TAGLINE}</span></a>
+  <a class="brand" href="${homeHref}"${route === '' ? ' aria-current="page"' : ''}><img src="${faviconHref}" alt="" width="28" height="28"><strong>${SITE_NAME}</strong> <span>${SITE_TAGLINE}</span></a>
   <nav class="site-nav" aria-label="Sections">${navHtml(route, route)}</nav>
 </header>
-${route===''?filmFeature(FILMS):''}
-<main>
+<main id="main-content" tabindex="-1">
+${route===''?filmFeature(FILMS, landingIntro):''}
 <article>
 ${withToc(pageBody, headings, wantToc)}
 </article>
@@ -1231,15 +1230,34 @@ body {
   font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 a { color: var(--accent); }
+.skip-link { position: absolute; top: -80px; left: 20px; z-index: 10; padding: 12px 18px; background: #61c9ef; color: #07111f; }
+.skip-link:focus { top: 12px; }
 .site-header {
-  display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; align-items: baseline;
-  padding: 1rem 1.25rem; border-bottom: 1px solid var(--line);
+  display: flex; gap: 24px; align-items: center; justify-content: space-between;
+  min-height: 80px; padding: 16px max(24px, calc((100% - 1240px) / 2));
+  border-bottom: 1px solid #29394a; background: #080919; color: #e8ebed;
+  position: relative; z-index: 2;
 }
-.brand { text-decoration: none; color: var(--fg); }
-.brand span { color: var(--muted); font-size: .9rem; }
-.site-nav { display: flex; flex-wrap: wrap; gap: 1rem; margin-left: auto; }
-.site-nav a { text-decoration: none; font-size: .93rem; }
-.site-nav a.current { color: var(--fg); font-weight: 600; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: #e8ebed; flex-shrink: 0; }
+.brand strong { font-size: 24px; letter-spacing: -.02em; }
+.brand span { color: #a6bbcb; font-size: 13px; margin-left: 8px; }
+.site-nav { display: flex; align-items: center; gap: 24px; }
+.site-nav a, .site-nav summary { display: flex; align-items: center; min-height: 44px; color: #bfd0df; text-decoration: none; font-size: 14px; }
+.site-nav a:hover, .site-nav summary:hover { color: #61c9ef; }
+.site-nav a.current, .site-nav summary.current { color: #fff; text-decoration: underline; text-underline-offset: 7px; }
+.site-nav summary { display: list-item; line-height: 44px; cursor: pointer; }
+.nav-reference { position: relative; }
+.nav-reference-links { position: absolute; right: 0; top: 52px; width: 220px; padding: 12px; background: #101b29; border: 1px solid #36445b; border-radius: 8px; box-shadow: 0 12px 24px #0003; }
+.nav-reference-links a { padding: 4px 12px; }
+.nav-reference-links a:hover { background: #1a2b3c; }
+.site-header a:focus-visible, .site-header summary:focus-visible { outline: 2px solid #ffcb75; outline-offset: 4px; }
+@media (max-width: 1050px) { .brand span { display: none; } }
+@media (max-width: 600px) {
+  .site-header { padding: 12px 16px; gap: 12px; min-height: 72px; }
+  .brand { gap: 6px; } .brand strong { font-size: 21px; } .brand img { width: 22px; height: 22px; }
+  .site-nav { gap: 14px; } .site-nav a, .site-nav summary { font-size: 12px; }
+}
+@media (max-width: 359px) { .site-header { flex-wrap: wrap; gap: 0; } .site-nav { width: 100%; justify-content: space-between; } }
 main { max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
 article > :first-child { margin-top: 0; }
 h1, h2, h3, h4, h5, h6 { line-height: 1.25; margin: 2rem 0 .75rem; }
@@ -1272,8 +1290,6 @@ blockquote > :last-child { margin-bottom: 0; }
 .hero { text-align: center; line-height: 0; }
 .hero picture { display: block; }
 .hero img { max-width: 100%; height: auto; margin: .2rem .15rem; }
-.landing > .hero { margin: 0; background: #080919; }
-.landing > .hero picture, .landing > .hero img { display: block; width: 100%; max-width: 1280px; margin: 0 auto; }
 table { border-collapse: collapse; width: 100%; font-size: .93rem; }
 th, td { text-align: left; vertical-align: top; padding: .45rem .7rem; border: 1px solid var(--line); }
 th { background: var(--code-bg); font-weight: 600; }
@@ -1418,6 +1434,8 @@ function main() {
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(path.join(outDir, 'assets'), { recursive: true });
   fs.writeFileSync(path.join(outDir, 'assets/site.css'), STYLESHEET);
+  fs.writeFileSync(path.join(outDir, 'assets/site-nav.js'), `const menu=document.querySelector('.nav-reference');
+if(menu){document.addEventListener('click',e=>{if(!menu.contains(e.target))menu.open=false;});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&menu.open){menu.open=false;menu.querySelector('summary').focus();}});}`);
   publishFilmFiles(repoRoot,outDir);
   fs.copyFileSync(path.join(repoRoot, 'assets/site/self-adoption-status.mjs'), path.join(outDir, 'assets/self-adoption-status.mjs'));
 
