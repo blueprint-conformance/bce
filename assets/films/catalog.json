@@ -1,0 +1,478 @@
+{
+  "schemaVersion": 1,
+  "release": "media-2026-09-07",
+  "mediaBase": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/",
+  "featured": "context-spectrum",
+  "films": [
+    {
+      "id": "context-spectrum",
+      "title": "Context at every scale",
+      "collection": "Reference architecture",
+      "description": "Follow one blueprint from system intent to code, then return through repair, evidence and review.",
+      "boundary": "An illustrative platform reference design. The full loop is not a released BCE feature. Architectural C1–C4 zoom levels are distinct from BCE constraint type identifiers.",
+      "duration": 90,
+      "width": 1920,
+      "height": 1080,
+      "video": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/context-spectrum.mp4",
+      "poster": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/context-spectrum.jpg",
+      "sha256": "f4f4a097c13644a598b6b15a9435e412cbad243496ab2ffa64b2096af2a42f02",
+      "bytes": 25210628,
+      "captions": "context-spectrum.vtt",
+      "transcript": [
+        {
+          "start": 0,
+          "end": 7,
+          "text": "Follow a governed change from the system’s purpose to code, then bring its evidence back."
+        },
+        {
+          "start": 7,
+          "end": 15,
+          "text": "The parent architecture forbids direct UI access to the data store. A closer view cannot silently remove that rule."
+        },
+        {
+          "start": 15,
+          "end": 24,
+          "text": "Keep the UI, context service and data store in focus. The other branches remain in the system, outside this change."
+        },
+        {
+          "start": 24,
+          "end": 33,
+          "text": "Scope, allowed tools, required evidence and stop conditions become explicit inputs to execution."
+        },
+        {
+          "start": 33,
+          "end": 40,
+          "text": "Compare the implementation’s observed dependency with the relationship authorised by the blueprint."
+        },
+        {
+          "start": 40,
+          "end": 48,
+          "text": "A direct UI → data-store edge breaks the boundary. Pull back to see which relationship the finding violates."
+        },
+        {
+          "start": 48,
+          "end": 56,
+          "text": "The work returns with a concrete finding. Correct the implementation while preserving the governing rule."
+        },
+        {
+          "start": 56,
+          "end": 65,
+          "text": "The corrected relationship, source revision and evaluation become evidence about this specific change."
+        },
+        {
+          "start": 65,
+          "end": 74,
+          "text": "With no violation observed, incomplete coverage still leaves the result unknown. Request the missing observation; an observed violation still fails."
+        },
+        {
+          "start": 74,
+          "end": 82,
+          "text": "Bring the scoped change, its inherited boundaries, findings and evidence back together for review."
+        },
+        {
+          "start": 82,
+          "end": 90,
+          "text": "A different architecture requires a reviewed blueprint change. The next loop starts with explicit intent and authority."
+        }
+      ],
+      "textKind": "walkthrough"
+    },
+    {
+      "id": "architecture-walkthrough",
+      "title": "Inside the blueprint engineering loop",
+      "collection": "Reference architecture",
+      "description": "The complete earlier walkthrough: system context, services, components, reference code and the return to decisions.",
+      "boundary": "Preserved reference architecture film, including an illustrative TypeScript kernel; not the released engine.",
+      "duration": 137.96,
+      "width": 1920,
+      "height": 1080,
+      "video": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/architecture-walkthrough.mp4",
+      "poster": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/architecture-walkthrough.jpg",
+      "sha256": "0aa502296db44c0b086560bdc9aca84a833d5eaff87d1de8a8b382f3f429eb02",
+      "bytes": 13211921,
+      "captions": "architecture-walkthrough.vtt",
+      "transcript": [
+        {
+          "start": 0,
+          "end": 8,
+          "text": "An outcome becomes an engineering contract. Start with what the system is meant to achieve. The owner defines the outcome. A blueprint steward approves the engineering boundaries."
+        },
+        {
+          "start": 8,
+          "end": 16,
+          "text": "People, agents and systems share the same intent. Developers and agents implement the change. Repositories return facts and build evidence. Runtime environments return outcomes. Those relationships form one engineering loop."
+        },
+        {
+          "start": 16,
+          "end": 21,
+          "text": "Now open the system. Now zoom inside the platform and follow that approved intent through the services that carry it."
+        },
+        {
+          "start": 21,
+          "end": 25,
+          "text": "From the system to its services. The system boundary opens into experience, contract, execution and assurance services."
+        },
+        {
+          "start": 25,
+          "end": 34,
+          "text": "Approved intent becomes bounded work. The registry holds approved blueprint versions. The compiler turns intent into work orders, bounded by scope, policy and evidence requirements."
+        },
+        {
+          "start": 34,
+          "end": 43,
+          "text": "Execution produces something we can inspect. The agent runtime executes the work through governed tools and model routing. Changes reach repositories and CI. Observers collect facts for BCE to evaluate against the blueprint."
+        },
+        {
+          "start": 43,
+          "end": 48,
+          "text": "Evidence connects the result to a decision. The evaluation contributes to evidence. Decision and exception handling remain explicit before deployment verification."
+        },
+        {
+          "start": 48,
+          "end": 52,
+          "text": "Open the blueprint loop. Zoom again. Inside the loop, each component has a specific responsibility."
+        },
+        {
+          "start": 52,
+          "end": 61,
+          "text": "Resolve. Validate. Compile. Resolve the blueprint and its inherited rules. Validate schema and authority. Compile work orders and execution policy. A conflict must return to review."
+        },
+        {
+          "start": 61,
+          "end": 70,
+          "text": "Observe what exists. Evaluate what is known. The observer coordinates repository evidence. The evaluator checks the rules. Coverage is examined explicitly, because an unobserved boundary cannot be treated as a pass."
+        },
+        {
+          "start": 70,
+          "end": 75,
+          "text": "Carry findings forward with their evidence. Assemble the evidence, determine decision readiness, and verify deployment. Learning returns as a new proposal."
+        },
+        {
+          "start": 75,
+          "end": 79,
+          "text": "The contracts reach all the way into code. At code level, the reference kernel makes these responsibilities concrete in TypeScript contracts, guards and evaluation functions."
+        },
+        {
+          "start": 79,
+          "end": 87,
+          "text": "Approval is checked before compilation. The compiler checks approval and repository scope before creating execution work. This excerpt is from the supplied reference kernel."
+        },
+        {
+          "start": 87,
+          "end": 96,
+          "text": "Incomplete observation stays explicit. The evaluator distinguishes a detected violation from incomplete observation. Missing coverage preserves an unknown result, rather than silently creating a pass."
+        },
+        {
+          "start": 96,
+          "end": 104,
+          "text": "The evidence remembers which change was checked. The evidence bundle links the blueprint version, repository subject, trace and findings. Its digest lets consumers check the bundle contents."
+        },
+        {
+          "start": 104,
+          "end": 113,
+          "text": "Here is one check from the published engine. Separately, the published BCE engine demonstrates one concrete boundary. A forbidden import fails the gate. Corrected code passes under the unchanged blueprint."
+        },
+        {
+          "start": 113,
+          "end": 117,
+          "text": "Zoom back out: what does the result enable? Now zoom back out. The result belongs in a wider evidence and decision process."
+        },
+        {
+          "start": 117,
+          "end": 129,
+          "text": "Verify the deployment. Learn. Propose a change. An authorised decision leads to deployment and verification. Runtime outcomes feed learning. Learning proposes a blueprint change, and that proposal returns to review. Repairs and exceptions have visible paths."
+        },
+        {
+          "start": 129,
+          "end": 137,
+          "text": "What should an agent be allowed to change? That is the larger architecture around BCE: intent, execution, conformance, evidence and a reviewed evolution loop. What should an agent be allowed to change on its own?"
+        }
+      ],
+      "textKind": "walkthrough"
+    },
+    {
+      "id": "intent-to-work",
+      "title": "From intent to bounded work",
+      "collection": "Reference architecture",
+      "description": "A focused C1–C2 cut following approved intent into services, execution and evidence.",
+      "boundary": "A chapter cut from the reference architecture walkthrough.",
+      "duration": 48,
+      "width": 1920,
+      "height": 1080,
+      "video": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/intent-to-work.mp4",
+      "poster": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/intent-to-work.jpg",
+      "sha256": "3d59d86cf00739e2ca4f9a77545a3b6f92516a2cdc9ea592c612acbe60976a01",
+      "bytes": 3751553,
+      "captions": "intent-to-work.vtt",
+      "transcript": [
+        {
+          "start": 0,
+          "end": 8,
+          "text": "An outcome becomes an engineering contract. Start with what the system is meant to achieve. The owner defines the outcome. A blueprint steward approves the engineering boundaries."
+        },
+        {
+          "start": 8,
+          "end": 16,
+          "text": "People, agents and systems share the same intent. Developers and agents implement the change. Repositories return facts and build evidence. Runtime environments return outcomes. Those relationships form one engineering loop."
+        },
+        {
+          "start": 16,
+          "end": 21,
+          "text": "Now open the system. Now zoom inside the platform and follow that approved intent through the services that carry it."
+        },
+        {
+          "start": 21,
+          "end": 25,
+          "text": "From the system to its services. The system boundary opens into experience, contract, execution and assurance services."
+        },
+        {
+          "start": 25,
+          "end": 34,
+          "text": "Approved intent becomes bounded work. The registry holds approved blueprint versions. The compiler turns intent into work orders, bounded by scope, policy and evidence requirements."
+        },
+        {
+          "start": 34,
+          "end": 43,
+          "text": "Execution produces something we can inspect. The agent runtime executes the work through governed tools and model routing. Changes reach repositories and CI. Observers collect facts for BCE to evaluate against the blueprint."
+        },
+        {
+          "start": 43,
+          "end": 48,
+          "text": "Evidence connects the result to a decision. The evaluation contributes to evidence. Decision and exception handling remain explicit before deployment verification."
+        }
+      ],
+      "textKind": "walkthrough"
+    },
+    {
+      "id": "inside-the-check",
+      "title": "Inside the check",
+      "collection": "Reference architecture",
+      "description": "Resolve, compile, observe and evaluate, then inspect the reference kernel behind the responsibilities.",
+      "boundary": "A C3–C4 chapter cut; reference-kernel excerpts are not released-engine source.",
+      "duration": 61,
+      "width": 1920,
+      "height": 1080,
+      "video": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/inside-the-check.mp4",
+      "poster": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/inside-the-check.jpg",
+      "sha256": "c1391a0f6226a9a4d0bf9f086b794cc195b5860c4e784a1474a68acfd92cd443",
+      "bytes": 4576900,
+      "captions": "inside-the-check.vtt",
+      "transcript": [
+        {
+          "start": 0,
+          "end": 9,
+          "text": "Resolve. Validate. Compile. Resolve the blueprint and its inherited rules. Validate schema and authority. Compile work orders and execution policy. A conflict must return to review."
+        },
+        {
+          "start": 9,
+          "end": 18,
+          "text": "Observe what exists. Evaluate what is known. The observer coordinates repository evidence. The evaluator checks the rules. Coverage is examined explicitly, because an unobserved boundary cannot be treated as a pass."
+        },
+        {
+          "start": 18,
+          "end": 23,
+          "text": "Carry findings forward with their evidence. Assemble the evidence, determine decision readiness, and verify deployment. Learning returns as a new proposal."
+        },
+        {
+          "start": 23,
+          "end": 27,
+          "text": "The contracts reach all the way into code. At code level, the reference kernel makes these responsibilities concrete in TypeScript contracts, guards and evaluation functions."
+        },
+        {
+          "start": 27,
+          "end": 35,
+          "text": "Approval is checked before compilation. The compiler checks approval and repository scope before creating execution work. This excerpt is from the supplied reference kernel."
+        },
+        {
+          "start": 35,
+          "end": 44,
+          "text": "Incomplete observation stays explicit. The evaluator distinguishes a detected violation from incomplete observation. Missing coverage preserves an unknown result, rather than silently creating a pass."
+        },
+        {
+          "start": 44,
+          "end": 52,
+          "text": "The evidence remembers which change was checked. The evidence bundle links the blueprint version, repository subject, trace and findings. Its digest lets consumers check the bundle contents."
+        },
+        {
+          "start": 52,
+          "end": 61,
+          "text": "Here is one check from the published engine. Separately, the published BCE engine demonstrates one concrete boundary. A forbidden import fails the gate. Corrected code passes under the unchanged blueprint."
+        }
+      ],
+      "textKind": "walkthrough"
+    },
+    {
+      "id": "the-boundary",
+      "title": "Give the agent a boundary",
+      "collection": "BCE launch",
+      "description": "The short launch introduction: make architectural intent explicit enough to check.",
+      "boundary": "An explanatory launch animation. Reproduce a supported rule with the current quickstart.",
+      "duration": 24.92,
+      "width": 1080,
+      "height": 1080,
+      "video": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/the-boundary.mp4",
+      "poster": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/the-boundary.jpg",
+      "sha256": "fa38aca7cad21cca61d47a95c8e22b9fcfb092d3b8dd5f24fa8c2473c85caccb",
+      "bytes": 318101,
+      "captions": "the-boundary.vtt",
+      "transcript": [
+        {
+          "start": 0,
+          "end": 5,
+          "text": "The code works. The architecture changed. Application Checkout flow Allowed direction Domain Order logic Was that intentional?"
+        },
+        {
+          "start": 5,
+          "end": 11,
+          "text": "One import reverses the boundary. Application Checkout flow Allowed direction Forbidden direction Domain Order logic A small change can cross an agreed boundary."
+        },
+        {
+          "start": 11,
+          "end": 18,
+          "text": "Make the rule checkable. The rule Domain code must not import the application layer. Code change → BCE check → Violation BCE checks code against the rules you define."
+        },
+        {
+          "start": 18,
+          "end": 24,
+          "text": "Which rule do you keep repeating? In every prompt? In every code review? BCE Blueprint Conformance Engine github.com/blueprint-conformance/bce"
+        }
+      ],
+      "textKind": "walkthrough"
+    },
+    {
+      "id": "the-proof",
+      "title": "A rule that survives RED to GREEN",
+      "collection": "BCE launch",
+      "description": "The same blueprint checks a forbidden dependency, then the code correction.",
+      "boundary": "Launch illustration based on a recorded local bce-engine@0.3.0 consumer run; not an independent benchmark.",
+      "duration": 34.92,
+      "width": 1080,
+      "height": 1080,
+      "video": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/the-proof.mp4",
+      "poster": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/the-proof.jpg",
+      "sha256": "95948d986e0de97cac8ce64dcad8638ef954500b8fc91cdc59062f7de3054795",
+      "bytes": 435902,
+      "captions": "the-proof.vtt",
+      "transcript": [
+        {
+          "start": 0,
+          "end": 5,
+          "text": "One rule. A real check. The rule Domain code must not import the application layer. An example from the published BCE package."
+        },
+        {
+          "start": 5,
+          "end": 12,
+          "text": "This import crosses the line. packages/domain/order.ts · line 1 import { checkoutLabel } from '../app/view.js'; Domain → Application The domain layer now imports application code."
+        },
+        {
+          "start": 12,
+          "end": 20,
+          "text": "Caught at line 1. Excerpt from the actual gate output packages/domain/order.ts#L1 bce gate [enforced]: 1/1 blueprint(s) evaluated, 1 failing. Violation Exit 1 The enforced gate rejects this change."
+        },
+        {
+          "start": 20,
+          "end": 27,
+          "text": "Correct the code. Keep the rule. packages/domain/order.ts · corrected source export function priceOrder(order: Order): number { return order.total; } Blueprint unchanged Remove the application import and its use."
+        },
+        {
+          "start": 27,
+          "end": 34,
+          "text": "Same rule. Now it passes. Excerpt from the actual gate output bce gate [enforced]: 1/1 blueprint(s) evaluated, 0 failing. Pass Exit 0 BCE Open source · Apache-2.0 github.com/blueprint-conformance/bce"
+        }
+      ],
+      "textKind": "walkthrough"
+    },
+    {
+      "id": "agent-session-recording",
+      "title": "A real session fleet, recorded",
+      "collection": "Agent fleet archive",
+      "description": "A historical terminal recording of three agent sessions, with focus, attach and detach.",
+      "boundary": "Recorded from a separate agent product, version 6.59.0, in an isolated demo environment. One spend-display line was replaced during rendering; this is not BCE execution.",
+      "duration": 59.48,
+      "width": 1080,
+      "height": 1080,
+      "video": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/agent-session-recording.mp4",
+      "poster": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/agent-session-recording.jpg",
+      "sha256": "ff21ed6e0e7462ae9a1939d12eb3dbdf440683ee418a4b037f73bb7502cf8bb8",
+      "bytes": 1383774,
+      "captions": "agent-session-recording.vtt",
+      "transcript": [
+        {
+          "start": 0,
+          "end": 59.48,
+          "text": "A historical terminal recording of three agent sessions, with focus, attach and detach. Recorded from a separate agent product, version 6.59.0, in an isolated demo environment. One spend-display line was replaced during rendering; this is not BCE execution."
+        }
+      ],
+      "textKind": "summary"
+    },
+    {
+      "id": "agent-authoring-loop",
+      "title": "Author the fleet, then steer it",
+      "collection": "Agent fleet archive",
+      "description": "Prompt, choose a skill, start sessions and move between them.",
+      "boundary": "A source-grounded animated recreation of an earlier agent product, with synthetic session and cost data. Not a live recording or a BCE feature.",
+      "duration": 36.92,
+      "width": 1080,
+      "height": 1080,
+      "video": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/agent-authoring-loop.mp4",
+      "poster": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/agent-authoring-loop.jpg",
+      "sha256": "6b85d18b36fad3649913df4c6d38733578790337a927326739bce3354ab69abc",
+      "bytes": 1087062,
+      "captions": "agent-authoring-loop.vtt",
+      "transcript": [
+        {
+          "start": 0,
+          "end": 36.92,
+          "text": "Prompt, choose a skill, start sessions and move between them. A source-grounded animated recreation of an earlier agent product, with synthetic session and cost data. Not a live recording or a BCE feature."
+        }
+      ],
+      "textKind": "summary"
+    },
+    {
+      "id": "agent-fleet-terminal",
+      "title": "The fleet in a terminal",
+      "collection": "Agent fleet archive",
+      "description": "The earlier terminal treatment shows launching, attaching, steering and returning to the fleet.",
+      "boundary": "Historical animated recreation, preserved as an alternate cut. All sessions and costs are illustrative.",
+      "duration": 31.92,
+      "width": 1080,
+      "height": 1080,
+      "video": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/agent-fleet-terminal.mp4",
+      "poster": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/agent-fleet-terminal.jpg",
+      "sha256": "ee5d21b6977a7b684b84caf7b291e0d0b34fa6a088d625d34a48c7b3da432870",
+      "bytes": 1129109,
+      "captions": "agent-fleet-terminal.vtt",
+      "transcript": [
+        {
+          "start": 0,
+          "end": 31.92,
+          "text": "The earlier terminal treatment shows launching, attaching, steering and returning to the fleet. Historical animated recreation, preserved as an alternate cut. All sessions and costs are illustrative."
+        }
+      ],
+      "textKind": "summary"
+    },
+    {
+      "id": "agent-fleet",
+      "title": "One operator, several sessions",
+      "collection": "Agent fleet archive",
+      "description": "The original visual treatment of a fleet: see status, focus a session, steer work and return.",
+      "boundary": "Historical animated recreation, preserved as an alternate cut. This is a separate product concept, not released BCE functionality.",
+      "duration": 31.92,
+      "width": 1080,
+      "height": 1080,
+      "video": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/agent-fleet.mp4",
+      "poster": "https://github.com/blueprint-conformance/bce/releases/download/media-2026-09-07/agent-fleet.jpg",
+      "sha256": "3b773a0aa45bd829c6c487061b3c83ebbb427386d8f96d8ad332e84d79436a14",
+      "bytes": 969805,
+      "captions": "agent-fleet.vtt",
+      "transcript": [
+        {
+          "start": 0,
+          "end": 31.92,
+          "text": "The original visual treatment of a fleet: see status, focus a session, steer work and return. Historical animated recreation, preserved as an alternate cut. This is a separate product concept, not released BCE functionality."
+        }
+      ],
+      "textKind": "summary"
+    }
+  ]
+}

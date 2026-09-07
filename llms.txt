@@ -74,3 +74,7 @@ no skip flags — a refusal is a red, not a pass.
 - [RFC process](rfcs/RFC-0001-process.md): how the format changes — the widen-only ratchet.
 - [Security policy](SECURITY.md): private vulnerability reporting.
 - [Working on bce itself](AGENTS.md): the repository map for an agent contributing to the engine.
+
+## Films
+
+- [Film library](docs/films.md): Context-spectrum interaction, reference architecture and historical agent-fleet films; explicit provenance boundaries and downloadable originals.

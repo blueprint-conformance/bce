@@ -1,0 +1,110 @@
+{
+  "release": "media-2026-09-07",
+  "assets": [
+    {
+      "file": "agent-authoring-loop.jpg",
+      "bytes": 32556,
+      "sha256": "59460304c1c1d9ff6ff2f82a011c2896b21bdbdb3851030240458368bad4815a"
+    },
+    {
+      "file": "agent-authoring-loop.mp4",
+      "bytes": 1087062,
+      "sha256": "6b85d18b36fad3649913df4c6d38733578790337a927326739bce3354ab69abc"
+    },
+    {
+      "file": "agent-fleet-terminal.jpg",
+      "bytes": 37692,
+      "sha256": "d5187062a3df88b690a0f8bb48e469e2d0a823a02dfc7f4ea3cb8516a1572c56"
+    },
+    {
+      "file": "agent-fleet-terminal.mp4",
+      "bytes": 1129109,
+      "sha256": "ee5d21b6977a7b684b84caf7b291e0d0b34fa6a088d625d34a48c7b3da432870"
+    },
+    {
+      "file": "agent-fleet.jpg",
+      "bytes": 37142,
+      "sha256": "ab484baa09da63d5cf73eb0da4aabcf8844c6cb241d6b7c23e8632b8c2ad49f7"
+    },
+    {
+      "file": "agent-fleet.mp4",
+      "bytes": 969805,
+      "sha256": "3b773a0aa45bd829c6c487061b3c83ebbb427386d8f96d8ad332e84d79436a14"
+    },
+    {
+      "file": "agent-session-recording.jpg",
+      "bytes": 62384,
+      "sha256": "48492abf6d3ede91617e56767b8faa700dec0f03c96e476564ad4a5abe618f9e"
+    },
+    {
+      "file": "agent-session-recording.mp4",
+      "bytes": 1383774,
+      "sha256": "ff21ed6e0e7462ae9a1939d12eb3dbdf440683ee418a4b037f73bb7502cf8bb8"
+    },
+    {
+      "file": "architecture-walkthrough.jpg",
+      "bytes": 51838,
+      "sha256": "eae572e7a64bfe19b672e611dd5562c7cd1e589b87de04d59b79c9895481010d"
+    },
+    {
+      "file": "architecture-walkthrough.mp4",
+      "bytes": 13211921,
+      "sha256": "0aa502296db44c0b086560bdc9aca84a833d5eaff87d1de8a8b382f3f429eb02"
+    },
+    {
+      "file": "context-spectrum-preview.gif",
+      "bytes": 1777873,
+      "sha256": "b9f1dd5cad2f83201883c4e8aa71d99058453bfb63ae77534a0f4cc19e5d7b95"
+    },
+    {
+      "file": "context-spectrum.jpg",
+      "bytes": 29293,
+      "sha256": "8d043647ac4837c02abf1eeca4f1019209f5977eadb458787a7db25fb997793b"
+    },
+    {
+      "file": "context-spectrum.mp4",
+      "bytes": 25210628,
+      "sha256": "f4f4a097c13644a598b6b15a9435e412cbad243496ab2ffa64b2096af2a42f02"
+    },
+    {
+      "file": "inside-the-check.jpg",
+      "bytes": 46211,
+      "sha256": "80dd28b938909600f31c19b743ba24e81dea99b28f287ab6b53fac5ae2a4fe1b"
+    },
+    {
+      "file": "inside-the-check.mp4",
+      "bytes": 4576900,
+      "sha256": "c1391a0f6226a9a4d0bf9f086b794cc195b5860c4e784a1474a68acfd92cd443"
+    },
+    {
+      "file": "intent-to-work.jpg",
+      "bytes": 52004,
+      "sha256": "cf9ba93259d3d8585c0ae7f1a7408ff6b1daa01c788f10740fb0b23980d1b895"
+    },
+    {
+      "file": "intent-to-work.mp4",
+      "bytes": 3751553,
+      "sha256": "3d59d86cf00739e2ca4f9a77545a3b6f92516a2cdc9ea592c612acbe60976a01"
+    },
+    {
+      "file": "the-boundary.jpg",
+      "bytes": 34419,
+      "sha256": "d75751679153d1bdc5d6b7eb72b0f1dda3abfccd9d63b76c57e2f623a7053a4e"
+    },
+    {
+      "file": "the-boundary.mp4",
+      "bytes": 318101,
+      "sha256": "fa38aca7cad21cca61d47a95c8e22b9fcfb092d3b8dd5f24fa8c2473c85caccb"
+    },
+    {
+      "file": "the-proof.jpg",
+      "bytes": 34639,
+      "sha256": "cb15cf8729a2283737dc6ca7fe9283d898e296451d0110df31e19c1d7e16370f"
+    },
+    {
+      "file": "the-proof.mp4",
+      "bytes": 435902,
+      "sha256": "95948d986e0de97cac8ce64dcad8638ef954500b8fc91cdc59062f7de3054795"
+    }
+  ]
+}

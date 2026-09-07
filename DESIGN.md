@@ -315,6 +315,18 @@ Lead with one plain statement separating mechanism evidence from causal efficacy
 
 All explanatory SVGs require `role="img"`, an `aria-labelledby` pair, and meaningful `<title>` and `<desc>` content. README fallback images require prose-quality `alt` text. Color is always reinforced by labels, exit codes, route shape, and position.
 
+### Film Library Extension
+
+The homepage adds a featured, silent 90-second “Context at every scale” film with an adjacent explanation, provenance boundary, interactive 3D entry and collection link. The site navigation exposes **Films** at `/films/`. This scoped collection extends the existing engine canvas, cyan links, native typography, thin rules and compact corners. Desktop pairs video with explanatory text in a maximum-width (1240px) collection; layouts stack below (800px). Film content retains its original visual language and meaning within this shared shell.
+
+The catalog contains ten entries: four **Reference architecture** films (context spectrum, full blueprint loop and two chapter cuts), two **BCE launch** films (boundary and RED/GREEN explanations), and four historical **Agent fleet archive** films (one recording and three animated recreations). Each entry supplies duration, dimensions, description, an explicit provenance boundary, MP4 download and a readable disclosure with its SHA-256 digest. Six architecture/launch films have timed, source-grounded walkthroughs and visual-description tracks; four historical agent films explicitly offer summaries. Keep reference designs, captured engine examples and historical demonstrations distinct. Architectural C1–C4 zoom levels are different from BCE constraint identifiers; a platform reference loop or another product's fleet demonstration does not establish released BCE capabilities. Use the public names bce / Blueprint Conformance Engine and the published package name where a captured run requires it.
+
+Playback is manual. Videos use `preload="none"`, frame-derived posters and native inline controls without autoplay or an eager MP4 preload. With JavaScript, an explicit keyboard-focusable **Play film** overlay replaces idle controls until activation. It announces loading, then reveals native playback; rejected playback offers a retry, while collection errors retain a download/read fallback. Starting one film pauses the others. Hidden documents pause every film; IntersectionObserver pauses offscreen players. Without JavaScript, native controls, available visual-description tracks, downloads and readable walkthroughs or summaries remain available. Reduced-motion visitors receive the same manual start, with no automatic video motion.
+
+The featured film links to a separately opened interactive 3D context spectrum; the collection does not instantiate WebGL for every entry. The repository README uses a short GIF preview that plays once and links to the complete film, alongside interactive and static-reading links. The generated homepage hides that repeated README preview after presenting the full feature. The GIF is a discovery preview, not the sole explanation or proof.
+
+Media delivery is prepared for a dated, versioned GitHub media release, currently `media-2026-09-07`; publication is not established by this design record. The checked-in catalog and media manifest pin identities, dimensions, durations, byte sizes and SHA-256 digests. The builder validates film records, release URL identity, matching video digests and caption/transcript structure. Preserve alternate cuts and publish replacements through a new versioned media release rather than overwriting an existing asset. Media packaging does not change the engine's package version or imply new engine functionality.
+
 ## Do's and Don'ts
 
 ### Do:

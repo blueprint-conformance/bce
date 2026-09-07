@@ -69,6 +69,7 @@ import { fileURLToPath } from 'node:url';
 import { loadEvidenceClaims } from './lib/evidence-claims.mjs';
 import { selfAdoptionHtml } from './lib/self-adoption-site.mjs';
 import { publishAgentDocs } from './lib/agent-docs-site.mjs';
+import { loadFilms, filmFeature, filmLibrary, publishFilmFiles } from './lib/film-library.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let RELEASE_STATE;
@@ -84,6 +85,7 @@ if (!/^\d+\.\d+\.\d+$/.test(RELEASE_STATE.currentVersion ?? '') ||
   process.exit(2);
 }
 
+const FILMS = loadFilms(repoRoot);
 const SITE_NAME = 'bce';
 const SITE_TAGLINE = 'the blueprint conformance engine';
 const SITE_ORIGIN = 'https://blueprint-conformance.github.io/bce';
@@ -110,6 +112,7 @@ const REPO_TREE = 'https://github.com/blueprint-conformance/bce/tree/main/';
 // ---------------------------------------------------------------------------
 const PAGES = [
   { route: '', kind: 'landing', source: 'README.md', nav: 'Home', section: null },
+  { route: 'films', kind: 'films', source: 'docs/films.md', nav: 'Films', section: null },
 
   { route: 'guides/quickstart', source: 'docs/quickstart.md', nav: 'Quickstart', section: 'Guides' },
   { route: 'guides/onboarding', source: 'docs/onboarding.md', section: 'Guides' },
@@ -1111,6 +1114,7 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
       pageBody = pageBody.slice(match[0].length);
     }
   }
+  if(route==='')pageBody=pageBody.replace(/<h2 id="watch-the-context-move">[\s\S]*?(?=<h2 id="start-with-your-coding-agent">)/,'');
   const livePipeline = route === '' || route === 'trust';
   if (livePipeline) {
     const panel = selfAdoptionHtml(repoRoot, relativeUrl(route, 'guides/live-self-adoption', true));
@@ -1146,14 +1150,16 @@ ${sourceFile ? `<link rel="alternate" type="text/markdown" href="${SITE_ORIGIN}/
 <meta name="twitter:image" content="${SOCIAL_IMAGE_URL}">
 <meta name="twitter:image:alt" content="${escapeHtml(SOCIAL_IMAGE_ALT)}">
 <link rel="stylesheet" href="${cssHref}">
+${route===''||route==='films'?`<link rel="stylesheet" href="${'../'.repeat(depth)||'./'}assets/films/library.css"><script defer src="${'../'.repeat(depth)||'./'}assets/films/library.js"></script>`:''}
 ${livePipeline ? `<script type="module" src="${'../'.repeat(depth) || './'}assets/self-adoption-status.mjs"></script>` : ''}
 </head>
-<body${route === '' ? ' class="landing"' : ''}>
+<body${route === '' ? ' class="landing"' : route==='films'?' class="film-library-page"':''}>
 ${landingHero}
 <header class="site-header">
   <a class="brand" href="${homeHref}"><strong>${SITE_NAME}</strong> <span>${SITE_TAGLINE}</span></a>
   <nav class="site-nav" aria-label="Sections">${navHtml(route, route)}</nav>
 </header>
+${route===''?filmFeature(FILMS):''}
 <main>
 <article>
 ${withToc(pageBody, headings, wantToc)}
@@ -1412,6 +1418,7 @@ function main() {
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(path.join(outDir, 'assets'), { recursive: true });
   fs.writeFileSync(path.join(outDir, 'assets/site.css'), STYLESHEET);
+  publishFilmFiles(repoRoot,outDir);
   fs.copyFileSync(path.join(repoRoot, 'assets/site/self-adoption-status.mjs'), path.join(outDir, 'assets/self-adoption-status.mjs'));
 
   // ---- schemas: byte-for-byte, at the paths their $id names ---------------
@@ -1491,6 +1498,10 @@ function main() {
       bodyHtml = `${r.html}\n<h2 id="documentation">Documentation</h2>\n<ul class="cards">${sections}</ul>`;
       headings = headings.concat([{ level: 2, id: 'documentation', text: 'Documentation' }]);
       title = SITE_NAME;
+    } else if (p.kind === 'films') {
+      title='Film library';bodyHtml=filmLibrary(FILMS);
+      headings=[{level:1,id:'film-library',text:title},...FILMS.films.map(f=>({level:2,id:f.id,text:f.title})),...new Set(FILMS.films.map(f=>f.collection))].filter(h=>typeof h==='object');
+      hrefs.push({href:'../assets/films/context-spectrum/index.html',internal:true,targetFile:'assets/films/context-spectrum/index.html',fragment:''});
     } else if (p.kind === 'section-index') {
       const children = PAGES.filter((q) => q.section === p.section && q.route !== p.route && q.kind === undefined);
       title = p.section;

@@ -1,0 +1,29 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:08.000
+An outcome becomes an engineering contract. Start with what the system is meant to achieve. The owner defines the outcome. A blueprint steward approves the engineering boundaries.
+
+2
+00:00:08.000 --> 00:00:16.000
+People, agents and systems share the same intent. Developers and agents implement the change. Repositories return facts and build evidence. Runtime environments return outcomes. Those relationships form one engineering loop.
+
+3
+00:00:16.000 --> 00:00:21.000
+Now open the system. Now zoom inside the platform and follow that approved intent through the services that carry it.
+
+4
+00:00:21.000 --> 00:00:25.000
+From the system to its services. The system boundary opens into experience, contract, execution and assurance services.
+
+5
+00:00:25.000 --> 00:00:34.000
+Approved intent becomes bounded work. The registry holds approved blueprint versions. The compiler turns intent into work orders, bounded by scope, policy and evidence requirements.
+
+6
+00:00:34.000 --> 00:00:43.000
+Execution produces something we can inspect. The agent runtime executes the work through governed tools and model routing. Changes reach repositories and CI. Observers collect facts for BCE to evaluate against the blueprint.
+
+7
+00:00:43.000 --> 00:00:48.000
+Evidence connects the result to a decision. The evaluation contributes to evidence. Decision and exception handling remain explicit before deployment verification.
