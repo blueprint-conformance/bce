@@ -230,9 +230,9 @@ const DEMO_RECIPES = [
   },
   {
     id: 'tenant-route-guard',
-    title: 'Require access control in every tenant route',
-    support: 'Next.js TypeScript · mature AST',
-    protects: 'every exported route handler calls the governed tenant guard',
+    title: 'Check governed guard call sites in route handlers',
+    support: 'Next.js TypeScript · syntactic call-site evidence',
+    protects: 'inventoried handlers contain a governed guard call site; authorization behavior is unverified',
     blueprint: 'fixtures/route-guard.blueprint.json',
     greenTree: 'fixtures/route-surface/conformant-guarded',
     redTree: 'fixtures/route-surface/drift-missing-guard',

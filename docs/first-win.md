@@ -34,7 +34,7 @@ recipes. The release record independently binds that tarball to the npm artifact
 <p align="center">
   <picture>
     <source media="(max-width: 600px)" srcset="../assets/diagrams/first-win-recipes-mobile.svg">
-    <img src="../assets/diagrams/first-win-recipes.svg" alt="Six executable BCE recipe paths branch from the architecture boundary a maintainer needs to protect. Extension contracts, Next.js tenant route guards, and governed egress use mature TypeScript or JavaScript AST extraction. TypeScript and Python layering use direct structured module graphs. Configuration allowlists use a real-source content-pattern pair. Every path runs a conforming tree to GREEN and planted drift to a named RED violation.">
+    <img src="../assets/diagrams/first-win-recipes.svg" alt="Six executable BCE recipe paths branch from the architecture boundary a maintainer needs to protect. Extension contracts, Next.js tenant route guards, and governed egress use TypeScript or JavaScript AST extraction. TypeScript and Python layering use direct structured module graphs. Configuration allowlists use a real-source content-pattern pair. Every path runs a conforming tree to GREEN and planted drift to a named RED violation.">
   </picture>
 </p>
 
@@ -43,7 +43,7 @@ recipes. The release record independently binds that tarball to the npm artifact
 | What must not drift? | Recipe id | Evidence and maturity |
 |---|---|---|
 | A plugin or agent extension must exist, register through the governed helper, and avoid direct provider SDKs | `extension-contract` | TypeScript/JavaScript, mature AST; C1–C3 in one contract |
-| Every exported tenant route must call the access guard | `tenant-route-guard` | Next.js TypeScript, mature AST; function-level call evidence |
+| Recognized route handlers must contain a call to a configured, governed guard | `tenant-route-guard` | Next.js TypeScript; syntactic call-site evidence only; see limits below |
 | Raw network calls must stay on governed hosts | `governed-egress` | TypeScript/JavaScript, mature AST; resolved literal host evidence |
 | Domain, UI, server, or infrastructure layers must keep their direction | `module-layering` | TypeScript/JavaScript direct module graph; resolved importer, target, and source line |
 | Python service layers must keep their direction | `python-module-layering` | Python structured direct module graph; explicit roots, resolved repository targets, and fail-closed uncertainty |
@@ -52,6 +52,40 @@ recipes. The release record independently binds that tarball to the npm artifact
 Run one with `npx --no-install bce demo --recipe <id>`. The catalog is
 executable: CI runs every listed recipe and refuses missing fixtures, a false GREEN, a false RED,
 or the wrong violation id.
+
+## Route guard evidence boundary
+
+A route `guards` edge means a matching bare-identifier call was found among the handler's
+syntax descendants and resolves to an import from a blueprint-declared governed module.
+It does **not** prove that authorization executes, completes before a response, propagates a
+denial, or checks the tenant/resource being returned. The guard implementation is not verified.
+A conditional, unreachable, nested-but-uncalled, unawaited, or caught-and-ignored call can satisfy
+this syntactic check. Checking the wrong tenant can also satisfy it.
+
+**Released v0.3.0 limitation:** only exported function declarations named GET, POST, PATCH, PUT,
+or DELETE are recognized. Arrow handlers and function expressions can be omitted. An all-arrow
+surface fails the zero-handler check, but omitted handlers alongside recognized guarded handlers
+can produce a misleading pass. File counts are not handler coverage. Do not use this release's
+route check as proof that every route enforces access control.
+
+**Source correction (unreleased):** direct named function declarations and immutable `const`
+arrow/function-expression exports are inventoried for GET, POST, PATCH, PUT, DELETE, HEAD, and
+OPTIONS. Relevant indirect exports, wrappers, mutable handlers, and star re-exports refuse
+extraction with a source location. Use a direct supported export or keep the result unverified;
+do not remove a route from the configured scan to obtain a pass. Default exports are not named
+HTTP handlers. Inventory remains limited to configured files and static ESM exports; dynamic
+registration and CommonJS handler assignment are not supported. This correction does not add
+control-flow or tenant-binding analysis. Reports explicitly label authorization behavior unverified.
+
+The [route regression suite](../tests/route-evidence.test.ts) preserves detection, refusal, and
+semantic-limit cases separately. A teeth result proves the declared mutation can be detected;
+it does not establish complete detection of every way to violate the architectural intention.
+For adoption, test real-source alternatives in your own tree and use behavioral/security tests
+for the properties this extractor cannot establish.
+
+Protect changes to blueprints, extraction scope, baselines, CI workflows, and bypass permissions
+with repository review controls appropriate to your team. A required check cannot independently
+protect the policy that defines that same check.
 
 ## Adapt the proof to your layout
 

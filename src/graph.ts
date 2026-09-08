@@ -27,7 +27,7 @@ export interface ObservedEdge {
   from: string;
   /** the symbol/target the edge points at, e.g. `requireTenantWriteAccess` */
   to: string;
-  /** edge kind, e.g. `guards` (a tenant-access guard call), `writes` (a store write) */
+  /** edge kind, e.g. `guards` (syntactic governed guard call-site presence; not proof of access enforcement), `writes` (a store write) */
   type: string;
   /** evidence anchor `path#Lnn` */
   evidenceRef: string;

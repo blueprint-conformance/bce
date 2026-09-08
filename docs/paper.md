@@ -20,6 +20,13 @@ The paper develops that problem through executable architectural contracts, chec
 
 This is a historical account of the system and its early deployment. Its measurements are scoped to the dates, engine versions, corpus, and author-operated environment stated in the paper. They do not establish general improvements in coding-agent outcomes or describe every capability in today's public engine.
 
+**September 8 reading note:** subsequent route-extractor counterexamples show that a green
+result can coexist with omitted handler exports or a guard call that does not enforce access.
+The [route evidence boundary](first-win.md#route-guard-evidence-boundary) distinguishes the
+released limitation, the source correction, and the semantic properties still unverified.
+The draft PDF is unchanged. Its checker-validation and seeded-corpus results do not establish
+complete route coverage or an authentication/tenant-isolation guarantee.
+
 For current released behavior and evidence, see the [specification](../spec/SPEC.md) and [Trust and evidence](https://blueprint-conformance.github.io/bce/trust/).
 
 [Share feedback](https://github.com/blueprint-conformance/bce/issues/new) on the argument, methods, or unclear passages.
