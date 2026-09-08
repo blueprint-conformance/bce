@@ -12,7 +12,7 @@
 your intent, inspect the code, and repair violations; the same engine checks every pull request.
 Humans own the intent and approve policy changes. Agents operate the day-to-day loop.
 
-**Released support (`v0.3.0`):** TypeScript/JavaScript framework-surface AST extraction,
+**Released support (`v0.3.1`):** TypeScript/JavaScript framework-surface AST extraction,
 direct TypeScript/JavaScript module boundaries, a Python import-surface MVP, and structured Python
 module boundaries. Node 22+ is required; the contract remains pre-1.0.
 
@@ -67,8 +67,8 @@ inspection tools and review cockpit let humans examine the same contract and evi
 Three commands. No account, hosted service, API key, or repository setup:
 
 ```bash
-npm view bce-engine@0.3.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.3.0
+npm view bce-engine@0.3.1 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.1
 npx --no-install bce demo
 ```
 
@@ -102,7 +102,7 @@ components out of `src/legacy/**`. The taxonomy has four more enforcing types an
 reserved types—[open the C1–C4 visual guide](docs/constraint-guide.md) or
 [read the exact semantics](spec/SPEC.md#3-constraint-taxonomy--11-types).
 
-In `v0.3.0`, the AI-first review surface's `bce propose` writes an immutable draft
+In `v0.3.1`, the AI-first review surface's `bce propose` writes an immutable draft
 packet to quarantine; the model cannot approve or land policy. [Read the review
 ceremony](docs/ai-first-review.md).
 
@@ -140,7 +140,7 @@ replay against the engine.
 Use the **CLI** for local feedback, the pinned **GitHub Action** at the merge boundary, or ten
 read-only **MCP tools** inside an agent loop. They share the same extraction, evaluation, report,
 and exit-code path; policy changes remain outside MCP. The released Action source is pinned to
-`blueprint-conformance/bce@9fe4a02d39c05dbdf280b359e9b364de84e1eda8`.
+`blueprint-conformance/bce@7fc24fe24c3eb41366be990023ea37b00d2ca3b8`.
 
 <p align="center">
   <picture>
@@ -190,7 +190,7 @@ separately gated. We do not claim that BCE makes agents more successful, cheaper
 
 ## Start with your repository
 
-The `v0.3.0` release contains six packaged architecture recipes. Run one, then adapt it with a
+The `v0.3.1` release contains six packaged architecture recipes. Run one, then adapt it with a
 measured authoring walkthrough for an empty repository, plain JavaScript, TypeScript, a monorepo,
 or direct module layering: **[choose the boundary that must hold](docs/first-win.md)**. The measured
 test keeps every layout's author → RED → fix → GREEN first win in under 60 seconds, including
@@ -200,23 +200,17 @@ Specification: [blueprint-conformance/v1alpha1](spec/SPEC.md) · Agent loop:
 [MCP and agent workflow](docs/agent-loop.md) · Documentation:
 [blueprint-conformance.github.io/bce](https://blueprint-conformance.github.io/bce/)
 
-**Source candidate: v0.3.1.** This stages the route-inventory correction and makes its
-call-site evidence limit visible in the terminal. The registry release remains v0.3.0 until the
-candidate passes the release workflow and the published artifact is verified. Check availability
-before choosing an install target:
+**Current registry release: v0.3.1.** It expands route-handler inventory, refuses recognized
+unsupported or rebound handlers, and makes the call-site evidence limit visible in the terminal.
+A fresh registry installation passed all 52 route cases against the exact released archive. This
+release also includes offline review preparation, explicit solo-steward lifecycle support, and the
+local specification; immutable v0.3.0 does not contain those additions.
 
-```bash
-npm view bce-engine@0.3.1 version dist.integrity
-```
-
-The v0.3.1 candidate also packages the previously merged offline review preparation, explicit
-solo-steward lifecycle, and local specification; these remain absent from immutable v0.3.0.
-
-**Current registry release: v0.3.0.** Its exact npm integrity is
-`sha512-KwWyEYOZu70xrQG5JYEyHNhz3eqTalno9d9+KUugytYBiWtHGO7Wpa+X/7xgi9xDc49V7OUchTJtN8Pu8T37iw==`,
-and its source/Action commit is `9fe4a02d39c05dbdf280b359e9b364de84e1eda8`. The canonical GitHub
+Its exact npm integrity is
+`sha512-hRWp4UvxWS7XnifOfrjRSxhIhUh8KB8n0I79Kyw6ffgSuH1s3aAwCVNapnsRIOH1rPXzxo/gTMMuyQewzgsrCg==`,
+and its source/Action commit is `7fc24fe24c3eb41366be990023ea37b00d2ca3b8`. The canonical GitHub
 Release is immutable with the exact tarball, signed payload manifest, signed EvidenceRecord, and
-compliance report attached. [Read the verification and incident record](docs/release-v0.3.0.md).
+compliance report attached. [Read the verification and incident record](docs/release-v0.3.1.md).
 Compatibility remains pre-1.0.
 
 Apache-2.0 — [license](LICENSE), [notice](NOTICE), and [trademarks](TRADEMARKS.md).

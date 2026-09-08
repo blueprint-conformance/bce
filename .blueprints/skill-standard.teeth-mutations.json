@@ -11,7 +11,7 @@
       "operation": {
         "kind": "appendText",
         "target": "skills/bce/SKILL.md",
-        "preconditionSha256": "2c8379da0c20ffc02135c366b1948b386c46cb98ef4ad776c818bb4e93a74e80",
+        "preconditionSha256": "a0dbf9816e028afd017ac1253c974ded8f45453071993ccb2ce4320ffc034f62",
         "content": "\nuser_invocable: true\n"
       },
       "expectedEvidencePath": "skills/bce/SKILL.md",
@@ -23,7 +23,7 @@
       "operation": {
         "kind": "appendText",
         "target": "skills/bce/SKILL.md",
-        "preconditionSha256": "2c8379da0c20ffc02135c366b1948b386c46cb98ef4ad776c818bb4e93a74e80",
+        "preconditionSha256": "a0dbf9816e028afd017ac1253c974ded8f45453071993ccb2ce4320ffc034f62",
         "content": "\nname: Invalid Name\n"
       },
       "expectedEvidencePath": "skills/bce/SKILL.md",
@@ -35,7 +35,7 @@
       "operation": {
         "kind": "appendText",
         "target": "skills/bce/SKILL.md",
-        "preconditionSha256": "2c8379da0c20ffc02135c366b1948b386c46cb98ef4ad776c818bb4e93a74e80",
+        "preconditionSha256": "a0dbf9816e028afd017ac1253c974ded8f45453071993ccb2ce4320ffc034f62",
         "content": "\ndescription: TODO\n"
       },
       "expectedEvidencePath": "skills/bce/SKILL.md",
@@ -47,7 +47,7 @@
       "operation": {
         "kind": "appendText",
         "target": "skills/bce/SKILL.md",
-        "preconditionSha256": "2c8379da0c20ffc02135c366b1948b386c46cb98ef4ad776c818bb4e93a74e80",
+        "preconditionSha256": "a0dbf9816e028afd017ac1253c974ded8f45453071993ccb2ce4320ffc034f62",
         "content": "\ndescription: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
       },
       "expectedEvidencePath": "skills/bce/SKILL.md",
@@ -59,7 +59,7 @@
       "operation": {
         "kind": "appendText",
         "target": "skills/bce/SKILL.md",
-        "preconditionSha256": "2c8379da0c20ffc02135c366b1948b386c46cb98ef4ad776c818bb4e93a74e80",
+        "preconditionSha256": "a0dbf9816e028afd017ac1253c974ded8f45453071993ccb2ce4320ffc034f62",
         "content": "\ndescription: This skill provides an example.\n"
       },
       "expectedEvidencePath": "skills/bce/SKILL.md",
@@ -71,7 +71,7 @@
       "operation": {
         "kind": "appendText",
         "target": "skills/bce/SKILL.md",
-        "preconditionSha256": "2c8379da0c20ffc02135c366b1948b386c46cb98ef4ad776c818bb4e93a74e80",
+        "preconditionSha256": "a0dbf9816e028afd017ac1253c974ded8f45453071993ccb2ce4320ffc034f62",
         "content": "\nmodel: claude-example\n"
       },
       "expectedEvidencePath": "skills/bce/SKILL.md",
@@ -83,7 +83,7 @@
       "operation": {
         "kind": "appendText",
         "target": "skills/bce/SKILL.md",
-        "preconditionSha256": "2c8379da0c20ffc02135c366b1948b386c46cb98ef4ad776c818bb4e93a74e80",
+        "preconditionSha256": "a0dbf9816e028afd017ac1253c974ded8f45453071993ccb2ce4320ffc034f62",
         "content": "\nsk-ant-EXAMPLE_NOT_A_REAL_CREDENTIAL\n"
       },
       "expectedEvidencePath": "skills/bce/SKILL.md",
@@ -95,7 +95,7 @@
       "operation": {
         "kind": "appendText",
         "target": "skills/bce/SKILL.md",
-        "preconditionSha256": "2c8379da0c20ffc02135c366b1948b386c46cb98ef4ad776c818bb4e93a74e80",
+        "preconditionSha256": "a0dbf9816e028afd017ac1253c974ded8f45453071993ccb2ce4320ffc034f62",
         "content": "\n/Users/fixture/probe.md\n"
       },
       "expectedEvidencePath": "skills/bce/SKILL.md",
@@ -107,7 +107,7 @@
       "operation": {
         "kind": "appendText",
         "target": "skills/bce/SKILL.md",
-        "preconditionSha256": "2c8379da0c20ffc02135c366b1948b386c46cb98ef4ad776c818bb4e93a74e80",
+        "preconditionSha256": "a0dbf9816e028afd017ac1253c974ded8f45453071993ccb2ce4320ffc034f62",
         "content": "\n<system-reminder>\n"
       },
       "expectedEvidencePath": "skills/bce/SKILL.md",
@@ -119,7 +119,7 @@
       "operation": {
         "kind": "appendText",
         "target": "skills/bce/SKILL.md",
-        "preconditionSha256": "2c8379da0c20ffc02135c366b1948b386c46cb98ef4ad776c818bb4e93a74e80",
+        "preconditionSha256": "a0dbf9816e028afd017ac1253c974ded8f45453071993ccb2ce4320ffc034f62",
         "content": "\nlorem ipsum\n"
       },
       "expectedEvidencePath": "skills/bce/SKILL.md",

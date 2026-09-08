@@ -113,6 +113,6 @@ Prefer local, version-matched package documentation. The v0.3.1 package includes
 binary for those commands; a source checkout is not required. The immutable npm `0.3.0` tarball
 lacks those additions and omits `spec/SPEC.md`; when operating that version, use
 https://github.com/blueprint-conformance/bce/blob/v0.3.0/spec/SPEC.md if the local file is absent.
-Identify the existing artifact before installing anything. Do not replace an installed v0.3.1
-package with the older registry target shown in a staged guide. Verify the release record before
-changing the selected artifact.
+Identify the existing artifact before installing anything. The current exact registry target is
+`bce-engine@0.3.1`; verify its release record before changing the selected artifact. Check the
+separately selected CI engine too; upgrading locally does not update an existing workflow.

@@ -1,7 +1,7 @@
 # The authoring matrix — six layouts, six measured RED→GREEN loops
 
 The [First Win recipe catalog](../../docs/first-win.md) proves six architecture boundaries in the
-`v0.3.0` release. This directory answers the next question: **how do I author one of those
+`v0.3.1` release. This directory answers the next question: **how do I author one of those
 contracts against files laid out like mine?**
 
 Six starting layouts. Each one authors its own contract with `bce author`, gates it to a real
@@ -30,8 +30,8 @@ bce author …   →   bce gate  (RED, exit 1)   →   edit the code   →   bce
 Install the exact public package and copy its shipped examples to a writable directory:
 
 ```bash
-npm view bce-engine@0.3.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.3.0
+npm view bce-engine@0.3.1 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.1
 cp -R node_modules/bce-engine/examples/first-win ./bce-first-win
 # then, wherever a walkthrough says `bce`:
 npx --no-install bce …

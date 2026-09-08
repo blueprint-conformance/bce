@@ -5,7 +5,7 @@
 **The rule:** internal modules must not import the public API adapter. The starting tree contains
 one reverse import in `src/service/domain/orders.py`.
 
-**Availability:** this walkthrough uses `python-module-graph` from the `v0.3.0` release.
+**Availability:** this walkthrough uses `python-module-graph` from the `v0.3.1` release.
 
 ## 0. Work in a copy
 
@@ -15,7 +15,7 @@ cd /tmp/bce-first-win-python-layering
 mkdir -p .blueprints
 ```
 
-`bce` below means `npx --no-install bce` after installing exact `bce-engine@0.3.0`.
+`bce` below means `npx --no-install bce` after installing exact `bce-engine@0.3.1`.
 
 ## 1. Author one direct boundary
 

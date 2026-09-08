@@ -21,23 +21,22 @@ standing rule. CI supplies enforcement. None of those duplicates conformance log
 
 ## 1. Install the exact release
 
-If you already have this source or an installed v0.3.1 package, use its existing local binary and
-continue with the demo. At this guide's preparation, v0.3.1 is staged and the registry commands
-below target published v0.3.0; do not run them to replace v0.3.1. Identify the installed version
-and verify the release record before changing artifacts or choosing the ceremony in step 6.
+If you already have an installed v0.3.1 package, use its existing local binary and continue with
+the demo. The commands below install published v0.3.1. Identify the installed version and verify
+the [release record](release-v0.3.1.md) before changing artifacts or choosing the ceremony in step 6.
 
 Node 22 or newer is required. Check `node --version` first. Use the repository’s existing package
 manager and workspace; preserve its lockfile. For npm, install the exact release as a development
 dependency. Both `bce` and `bce-mcp` become local project binaries:
 
 ```bash
-npm view bce-engine@0.3.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.3.0
+npm view bce-engine@0.3.1 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.1
 npx --no-install bce demo
 ```
 
-For pnpm, use `pnpm add -D -E bce-engine@0.3.0` and `pnpm exec bce demo`. For Yarn with a `node_modules` install, use
-`yarn add --dev --exact bce-engine@0.3.0` and `yarn bce demo`. Run in the intended workspace;
+For pnpm, use `pnpm add -D -E bce-engine@0.3.1` and `pnpm exec bce demo`. For Yarn with a `node_modules` install, use
+`yarn add --dev --exact bce-engine@0.3.1` and `yarn bce demo`. Run in the intended workspace;
 do not create a second lockfile. Generated MCP launchers assume a `node_modules` install; Yarn
 Plug’n’Play requires a harness-specific launcher and is not covered by this walkthrough. Substitute that local runner for `npx --no-install` below.
 
@@ -94,7 +93,7 @@ project-local format.
 npx --no-install bce onboard \
   --repo . \
   --blueprint bce-draft.json \
-  --engine blueprint-conformance/bce@9fe4a02d39c05dbdf280b359e9b364de84e1eda8 \
+  --engine blueprint-conformance/bce@7fc24fe24c3eb41366be990023ea37b00d2ca3b8 \
   --harness agents
 ```
 
@@ -111,15 +110,14 @@ Override paths with `--agent-file` or `--mcp-config`. Paths are confined to the 
 existing context and unrelated MCP servers/settings are preserved. The command refuses to overwrite
 existing policy files, either installed skill, or an existing MCP server named `bce`.
 
-The generated Action uses the full commit SHA for the `v0.3.0` Action source and can build that
-source locally. The canonical `v0.3.0` Release is immutable, but executable workflows still pin the
-source commit rather than relying on tag semantics. Pass `--engine bce-engine@0.3.0` when you want
+The generated Action uses the full commit SHA for the `v0.3.1` Action source and can build that
+source locally. The canonical `v0.3.1` Release is immutable, but executable workflows still pin the
+source commit rather than relying on tag semantics. Pass `--engine bce-engine@0.3.1` when you want
 the generated workflow to install the exact registry package independently.
 
-This example selects v0.3.0 for CI. Running v0.3.1 locally does not upgrade that
-workflow, and v0.3.0 CI does not include the v0.3.1 route correction. Before relying on the
-correction in CI, verify a published matching artifact and select its exact package version or
-Action source commit from the release record.
+These examples select v0.3.1 for CI. Upgrading a local installation does not upgrade an existing
+workflow. Verify the generated engine pin before relying on the route correction in CI; v0.3.0
+CI does not include it.
 
 ## 4. Diagnose, prove RED, and go GREEN
 
@@ -181,10 +179,10 @@ findings as remaining work, not as a failed package installation or permission t
 
 Choose the ceremony supported by the exact artifact you installed:
 
-- **Published `0.3.0`:** the [provider-backed review guide](ai-first-review.md) prepares a packet and
+- **Published v0.3.1:** the [provider-backed review guide](ai-first-review.md) prepares a packet and
   authenticates a non-author GitHub reviewer with maintain/admin permission. An approving review
   by the PR author does not satisfy that released path.
-- **This source or an installed v0.3.1 package:** [offline review preparation and solo-steward ratification](solo-steward-ratification.md)
+- **Offline preparation in v0.3.1:** [offline review preparation and solo-steward ratification](solo-steward-ratification.md)
   use `bce review prepare` with the locally authored draft and explicit, trusted-base governance.
   This path does not need a second model call or, for the installed package, a source checkout.
 
