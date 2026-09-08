@@ -22,6 +22,6 @@ export function selfAdoptionHtml(repoRoot, guideHref) {
 <ol class="self-adoption-pipeline" aria-label="GitHub verification pipeline"><li data-stage="source" data-state="unknown"><a data-source href="https://github.com/${REPOSITORY}/commits/main/">Source: main</a><span data-state>Not checked</span></li>${stages}</ol>
 <div class="self-adoption-refresh"><p data-live-message role="status">Live results require JavaScript and access to the public GitHub API.</p><button type="button" data-refresh hidden>Refresh status</button></div>
 <p class="self-adoption-record">Committed policy: <code>${escape(adoption.blueprintRef)}</code>, <strong>${escape(adoption.state)}</strong>, <strong>${escape(adoption.reviewMode)}</strong>. <a href="${escape(latest.reviewerAuthentication.reference)}">Authenticated decision</a> · <a href="${escape(guideHref)}">How to read this pipeline</a>.</p>
-<p class="self-adoption-limit">First-party operational evidence; no independent replication or product efficacy claim. These lifecycle additions are in source main; the immutable npm 0.3.0 artifact is unchanged.</p>
+<p class="self-adoption-limit">First-party operational evidence; no independent replication or product efficacy claim. These lifecycle additions are implemented in source and v0.3.1; they are absent from the immutable npm 0.3.0 artifact.</p>
 </section>`;
 }

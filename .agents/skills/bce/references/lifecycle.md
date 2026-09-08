@@ -5,6 +5,12 @@ code fix → GREEN task, the primary `SKILL.md` is sufficient.
 
 ## Install and discriminate
 
+Use an existing repository-local BCE installation when available. This source and v0.3.1 include
+offline `review prepare`, solo-steward ratification, lifecycle audits, and local `spec/SPEC.md`.
+The installed package runs those commands without a source checkout. At this guide's preparation,
+v0.3.1 is staged and the new-install commands below target published v0.3.0. Do not use them to
+replace an installed v0.3.1 package; verify the release record before changing artifacts.
+
 Use an exact provenance-backed version, never a range or `latest` for a merge gate:
 
 ```bash
@@ -97,6 +103,10 @@ bce onboard \
 
 This exact onboarding command supports the framework, import-surface, and direct-module profiles in
 `v0.3.0`.
+
+Its `--engine` selects v0.3.0 for CI even when the local runner is v0.3.1. That CI
+artifact lacks the route correction. Verify a published matching artifact before selecting its
+exact version or Action source commit for CI; upgrading locally does not upgrade the workflow.
 
 Harnesses are `agents`, `claude`, `cursor`, and `codex`. Onboarding installs project skills, agent
 context, project-local MCP configuration, immutable CI, advisory mode, and an adoption manifest. It

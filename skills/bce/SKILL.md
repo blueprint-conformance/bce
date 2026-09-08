@@ -108,6 +108,11 @@ advisory/baseline/graduation path, and CI invariants.
 Use the repository's existing package manager: `pnpm exec bce` or `yarn bce` replaces the npm runner.
 Do not fetch a package named `bce`, silently change package managers, or require a global install.
 
-Prefer local, version-matched package documentation. The immutable npm `0.3.0` tarball omits
-`spec/SPEC.md`; use https://github.com/blueprint-conformance/bce/blob/v0.3.0/spec/SPEC.md if absent.
-Current source includes offline `review prepare` and solo-steward ratification; npm `0.3.0` does not.
+Prefer local, version-matched package documentation. The v0.3.1 package includes
+`spec/SPEC.md`, offline `review prepare`, and solo-steward ratification. Use the installed local
+binary for those commands; a source checkout is not required. The immutable npm `0.3.0` tarball
+lacks those additions and omits `spec/SPEC.md`; when operating that version, use
+https://github.com/blueprint-conformance/bce/blob/v0.3.0/spec/SPEC.md if the local file is absent.
+Identify the existing artifact before installing anything. Do not replace an installed v0.3.1
+package with the older registry target shown in a staged guide. Verify the release record before
+changing the selected artifact.

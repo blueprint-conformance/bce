@@ -128,6 +128,7 @@ try {
     { name: 'javascript-arrow-missing', extension: 'js', source: prefix + forms.arrow('GET', 'return { secret: true };'), exit: 1, outcome: 'violation', violation: 'd6-tenant-guard', verb: 'GET' },
     { name: 'javascript-rebound-function', extension: 'js', source: prefix + forms.function('GET', guarded) + '\nGET = async () => ({ secret: true });', exit: 2, outcome: 'refusal', reason: 'handler binding is reassigned' },
     { name: 'javascript-commonjs-POST', extension: 'js', source: prefix + forms.function('GET', guarded) + '\nexports.POST = async () => ({ secret: true });', exit: 2, outcome: 'refusal', reason: 'CommonJS handler assignment is not supported' },
+    { name: 'duplicate-ts-js-handler', extension: 'js', duplicateTypeScript: true, source: prefix + forms.arrow('GET', 'return { secret: true };'), exit: 2, outcome: 'refusal', reason: 'duplicate canonical handler' },
   );
   proof.source.blueprintSha256 = hash(readFileSync(blueprint), 'sha256');
   for (const scenario of scenarios) {
@@ -138,6 +139,10 @@ try {
       // Match the authored JavaScript tree explicitly, preserving every rule and coverage floor.
       scopedBlueprint.scope.paths = ['src/app/api/**/*.js'];
       scopedBlueprint.extraction.paths = ['src/app/api/**/*.js'];
+      if (scenario.duplicateTypeScript) {
+        scopedBlueprint.scope.paths.push('src/app/api/**/*.ts');
+        scopedBlueprint.extraction.paths.push('src/app/api/**/*.ts');
+      }
       for (const name of ['items', 'projects', 'settings']) {
         const file = join(directory, `src/app/api/tenants/[id]/${name}/route.js`);
         mkdirSync(dirname(file), { recursive: true });
@@ -151,6 +156,9 @@ try {
     const itemRoute = join(directory, `src/app/api/tenants/[id]/items/route.${extension}`);
     if (scenario.allFiles) for (const path of allFiles(join(directory, 'src'))) writeFileSync(path, scenario.source);
     else writeFileSync(itemRoute, scenario.source);
+    if (scenario.duplicateTypeScript) {
+      writeFileSync(join(directory, 'src/app/api/tenants/[id]/items/route.ts'), prefix + forms.function('GET', guarded));
+    }
     const reportPath = join(directory, 'gate.json');
     const invocation = ['gate', '--repo', directory, '--repo-name', 'service-beta', '--report-json', reportPath];
     const result = spawnSync(process.execPath, [join(installed, 'dist/cli.js'), ...invocation], { cwd: directory, encoding: 'utf8', timeout: 60_000, maxBuffer: 8 * 1024 * 1024 });

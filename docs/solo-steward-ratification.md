@@ -4,8 +4,13 @@ A repository with one human can operate the full BCE policy lifecycle. Its decis
 **self-ratified**. This is authenticated stewardship, not independent review or independent replication.
 The default remains an approving GitHub review by a non-author with current maintain/admin permission.
 
-These additions describe the source checkout after the self-adoption change. The immutable npm
-`bce-engine@0.3.0` release predates them; build this checkout to execute the commands below.
+These commands are implemented in this source and v0.3.1. The immutable `bce-engine@0.3.0`
+release predates them. Verify the exact installed version before proceeding.
+
+The examples below use a built source checkout's `node dist/cli.js`. With an installed v0.3.1
+package, replace that runner with `npx --no-install bce`, `pnpm exec bce`, or `yarn bce` in your
+repository. The arguments and human authorization requirements are the same; no source checkout
+is needed for the installed package.
 
 ## Authorize the steward before the ceremony
 

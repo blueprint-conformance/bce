@@ -419,11 +419,29 @@ export function scanPatterns(
 /** next-route-handler component id: `route:<segments>:<verb>`. */
 function routeComponentId(relPath: string, verb: string): string {
   const seg = relPath
+    // Route identity follows the route, not its source language. Normalize before the legacy
+    // mapping so existing TypeScript IDs (including root-route IDs) remain byte-stable.
+    .replace(/(^|\/)route\.(?:[cm]?[jt]s|[jt]sx)$/, '$1route.ts')
     .replace(/^src\/app\/api\/tenants\/\[id\]\//, '')
     .replace(/\/route\.ts$/, '')
     .replace(/\//g, ':')
     .replace(/[[\]]/g, '');
   return `route:${seg || 'root'}:${verb}`;
+}
+
+/** Ambiguous route IDs must never let a second file borrow the first file's guard edge. */
+function assertUniqueRouteIds(components: readonly ObservedComponent[]): void {
+  const routeIds = new Map<string, string>();
+  for (const component of components) {
+    if (component.type !== 'apiRouteHandler') continue;
+    const sourceRef = `${component.path}#L${component.line}`;
+    const firstRef = routeIds.get(component.id);
+    if (firstRef) {
+      throw new Error(`unsupported route export at ${sourceRef}: ` +
+        `duplicate canonical handler ${component.id} (also declared at ${firstRef}); route inventory is ambiguous`);
+    }
+    routeIds.set(component.id, sourceRef);
+  }
 }
 
 /** plugin-surface component id: `extension:<basename>`. */
@@ -781,6 +799,7 @@ export class AstExtractor implements RepositoryFactsExtractor {
       project.removeSourceFile(source);
     }
 
+    if (this.cfg.profile === 'next-route-handler') assertUniqueRouteIds(components);
     components.sort(compareComponents);
     guardEdges.sort(compareEdges);
     const unsupported =
@@ -1968,6 +1987,7 @@ export class LineScanExtractor implements RepositoryFactsExtractor {
       }
     }
 
+    if (this.cfg.profile === 'next-route-handler') assertUniqueRouteIds(components);
     components.sort(compareComponents);
     guardEdges.sort(compareEdges);
     return {

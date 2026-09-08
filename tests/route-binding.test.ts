@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { AstExtractor, resolveExtraction } from '../src/extractors.js';
+import { AstExtractor, LineScanExtractor, resolveExtraction } from '../src/extractors.js';
 import { parseBlueprint } from '../src/schema.js';
 import { evaluate } from '../src/report.js';
 
@@ -102,6 +102,46 @@ describe('recognizable CommonJS handler writes refuse at the ESM support boundar
 });
 
 describe('JavaScript routes retain governed import provenance', () => {
+  it.each(['ts', 'tsx', 'mts', 'cts', 'js', 'jsx', 'mjs', 'cjs'])(
+    'keeps canonical route IDs and original source anchors for .%s', extension => {
+      const { graph, report } = inspect('export const POST = async () => ({});', extension);
+      expect(graph.components.map(component => component.id)).toEqual([
+        'route:items:GET', 'route:items:POST', 'route:projects:GET', 'route:settings:GET',
+      ]);
+      expect(report.violations).toHaveLength(1);
+      expect(report.violations[0]).toMatchObject({
+        constraintId: 'd6-tenant-guard', component: 'route:items:POST',
+        evidenceRef: `src/app/api/tenants/[id]/items/route.${extension}#L3`,
+      });
+    });
+  it('anchors a missing JavaScript GET guard to the unchanged TypeScript route identity', () => {
+    const { root, blueprint } = fixture('', 'js');
+    writeFileSync(join(root, 'src/app/api/tenants/[id]/items/route.js'),
+      prefix + 'export const GET = async () => ({});');
+    const graph = new AstExtractor(resolveExtraction(blueprint.extraction, blueprint.constraints)).extract(root, 'test');
+    expect(evaluate(blueprint, graph).violations).toEqual([expect.objectContaining({
+      component: 'route:items:GET', evidenceRef: 'src/app/api/tenants/[id]/items/route.js#L2',
+    })]);
+  });
+  it.each(['ts', 'js'])('preserves the existing root-route ID for .%s', extension => {
+    const { root, blueprint } = fixture('', extension);
+    const file = `src/app/api/tenants/[id]/route.${extension}`;
+    writeFileSync(join(root, file), prefix + guarded);
+    const graph = new AstExtractor(resolveExtraction(blueprint.extraction, blueprint.constraints)).extract(root, 'test');
+    expect(graph.components.find(component => component.path === file)?.id).toBe('route:route.ts:GET');
+  });
+  it.each(['ts', 'js'])('refuses colliding routes with the guard in .%s before edges can be borrowed', guardedExtension => {
+    const { root, blueprint } = fixture('', 'ts');
+    blueprint.extraction!.paths = ['src/app/api/**/*.ts', 'src/app/api/**/*.js'];
+    for (const extension of ['ts', 'js']) {
+      writeFileSync(join(root, `src/app/api/tenants/[id]/items/route.${extension}`),
+        prefix + (extension === guardedExtension ? guarded : 'export async function GET() { return {}; }'));
+    }
+    for (const Extractor of [AstExtractor, LineScanExtractor]) {
+      expect(() => new Extractor(resolveExtraction(blueprint.extraction, blueprint.constraints)).extract(root, 'test'))
+        .toThrow(/unsupported route export at .*route.ts#L2: duplicate canonical handler route:items:GET \(also declared at .*route.js#L2\)/);
+    }
+  });
   it('observes a healthy .js route surface', () => {
     const { graph, report } = inspect('', 'js');
     expect(graph.components).toHaveLength(3);
