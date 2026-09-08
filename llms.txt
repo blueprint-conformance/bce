@@ -7,10 +7,11 @@
 > architectural contract for a repository; bce measures the code against it and produces a
 > deterministic conformance score, a fail-closed required-check gate for merges, and hash-chained
 > evidence anyone can re-derive offline. TypeScript/JavaScript framework AST extraction is the
-> mature released path. The v0.3.0 release adds direct TypeScript/JavaScript and structured Python
+> mature released path. The v0.3.0 release introduced direct TypeScript/JavaScript and structured Python
 > module graphs while preserving the Python import-surface profile. The immutable registry release
-> is v0.3.0; source main includes later changes labelled in the agent start guide. The npm integrity is
-> `sha512-KwWyEYOZu70xrQG5JYEyHNhz3eqTalno9d9+KUugytYBiWtHGO7Wpa+X/7xgi9xDc49V7OUchTJtN8Pu8T37iw==`;
+> is v0.3.1; it expands route inventory and ships offline review preparation and solo-steward lifecycle support.
+> Route evidence remains call-site presence, with authorization behavior unverified. The npm integrity is
+> `sha512-hRWp4UvxWS7XnifOfrjRSxhIhUh8KB8n0I79Kyw6ffgSuH1s3aAwCVNapnsRIOH1rPXzxo/gTMMuyQewzgsrCg==`;
 > verify registry metadata before installation. Compatibility remains pre-1.0.
 
 Core rules for an agent working in a bce-gated repo: (1) the gate is the done-check — a change is not
@@ -23,7 +24,7 @@ no skip flags — a refusal is a red, not a pass.
 - [Agent start guide](docs/agent-start.md): choose existing-gate repair, new-repository adoption, human inspection, or contribution; use the current coding agent without requiring a second model account.
 - [Quickstart (offline RED→fix→GREEN)](examples/quickstart/README.md): the guaranteed path, no API keys, five minutes.
 - [Quickstart summary](docs/quickstart.md): the one-screen version.
-- [Executable recipe catalog](docs/first-win.md): install v0.3.0, run `npx --no-install bce demo --list`, then a real GREEN/named-RED proof for extension contracts, tenant route guards, governed egress, TypeScript or Python module layering, or configuration allowlists.
+- [Executable recipe catalog](docs/first-win.md): install v0.3.1, run `npx --no-install bce demo --list`, then a real GREEN/named-RED proof for extension contracts, tenant route guards, governed egress, TypeScript or Python module layering, or configuration allowlists.
 - [Authoring matrix](examples/first-win/README.md): adapt a recipe to one of six starting layouts (empty repo, plain JavaScript, TypeScript, monorepo, TypeScript layering, Python layering); each `bce author` loop is timed under 120s in CI.
 - [README](README.md): what bce is, in a paragraph.
 - [AI-first proposal and review](docs/ai-first-review.md): bounded disclosure, draft-only generation,
@@ -67,6 +68,8 @@ no skip flags — a refusal is a red, not a pass.
 - [This repo's blueprint](.blueprints/engine.blueprint.json): the contract the self-gate enforces.
 
 ## Project
+
+- [Current release verification](docs/release-v0.3.1.md): exact npm/source identities, signed release assets, installed consumer checks, and explicit limits.
 
 - [Contributing](CONTRIBUTING.md): DCO sign-off, agent-authored-PR conventions, the violation-message style guide.
 - [Governance](GOVERNANCE.md): solo maintainer, AI-driven operations, no board, no SLA, Apache-2.0 open core.

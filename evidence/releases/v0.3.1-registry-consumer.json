@@ -1,0 +1,494 @@
+{
+  "schemaVersion": "1",
+  "kind": "registry-consumer-result-summary",
+  "package": "bce-engine",
+  "version": "0.3.1",
+  "sourceCommit": "7fc24fe24c3eb41366be990023ea37b00d2ca3b8",
+  "releaseUrl": "https://github.com/blueprint-conformance/bce/releases/tag/v0.3.1",
+  "provenanceRunUrl": "https://github.com/blueprint-conformance/bce/actions/runs/34183200847/attempts/1",
+  "tarballSha256": "bd5ed95e2e83a6a8910be0326920f08362c8463a122d146749df940fdf540e97",
+  "npmIntegrity": "sha512-hRWp4UvxWS7XnifOfrjRSxhIhUh8KB8n0I79Kyw6ffgSuH1s3aAwCVNapnsRIOH1rPXzxo/gTMMuyQewzgsrCg==",
+  "npmShasum": "1f71f5221bcc7cc1e29728d2339abb4046f2d701",
+  "passed": true,
+  "caseCount": 52,
+  "environment": {
+    "node": "v22.22.2",
+    "npm": "10.9.7",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "evidenceBoundary": "First-party synthetic installed-CLI verification; not independent adoption, human review, product efficacy, or behavioral authorization proof. This is a result summary, not the complete raw local evidence bundle.",
+  "replayScriptUrl": "https://github.com/blueprint-conformance/bce/blob/7fc24fe24c3eb41366be990023ea37b00d2ca3b8/scripts/route-consumer-proof.mjs",
+  "tagConsumerArtifactUrl": "https://github.com/blueprint-conformance/bce/actions/runs/34183200847/artifacts/10039768511",
+  "rawLocalProofSha256": "201c11b797a90c1f7abe82274a0df5861bab10019741d8c65dfaee04785b10f6",
+  "cases": [
+    {
+      "name": "function-GET-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "47e0a696d314db819ce2c4152ebdaa0ebd712219a8614fc3f8d9d5ec7c6b94d0"
+    },
+    {
+      "name": "function-GET-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "523014feffc92783a2674138bb144c95618b11b60eb93e84060a0ebcaf049155"
+    },
+    {
+      "name": "function-POST-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "32c9e25a7e1c4a0e2a4c740d9703fdce51fd133a1c9e4e174ba70b959ec68376"
+    },
+    {
+      "name": "function-POST-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "5fe5da1cc48060bee08eba25562fe1cd736633878183064ecf22e43478e8bd48"
+    },
+    {
+      "name": "function-PUT-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "14ba56f9e3a81999e01ea3a6119a2d70ab2c51b1199195d7bac413af422e0e24"
+    },
+    {
+      "name": "function-PUT-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "44c15317b08ef0f5dfa3cd25b6193e582ab8a8c464b825366bcc902164614969"
+    },
+    {
+      "name": "function-PATCH-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "da6229c53772deccb3708709d18457be7b6b32b5e66cc58866de3b4cb04f58e6"
+    },
+    {
+      "name": "function-PATCH-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "bf0b90956c6546d1e7c0d5f4f2649f95aa822aa841af3381d7cabbfa353f7b79"
+    },
+    {
+      "name": "function-DELETE-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "810a90c86e8cd9b1c35a8ec02333e664661b250f594faf2a3a6d3f9c9da825fc"
+    },
+    {
+      "name": "function-DELETE-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "52f299a5e1c37ddadc088fd8d1117dff0b97894f906f263bd724be33361b5e05"
+    },
+    {
+      "name": "function-HEAD-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "42fe2d37c4bbdc6880e12b470578b8e5da549ae98fdb656efb50e6740f5d5487"
+    },
+    {
+      "name": "function-HEAD-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "178c5de91e4977d1572323893d305afe873fc9916000eebad6674173ed738ed3"
+    },
+    {
+      "name": "function-OPTIONS-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "9df3e546f823b435716c12ef376ef44ff6be354e7b10600c4cfaf94e1b137f5d"
+    },
+    {
+      "name": "function-OPTIONS-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "a4d3ef3568ac39bd3bd6fe375f26a1eb546b7202cbfe92f9c3a15e7ee6823999"
+    },
+    {
+      "name": "arrow-GET-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "e8c73b22019f844e10812e9e01c510802ba94132699c0445d3ae70fda88e480c"
+    },
+    {
+      "name": "arrow-GET-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "c1b6e12893587b5a1ab3a10c99fcd2bf79a50dee11ba609d6baafa18311f2008"
+    },
+    {
+      "name": "arrow-POST-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "eb2fce6b103d8f5b7bd9fd9189918a45945cf34190147edeb8842d10adf56f2a"
+    },
+    {
+      "name": "arrow-POST-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "c491b23dfa6a3260aaaba27cd86caa16df09178ec61116e74249b07811642dfc"
+    },
+    {
+      "name": "arrow-PUT-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "b447d6f0960e0b50fbece3f581015c0a9c01efd2cbb39acd151184e95a35a6d9"
+    },
+    {
+      "name": "arrow-PUT-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "39a71bca72882f0e264af6562f907f329854e38e027da2959c3b580c0088af6b"
+    },
+    {
+      "name": "arrow-PATCH-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "6a0e16396b5dd0a79ba53ecfd4d64f6a5c8a8e6d1528d7c029140e97bc03b309"
+    },
+    {
+      "name": "arrow-PATCH-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "653163d951b53edff316b2e4d1dc841f7eb44529de56ce6877d781e142dd2e24"
+    },
+    {
+      "name": "arrow-DELETE-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "9182abe792d0e26d4281c6fa80678d12bf8e222a1529f0ada6fe534ad50c60b8"
+    },
+    {
+      "name": "arrow-DELETE-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "726e2e188446ad8db7bb7900b7e74d70a9ca0cef7e0fb300bfa3a8577e8555d5"
+    },
+    {
+      "name": "arrow-HEAD-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "a7e7e7cd58af47ce52e571886b5f55bdb7e74886a3f521c04dbc142f921634bf"
+    },
+    {
+      "name": "arrow-HEAD-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "aa23e20066095f25baffba2aefd9ccfaf931bc2e537c4aaddf5fd30c6715cc6f"
+    },
+    {
+      "name": "arrow-OPTIONS-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "c3aa335a72c0565924de3aca2bba7c45f220004b5f725a2e529ed5cd56b39722"
+    },
+    {
+      "name": "arrow-OPTIONS-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "30c0fc559c1be7ecb72e242df6b393d30a6fd43abdb13dcb420183a30f0fce60"
+    },
+    {
+      "name": "expression-GET-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "be1f503477a35346e885338c7e9e2846d1e94ca8c901b2d3a910f25e8d0b2d2a"
+    },
+    {
+      "name": "expression-GET-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "39b7c12704d1c75f68c43c72d206907214e14fc0a2a1f0a553d2c1bc83a9a73e"
+    },
+    {
+      "name": "expression-POST-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "ddd423ce94980169d12df9cb9a19dd8730af02c3f07be42304122bbc5a5a61cf"
+    },
+    {
+      "name": "expression-POST-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "cd8d3b5df852a9e091605b2c281d07cc2ea6dacec6b4a9308aa981a1fee8107a"
+    },
+    {
+      "name": "expression-PUT-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "00943e3750f34a7c551c191a36307fe358cfd31c26f0ff625aac089501f63cb0"
+    },
+    {
+      "name": "expression-PUT-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "78889a35e73fadc5ee7869438c9e53b9aa2d3fc5e1d35f8bd90b80ffccfb5b3d"
+    },
+    {
+      "name": "expression-PATCH-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "4f102af693fcd116852891025aaf8b63982f528ee2be755e362e2babbb8c0779"
+    },
+    {
+      "name": "expression-PATCH-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "044b29625b3f5ceb4a8d3d661ad0e82d3b63da9ac9bef46340ed3a7112629fe1"
+    },
+    {
+      "name": "expression-DELETE-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "ac976b58994ee3de5cf5a707e78bb4b99994e497198f89c8dfcee9b58b81f15f"
+    },
+    {
+      "name": "expression-DELETE-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "dbb4621f61be25eaf1d191bfd946d8b2ba7d988e2d40b8672aaf224a81ee7488"
+    },
+    {
+      "name": "expression-HEAD-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "9a12adad92791cdb76d8a4bcf803ca785f6e17ebad97ec4fab63126ec5b1b2f0"
+    },
+    {
+      "name": "expression-HEAD-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "080f391f7bf011c9d4e76703e6c759d9dbc0de4a1f92e80ec58090f48045e415"
+    },
+    {
+      "name": "expression-OPTIONS-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "3760432f729285089008e5243ca028b8d08c31437e8c3243d7fb85870e3f8021"
+    },
+    {
+      "name": "expression-OPTIONS-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "f507e4758b6157c0f98ce0de7e3d015524cad925b955355766f442cf3bfa80d6"
+    },
+    {
+      "name": "mixed-unguarded-POST",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "6db858a564e796bc1d3d491837f30bd22a0343198e42a7eb3387649cd6cfd072"
+    },
+    {
+      "name": "unsupported-wrapper",
+      "expectedExit": 2,
+      "actualExit": 2,
+      "outcome": "refusal",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "1117b0b478cab4221e835c3b800d66ab7b83c1192a2285815125636ac5ccc511"
+    },
+    {
+      "name": "zero-handlers",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "26defd010daa712ed073879edbced4ee87b3e047e47cccd61c990c329a25bf53"
+    },
+    {
+      "name": "unreachable-guard-unverified",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "0908c979e8729a9fc11e508b28287105b7c309a1cb6438185928a47b7f0e0770"
+    },
+    {
+      "name": "rebound-function",
+      "expectedExit": 2,
+      "actualExit": 2,
+      "outcome": "refusal",
+      "passed": true,
+      "blueprintSha256": "7e79c17de6fe2ffd3d2a875ddc5146f623d012491990a38a20d6b7df2b78d816",
+      "sourceSha256": "a00aca038d797596e854de4921bfcf7bd2b46015c2c7a6fcf396c05d17e6dd5b"
+    },
+    {
+      "name": "javascript-arrow-guarded",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "outcome": "pass",
+      "passed": true,
+      "blueprintSha256": "3c45358cddde29faa34d9e264db48fd0b49094ac8ae41b522a8aead145bf1bf1",
+      "sourceSha256": "e8c73b22019f844e10812e9e01c510802ba94132699c0445d3ae70fda88e480c"
+    },
+    {
+      "name": "javascript-arrow-missing",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "outcome": "violation",
+      "passed": true,
+      "blueprintSha256": "3c45358cddde29faa34d9e264db48fd0b49094ac8ae41b522a8aead145bf1bf1",
+      "sourceSha256": "c1b6e12893587b5a1ab3a10c99fcd2bf79a50dee11ba609d6baafa18311f2008"
+    },
+    {
+      "name": "javascript-rebound-function",
+      "expectedExit": 2,
+      "actualExit": 2,
+      "outcome": "refusal",
+      "passed": true,
+      "blueprintSha256": "3c45358cddde29faa34d9e264db48fd0b49094ac8ae41b522a8aead145bf1bf1",
+      "sourceSha256": "a00aca038d797596e854de4921bfcf7bd2b46015c2c7a6fcf396c05d17e6dd5b"
+    },
+    {
+      "name": "javascript-commonjs-POST",
+      "expectedExit": 2,
+      "actualExit": 2,
+      "outcome": "refusal",
+      "passed": true,
+      "blueprintSha256": "3c45358cddde29faa34d9e264db48fd0b49094ac8ae41b522a8aead145bf1bf1",
+      "sourceSha256": "3b0cfdd7b1a064c0de74a5b7879870988f4636916efdb51b66ef7243d6cfe4ba"
+    },
+    {
+      "name": "duplicate-ts-js-handler",
+      "expectedExit": 2,
+      "actualExit": 2,
+      "outcome": "refusal",
+      "passed": true,
+      "blueprintSha256": "c247972f2c8c4ede253158d358ac9a80f16d3ca3ca2e7785800bc5b6cc0d1a98",
+      "sourceSha256": "c1b6e12893587b5a1ab3a10c99fcd2bf79a50dee11ba609d6baafa18311f2008"
+    }
+  ]
+}

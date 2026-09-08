@@ -4,15 +4,15 @@ Do not begin by learning the whole specification. Run the architecture failure c
 you need to prevent. Each recipe stays offline and runs one conforming tree plus one planted drift
 tree through the same engine used by the merge gate.
 
-**Release boundary:** the immutable `bce-engine@0.3.0` registry release contains both the original
+**Release boundary:** the immutable `bce-engine@0.3.1` registry release contains both the original
 zero-argument demo and the six named recipes below. Use the exact version; do not substitute a range
 or `latest` for a merge gate.
 
 Run the released proof:
 
 ```bash
-npm view bce-engine@0.3.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.3.0
+npm view bce-engine@0.3.1 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.1
 npx --no-install bce demo
 ```
 
@@ -68,17 +68,21 @@ surface fails the zero-handler check, but omitted handlers alongside recognized 
 can produce a misleading pass. File counts are not handler coverage. Do not use this release's
 route check as proof that every route enforces access control.
 
-**Source correction (v0.3.1 candidate, unreleased):** direct named function declarations and immutable `const`
+**Released correction (v0.3.1):** direct named function declarations and immutable `const`
 arrow/function-expression exports are inventoried for GET, POST, PATCH, PUT, DELETE, HEAD, and
 OPTIONS. Relevant indirect exports, wrappers, mutable handlers, and star re-exports refuse
 extraction with a source location. Recognizable writes to exported handler bindings and CommonJS
 handler assignments also refuse. TypeScript and JavaScript imports are resolved within this bounded
-profile. Use a direct supported export or keep the result unverified;
+profile. JavaScript and TypeScript retain the same canonical handler identity and their original
+source locations; duplicate canonical handlers refuse. Use a direct supported export or keep the result unverified;
 do not remove a route from the configured scan to obtain a pass. Default exports are not named
 HTTP handlers. Inventory remains limited to configured files and static ESM exports; dynamic
 registration, eval, and reflective replacement are not supported. This correction does not add
 control-flow or tenant-binding analysis. Reports and ordinary terminal output explicitly label
 authorization behavior unverified.
+
+The [v0.3.1 release record](release-v0.3.1.md) binds this correction to the verified registry
+artifact and the 52-case installed-archive proof.
 
 The [route regression suite](../tests/route-evidence.test.ts) preserves detection, refusal, and
 semantic-limit cases separately. A teeth result proves the declared mutation can be detected;

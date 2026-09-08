@@ -1,16 +1,16 @@
 {
   "$comment": "The Lane-A engine pin \u2014 the EXACT published bce-engine version that gates this tree independently of the code under review. See docs/pin-ceremony.md and docs/self-hosting.md \u00a7'Lane A / Lane B'. Bumping this pin is a PR gated by the OLD pin (a trust-anchor ratchet), never an in-line edit.",
   "package": "bce-engine",
-  "pin": "0.3.0",
+  "pin": "0.3.1",
   "range": false,
   "rangeRationale": "EXACT pin only \u2014 never ^0.3.0, ~0.3.0, or @latest. Lane A must be independent of the code under review, so it installs a fixed published artifact. A range would let a later publish silently change the grader every contributor is measured against, reintroducing the trusting-trust hole Lane A exists to close. The caret-0.x incident is the recorded reason: on a 0.x line `^0.6.0` is equivalent to `~0.6.0` and EXCLUDES 0.7.0, so a caret pin does not even receive a minor bump \u2014 it ships dead-green.",
   "published": true,
-  "integrity": "sha512-KwWyEYOZu70xrQG5JYEyHNhz3eqTalno9d9+KUugytYBiWtHGO7Wpa+X/7xgi9xDc49V7OUchTJtN8Pu8T37iw==",
-  "shasum": "00fab2060b23460d9ac0489610eb0fec7b5a8d57",
-  "sourceCommit": "9fe4a02d39c05dbdf280b359e9b364de84e1eda8",
-  "provenanceRunUrl": "https://github.com/blueprint-conformance/bce/actions/runs/33986090613/attempts/2",
-  "evidenceReleaseUrl": "https://github.com/blueprint-conformance/bce/releases/tag/v0.3.0",
-  "publishedNote": "bce-engine@0.3.0 is live on the public npm registry with SLSA provenance from release run 33986090613 attempt 2; its exact registry integrity, source commit, and six-asset immutable Release are recorded above.",
+  "integrity": "sha512-hRWp4UvxWS7XnifOfrjRSxhIhUh8KB8n0I79Kyw6ffgSuH1s3aAwCVNapnsRIOH1rPXzxo/gTMMuyQewzgsrCg==",
+  "shasum": "1f71f5221bcc7cc1e29728d2339abb4046f2d701",
+  "sourceCommit": "7fc24fe24c3eb41366be990023ea37b00d2ca3b8",
+  "provenanceRunUrl": "https://github.com/blueprint-conformance/bce/actions/runs/34183200847/attempts/1",
+  "evidenceReleaseUrl": "https://github.com/blueprint-conformance/bce/releases/tag/v0.3.1",
+  "publishedNote": "bce-engine@0.3.1 is live on the public npm registry with verified SLSA provenance from release run 34183200847 attempt 1; its exact registry integrity, source commit, and six-asset immutable Release are recorded above. A fresh registry consumer passed all 52 route cases against those same bytes.",
   "bumpCeremony": "docs/pin-ceremony.md",
-  "trustAnchor": "Lane A installs the exact public bce-engine@0.3.0 artifact, independently of the code under review."
+  "trustAnchor": "Lane A installs the exact public bce-engine@0.3.1 artifact, independently of the code under review. This pin is admitted by the predecessor v0.3.0 pin from the activation PR base."
 }

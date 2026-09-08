@@ -4,13 +4,13 @@ Use `python-module-graph` when a Python rule is about which repository modules m
 other modules. Every scanned `.py` file becomes a `pythonModule` component. A pinned structured
 parser records statically declared imports as policy-independent `imports` edges before evaluation.
 
-This profile is in the `v0.3.0` registry release. It is additive: the released
+This profile is available in the `v0.3.1` registry release. It is additive: the released
 `python-import-surface` profile remains available with its existing behavior. Install the exact
 version and run the structured proof:
 
 ```bash
-npm view bce-engine@0.3.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.3.0
+npm view bce-engine@0.3.1 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.3.1
 npx --no-install bce demo --recipe python-module-layering
 ```
 
