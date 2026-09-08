@@ -3,7 +3,7 @@
   "kind": "EngineeringBlueprint",
   "metadata": {
     "id": "route-guard",
-    "name": "Route Guard — tenant-guarded Next.js API route surface (missing function-level access control, CWE-306 form)",
+    "name": "Route Guard — governed guard call-site presence in Next.js API handlers",
     "version": "0.1.0",
     "status": "approved",
     "ownerRole": "platform-engineer",

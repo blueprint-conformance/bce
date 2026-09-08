@@ -177,7 +177,7 @@ replication, or product efficacy is claimed.
   transportability evidence, or independent replication. Run `npm run evidence:verify` to replay
   the claim boundary, sealed inputs, and public result.
 - No conventional precision/recall study with independent annotation has been completed.
-- No paper, arXiv identifier, DOI, archival artifact, or independent replication is claimed.
+- A [working paper draft](docs/paper.md) is shared for discussion. No arXiv identifier, DOI, archival publication, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;
   the accepted implementation count remains zero.
 - The v0.3.0 EvidenceRecord and payload manifest have authenticated Sigstore identities bound to the

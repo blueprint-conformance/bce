@@ -1,13 +1,8 @@
 /**
- * FIXTURE — a CONFORMANT tenant-scoped route (route-guard blueprint, next-route-handler profile).
- *
- * Every exported HTTP-verb handler calls a BARE tenant-guard symbol (`requireTenantAccess`) —
- * the exact per-tenant-ownership-invariant shape the d6-tenant-guard constraint
- * requires. The route-guard blueprint scores this GREEN.
- *
- * FIXTURE-AUTHORING PIN (review FIX 2): handlers are authored as
- * `export async function VERB(...)` FunctionDeclarations — the ONLY shape
- * extractRouteHandler extracts. An exported-const arrow handler extracts ZERO components.
+ * FIXTURE — conforms to the route-guard blueprint's syntactic call-site check.
+ * Each exported handler contains a bare call imported from the configured guard module.
+ * A GREEN result does not prove execution on every path, denial propagation, or tenant binding.
+ * Direct function declarations and const arrow/function-expression exports are supported.
  */
 import { requireTenantAccess } from '@/lib/tenant-guards';
 

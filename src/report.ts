@@ -11,6 +11,13 @@ import type { ArchitectureGraph } from './graph.js';
 import type { EngineeringBlueprint, ExtractionProfile, Severity } from './schema.js';
 import { isGovernedHost } from './extractors.js';
 
+/** Shared renderer contract: keep CLI and JSON consumers honest about route evidence. */
+export function routeGuardEvidenceLimit(coverage: { unsupported: string[] }): string | undefined {
+  return coverage.unsupported.some((limit) => limit.startsWith('route guard evidence is governed call-site presence only'))
+    ? 'route evidence: governed call-site presence only; authorization behavior unverified'
+    : undefined;
+}
+
 export interface Violation {
   constraintId: string;
   severity: Severity;
@@ -649,9 +656,8 @@ export function evaluate(
   // fail reason explicit so `score 100` is never read as a pass.
   if (score === 100 && verdict === 'fail') summaryParts.push('FAIL despite score 100 (info-only or floor violations)');
 
-  if (graph.coverage.unsupported.some((limit) => limit.startsWith('route guard evidence is governed call-site presence only'))) {
-    summaryParts.push('route evidence: governed call-site presence only; authorization behavior unverified');
-  }
+  const routeLimit = routeGuardEvidenceLimit(graph.coverage);
+  if (routeLimit) summaryParts.push(routeLimit);
 
   return {
     schemaVersion: '1',

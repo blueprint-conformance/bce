@@ -72,6 +72,7 @@ describe('route inventory and governed call-site evidence', () => {
     'export const { methods: { action: POST } } = handlers;',
     'export const [POST] = handlers;',
     'export class POST {}',
+    'export namespace POST { export const value = true; }',
     'export declare function POST(): void;',
   ])('refuses unresolved export even with a healthy GET: %s', source => {
     expect(() => inspect(forms[0]!('GET', guarded) + '\n' + source)).toThrow(/unsupported route export at .*route.ts#L\d+/);
@@ -121,7 +122,10 @@ describe('real CLI enforced gate', () => {
     const report = JSON.parse(readFileSync(output, 'utf8'));
     expect(report.outcome).toBe(outcome);
     expect(report.exitCode).toBe(exitCode);
-    if (exitCode === 0) expect(report.reports[0].summary).toContain('authorization behavior unverified');
+    if (exitCode === 0) {
+      expect(report.reports[0].summary).toContain('authorization behavior unverified');
+      expect(result.stdout).toContain('authorization behavior unverified');
+    }
     if (exitCode === 2) expect(report.refusals.join(' ')).toContain('unsupported route export');
   });
 });
