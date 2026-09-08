@@ -68,14 +68,17 @@ surface fails the zero-handler check, but omitted handlers alongside recognized 
 can produce a misleading pass. File counts are not handler coverage. Do not use this release's
 route check as proof that every route enforces access control.
 
-**Source correction (unreleased):** direct named function declarations and immutable `const`
+**Source correction (v0.3.1 candidate, unreleased):** direct named function declarations and immutable `const`
 arrow/function-expression exports are inventoried for GET, POST, PATCH, PUT, DELETE, HEAD, and
 OPTIONS. Relevant indirect exports, wrappers, mutable handlers, and star re-exports refuse
-extraction with a source location. Use a direct supported export or keep the result unverified;
+extraction with a source location. Recognizable writes to exported handler bindings and CommonJS
+handler assignments also refuse. TypeScript and JavaScript imports are resolved within this bounded
+profile. Use a direct supported export or keep the result unverified;
 do not remove a route from the configured scan to obtain a pass. Default exports are not named
 HTTP handlers. Inventory remains limited to configured files and static ESM exports; dynamic
-registration and CommonJS handler assignment are not supported. This correction does not add
-control-flow or tenant-binding analysis. Reports explicitly label authorization behavior unverified.
+registration, eval, and reflective replacement are not supported. This correction does not add
+control-flow or tenant-binding analysis. Reports and ordinary terminal output explicitly label
+authorization behavior unverified.
 
 The [route regression suite](../tests/route-evidence.test.ts) preserves detection, refusal, and
 semantic-limit cases separately. A teeth result proves the declared mutation can be detected;
@@ -108,7 +111,7 @@ authoring a draft never approves policy.
 
 ## The honest support boundary
 
-- The released, mature TypeScript/JavaScript AST path covers Next.js route handlers, plugin
+- The released TypeScript/JavaScript AST path provides bounded extraction for Next.js route handlers, plugin
   surfaces, literal egress, paths, files, and line content.
 - The `v0.3.0` release adds direct TypeScript/JavaScript and structured Python module boundaries
   with controlled GREEN/RED fixtures and measured authoring loops. They are direct-only and do not

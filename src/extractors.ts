@@ -419,11 +419,29 @@ export function scanPatterns(
 /** next-route-handler component id: `route:<segments>:<verb>`. */
 function routeComponentId(relPath: string, verb: string): string {
   const seg = relPath
+    // Route identity follows the route, not its source language. Normalize before the legacy
+    // mapping so existing TypeScript IDs (including root-route IDs) remain byte-stable.
+    .replace(/(^|\/)route\.(?:[cm]?[jt]s|[jt]sx)$/, '$1route.ts')
     .replace(/^src\/app\/api\/tenants\/\[id\]\//, '')
     .replace(/\/route\.ts$/, '')
     .replace(/\//g, ':')
     .replace(/[[\]]/g, '');
   return `route:${seg || 'root'}:${verb}`;
+}
+
+/** Ambiguous route IDs must never let a second file borrow the first file's guard edge. */
+function assertUniqueRouteIds(components: readonly ObservedComponent[]): void {
+  const routeIds = new Map<string, string>();
+  for (const component of components) {
+    if (component.type !== 'apiRouteHandler') continue;
+    const sourceRef = `${component.path}#L${component.line}`;
+    const firstRef = routeIds.get(component.id);
+    if (firstRef) {
+      throw new Error(`unsupported route export at ${sourceRef}: ` +
+        `duplicate canonical handler ${component.id} (also declared at ${firstRef}); route inventory is ambiguous`);
+    }
+    routeIds.set(component.id, sourceRef);
+  }
 }
 
 /** plugin-surface component id: `extension:<basename>`. */
@@ -736,7 +754,11 @@ export class AstExtractor implements RepositoryFactsExtractor {
 
   extract(repoDir: string, revision: string): ArchitectureGraph {
     const files = resolveFiles(repoDir, this.cfg.paths);
-    const project = new Project({ useInMemoryFileSystem: false, skipAddingFilesFromTsConfig: true });
+    const project = new Project({
+      useInMemoryFileSystem: false,
+      skipAddingFilesFromTsConfig: true,
+      compilerOptions: { allowJs: true },
+    });
     const components: ObservedComponent[] = [];
     const guardEdges: ObservedEdge[] = [];
     const guardSet = new Set(this.cfg.guardSymbols);
@@ -777,6 +799,7 @@ export class AstExtractor implements RepositoryFactsExtractor {
       project.removeSourceFile(source);
     }
 
+    if (this.cfg.profile === 'next-route-handler') assertUniqueRouteIds(components);
     components.sort(compareComponents);
     guardEdges.sort(compareEdges);
     const unsupported =
@@ -789,8 +812,8 @@ export class AstExtractor implements RepositoryFactsExtractor {
         : [
             'no cross-module symbol resolution (a guard applied via an imported wrapper is not followed)',
             'route guard evidence is governed call-site presence only: no control-flow, reachability, awaiting, denial propagation, tenant/resource binding, or guard implementation verification',
-            'route inventory covers direct named HTTP-verb function and const arrow/function-expression exports in configured files; relevant indirect exports refuse extraction',
-            'dynamic/reflective handler registration and files outside configured paths are not covered',
+            'route inventory covers direct named HTTP-verb function and const arrow/function-expression exports in configured files; relevant indirect exports and recognizable binding/CommonJS writes refuse extraction',
+            'dynamic/eval/reflective handler registration or replacement and files outside configured paths are not covered',
           ];
     if (this.cfg.egressEnabled) {
       unsupported.push(
@@ -873,18 +896,18 @@ export class AstExtractor implements RepositoryFactsExtractor {
       }
     }
     for (const statement of source.getStatements()) {
-      if ((Node.isClassDeclaration(statement) || Node.isEnumDeclaration(statement) || Node.isImportEqualsDeclaration(statement)) &&
+      if ((Node.isClassDeclaration(statement) || Node.isEnumDeclaration(statement) || Node.isModuleDeclaration(statement) || Node.isImportEqualsDeclaration(statement)) &&
         statement.hasExportKeyword() && !(Node.isClassDeclaration(statement) && statement.isDefaultExport()) &&
         isVerb(statement.getName() ?? '')) {
         refuse(statement, 'HTTP-verb export is not a supported handler');
       }
       if (Node.isExportAssignment(statement) && statement.isExportEquals()) refuse(statement, 'export assignment');
     }
-    const handlers: Array<{ verb: string; fn: Node }> = [];
+    const handlers: Array<{ verb: string; fn: Node; binding: Node }> = [];
     for (const fn of source.getFunctions()) {
       if (fn.hasExportKeyword() && !fn.isDefaultExport() && isVerb(fn.getName() ?? '')) {
         if (!fn.getBody()) refuse(fn, 'handler has no implementation');
-        handlers.push({ verb: fn.getName()!, fn });
+        handlers.push({ verb: fn.getName()!, fn, binding: fn });
       }
     }
     for (const statement of source.getVariableStatements()) {
@@ -907,8 +930,79 @@ export class AstExtractor implements RepositoryFactsExtractor {
         if (!initializer || !(Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer))) {
           refuse(declaration, 'handler initializer is not a direct function');
         }
-        handlers.push({ verb: declaration.getName(), fn: initializer! });
+        handlers.push({ verb: declaration.getName(), fn: initializer!, binding: declaration });
       }
+    }
+    // An exported declaration is not stable evidence when another expression replaces its
+    // binding. Inspect syntactic write targets, resolving identifiers to the actual declaration
+    // so a shadowed local GET and GET.config are not mistaken for handler replacements.
+    const bindings = new Set(handlers.map(({ binding }) => binding));
+    const checkBinding = (target: Node, declarations = target.getSymbol()?.getDeclarations() ?? []): void => {
+      if (declarations.some((declaration) => bindings.has(declaration))) {
+        refuse(target, 'handler binding is reassigned');
+      }
+    };
+    const unwrap = (node: Node): Node => {
+      while (Node.isParenthesizedExpression(node) || Node.isAsExpression(node) ||
+        Node.isSatisfiesExpression(node) || Node.isTypeAssertion(node) || Node.isNonNullExpression(node)) {
+        node = node.getExpression();
+      }
+      return node;
+    };
+    const commonJsExport = (node: Node): boolean => {
+      const members: string[] = [];
+      let root = unwrap(node);
+      while (Node.isPropertyAccessExpression(root) || Node.isElementAccessExpression(root)) {
+        if (Node.isPropertyAccessExpression(root)) members.unshift(root.getName());
+        else {
+          const argument = root.getArgumentExpression();
+          if (!argument || !(Node.isStringLiteral(argument) || Node.isNoSubstitutionTemplateLiteral(argument))) return false;
+          members.unshift(argument.getLiteralText());
+        }
+        root = unwrap(root.getExpression());
+      }
+      if (!Node.isIdentifier(root)) return false;
+      // A parameter/local/import named exports or module is not the CommonJS module binding.
+      if (root.getSymbol()?.getDeclarations().some((declaration) =>
+        declaration.getSourceFile() === source && !Node.isSourceFile(declaration) &&
+        !declaration.getFirstAncestorByKind(SyntaxKind.VariableStatement)?.hasDeclareKeyword())) return false;
+      return (root.getText() === 'exports' && members.length === 1 && isVerb(members[0]!)) ||
+        (root.getText() === 'module' && members[0] === 'exports' &&
+          (members.length === 1 || (members.length === 2 && isVerb(members[1]!))));
+    };
+    const inspectWriteTarget = (input: Node): void => {
+      const target = unwrap(input);
+      if (Node.isIdentifier(target)) checkBinding(target);
+      else if (Node.isObjectBindingPattern(target) || Node.isArrayBindingPattern(target)) {
+        for (const element of target.getElements()) {
+          if (Node.isBindingElement(element)) inspectWriteTarget(element.getNameNode());
+        }
+      } else if (Node.isVariableDeclarationList(target)) {
+        for (const declaration of target.getDeclarations()) inspectWriteTarget(declaration.getNameNode());
+      } else if (Node.isObjectLiteralExpression(target)) {
+        for (const property of target.getProperties()) {
+          if (Node.isPropertyAssignment(property)) inspectWriteTarget(property.getInitializerOrThrow());
+          else if (Node.isShorthandPropertyAssignment(property)) {
+            checkBinding(property.getNameNode(), property.getValueSymbol()?.getDeclarations() ?? []);
+          } else if (Node.isSpreadAssignment(property)) inspectWriteTarget(property.getExpression());
+        }
+      } else if (Node.isArrayLiteralExpression(target)) {
+        for (const element of target.getElements()) inspectWriteTarget(element);
+      } else if (Node.isSpreadElement(target)) inspectWriteTarget(target.getExpression());
+      else if (Node.isBinaryExpression(target) && target.getOperatorToken().getKind() === SyntaxKind.EqualsToken) {
+        inspectWriteTarget(target.getLeft());
+      } else if (commonJsExport(target)) refuse(target, 'CommonJS handler assignment is not supported');
+    };
+    for (const node of source.getDescendants()) {
+      if (Node.isBinaryExpression(node)) {
+        const operator = node.getOperatorToken().getKind();
+        if (operator >= SyntaxKind.FirstAssignment && operator <= SyntaxKind.LastAssignment) inspectWriteTarget(node.getLeft());
+      } else if (Node.isForInStatement(node) || Node.isForOfStatement(node)) inspectWriteTarget(node.getInitializer());
+      else if (Node.isVariableDeclaration(node) && node.getInitializer() && !bindings.has(node)) inspectWriteTarget(node.getNameNode());
+      else if ((Node.isPrefixUnaryExpression(node) || Node.isPostfixUnaryExpression(node)) &&
+        (node.getOperatorToken() === SyntaxKind.PlusPlusToken || node.getOperatorToken() === SyntaxKind.MinusMinusToken)) {
+        inspectWriteTarget(node.getOperand());
+      } else if (Node.isDeleteExpression(node)) inspectWriteTarget(node.getExpression());
     }
     const seen = new Set<string>();
     for (const { verb, fn } of handlers) {
@@ -1893,6 +1987,7 @@ export class LineScanExtractor implements RepositoryFactsExtractor {
       }
     }
 
+    if (this.cfg.profile === 'next-route-handler') assertUniqueRouteIds(components);
     components.sort(compareComponents);
     guardEdges.sort(compareEdges);
     return {

@@ -21,6 +21,11 @@ standing rule. CI supplies enforcement. None of those duplicates conformance log
 
 ## 1. Install the exact release
 
+If you already have this source or an installed v0.3.1 package, use its existing local binary and
+continue with the demo. At this guide's preparation, v0.3.1 is staged and the registry commands
+below target published v0.3.0; do not run them to replace v0.3.1. Identify the installed version
+and verify the release record before changing artifacts or choosing the ceremony in step 6.
+
 Node 22 or newer is required. Check `node --version` first. Use the repository’s existing package
 manager and workspace; preserve its lockfile. For npm, install the exact release as a development
 dependency. Both `bce` and `bce-mcp` become local project binaries:
@@ -111,6 +116,11 @@ source locally. The canonical `v0.3.0` Release is immutable, but executable work
 source commit rather than relying on tag semantics. Pass `--engine bce-engine@0.3.0` when you want
 the generated workflow to install the exact registry package independently.
 
+This example selects v0.3.0 for CI. Running v0.3.1 locally does not upgrade that
+workflow, and v0.3.0 CI does not include the v0.3.1 route correction. Before relying on the
+correction in CI, verify a published matching artifact and select its exact package version or
+Action source commit from the release record.
+
 ## 4. Diagnose, prove RED, and go GREEN
 
 ```bash
@@ -174,9 +184,9 @@ Choose the ceremony supported by the exact artifact you installed:
 - **Published `0.3.0`:** the [provider-backed review guide](ai-first-review.md) prepares a packet and
   authenticates a non-author GitHub reviewer with maintain/admin permission. An approving review
   by the PR author does not satisfy that released path.
-- **Current source:** [offline review preparation and solo-steward ratification](solo-steward-ratification.md)
+- **This source or an installed v0.3.1 package:** [offline review preparation and solo-steward ratification](solo-steward-ratification.md)
   use `bce review prepare` with the locally authored draft and explicit, trusted-base governance.
-  This path does not need a second model call. It is source-only until a new release is published.
+  This path does not need a second model call or, for the installed package, a source checkout.
 
 Commit the intended setup and source state before preparing the packet. Changes to source, policy,
 or installed configuration after preparation make its evidence stale; prepare again rather than

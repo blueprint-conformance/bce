@@ -27,7 +27,7 @@ verify realistic violations in your own repository.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 976">
+  <img src="assets/badges/tests.svg" alt="tests: 1039">
 </p>
 
 [Watch BCE govern its own main branch](https://blueprint-conformance.github.io/bce/trust/#self-adoption-status): live GitHub stages, authenticated self-adoption, and explicit evidence boundaries.
@@ -199,6 +199,18 @@ loaded-runner contention.
 Specification: [blueprint-conformance/v1alpha1](spec/SPEC.md) · Agent loop:
 [MCP and agent workflow](docs/agent-loop.md) · Documentation:
 [blueprint-conformance.github.io/bce](https://blueprint-conformance.github.io/bce/)
+
+**Source candidate: v0.3.1.** This stages the route-inventory correction and makes its
+call-site evidence limit visible in the terminal. The registry release remains v0.3.0 until the
+candidate passes the release workflow and the published artifact is verified. Check availability
+before choosing an install target:
+
+```bash
+npm view bce-engine@0.3.1 version dist.integrity
+```
+
+The v0.3.1 candidate also packages the previously merged offline review preparation, explicit
+solo-steward lifecycle, and local specification; these remain absent from immutable v0.3.0.
 
 **Current registry release: v0.3.0.** Its exact npm integrity is
 `sha512-KwWyEYOZu70xrQG5JYEyHNhz3eqTalno9d9+KUugytYBiWtHGO7Wpa+X/7xgi9xDc49V7OUchTJtN8Pu8T37iw==`,

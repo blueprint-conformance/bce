@@ -55,7 +55,7 @@ import {
 import { resolveExtraction, type ResolvedExtraction } from './extractors.js';
 import { makeExtractor } from './extractor-registry.js';
 import { safeCompilePattern, UnsafePatternError } from './safe-regex.js';
-import { evaluate, stableStringify, type ComplianceReport } from './report.js';
+import { evaluate, routeGuardEvidenceLimit, stableStringify, type ComplianceReport } from './report.js';
 import { assessTeeth, type TeethReport } from './teeth.js';
 import { assessExtractorTeethCorpus, buildSourceReviewProof } from './extractor-teeth.js';
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
@@ -300,6 +300,8 @@ function printDemoRecipe(recipe: DemoRecipe, clean: ComplianceReport, drift: Com
   const witness = drift.violations.find((violation) => violation.constraintId === recipe.expectedConstraintId);
   process.stdout.write(`recipe ${recipe.id} [${recipe.support}] — ${recipe.title}\n`);
   process.stdout.write(`GREEN conformant: score ${clean.score}, exit 0\n`);
+  const routeLimit = routeGuardEvidenceLimit(clean.coverage);
+  if (routeLimit) process.stdout.write(`  ${routeLimit}\n`);
   process.stdout.write(`RED drift: score ${drift.score}, would exit 1, violation ${recipe.expectedConstraintId}\n`);
   if (witness) process.stdout.write(`  observed ${witness.observed}\n  evidence ${witness.evidenceRef}\n`);
   process.stdout.write(`bce demo: ${recipe.id} discriminates GREEN from RED\n`);
@@ -1983,6 +1985,8 @@ async function main(): Promise<void> {
       if (r.verdict === 'pass') {
         // graded green: nothing to baseline, nothing blocking.
         process.stdout.write(`  ✓ ${r.blueprintRef} — score ${r.score} (pass)\n`);
+        const routeLimit = routeGuardEvidenceLimit(r.coverage);
+        if (routeLimit) process.stdout.write(`    ${routeLimit}\n`);
       } else if (isRefusal(r)) {
         // FAIL-CLOSED REFUSAL — always blocks, never baselineable. Prints FAILED with the legible cause.
         process.stderr.write(`::error::blueprint ${r.blueprintRef} FAILED — score ${r.score}: ${r.summary}\n`);

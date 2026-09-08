@@ -59,7 +59,8 @@ provides another repository's operational proof; its runs are not part of the ma
 The decision is explicitly **self-ratified**. Default team governance still requires a non-author
 approving review; see [solo-steward ratification](solo-steward-ratification.md).
 
-These lifecycle additions are available in source main. The immutable npm `bce-engine@0.3.0`
-artifact predates them and is unchanged. First-party operational self-adoption does not establish
+These lifecycle additions are implemented in this source and v0.3.1.
+The immutable npm `bce-engine@0.3.0` artifact predates them and is unchanged.
+First-party operational self-adoption does not establish
 independent review, independent replication, external retention, or product efficacy. The primary
 240-attempt causal study remains a separate evidence requirement.

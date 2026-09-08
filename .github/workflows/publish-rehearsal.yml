@@ -1,39 +1,28 @@
 name: publish-rehearsal
 
 # ==============================================================================
-# Rehearse the publish job's steps so the launch tag is not their FIRST execution.
+# Rehearse the install, build, exact-archive consumer, and npm dry-run path.
 #
-# release.yml's `publish` job is `push`-only (`github.event_name == 'push'`) and
-# `needs: gate`. It has therefore NEVER run -- not once -- while every gate leg
-# around it has run dozens of times. The first execution of those steps would be
-# the real v0.1.0 tag: the least reversible moment in the whole ceremony, and the
-# worst possible place to discover a typo, a missing permission, or a build that
-# packs the wrong files.
+# This manually dispatched workflow creates one verified tarball, exercises its
+# installed CLI behavior, preserves the consumer evidence, and passes that same
+# archive to `npm publish --dry-run`. It also generates and verifies a local
+# evidence record. Keep these shared operations aligned with release.yml.
 #
-# This workflow runs the same steps with `npm publish --dry-run`, which packs and
-# ENUMERATES the tarball and then uploads nothing.
-#
-# WHY A SEPARATE FILE, not a job inside release.yml:
-#   release.yml's run can never be GREEN while the gate's citation-gate and
-#   publish-auth legs are red -- and both are red for operator-wall reasons (real
-#   arXiv/DOI identifiers; an npmjs credential). A rehearsal job inside release.yml
-#   would inherit that red and could never produce a clean, readable proof. Here it
-#   stands alone and is green or red on its own merits.
-#
-# TWO-DEPLOYER PARITY: this file and release.yml's `publish` job
-# are twins. A change to one MUST be mirrored in the other, or the rehearsal stops
-# rehearsing what actually ships. The steps below are copied deliberately, in the
-# same order, with exactly one difference: `--dry-run`.
+# This is a scoped rehearsal with its own result. It does not execute the full
+# release gate or substitute for the real tag's release verification. Completed
+# historical releases and their incidents remain recorded in docs/release-v*.md.
 #
 # CANNOT PUBLISH, structurally:
 #   * `on:` is workflow_dispatch ONLY -- no push, no tags. It cannot fire on a tag.
 #   * the job additionally guards on `github.event_name == 'workflow_dispatch'`.
 #   * `--dry-run` is hardcoded, never interpolated from an input.
-#   * no NODE_AUTH_TOKEN is wired in, so it holds no publish credential at all.
+#   * no NODE_AUTH_TOKEN is wired in; registry publication is disabled by --dry-run.
 #
 # WHAT THIS DOES NOT REHEARSE (named honestly, not silently skipped):
 #   * the real upload to the registry (that is the point of --dry-run);
-#   * registry-side auth -- covered by release.yml's publish-auth gate instead;
+#   * registry-side authorization or an accepted npm provenance attestation;
+#     the OIDC permission shape is configured but dry-run cannot prove acceptance;
+#   * keyless signing or verification of release Sigstore bundles;
 #   * the draft → asset upload → immutable publish GitHub Release sequence, which
 #     needs a real tag and is structurally enforced by the release-proof policy.
 # ==============================================================================
@@ -50,13 +39,13 @@ concurrency:
 
 jobs:
   rehearse:
-    name: rehearse publish (--dry-run — packs, enumerates, uploads nothing)
+    name: rehearse exact archive (consumer proof and npm dry-run)
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Exercise the provenance/OIDC code path rather than skipping it, so the
-      # rehearsal fails here if the permission shape is wrong -- not at the tag.
+      # Match the release job's OIDC permission shape. A successful dry-run does
+      # not establish that npm will accept provenance or authorize publication.
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -97,24 +86,50 @@ jobs:
       - name: Build the distributable engine
         run: npm run build
 
+      - name: Create and verify the one rehearsal tarball
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm pack --ignore-scripts --json --silent > release-pack-output.txt
+          tarball="$(node scripts/verify-release-payload.mjs --pack-json release-pack-output.txt --print-filename)"
+          node scripts/verify-release-payload.mjs \
+            --pack-json release-pack-output.txt \
+            --tarball "$tarball" \
+            --out release-payload-manifest.json
+          echo "RELEASE_TARBALL=$tarball" >> "$GITHUB_ENV"
+
+      - name: Exercise the exact rehearsal tarball as a fresh consumer
+        id: route_consumer
+        run: node scripts/route-consumer-proof.mjs --tarball "$GITHUB_WORKSPACE/$RELEASE_TARBALL" --out release-route-consumer-proof.json --evidence-dir release-route-consumer-evidence
+
+      - name: Preserve exact-artifact consumer evidence
+        if: ${{ !cancelled() && (steps.route_consumer.outcome == 'success' || steps.route_consumer.outcome == 'failure') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: route-consumer-proof-${{ github.run_attempt }}
+          path: release-route-consumer-evidence
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Rehearse the publish (--dry-run — enumerates the tarball, uploads nothing)
         shell: bash
         run: |
           set -euo pipefail
           # --dry-run is hardcoded. There is no input, variable, or secret that can
           # turn this into a real publish.
-          npm publish --dry-run --provenance --access public 2>&1 | tee /tmp/publish-dry-run.txt
+          npm publish "$RELEASE_TARBALL" --dry-run --provenance --access public 2>&1 | tee /tmp/publish-dry-run.txt
           echo "--- rehearsal summary ---"
           name="$(node -p "require('./package.json').name")"
           version="$(node -p "require('./package.json').version")"
           echo "would publish ${name}@${version}"
 
-      - name: Assert the rehearsal actually packed something
+      - name: Assert npm enumerated the verified archive
         shell: bash
         run: |
           set -euo pipefail
-          # A rehearsal that silently packed nothing would be worse than no rehearsal:
-          # it would report green while proving the opposite of what it claims.
+          # The exact payload verifier above is authoritative; this checks that
+          # the npm dry-run also reported an archive inventory.
           if ! grep -qE 'total files:[[:space:]]*[0-9]+' /tmp/publish-dry-run.txt; then
             echo "::error::rehearsal produced no tarball enumeration — 'total files:' absent from the npm output."
             exit 1
@@ -148,5 +163,5 @@ jobs:
       - name: Rehearsal complete
         shell: bash
         run: |
-          echo "publish-rehearsal: PASS — the publish job's steps executed end to end."
-          echo "Nothing was uploaded; the real tag is no longer their first execution."
+          echo "publish-rehearsal: PASS — exact archive consumer proof, npm dry-run, and evidence replay passed."
+          echo "Consumer evidence was retained in Actions. Registry publication, signing, and GitHub Release publication were not performed."

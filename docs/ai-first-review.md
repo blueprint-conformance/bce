@@ -14,8 +14,10 @@ packet. The model never gains approval or policy-write authority.
 </p>
 
 For drafting with your current coding agent and no additional provider call, use
-[ordered onboarding](onboarding.md). Source `main` additionally supports offline `review prepare`
-and [solo-steward ratification](solo-steward-ratification.md); those additions are not in npm `0.3.0`.
+[ordered onboarding](onboarding.md). This source and v0.3.1 additionally
+support offline `review prepare` and [solo-steward ratification](solo-steward-ratification.md).
+Those additions are absent from immutable npm `0.3.0`. An installed v0.3.1 package can use its
+local binary for these commands.
 
 ## 1. Freeze the state and state the intent
 

@@ -210,6 +210,24 @@ try {
   if (error.status !== 1 || !String(error.stderr).includes('published Release immutability assertion')) throw error;
 }
 
+const consumerStep = '      - name: Exercise the exact publish tarball as a fresh consumer\n        id: route_consumer\n' +
+  '        run: node scripts/route-consumer-proof.mjs --tarball "$GITHUB_WORKSPACE/$RELEASE_TARBALL" --out release-route-consumer-proof.json --evidence-dir release-route-consumer-evidence\n\n';
+for (const [label, altered] of [
+  ['missing', source.replace(consumerStep, '')],
+  ['lost-evidence', source.replace('          path: release-route-consumer-evidence\n', '          path: absent-evidence\n')],
+  ['substituted', source.replace('--tarball "$GITHUB_WORKSPACE/$RELEASE_TARBALL" --out release-route-consumer-proof.json', '--tarball "other.tgz" --out release-route-consumer-proof.json')],
+  ['nonblocking', source.replace('      - name: Exercise the exact publish tarball as a fresh consumer\n', '      - name: Exercise the exact publish tarball as a fresh consumer\n        continue-on-error: true\n')],
+  ['after-publish', source.replace(consumerStep, '').replace('  finalize-github-release:', consumerStep + '  finalize-github-release:')],
+]) {
+  writeFileSync(fixture, altered);
+  try {
+    execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    throw new Error(`release policy accepted ${label} exact-artifact consumer proof`);
+  } catch (error) {
+    if (error.status !== 1 || !/consumer (proof|evidence)/.test(String(error.stderr))) throw error;
+  }
+}
+
 writeFileSync(fixture, source);
 const accepted = execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`intact release policy did not pass:\n${accepted}`);

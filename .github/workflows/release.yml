@@ -472,6 +472,20 @@ jobs:
             --out release-payload-manifest.json
           echo "RELEASE_TARBALL=$tarball" >> "$GITHUB_ENV"
 
+      - name: Exercise the exact publish tarball as a fresh consumer
+        id: route_consumer
+        run: node scripts/route-consumer-proof.mjs --tarball "$GITHUB_WORKSPACE/$RELEASE_TARBALL" --out release-route-consumer-proof.json --evidence-dir release-route-consumer-evidence
+
+      - name: Preserve exact-artifact consumer evidence
+        if: ${{ !cancelled() && (steps.route_consumer.outcome == 'success' || steps.route_consumer.outcome == 'failure') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: route-consumer-proof-${{ github.run_attempt }}
+          path: release-route-consumer-evidence
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Generate the evidence record of THIS release gate-run before publish
         shell: bash
         run: |
