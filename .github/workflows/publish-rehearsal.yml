@@ -163,5 +163,5 @@ jobs:
       - name: Rehearsal complete
         shell: bash
         run: |
-          echo "publish-rehearsal: PASS — the publish job's steps executed end to end."
-          echo "Nothing was uploaded; the real tag is no longer their first execution."
+          echo "publish-rehearsal: PASS — exact archive consumer proof, npm dry-run, and evidence replay passed."
+          echo "Consumer evidence was retained in Actions. Registry publication, signing, and GitHub Release publication were not performed."
