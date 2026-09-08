@@ -10,10 +10,9 @@
  *    handlers in Next.js `route.ts` files are components; bare-identifier `requireTenant*`
  *    CALL expressions in a handler body are `guards` edges. When a blueprint carries NO
  *    `extraction` block, this profile runs with the historical CT-ontology route globs +
- *    `requireTenant*` guard set — so the `control-tower-ontology` architecture graph + score/verdict
- *    are byte-identical (widen-only ratchet: the proven path is preserved). The ComplianceREPORT gained
- *    one additive `coverage` envelope field vs the pre-generalization baseline; the graph content-hash
- *    (evidenceRef) and the score/verdict/violations are unchanged.
+ *    `requireTenant*` guard set. The route-inventory correction recognizes direct const functions
+ *    and all seven HTTP verbs, refuses unresolved relevant exports, and explicitly limits guard
+ *    evidence to syntactic call-site presence. Coverage and evidence hashes reflect that correction.
  *  - `plugin-surface` (NEW): an agent-host ExtensionFactory surface. An exported extension
  *    factory (an exported `const`/`function` whose name ends `Extension` OR a default export)
  *    is a component; a bare-identifier call to any `provideSymbols` symbol (e.g.
@@ -40,7 +39,7 @@ import {
   type FunctionDeclaration,
   type ImportTypeNode,
   type NewExpression,
-  type Node,
+  Node,
 } from 'ts-morph';
 import type {
   ArchitectureGraph,
@@ -52,7 +51,7 @@ import { compareComponents, compareEdges } from './graph.js';
 import type { BlueprintExtraction, Constraint, ExtractionProfile } from './schema.js';
 
 /** HTTP verbs that name a Next.js route handler export. */
-const HTTP_VERBS = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'] as const;
+const HTTP_VERBS = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'] as const;
 
 /**
  * The historical tenant-access guard symbols (next-route-handler default). Kept as the
@@ -789,7 +788,9 @@ export class AstExtractor implements RepositoryFactsExtractor {
           ]
         : [
             'no cross-module symbol resolution (a guard applied via an imported wrapper is not followed)',
-            'dynamic/reflective handler registration not detected',
+            'route guard evidence is governed call-site presence only: no control-flow, reachability, awaiting, denial propagation, tenant/resource binding, or guard implementation verification',
+            'route inventory covers direct named HTTP-verb function and const arrow/function-expression exports in configured files; relevant indirect exports refuse extraction',
+            'dynamic/reflective handler registration and files outside configured paths are not covered',
           ];
     if (this.cfg.egressEnabled) {
       unsupported.push(
@@ -842,7 +843,7 @@ export class AstExtractor implements RepositoryFactsExtractor {
     };
   }
 
-  /** next-route-handler: exported HTTP-verb fns → components; guard calls in body → edges. */
+  /** Inventory route exports before collecting governed call-site evidence. */
   private extractRouteHandler(
     source: ReturnType<Project['addSourceFileAtPath']>,
     relPath: string,
@@ -850,29 +851,79 @@ export class AstExtractor implements RepositoryFactsExtractor {
     components: ObservedComponent[],
     guardEdges: ObservedEdge[],
   ): void {
-    const handlers = source
-      .getFunctions()
-      .filter(
-        (fn: FunctionDeclaration) =>
-          fn.isExported() && HTTP_VERBS.includes((fn.getName() ?? '') as (typeof HTTP_VERBS)[number]),
-      );
-    for (const fn of handlers) {
-      const verb = fn.getName() as string;
+    const isVerb = (name: string): boolean => HTTP_VERBS.some((verb) => verb === name);
+    const refuse = (node: Node, detail: string): never => {
+      throw new Error(`unsupported route export at ${relPath}#L${node.getStartLineNumber()}: ${detail}; ` +
+        'use a direct named HTTP-verb function or const arrow/function expression; route inventory is incomplete');
+    };
+    // Enumerate export declarations independently of callable recognition. A healthy GET must
+    // never hide an unresolved POST or a star export that could introduce more handlers.
+    for (const declaration of source.getExportDeclarations()) {
+      if (declaration.isTypeOnly()) continue;
+      const exports = declaration.getNamedExports();
+      if (!declaration.compilerNode.exportClause) refuse(declaration, 'star re-export');
+      const namespace = declaration.getNamespaceExport();
+      if (namespace && isVerb(namespace.getName())) refuse(namespace, 'namespace handler export');
+      for (const specifier of exports) {
+        const exportedName = specifier.getAliasNode() ?? specifier.getNameNode();
+        const name = Node.isStringLiteral(exportedName) ? exportedName.getLiteralText() : exportedName.getText();
+        if (!specifier.isTypeOnly() && isVerb(name)) {
+          refuse(specifier, 'indirect handler export');
+        }
+      }
+    }
+    for (const statement of source.getStatements()) {
+      if ((Node.isClassDeclaration(statement) || Node.isEnumDeclaration(statement) || Node.isImportEqualsDeclaration(statement)) &&
+        statement.hasExportKeyword() && !(Node.isClassDeclaration(statement) && statement.isDefaultExport()) &&
+        isVerb(statement.getName() ?? '')) {
+        refuse(statement, 'HTTP-verb export is not a supported handler');
+      }
+      if (Node.isExportAssignment(statement) && statement.isExportEquals()) refuse(statement, 'export assignment');
+    }
+    const handlers: Array<{ verb: string; fn: Node }> = [];
+    for (const fn of source.getFunctions()) {
+      if (fn.hasExportKeyword() && !fn.isDefaultExport() && isVerb(fn.getName() ?? '')) {
+        if (!fn.getBody()) refuse(fn, 'handler has no implementation');
+        handlers.push({ verb: fn.getName()!, fn });
+      }
+    }
+    for (const statement of source.getVariableStatements()) {
+      if (!statement.hasExportKeyword()) continue;
+      for (const declaration of statement.getDeclarations()) {
+        const name = declaration.getNameNode();
+        if (!Node.isIdentifier(name)) {
+          const exportsVerb = name.getDescendantsOfKind(SyntaxKind.BindingElement).some((binding) =>
+            Node.isIdentifier(binding.getNameNode()) && isVerb(binding.getName()));
+          if (exportsVerb) refuse(declaration, 'destructured handler export');
+          continue;
+        }
+        if (!isVerb(declaration.getName())) continue;
+        if (statement.getDeclarationKind() !== 'const') refuse(declaration, 'mutable handler binding');
+        let initializer = declaration.getInitializer();
+        while (initializer && (Node.isParenthesizedExpression(initializer) || Node.isAsExpression(initializer) ||
+          Node.isSatisfiesExpression(initializer) || Node.isTypeAssertion(initializer))) {
+          initializer = initializer.getExpression();
+        }
+        if (!initializer || !(Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer))) {
+          refuse(declaration, 'handler initializer is not a direct function');
+        }
+        handlers.push({ verb: declaration.getName(), fn: initializer! });
+      }
+    }
+    const seen = new Set<string>();
+    for (const { verb, fn } of handlers) {
+      if (seen.has(verb)) refuse(fn, `duplicate ${verb} export`);
+      seen.add(verb);
       const id = routeComponentId(relPath, verb);
       components.push({ id, type: 'apiRouteHandler', path: relPath, line: fn.getStartLineNumber() });
-      for (const call of fn.getDescendantsOfKind(SyntaxKind.CallExpression) as CallExpression[]) {
+      // This is deliberately syntactic descendant-call evidence, NOT a proof of authorization.
+      // The coverage envelope and report summary carry that distinction even on score 100.
+      for (const call of fn.getDescendantsOfKind(SyntaxKind.CallExpression)) {
         const expr = call.getExpression();
-        // SECURITY-CRITICAL: only a BARE IDENTIFIER callee counts (reject obj.method()).
         if (expr.getKind() !== SyntaxKind.Identifier) continue;
         const calleeName = expr.getText().trim();
-        // A matching spelling is not proof of a governed guard. Credit only symbols whose
-        // declaration resolves to an import from a blueprint-declared governed module. Local
-        // no-op functions and same-name imports from arbitrary modules therefore fail closed.
-        if (
-          guardSet.has(calleeName) &&
-          this.cfg.governedModules.length > 0 &&
-          this.identifierResolvesToGovernedImport(expr, this.cfg.governedModules)
-        ) {
+        if (guardSet.has(calleeName) && this.cfg.governedModules.length > 0 &&
+          this.identifierResolvesToGovernedImport(expr, this.cfg.governedModules)) {
           guardEdges.push({ from: id, to: calleeName, type: 'guards', evidenceRef: `${relPath}#L${call.getStartLineNumber()}` });
         }
       }

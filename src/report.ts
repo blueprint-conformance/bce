@@ -278,7 +278,7 @@ export function evaluate(
             evidenceRef: `${comp.path}#L${comp.line}`,
             observed: `no ${edgeType} edge from ${comp.id}`,
             expected: isHistoricalD6
-              ? 'requireTenantAccess | requireTenantWriteAccess call in the handler body'
+              ? 'a configured guard call resolved to a governed import in the handler syntax (call-site presence only)'
               : `a governed registration call (${edgeType}) in the ${targetType} body`,
           });
         }
@@ -648,6 +648,10 @@ export function evaluate(
   // legibility (finding): an all-info violation set yields score 100 but verdict fail — make the
   // fail reason explicit so `score 100` is never read as a pass.
   if (score === 100 && verdict === 'fail') summaryParts.push('FAIL despite score 100 (info-only or floor violations)');
+
+  if (graph.coverage.unsupported.some((limit) => limit.startsWith('route guard evidence is governed call-site presence only'))) {
+    summaryParts.push('route evidence: governed call-site presence only; authorization behavior unverified');
+  }
 
   return {
     schemaVersion: '1',

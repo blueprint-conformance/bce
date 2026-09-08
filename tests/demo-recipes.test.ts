@@ -52,7 +52,8 @@ describe('packaged architecture demo recipes', () => {
     for (const id of RECIPE_IDS) expect(result.stdout).toContain(id);
     expect(result.stdout.match(/^  [a-z][a-z-]+\s+/gm)).toHaveLength(RECIPE_IDS.length);
     expect(result.stdout).toContain('TypeScript/JavaScript · mature AST');
-    expect(result.stdout).toContain('Next.js TypeScript · mature AST');
+    expect(result.stdout).toContain('Next.js TypeScript · syntactic call-site evidence');
+    expect(result.stdout).toContain('authorization behavior is unverified');
     expect(result.stdout).toContain('Python · structured direct graph');
     expect(result.stdout).toContain('TypeScript/JavaScript · direct module graph');
     expect(result.stdout).toContain('JSON/Markdown · real-source pattern pair');

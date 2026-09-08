@@ -5,23 +5,29 @@
   </picture>
 </p>
 
-# Architecture rules your agents cannot quietly break
+# Check architectural boundaries in agent-written code
 
 `bce` gives coding agents a local, deterministic architecture check. A versioned
 `EngineeringBlueprint` records the repository's structural rules. Agents draft those rules from
 your intent, inspect the code, and repair violations; the same engine checks every pull request.
 Humans own the intent and approve policy changes. Agents operate the day-to-day loop.
 
-**Released support (`v0.3.0`):** mature TypeScript/JavaScript framework-surface AST extraction,
+**Released support (`v0.3.0`):** TypeScript/JavaScript framework-surface AST extraction,
 direct TypeScript/JavaScript module boundaries, a Python import-surface MVP, and structured Python
 module boundaries. Node 22+ is required; the contract remains pre-1.0.
+
+**Evidence boundary:** a score of 100 means the implemented checks passed over the observed
+surface. Route guard checks find governed call sites; they do not prove authorization, tenant
+isolation, or execution on every path. See the [route evidence limits and correction](docs/first-win.md#route-guard-evidence-boundary),
+including the export forms missed by the immutable v0.3.0 release. Start with a bounded pilot and
+verify realistic violations in your own repository.
 
 <!-- award-slot: reserved. Activate only in a PR that links an award actually won. -->
 
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 924">
+  <img src="assets/badges/tests.svg" alt="tests: 976">
 </p>
 
 [Watch BCE govern its own main branch](https://blueprint-conformance.github.io/bce/trust/#self-adoption-status): live GitHub stages, authenticated self-adoption, and explicit evidence boundaries.

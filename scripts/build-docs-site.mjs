@@ -91,7 +91,7 @@ const SITE_NAME = 'bce';
 const SITE_TAGLINE = 'the blueprint conformance engine';
 const SITE_ORIGIN = 'https://blueprint-conformance.github.io/bce';
 const SITE_DESCRIPTION =
-  'Architecture rules your agents cannot quietly break. A local, deterministic conformance gate for agent-written code.';
+  'Check architectural boundaries in agent-written code. A local, deterministic conformance gate for agent-written code.';
 const SOCIAL_IMAGE_URL = `${SITE_ORIGIN}/assets/bce-social-card.png`;
 const SOCIAL_IMAGE_ALT =
   'BCE catches a forbidden dependency introduced by an agent change and blocks the merge at the exact source line.';
