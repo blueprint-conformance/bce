@@ -114,5 +114,6 @@ binary for those commands; a source checkout is not required. The immutable npm 
 lacks those additions and omits `spec/SPEC.md`; when operating that version, use
 https://github.com/blueprint-conformance/bce/blob/v0.3.0/spec/SPEC.md if the local file is absent.
 Identify the existing artifact before installing anything. The current exact registry target is
-`bce-engine@0.3.1`; verify its release record before changing the selected artifact. Check the
-separately selected CI engine too; upgrading locally does not update an existing workflow.
+`bce-engine@0.3.1`; run `npm view bce-engine@0.3.1 version dist.integrity` and verify its release
+record before changing the selected artifact. Check the separately selected CI engine too;
+upgrading locally does not update an existing workflow.
