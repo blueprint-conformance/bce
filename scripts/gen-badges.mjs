@@ -9,11 +9,11 @@
  * for the terminal block, applied to the row of shields above it.
  *
  * So no badge here carries a literal. Each one names a GROUND TRUTH FUNCTION that re-derives
- * its value from the tree — the test count from `vitest list`, the licence from package.json
- * cross-checked against the LICENSE file, the Node floor from .nvmrc cross-checked against
- * every workflow that pins one — and the badge is drawn from whatever that function returns.
- * A value that cannot be derived is a REFUSAL, not a default: a badge nobody can re-derive is
- * exactly the badge that will one day be quietly false.
+ * its value from the tree — the test count from the runner's own executed-test total, the
+ * licence from package.json cross-checked against the LICENSE file, the Node floor from
+ * .nvmrc cross-checked against every workflow that pins one — and the badge is drawn from
+ * whatever that function returns. A value that cannot be derived is a REFUSAL, not a default:
+ * a badge nobody can re-derive is exactly the badge that will one day be quietly false.
  *
  * `--check` re-derives every value and diffs the drawn bytes against what is committed, so
  * drift is a red check rather than a discovery. That is the mode CI runs.
@@ -26,6 +26,19 @@
  *
  * Zero dependencies. The only child process is the test runner, and only for the test count.
  *
+ * TEST COUNT SOURCE (changed for vitest 5, see groundTruthTests() below): `vitest list` is a
+ * *collection* command, not an execution one, and vitest 5 changed how it enumerates
+ * `it.each([...])` blocks whose array elements are non-trivial (multi-line strings, objects,
+ * no `%s`-style title template) — `vitest list` under v5 silently stops expanding some of
+ * those blocks into one entry per case, while `vitest run` still executes every case. Measured
+ * on this tree: `vitest list` reported 806 under vitest 5 vs 1039 under vitest 4, while
+ * `vitest run` passed 1039/1039 on BOTH versions — the drop was in the enumerator, not the
+ * suite. Trusting `list` would have drawn a badge that undercounts real, passing coverage by
+ * 233 tests — the exact "quietly false" failure this file exists to prevent, just arriving
+ * from the tool this script leaned on rather than from a stale literal. The ground truth is
+ * now the executed total from `vitest run --reporter=json`, which does not depend on the
+ * enumerator's title-expansion behaviour for parameterized tests.
+ *
  * Usage:
  *   node scripts/gen-badges.mjs             # re-derive and write assets/badges/*.svg
  *   node scripts/gen-badges.mjs --check     # re-derive and require the committed bytes to match
@@ -35,9 +48,10 @@
  *   1 — (--check) drift: a committed badge no longer matches what the tree says.
  *   2 — harness failure (a ground truth could not be derived, or two sources disagree).
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import * as path from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -60,25 +74,47 @@ const read = (rel) => {
 // ---------------------------------------------------------------------------
 
 /**
- * The test count, from the runner's own enumeration rather than a grep for `it(`.
- * `vitest list` prints one fully-qualified test name per line — the same set `vitest run`
- * would execute — so the number on the badge is the number that actually runs.
+ * The test count, from the runner's own EXECUTED total rather than a grep for `it(` or a
+ * pre-execution enumeration. `vitest run --reporter=json` reports `numTotalTests` for the set
+ * that actually ran — see the file header for why `vitest list` (collection-only) stopped
+ * being a faithful proxy for that set under vitest 5's `it.each` title-expansion behaviour.
+ * A red suite refuses too: a badge drawn from a failing run would advertise coverage that
+ * is not currently proven.
  */
 export function groundTruthTests() {
-  let out;
+  const outFile = path.join(tmpdir(), `bce-gen-badges-vitest-report-${process.pid}.json`);
   try {
-    out = execFileSync('npx', ['vitest', 'list'], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      maxBuffer: 32 * 1024 * 1024,
-    });
-  } catch (e) {
-    harness(`could not enumerate tests via \`vitest list\`: ${e.message}`);
+    try {
+      execFileSync('npx', ['vitest', 'run', '--reporter=json', `--outputFile=${outFile}`], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: 64 * 1024 * 1024,
+      });
+    } catch (e) {
+      harness(`could not run the test suite to derive the test count: ${e.message}`);
+    }
+    let report;
+    try {
+      report = JSON.parse(readFileSync(outFile, 'utf8'));
+    } catch (e) {
+      harness(`vitest's json report could not be read/parsed: ${e.message}`);
+    }
+    const total = report.numTotalTests;
+    if (!Number.isInteger(total) || total <= 0) {
+      harness(`vitest's json report has no usable numTotalTests (got ${JSON.stringify(total)}) — refusing to draw a "0 tests" badge`);
+    }
+    if (report.numFailedTests > 0) {
+      harness(`the test suite has ${report.numFailedTests} failing test(s) — refusing to draw a badge from a red suite`);
+    }
+    return String(total);
+  } finally {
+    try {
+      unlinkSync(outFile);
+    } catch {
+      // best-effort cleanup; a leftover temp file is not a correctness issue
+    }
   }
-  const lines = out.split('\n').map((l) => l.trim()).filter((l) => l.includes(' > '));
-  if (lines.length === 0) harness('`vitest list` enumerated no tests — refusing to draw a "0 tests" badge');
-  return String(lines.length);
 }
 
 /**
