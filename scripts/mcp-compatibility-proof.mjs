@@ -8,13 +8,13 @@ import { performance } from 'node:perf_hooks';
 const root = process.cwd();
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const inspectorVersion = pkg.devDependencies?.['@modelcontextprotocol/inspector'];
-if (inspectorVersion !== '2.5.0') {
-  throw new Error(`Inspector proof requires exact @modelcontextprotocol/inspector 2.5.0; found ${inspectorVersion ?? 'none'}`);
+if (inspectorVersion !== '2.6.0') {
+  throw new Error(`Inspector proof requires exact @modelcontextprotocol/inspector 2.6.0; found ${inspectorVersion ?? 'none'}`);
 }
 
 const [major, minor] = process.versions.node.split('.').map(Number);
 if (major < 22 || (major === 22 && minor < 19)) {
-  throw new Error(`Inspector 2.5.0 requires Node >=22.19.0; running ${process.versions.node}`);
+  throw new Error(`Inspector 2.6.0 requires Node >=22.19.0; running ${process.versions.node}`);
 }
 
 const server = join(root, 'dist', 'mcp-server.js');
