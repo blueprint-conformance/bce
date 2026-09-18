@@ -162,6 +162,23 @@ export {
   STACK_COVERAGE_NO_IMAGES,
 } from './stack/stack-extractor.js';
 export type { StackFactsExtractor, StackExtractionResult, ParsedImageRef } from './stack/stack-extractor.js';
+export {
+  diffStackManifests,
+  stackDiffExitCode,
+  compareStackMoves,
+  parseSemverLite,
+  compareSemverLite,
+  STACK_MOVE_RANK,
+  STACK_DIFF_UNKNOWN_CLASSIFICATION,
+} from './stack/stack-diff.js';
+export type {
+  StackDiffReport,
+  StackDiffSide,
+  StackDiffClassification,
+  StackMove,
+  StackMoveClass,
+  SemverLite,
+} from './stack/stack-diff.js';
 
 export { runGate, discoverBlueprints, blueprintTouchesChanges, resolveTreeRevision, computeGateReport, assembleGateReportDoc } from './gate.js';
 export type { GateResult, GateReportDoc, ComputedGate } from './gate.js';

@@ -116,8 +116,18 @@ If a label here overstates reality, that is a bug — please open an issue.
   [`spec/SPEC.md` §16](spec/SPEC.md)). The verb, the extractor and the golden-pinned determinism
   suite ([`tests/stack-determinism.test.ts`](tests/stack-determinism.test.ts)) are in the tree and
   run under the vitest suite; this line moves to **[RUNS]** only when the dedicated built-dist
-  RED/GREEN CLI leg (the discriminating-pair convention above) lands. pnpm/yarn lockfiles, `stack
-  diff`, image-tag resolution and any blueprint constraint over a stack are not built.
+  RED/GREEN CLI leg (the discriminating-pair convention above) lands. pnpm/yarn lockfiles,
+  image-tag resolution and any blueprint constraint over a stack are not built.
+- **[DESIGN]** Stack plane — `bce stack diff --from <A> --to <B>` classifies every move between two
+  StackManifests (`added` / `removed` / `forward` / `backward` / `rewritten` / `spec-changed` /
+  `unknown`), joined on `(kind, name)` and never on `name@version`, with a strict no-dependency
+  semver parser ([`src/stack/stack-diff.ts`](src/stack/stack-diff.ts), [`spec/SPEC.md` §16.1](spec/SPEC.md)).
+  `unknown` fails closed (`unknown-potential-backward`, `approvalBlocked`, exit 2) and `backward`
+  exits 2. [`tests/stack-diff.test.ts`](tests/stack-diff.test.ts) pins the measured table of a real
+  revision pair of this repository (`47a51f4` → `a949557`, the vitest 4 → 5 bump: 8 forward, 7
+  removed, 0 added) and the same-closure-different-revision zero diff (`e0f7344` ≡ `a949557`). Same
+  label rule as the line above: **[RUNS]** only when the dedicated built-dist CI leg lands. `stack
+  reconcile` and any gate wiring of the diff are not built.
 
 ## Directions — [FUTURE]
 

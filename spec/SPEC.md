@@ -616,6 +616,8 @@ evidence anchor), so identical runs yield identical proposals.
 | `bce ratify` / `bce amend` | attended packet-bound policy ceremony recorded | malformed input / usage error | stale/invalid packet, non-approving or unreproducible SCM decision, missing extractor-real teeth, or unsafe policy transition refused |
 | `bce upgrade --check` | candidate is compatible | — | mutable/malformed candidate or incompatible engine floor refused |
 | `bce verify-bundle` | hashes and verdict reproduce | bundle malformed or integrity/reproduction check fails | — |
+| `bce stack snapshot` | StackManifest written | usage error | no supported lockfile parses: nothing written |
+| `bce stack diff` | report written; no `backward` or `unknown` move | usage error | a `backward` or `unknown` move (report still written), or an input that is not a verifiable StackManifest (nothing written) |
 | `bce portfolio compile` | overlays written | validation / usage error | — |
 | `bce portfolio collect` | rollup produced | refusal (missing/extra repo, member floor) or validation error | — |
 | *(unknown command)* | — | usage printed, non-zero | — |
@@ -740,6 +742,48 @@ separate verb that writes a proposal, never a manifest field.
 pins a committed golden, its negative controls, and one test per rule above). This section is
 descriptive of the verb that runs; grading a stack (a `stack` block on the blueprint,
 version/closure constraint types) is not part of this specification version.
+
+### 16.1 Stack diff (the per-node closure classifier)
+
+`bce stack diff --from <A> --to <B>` classifies every move between two StackManifests. Its inputs are
+**manifests, never repositories**: a file that is not a strict StackManifest, or whose recorded
+`stackDigest` / `stackId` / `manifestDigest` do not re-derive, is refused (exit **2**, nothing written).
+
+**Join key.** Rows join on `(kind, name)` — never on the node id `name@version`. A lockfile routinely
+holds several copies of one name; each B-only version is compared with the **maximum A version** of
+that name, so a new copy beside a retained one is a direction, not an unrelated `added` node.
+
+| class | condition |
+|---|---|
+| `added` / `removed` | the name is present on one side only; `removed` also names a dropped copy of a name that stays present (`scope: "version"`) |
+| `forward` | a B version strictly higher (SemVer 2.0.0 §11 precedence) than the max A version |
+| `backward` | strictly lower; or the highest A version dropped while only lower copies remain |
+| `rewritten` | same name and version, different hashed identity: `integrity`, or any other digest-bearing node field. The compared field set is derived from the node itself, so every hashed field (e.g. `resolvedWhenUnpinned` on a node without integrity, `devOptional`) is compared, including one a later manifest revision adds — the row names the fields |
+| `spec-changed` | both endpoint nodes unchanged, only the declared range on an edge moved — digest-neutral, informational |
+| `unknown` | the direction cannot be proven: any version of the name is not strict `x.y.z[-pre][+build]` (git ref, tag, range, partial such as `22`), two versions are precedence-equal but differ (build metadata), an **added** node has a non-semver version, the `stackDigest` moved and no row explains it, or **any** move (added, removed or changed) of an OPAQUE entry — a hashed `unmodeled[]` entry (joined on its lockfile `key`; the row names the key and its `reason`), or a node whose `kind` the classifier cannot compare |
+
+**The root.** The root node is compared apart from the closure and joined on its name. Its OWN
+version is quarantined out of the digest, so two manifests that differ only in the root version are
+an empty diff (exit 0); a different root *name* is a different subject and is `unknown`; any other
+hashed root field that moved is `rewritten`. A dependency that merely shares the root's name is
+joined with dependencies, never with the root. Declared ranges are quarantined too and live only in
+`rootDeclared[]` / `edges`: every row carries `rootSpec` — the range(s) the root declares for that name on each side, read from the manifest's `rootDeclared[]` (from the edges leaving the root when a manifest predates that field)
+(e.g. `^4.1.11` → `^5.0.0`) — as the evidence that a root-declared move was asked for, and an edge
+leaving the root is keyed by the version-free `root:<name>`.
+
+`layout` (hoisting) is not identity and never produces a row; rows carry path counts only. An
+unchanged node never produces a row, whatever its version looks like — identical closures are an
+empty diff.
+
+**Fail-closed.** `unknown` mirrors the policy-change classifier: the report classification is
+`unknown-potential-backward`, `approvalBlocked` is `true`, and there is no approve-anyway input. The
+verb exits **2** when any move is `backward` or `unknown` (`downgradeAckRequired`), else **0**.
+
+**Rank and order.** `backward > unknown > rewritten > added|removed > forward > spec-changed >
+identical`; the report classification is the highest rank present. Rows are sorted by the explicit
+comparator `(rank desc, name, kind, class, from, to, declaredBy)` and the report is serialized by
+the §11 rules, so the same pair — in any `nodes[]` / `edges[]` array order — yields byte-identical
+report bytes. The report is a verb output, not a published schema in this specification version.
 
 ---
 

@@ -61,6 +61,8 @@ import { assessExtractorTeethCorpus, buildSourceReviewProof } from './extractor-
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 import { resolveRevision, materializeAtRevision } from './pin.js';
 import { extractStackManifest } from './stack/stack-extractor.js';
+import { parseStackManifest, verifyStackManifest, type StackManifest } from './stack/stack-manifest.js';
+import { diffStackManifests, stackDiffExitCode } from './stack/stack-diff.js';
 import { discoverBlueprints, runGate, assembleGateReportDoc } from './gate.js';
 import {
   resolveMode,
@@ -926,7 +928,7 @@ async function main(): Promise<void> {
     baseline: ['repo', 'ct-repo', 'blueprint-dir', 'changed', 'extractor', 'repo-name', 'dry-run', 'check', 'out', 'patch-out'],
     graduate: ['repo', 'ct-repo', 'downgrade', 'rationale'],
     portfolio: args._[1] === 'compile' ? ['portfolio', 'out-dir'] : ['registry', 'reports-dir'],
-    stack: ['ct-repo', 'ref', 'no-pin', 'out'],
+    stack: args._[1] === 'diff' ? ['from', 'to', 'out'] : ['ct-repo', 'ref', 'no-pin', 'out'],
   };
   if (cmd && allowedByCommand[cmd]) {
     const allowed = new Set([...allowedByCommand[cmd], 'help', 'version']);
@@ -2237,7 +2239,49 @@ async function main(): Promise<void> {
     //   No network, node_modules never read. Refusal (no supported lockfile, malformed or
     //   wrong-version lockfile) is exit 2 and writes NOTHING — never a silent empty manifest.
     const sub = args._[1];
-    if (sub !== 'snapshot') die(`unknown stack subcommand: ${String(sub)} (expected snapshot)`, 1);
+    if (sub === 'diff') {
+      // bce stack diff --from <A.stack.json> --to <B.stack.json> [--out <path>]
+      //   Classify every move between two StackManifests (added / removed / forward / backward /
+      //   rewritten / spec-changed / unknown). Inputs are MANIFESTS, never raw repositories: a file
+      //   that is not a strict StackManifest, or whose digests do not re-derive, is refused (exit 2,
+      //   nothing written). `backward` or `unknown` exits 2 — unknown FAILS CLOSED, no approve-anyway.
+      const usage = 'usage: bce stack diff --from <A.stack.json> --to <B.stack.json> [--out <path>]';
+      if (args._.length !== 2) die(`unexpected stack diff argument '${args._[2]}'; ${usage}`, 1);
+      const loadManifest = (flag: 'from' | 'to'): StackManifest => {
+        const file = args[flag];
+        if (typeof file !== 'string' || !file) die(`--${flag} <manifest.json> is required; ${usage}`, 1);
+        if (!fs.existsSync(file) || !fs.statSync(file).isFile()) die(`--${flag} is not a StackManifest file: ${file} (pass a manifest written by 'bce stack snapshot', not a repository)`, 2);
+        let manifest: StackManifest;
+        try {
+          manifest = parseStackManifest(JSON.parse(fs.readFileSync(file, 'utf8')));
+        } catch (e) {
+          die(`--${flag} ${file} is not a valid StackManifest: ${(e as Error).message.split('\n')[0]}`, 2);
+        }
+        const check = verifyStackManifest(manifest);
+        if (!check.valid) {
+          die(`--${flag} ${file} REFUSED: recorded digests do not re-derive (stackDigest ${check.stackDigestOk ? 'ok' : 'MISMATCH'}, stackId ${check.stackIdOk ? 'ok' : 'MISMATCH'}, manifestDigest ${check.manifestDigestOk ? 'ok' : 'MISMATCH'}) — the manifest was edited after extraction`, 2);
+        }
+        return manifest;
+      };
+      const report = diffStackManifests(loadManifest('from'), loadManifest('to'));
+      const out = (typeof args.out === 'string' && args.out) || 'stack-diff.json';
+      fs.writeFileSync(out, stableStringify(report));
+      for (const m of report.moves) {
+        process.stdout.write(`  ${m.class.padEnd(12)} ${m.name}  ${m.from ?? '-'} -> ${m.to ?? '-'}${m.rootDeclared ? `  [root-declared ${m.rootSpec.from ?? '-'} -> ${m.rootSpec.to ?? '-'}]` : ''}${m.declaredBy ? `  (declared by ${m.declaredBy})` : ''}\n`);
+      }
+      const counts = (Object.keys(report.summary) as (keyof typeof report.summary)[]).sort().map((k) => `${k} ${report.summary[k]}`).join(', ');
+      process.stdout.write(
+        `bce stack diff: ${report.from.stackId} -> ${report.to.stackId}  classification ${report.classification}  (${counts})\n` +
+          (report.unexplainedDigestChange ? `stackDigest changed but no node-level move explains it (runtime/images view moved) — fail closed\n` : '') +
+          `wrote ${out}\n`,
+      );
+      const code = stackDiffExitCode(report);
+      if (code !== 0) {
+        die(`stack diff FAILS CLOSED: classification ${report.classification}${report.approvalBlocked ? ', approval blocked' : ''} — a backward or unproven move needs an explicit acknowledged rationale`, code);
+      }
+      return;
+    }
+    if (sub !== 'snapshot') die(`unknown stack subcommand: ${String(sub)} (expected snapshot | diff)`, 1);
     if (args._.length !== 2) die(`unexpected stack argument '${args._[2]}'; usage: bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]`, 1);
     const ctRepo = args['ct-repo'] as string;
     if (!ctRepo || typeof ctRepo !== 'string' || !fs.existsSync(ctRepo)) die(`--ct-repo not found: ${String(ctRepo)}`);
@@ -2436,7 +2480,12 @@ async function main(): Promise<void> {
       `       compose image:, node runtime). No network; node_modules never read. stackDigest hashes ONLY the\n` +
       `       identity view (nodes/runtime/images) — a re-serialized lockfile or a spec-only range change keeps\n` +
       `       the digest; a version/integrity move changes it. npm-shrinkwrap.json wins over package-lock.json.\n` +
-      `       No supported lockfile, a hollow/malformed one, or a symlinked source = exit 2, nothing written.\n`;
+      `       No supported lockfile, a hollow/malformed one, or a symlinked source = exit 2, nothing written.\n` +
+      `  bce stack diff --from <A.stack.json> --to <B.stack.json> [--out <path>]\n` +
+      `       Per-node move classes between two StackManifests, joined on (kind, name) — never on name@version:\n` +
+      `       added | removed | forward | backward | rewritten | spec-changed | unknown. A non-semver or unprovable\n` +
+      `       move is 'unknown' and FAILS CLOSED (classification unknown-potential-backward, approvalBlocked,\n` +
+      `       exit 2); 'backward' also exits 2. Inputs are manifests, not repositories; a tampered manifest is refused.\n`;
   const topicWords = (args._[0] === 'help' ? args._.slice(1) : args._).filter(word => word !== '-h');
   const topic = helpRequested ? topicWords.join(' ') : '';
   if (topic) {
