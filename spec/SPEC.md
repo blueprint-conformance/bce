@@ -666,6 +666,83 @@ family is pinned by an explicit test assertion so it can never silently widen.
 
 ---
 
+## 16. Stack manifest (slice 1 — the declared closure as a content-addressed artifact)
+
+`bce stack snapshot` emits a **StackManifest** (`stack-manifest.schema.json`): the DECLARED dependency
+closure of a repository at a revision. It is a sibling artifact to the observed graph and the
+compliance report — it joins neither in this slice, and no constraint type grades it yet.
+
+**Inputs** (read from the pinned tree, nothing else): `npm-shrinkwrap.json` or `package-lock.json`
+with `lockfileVersion` **3 only** — when both exist **`npm-shrinkwrap.json` wins** (npm's own rule)
+and the other is a coverage line; `package.json`; `.nvmrc` / `.node-version` (first non-comment
+line); `Dockerfile*` `FROM` lines and `docker-compose*` / `compose*` `image:` lines (line-anchored,
+no YAML library), searched to **directory depth 3** with `node_modules`, `.git`, `dist`, `build`,
+`coverage` and virtualenv directories excluded — a deeper file is NOT read and the manifest says so.
+**Never**: `node_modules`, the network, `npm ls`, the machine's platform/arch/npm version, the clock.
+**Never a symbolic link**: every named source is `lstat`ed and must resolve inside the tree; a
+symlinked (or tree-escaping) lockfile, `package.json`, runtime file, Dockerfile or compose file is a
+refusal, on the pinned and the working-tree path alike — the manifest is a function of the revision.
+
+**Node identity** is `(kind, name, version, integrity)` — never the `node_modules/…` path. One
+identity may sit at several paths with different flags; flags are **merged across every copy**
+(`dev`, `optional`, `peer`, `devOptional` hold only when every copy carries them; `installScript`
+when any does), so hoisting — which path holds which copy — is recorded in the non-hashed `layout`
+list and cannot move the identity. `kind` is `npm`, `oci-image` (`@sha256:<64 hex>` ⇒ `pin:true`; a
+malformed digest is never a pin; a bare ref ⇒ `tag:"latest"` with `tagImplicit:true`) or
+`node-runtime` (`.nvmrc` > `.node-version` > `engines.node`; only an exact `x.y.z` is a pin).
+
+**`resolved`** (the tarball / git URL) is hashed **only when `integrity` is absent**
+(`resolvedWhenUnpinned`): with an integrity the bytes are pinned and a registry-mirror swap is
+content-neutral; without one, `resolved` is the only thing naming the bytes.
+
+**Opaque nodes.** A lockfile entry this slice cannot fully model — an `npm:` alias, a `link:`
+workspace entry or its target, a `git`/`file:` dependency, a non-ASCII name — is never ingested
+under a guessed name and never dropped: it enters `unmodeled[]` as `{kind:"unsupported", key,
+reason, spec, entrySha256}` where `entrySha256` covers the entire raw entry. `unmodeled[]` IS
+hashed, so a closure that differs only in such an entry never shares a digest with another, while
+`coverage.unsupported` still states the fidelity limit. (`key` is the lockfile key, so for these
+entries alone a re-hoist can move the digest — the price of not trusting an identity the slice
+cannot verify.)
+
+**`stackDigest`** = SHA-256 over the canonical serialization (§11 rules) of the **HASHED VIEW**:
+`schemaVersion`, `kind`, `nodes[]` (every field except `layout`), `runtime`, `images[]` (every field
+except `evidenceRef`; the hashed images are ordered by their own serialized form AFTER that field
+is removed, so neither a comment line above a `FROM` nor moving a Dockerfile re-keys), `unmodeled[]`.
+**Quarantined out** and present only in the manifest: `ctRepoRevision` (two revisions with the same
+closure share a digest — the join key), `sources[].sha256` (a re-serialized lockfile is the same
+closure), `edges` (a function of the node set plus the resolver walk), `rootDeclared` (declared
+ranges), `coverage`, `stackId`
+(`stack:` + the first 12 hex) and `manifestDigest` (SHA-256 over the manifest minus itself — tamper
+detection of the file). **The root package's own `version` is quarantined.** In the hashed view the root node carries no
+`version` and its `id` is `root:<name>` (the manifest keeps the real `npm:<name>@<version>` for
+display), on every root-identity path — the lockfile root entry, the top-level fallback, the
+defaulted identity. A release bump of the repository is not a change of its dependency closure:
+two revisions with the same closure share a digest whatever the package calls its version that
+day. The root `name` stays hashed (a renamed fork is a different stack subject). A non-root package
+that happens to share the root's name is an ordinary node with a hashed version. **Declared ranges
+never move the digest** — root or not: the digest names the RESOLVED closure, ranges live in the
+quarantined `edges` and, for the root package, in the quarantined manifest field
+`rootDeclared[] {name, spec, group}` — a range-only edit with identical resolved nodes leaves the
+running stack identical, so it is visible there (a diff reports it as spec-changed) and never re-keys.
+
+**Fail-closed** (exit **2**, nothing written): no lockfile; only `pnpm-lock.yaml` / `yarn.lock`
+(fixed refusal strings); malformed JSON; `lockfileVersion` ≠ 3; a **hollow** v3 lockfile (no
+`packages` map, no root entry, or NOTHING beyond the root — a closure with no node and no unmodeled
+entry beyond the root is never a green stack; a root plus only opaque entries IS accepted, because
+those entries are hashed); a **malformed entry** (not an object, or a missing / empty / non-string
+version); any symbolic link among the sources, including a symlinked directory whose first level
+holds a Dockerfile or compose file (other symlinked directories are not walked and are declared in
+coverage). `FROM ${ARG}` bases and `${VAR}` compose refs are coverage lines, never
+fabricated nodes. `images[].resolved` is always `false` in this slice: tag→digest resolution is a
+separate verb that writes a proposal, never a manifest field.
+
+**Determinism**: same tree ⇒ byte-identical manifest on every OS (`tests/stack-determinism.test.ts`
+pins a committed golden, its negative controls, and one test per rule above). This section is
+descriptive of the verb that runs; grading a stack (a `stack` block on the blueprint,
+version/closure constraint types) is not part of this specification version.
+
+---
+
 ## 15. Conformance
 
 An independent implementation conforms to this specification iff:

@@ -108,6 +108,17 @@ If a label here overstates reality, that is a bug — please open an issue.
   ([`rfcs/RFC-0001-process.md`](rfcs/RFC-0001-process.md)); no spec-change RFC has yet been run
   through it.
 
+- **[DESIGN]** Stack plane, slice 1 — `bce stack snapshot` emits a content-addressed
+  `StackManifest` of the DECLARED dependency closure (npm lockfile v3 / shrinkwrap nodes keyed by
+  name+version+integrity, Dockerfile/compose image refs, the declared node runtime) with a
+  `stackDigest` that quarantines revision, lockfile bytes, edges and coverage
+  ([`src/stack/stack-manifest.ts`](src/stack/stack-manifest.ts), [`src/stack/stack-extractor.ts`](src/stack/stack-extractor.ts),
+  [`spec/SPEC.md` §16](spec/SPEC.md)). The verb, the extractor and the golden-pinned determinism
+  suite ([`tests/stack-determinism.test.ts`](tests/stack-determinism.test.ts)) are in the tree and
+  run under the vitest suite; this line moves to **[RUNS]** only when the dedicated built-dist
+  RED/GREEN CLI leg (the discriminating-pair convention above) lands. pnpm/yarn lockfiles, `stack
+  diff`, image-tag resolution and any blueprint constraint over a stack are not built.
+
 ## Directions — [FUTURE]
 
 - **[FUTURE]** Extractors for further languages beyond Python, through the same documented seam.

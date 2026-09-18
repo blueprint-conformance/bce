@@ -1,0 +1,152 @@
+{
+  "name": "bce-engine",
+  "version": "0.3.1",
+  "description": "bce — the blueprint conformance engine. Author an EngineeringBlueprint and gate code against it with deterministic scores, fail-closed verdicts, and re-derivable evidence. TypeScript/JavaScript AST extraction covers framework surfaces and direct module boundaries; Python import extraction is an explicit MVP.",
+  "license": "Apache-2.0",
+  "author": "bce maintainers",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blueprint-conformance/bce.git"
+  },
+  "homepage": "https://blueprint-conformance.github.io/bce/",
+  "bugs": {
+    "url": "https://github.com/blueprint-conformance/bce/issues"
+  },
+  "keywords": [
+    "agent-skills",
+    "ai-agents",
+    "architecture",
+    "architecture-as-code",
+    "conformance",
+    "developer-tools",
+    "github-actions",
+    "mcp"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "bce": "./dist/cli.js",
+    "bce-mcp": "./dist/mcp-server.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "rimraf dist tsconfig.tsbuildinfo && tsup && tsc --emitDeclarationOnly",
+    "prepare": "npm run build",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:package": "node scripts/package-consumer-proof.mjs",
+    "test:onboarding": "node scripts/onboarding-consumer-proof.mjs",
+    "dogfood:soak": "node scripts/accelerated-dogfood-soak.mjs",
+    "dogfood:soak:check": "node scripts/accelerated-dogfood-soak.mjs --check evidence/dogfood/accelerated-soak.json",
+    "test:ai-adoption": "node scripts/ai-adoption-proof.mjs",
+    "test:mcp-compatibility": "node scripts/mcp-compatibility-proof.mjs",
+    "test:portable": "vitest run --exclude tests/pre-commit-hook.test.ts --exclude tests/skill-contract.test.ts --exclude tests/self-gate-honesty.test.ts",
+    "test:action-pins": "node scripts/check-action-pins.selftest.mjs && node scripts/check-action-pins.mjs",
+    "test:release-policy": "node scripts/check-release-proof-policy.selftest.mjs && node scripts/check-release-proof-policy.mjs",
+    "test:reproducibility": "node scripts/reproducibility-proof.mjs",
+    "test:release-claims": "node scripts/check-release-claims.selftest.mjs && node scripts/check-release-claims.mjs",
+    "test:evidence-claims": "node scripts/check-evidence-claims.selftest.mjs && node scripts/check-evidence-claims.mjs",
+    "evidence:verify": "node scripts/verify-public-evidence.mjs",
+    "test:contributor-operations": "node scripts/verify-contributor-operations.mjs",
+    "test:public-release": "node scripts/verify-public-release.selftest.mjs && node scripts/verify-public-release.mjs",
+    "test:release-payload": "node scripts/verify-release-payload.selftest.mjs && node scripts/verify-release-payload.mjs",
+    "generate:doc-diagrams": "node scripts/generate-doc-diagrams.mjs",
+    "test:doc-diagrams": "node scripts/generate-doc-diagrams.mjs --check",
+    "test:adoption-program": "node scripts/validate-adoption-program.selftest.mjs && node scripts/validate-adoption-program.mjs",
+    "test:scale": "node scripts/scale-proof.mjs",
+    "test:external-contract": "node scripts/verify-external-implementation-report.selftest.mjs && node scripts/verify-external-implementation-report.mjs",
+    "test:model-eval-protocol": "node scripts/model-evaluation-protocol.selftest.mjs",
+    "test:model-eval-controller": "node scripts/model-evaluation-controller.selftest.mjs",
+    "test:model-eval-evaluator": "node scripts/model-evaluation-blinded-evaluator.selftest.mjs",
+    "test:model-eval-client": "node scripts/model-evaluation-ollama-tool-client.selftest.mjs",
+    "test:model-eval-halt": "node scripts/model-evaluation-safety-halt.selftest.mjs",
+    "test:model-eval-references": "node scripts/model-evaluation-reference-patches.selftest.mjs",
+    "test:evidence-foundry-v3": "node scripts/evidence-foundry-v3.selftest.mjs",
+    "build:model-eval-pilot": "node scripts/build-accelerated-model-pilot.mjs",
+    "model-eval:assign": "node scripts/generate-model-evaluation-assignments.mjs",
+    "model-eval:verify": "node scripts/verify-model-evaluation-bundle.mjs",
+    "model-eval:verify-references": "node scripts/verify-model-evaluation-reference-patches.mjs",
+    "model-eval:seal": "node scripts/seal-model-evaluation-bundle.mjs",
+    "model-eval:run": "node scripts/run-model-evaluation.mjs",
+    "model-eval:canary": "node scripts/run-model-evaluation-canary.mjs",
+    "model-eval:analyze": "node scripts/analyze-model-evaluation.mjs",
+    "model-eval:export-public": "node scripts/export-model-evaluation-public.mjs",
+    "model-eval:verify-public": "node scripts/verify-model-evaluation-public.mjs",
+    "test:restricted-network": "node scripts/restricted-network-proof.mjs",
+    "test:codex-plugin": "node scripts/validate-codex-plugin.selftest.mjs && node scripts/validate-codex-plugin.mjs",
+    "eval:ai-adoption": "node scripts/model-adoption-eval.mjs",
+    "research:readiness": "tsx scripts/research-readiness.ts",
+    "research:study-readiness": "tsx scripts/research-readiness.ts --study",
+    "research:model-eval-readiness": "tsx scripts/research-readiness.ts --model-eval",
+    "research:evidence-foundry-v3": "node scripts/verify-evidence-foundry-registry.mjs",
+    "research:evidence-foundry-v3-ready": "node scripts/verify-evidence-foundry-registry.mjs --require-ready",
+    "test:watch": "vitest",
+    "generate:schemas": "tsx scripts/generate-schemas.ts",
+    "generate:self-teeth-mutations": "node scripts/generate-self-teeth-mutations.mjs",
+    "test:self-teeth-mutations": "node scripts/generate-self-teeth-mutations.mjs --check && node dist/cli.js teeth --blueprint .blueprints/engine.blueprint.json --ct-repo . --mutation-manifest .blueprints/engine.teeth-mutations.json --require-all-extractor-real --out extractor-teeth-report.json",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@lezer/common": "1.5.2",
+    "@lezer/python": "1.1.19",
+    "ts-morph": "28.0.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/inspector": "2.5.0",
+    "@sigstore/cli": "0.10.3",
+    "@types/node": "^22.5.0",
+    "ajv": "^8.20.0",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "7.0.2",
+    "vitest": "^5.0.0",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "files": [
+    "dist",
+    "src",
+    "fixtures",
+    "integrations",
+    "skills",
+    "prompts",
+    "scripts/ai-adoption-proof.mjs",
+    "scripts/model-adoption-eval.mjs",
+    ".claude-plugin",
+    ".codex-plugin",
+    "docs",
+    "assets/diagrams",
+    "spec/schemas",
+    "spec/SPEC.md",
+    "spec/skill-standard",
+    "examples",
+    "evidence/example-chain",
+    "tools/verify-chain.mjs",
+    "npm-shrinkwrap.json",
+    "release-state.json",
+    "action.yml",
+    "llms.txt"
+  ],
+  "overrides": {
+    "esbuild": "0.28.1",
+    "fast-uri": "3.1.6",
+    "nanoid": "3.3.18",
+    "rollup": "4.62.2"
+  }
+}

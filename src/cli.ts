@@ -60,6 +60,7 @@ import { assessTeeth, type TeethReport } from './teeth.js';
 import { assessExtractorTeethCorpus, buildSourceReviewProof } from './extractor-teeth.js';
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 import { resolveRevision, materializeAtRevision } from './pin.js';
+import { extractStackManifest } from './stack/stack-extractor.js';
 import { discoverBlueprints, runGate, assembleGateReportDoc } from './gate.js';
 import {
   resolveMode,
@@ -925,6 +926,7 @@ async function main(): Promise<void> {
     baseline: ['repo', 'ct-repo', 'blueprint-dir', 'changed', 'extractor', 'repo-name', 'dry-run', 'check', 'out', 'patch-out'],
     graduate: ['repo', 'ct-repo', 'downgrade', 'rationale'],
     portfolio: args._[1] === 'compile' ? ['portfolio', 'out-dir'] : ['registry', 'reports-dir'],
+    stack: ['ct-repo', 'ref', 'no-pin', 'out'],
   };
   if (cmd && allowedByCommand[cmd]) {
     const allowed = new Set([...allowedByCommand[cmd], 'help', 'version']);
@@ -2228,6 +2230,52 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (cmd === 'stack') {
+    // bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]
+    //   Extract the DECLARED dependency closure (npm lockfile v3 / shrinkwrap, Dockerfile FROM,
+    //   compose image:, node runtime) of a pinned tree into a content-addressed StackManifest.
+    //   No network, node_modules never read. Refusal (no supported lockfile, malformed or
+    //   wrong-version lockfile) is exit 2 and writes NOTHING — never a silent empty manifest.
+    const sub = args._[1];
+    if (sub !== 'snapshot') die(`unknown stack subcommand: ${String(sub)} (expected snapshot)`, 1);
+    if (args._.length !== 2) die(`unexpected stack argument '${args._[2]}'; usage: bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]`, 1);
+    const ctRepo = args['ct-repo'] as string;
+    if (!ctRepo || typeof ctRepo !== 'string' || !fs.existsSync(ctRepo)) die(`--ct-repo not found: ${String(ctRepo)}`);
+    const ref = typeof args.ref === 'string' ? args.ref : undefined;
+    let tree: string;
+    let revision: string;
+    let cleanup: (() => void) | null = null;
+    if (noPin) {
+      tree = ctRepo;
+      revision = ref || 'unpinned';
+    } else {
+      // same pin discipline as scan/run: an explicit 40-hex sha passes through; otherwise the ref
+      // resolves worktree-scoped (HEAD default), never origin/main implicitly.
+      const sha = /^[0-9a-f]{40}$/.test(ref ?? '') ? (ref as string) : resolveRevision(ctRepo, ref ?? 'HEAD');
+      tree = materializeAtRevision(ctRepo, sha);
+      revision = sha;
+      cleanup = () => fs.rmSync(tree, { recursive: true, force: true });
+    }
+    try {
+      const { manifest, refusals } = extractStackManifest(tree, revision);
+      if (refusals.length > 0) {
+        for (const r of refusals) process.stderr.write(`::error::${r}\n`);
+        die(`stack snapshot REFUSED: ${refusals.length} refusal(s) — no manifest written (revision ${revision})`, 2);
+      }
+      const out = (typeof args.out === 'string' && args.out) || 'stack-manifest.json';
+      fs.writeFileSync(out, stableStringify(manifest));
+      process.stdout.write(
+        `bce stack snapshot: ${manifest.nodes.length} node(s), ${manifest.edges.length} edge(s), ${manifest.images.length} image(s), ` +
+          `${manifest.coverage.unsupported.length} coverage note(s) @ ${manifest.ctRepoRevision}\n` +
+          `stackId ${manifest.stackId}  stackDigest ${manifest.stackDigest}\n` +
+          `wrote ${out}\n`,
+      );
+    } finally {
+      if (cleanup) cleanup();
+    }
+    return;
+  }
+
   if (cmd === 'portfolio') {
     // B2 — the fleet-level surface. Two subcommands, both fail-closed:
     //   bce portfolio compile --portfolio <file> [--out-dir <dir>]
@@ -2382,7 +2430,13 @@ async function main(): Promise<void> {
       `       ${GRADUATION_RECORD_RELPATH}). Downgrade: bce graduate --downgrade --rationale "<why>"\n` +
       `       (enforced → advisory is REFUSED without a recorded rationale — never a silent relax).\n` +
       `  bce portfolio compile --portfolio <file> [--out-dir <dir>]\n` +
-      `  bce portfolio collect --registry <file> --reports-dir <dir>\n`;
+      `  bce portfolio collect --registry <file> --reports-dir <dir>\n` +
+      `  bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]\n` +
+      `       Content-addressed StackManifest of the DECLARED closure (npm lockfile v3 / shrinkwrap, Dockerfile FROM,\n` +
+      `       compose image:, node runtime). No network; node_modules never read. stackDigest hashes ONLY the\n` +
+      `       identity view (nodes/runtime/images) — a re-serialized lockfile or a spec-only range change keeps\n` +
+      `       the digest; a version/integrity move changes it. npm-shrinkwrap.json wins over package-lock.json.\n` +
+      `       No supported lockfile, a hollow/malformed one, or a symlinked source = exit 2, nothing written.\n`;
   const topicWords = (args._[0] === 'help' ? args._.slice(1) : args._).filter(word => word !== '-h');
   const topic = helpRequested ? topicWords.join(' ') : '';
   if (topic) {

@@ -51,6 +51,7 @@ import {
   ProposalContextSchema,
 } from '../src/review-contracts.js';
 import { AssistantGenerationRecordSchema } from '../src/assistant-adapter.js';
+import { StackManifestSchema } from '../src/stack/stack-manifest.js';
 
 export const SCHEMA_ID_BASE = 'https://blueprint-conformance.github.io/bce/schemas/';
 const DRAFT = 'http://json-schema.org/draft-07/schema#';
@@ -113,6 +114,28 @@ function portfolioBlueprintSchema(): Record<string, unknown> {
       'Mechanically derived from the structural Zod schema in src/schema.ts. Profile-specific ' +
       'cross-field refinements are enforced by the engine parser and pinned as documented ' +
       'structural-floor divergences in spec/SPEC.md.',
+    body,
+  );
+}
+
+function stackManifestSchema(): Record<string, unknown> {
+  const body = zodToJsonSchema(StackManifestSchema, {
+    name: 'StackManifest',
+    target: 'jsonSchema7',
+    $refStrategy: 'none',
+  }) as Record<string, unknown>;
+  delete body.$schema;
+  return envelope(
+    'stack-manifest.schema.json',
+    'StackManifest',
+    'The content-addressed DECLARED dependency closure `bce stack snapshot` emits (src/stack/stack-manifest.ts, stack slice 1): ' +
+      'npm lockfile-v3 nodes (identity = kind,name,version,integrity — never the node_modules path), ' +
+      'Dockerfile/compose image refs, the declared node runtime, the resolver edges, and the coverage ' +
+      'honesty envelope. `stackDigest` = sha256 over the canonical serialization of the HASHED VIEW ' +
+      '(schemaVersion, kind, nodes without layout, runtime, images); ctRepoRevision, sources[].sha256, ' +
+      'edges, coverage, stackId and manifestDigest are quarantined out so two revisions with the same ' +
+      'closure share a digest. `manifestDigest` = sha256 over the manifest minus itself (tamper detection). ' +
+      'Mechanically derived from the normative Zod schema; canonical serialization: sorted keys, 2-space indent, trailing newline.',
     body,
   );
 }
@@ -470,6 +493,7 @@ export function generateSchemas(): Record<string, Record<string, unknown>> {
     'architecture-graph.schema.json': architectureGraphSchema(),
     'remediation-work-order.schema.json': remediationWorkOrderSchema(),
     'teeth-mutation-manifest.schema.json': teethMutationManifestSchema(),
+    'stack-manifest.schema.json': stackManifestSchema(),
     'proposal-context.schema.json': zodReviewArtifactSchema(
       'proposal-context.schema.json', 'ProposalContext',
       'The bounded, disclosed, content-addressed repository and intent context supplied to an untrusted proposal assistant.',
