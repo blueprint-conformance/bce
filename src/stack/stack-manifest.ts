@@ -12,7 +12,10 @@
  * closure share a digest; that IS the join key later work reads.
  *
  * HASHED VIEW (exactly these keys, key-sorted by `stableStringify`):
- *   schemaVersion, kind, nodes[] (every StackNode field EXCEPT `layout`), runtime, images[].
+ *   schemaVersion, kind, nodes[] (every StackNode field EXCEPT `layout`), runtime,
+ *   images[] (every field EXCEPT `evidenceRef` — a comment line above a FROM must not re-key),
+ *   unmodeled[] (every lockfile entry the extractor cannot fully model, as an OPAQUE node: the
+ *   digest always moves when the closure moves, even where slice 1 cannot say what moved).
  * QUARANTINED OUT of the digest (present in the manifest, never hashed):
  *   ctRepoRevision (same closure at two revisions ⇒ same digest), sources[].sha256 (whitespace /
  *   key-order churn of the lockfile must not move the digest), edges (a pure function of the node
@@ -57,8 +60,17 @@ export const StackNodeSchema = z
     platformConditional: z.object({ os: z.array(z.string()), cpu: z.array(z.string()) }).strict().nullable(),
     /** true only for the `""` package (the repository itself) */
     root: z.boolean(),
-    /** the lockfile's `hasInstallScript` flag — a node that runs code at install time */
+    /** npm's `devOptional` flag (dev OR optional) — AND across every copy of the identity */
+    devOptional: z.boolean(),
+    /** the lockfile's `hasInstallScript` flag — a node that runs code at install time (OR across copies) */
     installScript: z.boolean(),
+    /**
+     * The lockfile's `resolved` (tarball URL / git URL + commit) — recorded ONLY when `integrity`
+     * is null. With an integrity the bytes are pinned and a mirror swap is content-neutral, so
+     * `resolved` stays out of the identity; without one, `resolved` is the only thing that names
+     * the bytes and MUST move the digest.
+     */
+    resolvedWhenUnpinned: z.string().nullable(),
     /**
      * NOT HASHED: the `node_modules/…` paths this identity occupied. Hoisting is an npm-version
      * artefact of the same closure, so layout churn is explanation, never identity.
@@ -125,6 +137,33 @@ export const StackImageSchema = z
   .strict();
 export type StackImage = z.infer<typeof StackImageSchema>;
 
+/**
+ * An OPAQUE node: a lockfile entry slice 1 cannot fully model (an `npm:` alias, a `link:` workspace
+ * entry or its target, a git/file dependency, a non-ASCII name). It is HASHED — `entrySha256` covers
+ * the entire raw entry — so two closures that differ only in such an entry never share a digest.
+ * `key` is the lockfile key (path-dependent by necessity: an unmodeled entry has no trusted identity).
+ */
+export const StackUnmodeledSchema = z
+  .object({
+    kind: z.literal('unsupported'),
+    key: z.string().min(1),
+    reason: z.enum(['npm-alias', 'link', 'local-or-git', 'non-ascii-name', 'not-under-node-modules']),
+    /** the raw distinguishing strings, as read */
+    spec: z
+      .object({
+        name: z.string().nullable(),
+        version: z.string().nullable(),
+        resolved: z.string().nullable(),
+        integrity: z.string().nullable(),
+        link: z.boolean(),
+      })
+      .strict(),
+    /** sha256 over the canonical serialization of the ENTIRE raw lockfile entry */
+    entrySha256: z.string().regex(/^[0-9a-f]{64}$/),
+  })
+  .strict();
+export type StackUnmodeled = z.infer<typeof StackUnmodeledSchema>;
+
 export const StackCoverageSchema = z
   .object({
     /** every fidelity limit and every refused input, as fixed strings — never claim full coverage */
@@ -151,6 +190,8 @@ export const StackManifestSchema = z
     runtime: StackRuntimeSchema,
     /** sorted by (ref, evidenceRef) */
     images: z.array(StackImageSchema),
+    /** sorted by key — HASHED opaque nodes for every lockfile entry slice 1 cannot model */
+    unmodeled: z.array(StackUnmodeledSchema),
     coverage: StackCoverageSchema,
     /** sha256 hex over the HASHED VIEW — the identity */
     stackDigest: Hex64,
@@ -166,7 +207,7 @@ export type StackManifest = z.infer<typeof StackManifestSchema>;
 export type StackManifestBody = Omit<StackManifest, 'stackDigest' | 'stackId' | 'manifestDigest'>;
 
 /** The exact key set that is hashed. Exported so a test can assert the quarantine list, not trust it. */
-export const STACK_HASHED_VIEW_KEYS = Object.freeze(['schemaVersion', 'kind', 'nodes', 'runtime', 'images'] as const);
+export const STACK_HASHED_VIEW_KEYS = Object.freeze(['schemaVersion', 'kind', 'nodes', 'runtime', 'images', 'unmodeled'] as const);
 /** The manifest keys deliberately kept OUT of the digest. */
 export const STACK_QUARANTINED_KEYS = Object.freeze([
   'ctRepoRevision',
@@ -206,6 +247,10 @@ export function compareStackImages(a: StackImage, b: StackImage): number {
   return cmp(a.ref, b.ref) || cmp(a.evidenceRef, b.evidenceRef);
 }
 
+export function compareStackUnmodeled(a: StackUnmodeled, b: StackUnmodeled): number {
+  return cmp(a.key, b.key);
+}
+
 /** The bom-ref for a (kind, name, version) identity. */
 export function stackNodeId(kind: StackNodeKind, name: string, version: string): string {
   return `${kind}:${name}@${version}`;
@@ -222,12 +267,16 @@ function sha256(s: string): string {
 /** A StackNode with the non-hashed `layout` removed — the shape that enters the digest. */
 export type HashedStackNode = Omit<StackNode, 'layout'>;
 
+/** A StackImage with the non-hashed `evidenceRef` (a line number) removed. */
+export type HashedStackImage = Omit<StackImage, 'evidenceRef'>;
+
 export interface StackHashedView {
   schemaVersion: '1';
   kind: 'StackManifest';
   nodes: HashedStackNode[];
   runtime: StackRuntime;
-  images: StackImage[];
+  images: HashedStackImage[];
+  unmodeled: StackUnmodeled[];
 }
 
 /**
@@ -242,8 +291,13 @@ export function stackHashedView(body: StackManifestBody | StackManifest): StackH
     void layout;
     return hashed;
   });
-  const images = [...body.images].sort(compareStackImages);
-  return { schemaVersion: '1', kind: 'StackManifest', nodes, runtime: body.runtime, images };
+  const images = [...body.images].sort(compareStackImages).map((i) => {
+    const { evidenceRef, ...hashed } = i;
+    void evidenceRef;
+    return hashed;
+  });
+  const unmodeled = [...body.unmodeled].sort(compareStackUnmodeled);
+  return { schemaVersion: '1', kind: 'StackManifest', nodes, runtime: body.runtime, images, unmodeled };
 }
 
 /** `stackDigest = sha256(stableStringify(hashedView))` — the same formula the evidence record uses. */
@@ -273,6 +327,7 @@ export function finalizeStackManifest(body: StackManifestBody): StackManifest {
     nodes: [...body.nodes].sort(compareStackNodes).map((n) => ({ ...n, layout: [...n.layout].sort() })),
     edges: [...body.edges].sort(compareStackEdges),
     images: [...body.images].sort(compareStackImages),
+    unmodeled: [...body.unmodeled].sort(compareStackUnmodeled),
     coverage: { ...body.coverage, unsupported: [...new Set(body.coverage.unsupported)].sort() },
   };
   const stackDigest = computeStackDigest(sorted);

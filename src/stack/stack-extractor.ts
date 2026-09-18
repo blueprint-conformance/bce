@@ -25,6 +25,7 @@
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { stableStringify } from '../report.js';
 import {
   finalizeStackManifest,
   stackNodeId,
@@ -35,6 +36,7 @@ import {
   type StackNode,
   type StackRuntime,
   type StackSource,
+  type StackUnmodeled,
 } from './stack-manifest.js';
 
 /* -------------------------------------------------------------------------- */
@@ -51,9 +53,25 @@ export const STACK_COVERAGE_NO_IMAGES = 'no Dockerfile or compose file found: im
 export const STACK_COVERAGE_COMPOSE_BUILD_ONLY =
   'compose: build:-only services are not enumerated (line-anchored image: read, no YAML parser)';
 
+export const STACK_COVERAGE_IMAGE_WALK_DEPTH =
+  'image files are searched to directory depth 3 only (node_modules/.git/dist/build/coverage/venv excluded): deeper Dockerfiles or compose files are not read';
+
+/** A named stack source that is a symlink (or resolves outside the tree) is refused — never followed. */
+export function stackRefusalSymlink(rel: string): string {
+  return `stack source '${rel}' is a symbolic link or resolves outside the tree: refused (a stack source must be a regular file inside the materialized tree)`;
+}
+/** A v3 lockfile with no usable `packages` map. */
+export function stackRefusalHollowLockfile(rel: string, why: string): string {
+  return `lockfile '${rel}' is hollow (${why}): a manifest with only the root node is never a green stack; no stack facts extracted`;
+}
+/** A lockfile entry that is not an object or carries a non-string version. */
+export function stackRefusalMalformedEntry(rel: string, key: string): string {
+  return `lockfile '${rel}' entry '${key}' is malformed (not an object, or no string version): refused, never a partial manifest`;
+}
+
 /** `lockfileVersion <n> is not 3: …` — npm v1/v2 lockfiles are refused, their tree is not a closure map. */
 export function stackRefusalLockfileVersion(version: unknown): string {
-  return `lockfileVersion ${String(version)} is not 3: npm v1/v2 lockfiles are refused (their 'dependencies' tree is not a closure map); regenerate with npm >= 7`;
+  return `lockfileVersion ${typeof version === 'number' ? String(version) : JSON.stringify(version) ?? 'undefined'} is not 3: npm v1/v2 lockfiles are refused (their 'dependencies' tree is not a closure map); regenerate with npm >= 7`;
 }
 
 export interface StackFactsExtractor {
@@ -79,15 +97,33 @@ function sha256(bytes: Buffer): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-function readIfPresent(root: string, rel: string): Buffer | null {
+/** Thrown by `readSource` for a symlinked / tree-escaping source — the extractor turns it into a refusal. */
+export class StackSourceEscapeError extends Error {
+  constructor(readonly rel: string) {
+    super(stackRefusalSymlink(rel));
+  }
+}
+
+/**
+ * Read a named stack source. NEVER follows a symbolic link: `lstat` first, and the real path of
+ * the file must stay inside the real path of the tree (a symlinked parent directory escapes too).
+ * Absent ⇒ null; a symlink / escape ⇒ StackSourceEscapeError (a refusal, never a silent read of a
+ * host file that is not in the revision).
+ */
+function readSource(root: string, rel: string): Buffer | null {
   const abs = path.join(root, rel);
+  let st: fs.Stats;
   try {
-    const st = fs.statSync(abs);
-    if (!st.isFile()) return null;
-    return fs.readFileSync(abs);
+    st = fs.lstatSync(abs);
   } catch {
     return null;
   }
+  if (st.isSymbolicLink()) throw new StackSourceEscapeError(rel);
+  if (!st.isFile()) return null;
+  const realRoot = fs.realpathSync(root);
+  const real = fs.realpathSync(abs);
+  if (real !== path.join(realRoot, rel) && !real.startsWith(`${realRoot}${path.sep}`)) throw new StackSourceEscapeError(rel);
+  return fs.readFileSync(abs);
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -122,43 +158,87 @@ interface LockEntry {
   raw: Record<string, unknown>;
 }
 
-interface ParsedLockfile {
+export interface ParsedLockfile {
   nodes: StackNode[];
   edges: StackEdge[];
+  unmodeled: StackUnmodeled[];
   unsupported: string[];
-  rootName: string | null;
-  rootVersion: string | null;
+  /** lockfile keys whose entry is not an object / has no string version — a REFUSAL, never a skip */
+  malformed: string[];
+  /** why the lockfile is hollow (no `packages` record, no root entry, nothing beyond the root), else null */
+  hollow: string | null;
+}
+
+function opaque(key: string, reason: StackUnmodeled['reason'], raw: Record<string, unknown>): StackUnmodeled {
+  return {
+    kind: 'unsupported',
+    key,
+    reason,
+    spec: {
+      name: asString(raw.name),
+      version: asString(raw.version),
+      resolved: asString(raw.resolved),
+      integrity: asString(raw.integrity),
+      link: raw.link === true,
+    },
+    entrySha256: sha256(Buffer.from(stableStringify(raw))),
+  };
+}
+
+function mergeStringSets(a: string[], b: string[] | null): string[] {
+  return [...new Set([...a, ...(b ?? [])])].sort();
 }
 
 /**
- * Derive nodes + edges from a lockfileVersion-3 `packages` map. Pure over the parsed JSON.
- * Exported for tests (the mutation / negative-control legs feed it re-serialized lockfiles).
+ * Derive nodes + edges + opaque entries from a lockfileVersion-3 `packages` map. Pure over the
+ * parsed JSON. Exported for tests.
+ *
+ * Identity is (kind, name, version, integrity). Several lockfile paths may hold ONE identity with
+ * DIFFERENT flags (hoisting places a copy under a dev parent and another under a prod parent), so
+ * flags are MERGED across every copy with npm's own semantics — dev / optional / peer /
+ * devOptional are true only when EVERY copy carries them, installScript when ANY does — never
+ * first-path-wins: the digest must not depend on which path sorts first.
  */
 export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockfile {
-  const packages = isRecord(lock.packages) ? lock.packages : {};
   const unsupported = new Set<string>();
-  const entries: LockEntry[] = Object.keys(packages)
-    .sort()
-    .map((p) => ({ path: p, raw: isRecord(packages[p]) ? (packages[p] as Record<string, unknown>) : {} }));
+  const malformed: string[] = [];
+  const unmodeled: StackUnmodeled[] = [];
+  if (!isRecord(lock.packages)) {
+    return { nodes: [], edges: [], unmodeled, unsupported: [], malformed, hollow: "no 'packages' map" };
+  }
+  const packages = lock.packages;
+  const keys = Object.keys(packages).sort();
+  if (!keys.includes('')) {
+    return { nodes: [], edges: [], unmodeled, unsupported: [], malformed, hollow: "no root '' entry in 'packages'" };
+  }
+  if (keys.length === 1) {
+    return { nodes: [], edges: [], unmodeled, unsupported: [], malformed, hollow: 'no package beyond the root' };
+  }
+  const entries: LockEntry[] = [];
+  for (const k of keys) {
+    const raw = packages[k];
+    if (!isRecord(raw)) {
+      malformed.push(k === '' ? '<root>' : k);
+      continue;
+    }
+    entries.push({ path: k, raw });
+  }
 
-  // identity dedup: (kind,name,version,integrity) → node; path → node id (for edge resolution)
+  // identity → node (flags merged across copies); path → node id (for edge resolution)
   const byIdentity = new Map<string, StackNode>();
   const idByPath = new Map<string, string>();
   const idsTaken = new Map<string, string>(); // id → identity key (collision detection)
-  let rootName: string | null = null;
-  let rootVersion: string | null = null;
 
   for (const { path: p, raw } of entries) {
-    const isRoot = p === '';
     const version = asString(raw.version);
     const resolved = asString(raw.resolved) ?? '';
     const declaredName = asString(raw.name);
-    if (isRoot) {
-      rootName = declaredName ?? asString(lock.name);
-      rootVersion = version ?? asString(lock.version);
+    if (p === '') {
+      const rootName = declaredName ?? asString(lock.name);
+      const rootVersion = version ?? asString(lock.version);
+      if (!rootName || !rootVersion) unsupported.add('root package has no name/version in the lockfile: identity defaulted');
       const name = rootName ?? 'root';
       const ver = rootVersion ?? '0.0.0';
-      if (!rootName || !rootVersion) unsupported.add('root package has no name/version in the lockfile: identity defaulted');
       const node: StackNode = {
         id: stackNodeId('npm', name, ver),
         kind: 'npm',
@@ -169,50 +249,71 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
         dev: false,
         optional: false,
         peer: false,
+        devOptional: false,
         platformConditional: null,
         root: true,
         installScript: raw.hasInstallScript === true,
+        resolvedWhenUnpinned: null,
         layout: [''],
       };
-      byIdentity.set(`root`, node);
+      byIdentity.set('root', node);
       idByPath.set('', node.id);
       idsTaken.set(node.id, 'root');
       continue;
     }
     const pathName = npmNameFromLockPath(p);
+    // ---- entries slice 1 cannot fully model: HASHED as opaque nodes + a fixed coverage line ----
     if (!pathName) {
-      unsupported.add(`lockfile entry '${p}' is not under node_modules/: skipped`);
+      unmodeled.push(opaque(p, 'not-under-node-modules', raw));
+      unsupported.add(`workspace/link entry ${p}: local package not part of the declared closure in slice 1`);
       continue;
     }
-    if (raw.link === true || /^(file:|git\+|github:|gitlab:|bitbucket:)/.test(resolved) || /^(file:|git\+|github:)/.test(version ?? '')) {
+    if (raw.link === true) {
+      unmodeled.push(opaque(p, 'link', raw));
+      unsupported.add(`workspace/link entry ${p}: local package not part of the declared closure in slice 1`);
+      continue;
+    }
+    if (/^(file:|git\+|git:|github:|gitlab:|bitbucket:)/.test(resolved) || /^(file:|git\+|git:|github:)/.test(version ?? '')) {
+      unmodeled.push(opaque(p, 'local-or-git', raw));
       unsupported.add(`workspace/link entry ${p}: local package not part of the declared closure in slice 1`);
       continue;
     }
     if (declaredName !== null && declaredName !== pathName) {
+      unmodeled.push(opaque(p, 'npm-alias', raw));
       unsupported.add(`npm: alias at ${p} — alias resolution owned-by-follow-on`);
       continue;
     }
     if (!ASCII.test(pathName)) {
-      unsupported.add(`non-ASCII package name at ${p}: skipped (npm registry names are ASCII)`);
+      unmodeled.push(opaque(p, 'non-ascii-name', raw));
+      unsupported.add(`non-ASCII package name at ${p}: not modeled (npm registry names are ASCII)`);
       continue;
     }
-    if (!version) {
-      unsupported.add(`lockfile entry ${p} has no version: skipped`);
+    if (version === null) {
+      malformed.push(p);
       continue;
     }
     const integrity = asString(raw.integrity);
-    if (!integrity) unsupported.add(`lockfile entry ${p} has no integrity: node kept with integrity null`);
+    if (integrity === null) unsupported.add(`lockfile entry ${p} has no integrity: its 'resolved' is hashed instead`);
     const os = asStringArray(raw.os);
     const cpu = asStringArray(raw.cpu);
-    const identityKey = `npm\0${pathName}\0${version}\0${integrity ?? ''}`;
+    const resolvedWhenUnpinned = integrity === null ? asString(raw.resolved) : null;
+    // null and "" integrity are DIFFERENT identities (JSON.stringify keeps them apart)
+    const identityKey = `npm\0${pathName}\0${version}\0${JSON.stringify(integrity)}\0${JSON.stringify(resolvedWhenUnpinned)}`;
+    const copy = {
+      dev: raw.dev === true,
+      optional: raw.optional === true,
+      peer: raw.peer === true,
+      devOptional: raw.devOptional === true,
+      installScript: raw.hasInstallScript === true,
+    };
     let node = byIdentity.get(identityKey);
     if (!node) {
       let id = stackNodeId('npm', pathName, version);
       const taken = idsTaken.get(id);
       if (taken !== undefined && taken !== identityKey) {
-        // same name@version, different integrity — keep both, disambiguate the id, say so
-        id = `${id}+${sha256(Buffer.from(integrity ?? '')).slice(0, 12)}`;
-        unsupported.add(`duplicate identity ${stackNodeId('npm', pathName, version)} with differing integrity at ${p}: id suffixed`);
+        // the bare id is already another identity — disambiguate from the FULL identity key
+        id = `${id}+${sha256(Buffer.from(identityKey)).slice(0, 12)}`;
+        unsupported.add(`id collision on ${stackNodeId('npm', pathName, version)} (a distinct identity at ${p}): id suffixed`);
       }
       node = {
         id,
@@ -221,16 +322,26 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
         version,
         integrity,
         resolvedFrom: 'lockfile',
-        dev: raw.dev === true,
-        optional: raw.optional === true,
-        peer: raw.peer === true,
+        ...copy,
         platformConditional: os || cpu ? { os: os ?? [], cpu: cpu ?? [] } : null,
         root: false,
-        installScript: raw.hasInstallScript === true,
+        resolvedWhenUnpinned,
         layout: [],
       };
       byIdentity.set(identityKey, node);
       idsTaken.set(id, identityKey);
+    } else {
+      node.dev = node.dev && copy.dev;
+      node.optional = node.optional && copy.optional;
+      node.peer = node.peer && copy.peer;
+      node.devOptional = node.devOptional && copy.devOptional;
+      node.installScript = node.installScript || copy.installScript;
+      if (os || cpu) {
+        node.platformConditional = {
+          os: mergeStringSets(node.platformConditional?.os ?? [], os),
+          cpu: mergeStringSets(node.platformConditional?.cpu ?? [], cpu),
+        };
+      }
     }
     node.layout.push(p);
     idByPath.set(p, node.id);
@@ -281,7 +392,7 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
     }
   }
 
-  return { nodes: [...byIdentity.values()], edges, unsupported: [...unsupported], rootName, rootVersion };
+  return { nodes: [...byIdentity.values()], edges, unmodeled, unsupported: [...unsupported], malformed, hollow: null };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -337,10 +448,33 @@ function imageNode(img: StackImage): StackNode {
     dev: false,
     optional: false,
     peer: false,
+    devOptional: false,
     platformConditional: null,
     root: false,
     installScript: false,
+    resolvedWhenUnpinned: null,
     layout: [],
+  };
+}
+
+const OCI_DIGEST = /^sha256:[0-9a-f]{64}$/;
+
+function toImage(ref: string, resolvedFrom: 'dockerfile' | 'compose', evidenceRef: string, unsupported: string[]): StackImage {
+  const parsed = parseImageRef(ref);
+  const wellFormed = parsed.digest !== null && OCI_DIGEST.test(parsed.digest);
+  if (parsed.digest !== null && !wellFormed) {
+    unsupported.push(`image ref '${ref}' at ${evidenceRef} carries a malformed digest (expected sha256:<64 hex>): pin:false`);
+  }
+  return {
+    ref,
+    name: parsed.name,
+    tag: parsed.tag,
+    tagImplicit: parsed.tagImplicit,
+    digest: parsed.digest,
+    pin: wellFormed,
+    resolved: false,
+    resolvedFrom,
+    evidenceRef,
   };
 }
 
@@ -375,19 +509,7 @@ export function scanDockerfile(relPath: string, text: string): ImageScan {
       if (alias) aliases.add(alias.toLowerCase());
       continue;
     }
-    const parsed = parseImageRef(ref);
-    const img: StackImage = {
-      ref,
-      name: parsed.name,
-      tag: parsed.tag,
-      tagImplicit: parsed.tagImplicit,
-      digest: parsed.digest,
-      pin: parsed.digest !== null,
-      resolved: false,
-      resolvedFrom: 'dockerfile',
-      evidenceRef: `${relPath}#L${line}`,
-    };
-    out.images.push(img);
+    out.images.push(toImage(ref, 'dockerfile', `${relPath}#L${line}`, out.unsupported));
     if (alias) aliases.add(alias.toLowerCase());
   }
   return out;
@@ -405,18 +527,7 @@ export function scanComposeFile(relPath: string, text: string): ImageScan {
       out.unsupported.push(`compose ${relPath}:${i + 1} image uses variable interpolation: unresolved image ref`);
       continue;
     }
-    const parsed = parseImageRef(ref);
-    out.images.push({
-      ref,
-      name: parsed.name,
-      tag: parsed.tag,
-      tagImplicit: parsed.tagImplicit,
-      digest: parsed.digest,
-      pin: parsed.digest !== null,
-      resolved: false,
-      resolvedFrom: 'compose',
-      evidenceRef: `${relPath}#L${i + 1}`,
-    });
+    out.images.push(toImage(ref, 'compose', `${relPath}#L${i + 1}`, out.unsupported));
   }
   return out;
 }
@@ -432,9 +543,11 @@ function isComposeName(base: string): boolean {
 }
 
 /** Bounded, sorted walk for Dockerfiles + compose files (depth ≤ 3, build/dep dirs excluded). */
-export function findImageFiles(root: string): { dockerfiles: string[]; composeFiles: string[] } {
+export function findImageFiles(root: string): { dockerfiles: string[]; composeFiles: string[]; symlinks: string[]; depthCut: boolean } {
   const dockerfiles: string[] = [];
   const composeFiles: string[] = [];
+  const symlinks: string[] = [];
+  let depthCut = false;
   const walk = (dir: string, rel: string, depth: number): void => {
     let entries: fs.Dirent[];
     try {
@@ -445,8 +558,15 @@ export function findImageFiles(root: string): { dockerfiles: string[]; composeFi
     for (const e of [...entries].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
       const r = rel ? `${rel}/${e.name}` : e.name;
       if (e.isDirectory()) {
-        if (IMAGE_FILE_EXCLUDE.has(e.name) || depth >= MAX_IMAGE_FILE_DEPTH) continue;
+        if (IMAGE_FILE_EXCLUDE.has(e.name)) continue;
+        if (depth >= MAX_IMAGE_FILE_DEPTH) {
+          depthCut = true;
+          continue;
+        }
         walk(path.join(dir, e.name), r, depth + 1);
+      } else if (e.isSymbolicLink()) {
+        // never followed; a symlinked image file is a refusal, a symlinked directory is simply not walked
+        if (isDockerfileName(e.name) || isComposeName(e.name)) symlinks.push(r);
       } else if (e.isFile()) {
         if (isDockerfileName(e.name)) dockerfiles.push(r);
         else if (isComposeName(e.name)) composeFiles.push(r);
@@ -454,7 +574,7 @@ export function findImageFiles(root: string): { dockerfiles: string[]; composeFi
     }
   };
   walk(root, '', 0);
-  return { dockerfiles: dockerfiles.sort(), composeFiles: composeFiles.sort() };
+  return { dockerfiles: dockerfiles.sort(), composeFiles: composeFiles.sort(), symlinks: symlinks.sort(), depthCut };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -463,8 +583,10 @@ export function findImageFiles(root: string): { dockerfiles: string[]; composeFi
 
 const EXACT_VERSION = /^\d+\.\d+\.\d+$/;
 
+/** First non-blank, non-comment line, `v` prefix stripped. A multi-line file never reaches a node id. */
 function normalizeRuntime(raw: string): string {
-  return raw.trim().replace(/^v/, '');
+  const line = raw.split(/\r?\n/).map((l) => l.trim()).find((l) => l !== '' && !l.startsWith('#')) ?? '';
+  return line.replace(/^v(?=\d)/, '');
 }
 
 /* -------------------------------------------------------------------------- */
@@ -479,13 +601,30 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
     const nodes: StackNode[] = [];
     const edges: StackEdge[] = [];
     const images: StackImage[] = [];
+    const unmodeled: StackUnmodeled[] = [];
     const unsupported = new Set<string>([STACK_COVERAGE_DECLARED_NOT_INSTALLED]);
     const refusals: string[] = [];
     let filesScanned = 0;
+    const refuse = (msg: string): void => {
+      unsupported.add(msg);
+      if (!refusals.includes(msg)) refusals.push(msg);
+    };
+    /** symlink-safe read: a symlinked / tree-escaping source is a refusal, reported as absent */
+    const read = (rel: string): Buffer | null => {
+      try {
+        return readSource(repoDir, rel);
+      } catch (e) {
+        if (e instanceof StackSourceEscapeError) {
+          refuse(e.message);
+          return null;
+        }
+        throw e;
+      }
+    };
 
     // ---- package.json (root identity fallback + engines.node) ----
     let pkg: Record<string, unknown> | null = null;
-    const pkgBytes = readIfPresent(repoDir, 'package.json');
+    const pkgBytes = read('package.json');
     if (pkgBytes) {
       filesScanned++;
       sources.push({ path: 'package.json', sha256: sha256(pkgBytes), parser: 'package-json' });
@@ -498,50 +637,53 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
     }
 
     // ---- lockfile: npm-shrinkwrap.json > package-lock.json; pnpm/yarn refused ----
+    // PRECEDENCE (npm's own rule): npm-shrinkwrap.json wins over package-lock.json when both exist.
     let lockParsed = false;
-    let rootName: string | null = null;
-    let rootVersion: string | null = null;
+    let lockSeen = false;
     const lockCandidates = ['npm-shrinkwrap.json', 'package-lock.json'];
     for (const rel of lockCandidates) {
-      const bytes = readIfPresent(repoDir, rel);
+      const bytes = read(rel);
       if (!bytes) continue;
-      if (lockParsed) {
+      if (lockSeen) {
         unsupported.add(`lockfile '${rel}' ignored: npm-shrinkwrap.json takes precedence`);
         continue;
       }
+      lockSeen = true;
       filesScanned++;
       sources.push({ path: rel, sha256: sha256(bytes), parser: 'npm-lockfile-v3' });
       let lock: unknown;
       try {
         lock = JSON.parse(bytes.toString('utf8'));
       } catch (e) {
-        const msg = `lockfile '${rel}' is not valid JSON: ${(e as Error).message}`;
-        unsupported.add(msg);
-        refusals.push(msg);
+        refuse(`lockfile '${rel}' is not valid JSON: ${(e as Error).message}`);
         continue;
       }
       if (!isRecord(lock)) {
-        const msg = `lockfile '${rel}' is not a JSON object`;
-        unsupported.add(msg);
-        refusals.push(msg);
+        refuse(`lockfile '${rel}' is not a JSON object`);
         continue;
       }
       if (lock.lockfileVersion !== 3) {
-        const msg = stackRefusalLockfileVersion(lock.lockfileVersion);
-        unsupported.add(msg);
-        refusals.push(msg);
+        refuse(stackRefusalLockfileVersion(lock.lockfileVersion));
         continue;
       }
       const derived = deriveFromLockfileV3(lock);
-      nodes.push(...derived.nodes);
-      edges.push(...derived.edges);
+      if (derived.hollow !== null) {
+        refuse(stackRefusalHollowLockfile(rel, derived.hollow));
+        continue;
+      }
+      if (derived.malformed.length > 0) {
+        for (const k of derived.malformed) refuse(stackRefusalMalformedEntry(rel, k));
+        continue;
+      }
+      // loops, never spread: a very large lockfile must not overflow the call stack
+      for (const n of derived.nodes) nodes.push(n);
+      for (const e of derived.edges) edges.push(e);
+      for (const u of derived.unmodeled) unmodeled.push(u);
       for (const u of derived.unsupported) unsupported.add(u);
-      rootName = derived.rootName;
-      rootVersion = derived.rootVersion;
       lockParsed = true;
     }
-    if (readIfPresent(repoDir, 'pnpm-lock.yaml')) unsupported.add(STACK_REFUSAL_PNPM);
-    if (readIfPresent(repoDir, 'yarn.lock')) unsupported.add(STACK_REFUSAL_YARN);
+    if (read('pnpm-lock.yaml')) unsupported.add(STACK_REFUSAL_PNPM);
+    if (read('yarn.lock')) unsupported.add(STACK_REFUSAL_YARN);
 
     if (!lockParsed) {
       // root-only manifest: identity from package.json when present; never a green stack
@@ -557,9 +699,11 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
         dev: false,
         optional: false,
         peer: false,
+        devOptional: false,
         platformConditional: null,
         root: true,
         installScript: false,
+        resolvedWhenUnpinned: null,
         layout: [''],
       });
       unsupported.add(STACK_REFUSAL_NO_LOCKFILE);
@@ -568,13 +712,11 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       if (unsupported.has(STACK_REFUSAL_YARN)) refusals.push(STACK_REFUSAL_YARN);
       refusals.push(STACK_REFUSAL_NO_LOCKFILE);
     }
-    void rootName;
-    void rootVersion;
 
     // ---- runtime: .nvmrc > .node-version > package.json engines.node ----
     let runtime: StackRuntime = { node: { declared: null, resolvedFrom: null, pin: false } };
-    const nvmrc = readIfPresent(repoDir, '.nvmrc');
-    const nodeVersionFile = readIfPresent(repoDir, '.node-version');
+    const nvmrc = read('.nvmrc');
+    const nodeVersionFile = read('.node-version');
     if (nvmrc) {
       filesScanned++;
       sources.push({ path: '.nvmrc', sha256: sha256(nvmrc), parser: 'nvmrc' });
@@ -601,17 +743,22 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
         dev: false,
         optional: false,
         peer: false,
+        devOptional: false,
         platformConditional: null,
         root: false,
         installScript: false,
+        resolvedWhenUnpinned: null,
         layout: [],
       });
+      if (!/^\d/.test(first.value)) unsupported.add(`node runtime '${first.value}' is an alias or range, not a version: recorded as declared, pin:false`);
     } else {
       unsupported.add('no node runtime declaration (.nvmrc / .node-version / engines.node): runtime unknown');
     }
 
     // ---- images: Dockerfile FROM + compose image: ----
-    const { dockerfiles, composeFiles } = findImageFiles(repoDir);
+    const { dockerfiles, composeFiles, symlinks, depthCut } = findImageFiles(repoDir);
+    for (const rel of symlinks) refuse(stackRefusalSymlink(rel));
+    if (depthCut) unsupported.add(STACK_COVERAGE_IMAGE_WALK_DEPTH);
     const imageNodeIds = new Set<string>();
     const addScan = (scan: ImageScan): void => {
       for (const u of scan.unsupported) unsupported.add(u);
@@ -625,14 +772,14 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       }
     };
     for (const rel of dockerfiles) {
-      const bytes = readIfPresent(repoDir, rel);
+      const bytes = read(rel);
       if (!bytes) continue;
       filesScanned++;
       sources.push({ path: rel, sha256: sha256(bytes), parser: 'dockerfile' });
       addScan(scanDockerfile(rel, bytes.toString('utf8')));
     }
     for (const rel of composeFiles) {
-      const bytes = readIfPresent(repoDir, rel);
+      const bytes = read(rel);
       if (!bytes) continue;
       filesScanned++;
       sources.push({ path: rel, sha256: sha256(bytes), parser: 'compose' });
@@ -649,6 +796,7 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       edges,
       runtime,
       images,
+      unmodeled,
       coverage: { unsupported: [...unsupported], filesScanned },
     };
     return { manifest: finalizeStackManifest(body), refusals };

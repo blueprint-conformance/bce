@@ -143,6 +143,9 @@
               "dev": {
                 "type": "boolean"
               },
+              "devOptional": {
+                "type": "boolean"
+              },
               "id": {
                 "minLength": 1,
                 "type": "string"
@@ -220,6 +223,12 @@
                 ],
                 "type": "string"
               },
+              "resolvedWhenUnpinned": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "root": {
                 "type": "boolean"
               },
@@ -240,7 +249,9 @@
               "peer",
               "platformConditional",
               "root",
+              "devOptional",
               "installScript",
+              "resolvedWhenUnpinned",
               "layout"
             ],
             "type": "object"
@@ -335,6 +346,84 @@
         "stackId": {
           "pattern": "^stack:[0-9a-f]{12}$",
           "type": "string"
+        },
+        "unmodeled": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "entrySha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "key": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "const": "unsupported",
+                "type": "string"
+              },
+              "reason": {
+                "enum": [
+                  "npm-alias",
+                  "link",
+                  "local-or-git",
+                  "non-ascii-name",
+                  "not-under-node-modules"
+                ],
+                "type": "string"
+              },
+              "spec": {
+                "additionalProperties": false,
+                "properties": {
+                  "integrity": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "link": {
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "resolved": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "version": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version",
+                  "resolved",
+                  "integrity",
+                  "link"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "kind",
+              "key",
+              "reason",
+              "spec",
+              "entrySha256"
+            ],
+            "type": "object"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -346,6 +435,7 @@
         "edges",
         "runtime",
         "images",
+        "unmodeled",
         "coverage",
         "stackDigest",
         "stackId",

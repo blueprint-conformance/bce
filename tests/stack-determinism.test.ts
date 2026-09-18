@@ -46,7 +46,11 @@ import {
   STACK_REFUSAL_NO_LOCKFILE,
   STACK_REFUSAL_PNPM,
   STACK_REFUSAL_YARN,
+  STACK_COVERAGE_IMAGE_WALK_DEPTH,
+  stackRefusalHollowLockfile,
   stackRefusalLockfileVersion,
+  stackRefusalMalformedEntry,
+  stackRefusalSymlink,
 } from '../src/stack/stack-extractor.js';
 
 const ROOT = path.join(__dirname, '..');
@@ -55,6 +59,15 @@ const GOLDEN_PATH = path.join(ROOT, 'fixtures', 'stack', 'a949557.stack.json');
 const SEED_COMMIT = 'a94955759bfbd6d34c6e1bde02bfc565cd1300d7';
 const DIST_CLI = path.join(ROOT, 'dist', 'cli.js');
 const SRC_CLI = path.join(ROOT, 'src', 'cli.ts');
+
+const SEED_COMMIT_AVAILABLE = ((): boolean => {
+  try {
+    execFileSync('git', ['-C', ROOT, 'cat-file', '-e', `${SEED_COMMIT}^{commit}`], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
 
 const goldenBytes = fs.readFileSync(GOLDEN_PATH, 'utf8');
 const golden: StackManifest = parseStackManifest(JSON.parse(goldenBytes));
@@ -137,15 +150,9 @@ describe('stack slice 1 — group 1: byte identity against the committed golden'
     }
   });
 
-  it('the fixture tree is the real seed commit (lockfile bytes match git) when history is available', () => {
-    let available = false;
-    try {
-      execFileSync('git', ['-C', ROOT, 'cat-file', '-e', `${SEED_COMMIT}^{commit}`], { stdio: 'ignore' });
-      available = true;
-    } catch {
-      /* shallow checkout: the fixture-tree half above already ran */
-    }
-    if (!available) return;
+  // A shallow checkout cannot reach the seed commit: the leg is then SKIPPED VISIBLY in the report
+  // (never a silent early return). ci.yml fetches full history, so it runs there.
+  it.skipIf(!SEED_COMMIT_AVAILABLE)('the fixture tree is the real seed commit (lockfile bytes match git; git-archive materialization reproduces the golden)', () => {
     const fromGit = execFileSync('git', ['-C', ROOT, 'show', `${SEED_COMMIT}:npm-shrinkwrap.json`]);
     expect(fromGit.equals(fs.readFileSync(path.join(FIXTURE_TREE, 'npm-shrinkwrap.json')))).toBe(true);
     // and a real git-archive materialization of the commit reproduces the golden too
@@ -153,7 +160,12 @@ describe('stack slice 1 — group 1: byte identity against the committed golden'
     tempDirs.push(tree);
     const r = extractStackManifest(tree, SEED_COMMIT);
     expect(r.refusals).toEqual([]);
-    expect(stableStringify(r.manifest)).toBe(goldenBytes);
+    // the full repository tree differs from the 3-file fixture tree ONLY in quarantined coverage
+    // (it has directories below the image-walk depth) — identity, nodes and edges are identical
+    expect(r.manifest.stackDigest).toBe(golden.stackDigest);
+    expect(r.manifest.nodes).toEqual(golden.nodes);
+    expect(r.manifest.edges).toEqual(golden.edges);
+    expect(r.manifest.coverage.unsupported.filter((u) => !golden.coverage.unsupported.includes(u))).toEqual([STACK_COVERAGE_IMAGE_WALK_DEPTH]);
   });
 
   it('the built CLI writes the golden bytes (--no-pin --ref <seed sha> over the fixture tree)', () => {
@@ -205,7 +217,7 @@ describe('stack slice 1 — the HASHED VIEW quarantine', () => {
     const base = computeStackDigest(golden);
     const sample = golden.nodes.find((n) => n.name === 'zod')!;
     const hashedKeys = Object.keys(sample).filter((k) => k !== 'layout').sort();
-    expect(hashedKeys).toEqual(['dev', 'id', 'installScript', 'integrity', 'kind', 'name', 'optional', 'peer', 'platformConditional', 'resolvedFrom', 'root', 'version']);
+    expect(hashedKeys).toEqual(['dev', 'devOptional', 'id', 'installScript', 'integrity', 'kind', 'name', 'optional', 'peer', 'platformConditional', 'resolvedFrom', 'resolvedWhenUnpinned', 'root', 'version']);
     const perturb = (v: unknown): unknown => {
       if (typeof v === 'boolean') return !v;
       if (typeof v === 'string') return `${v}x`;
@@ -470,5 +482,266 @@ describe('stack slice 1 — the golden validates against the published stack-man
     // and the strict schema rejects an unknown field (never a silent extra)
     expect(validate({ ...JSON.parse(goldenBytes), zzUnknown: 1 })).toBe(false);
     expect(() => parseStackManifest({ ...golden, zzUnknown: 1 })).toThrow();
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* adversarial legs — synthetic lockfiles (the seed fixture has 0 aliases / links / git deps) */
+/* -------------------------------------------------------------------------- */
+
+type Lock = { name: string; version: string; lockfileVersion: unknown; packages?: unknown };
+type Pkgs = Record<string, Record<string, unknown> | null>;
+
+function baseLock(): Lock & { packages: Pkgs } {
+  return {
+    name: 'r',
+    version: '1.0.0',
+    lockfileVersion: 3,
+    packages: {
+      '': { name: 'r', version: '1.0.0', dependencies: { a: '^1.0.0', b: '^1.0.0' } },
+      'node_modules/a': { version: '1.0.0', resolved: 'https://registry.npmjs.org/a/-/a-1.0.0.tgz', integrity: 'sha512-AAAA', dependencies: { c: '^1.0.0' } },
+      'node_modules/b': { version: '1.0.0', resolved: 'https://registry.npmjs.org/b/-/b-1.0.0.tgz', integrity: 'sha512-BBBB', dev: true, dependencies: { c: '^2.0.0' } },
+      'node_modules/c': { version: '1.0.0', resolved: 'https://registry.npmjs.org/c/-/c-1.0.0.tgz', integrity: 'sha512-CCC1' },
+      'node_modules/b/node_modules/c': { version: '2.0.0', resolved: 'https://registry.npmjs.org/c/-/c-2.0.0.tgz', integrity: 'sha512-CCC2', dev: true },
+    },
+  };
+}
+/** Materialize a synthetic tree; `files` adds/overrides extra files. */
+function synth(lock: unknown, opts: { lockName?: string; files?: Record<string, string> } = {}): string {
+  const d = tmp('synth');
+  fs.writeFileSync(path.join(d, 'package.json'), JSON.stringify({ name: 'r', version: '1.0.0' }));
+  if (lock !== null) fs.writeFileSync(path.join(d, opts.lockName ?? 'package-lock.json'), JSON.stringify(lock));
+  for (const [k, v] of Object.entries(opts.files ?? {})) {
+    fs.mkdirSync(path.dirname(path.join(d, k)), { recursive: true });
+    fs.writeFileSync(path.join(d, k), v);
+  }
+  return d;
+}
+function mutated(f: (pkgs: Pkgs) => void): ReturnType<typeof baseLock> {
+  const l = baseLock();
+  f(l.packages);
+  return l;
+}
+const extractSynth = (lock: unknown, opts?: Parameters<typeof synth>[1]) => extractStackManifest(synth(lock, opts), 'unpinned');
+const BASE_DIGEST = extractSynth(baseLock()).manifest.stackDigest;
+
+describe('stack slice 1 — fail-closed: a hollow or malformed v3 lockfile is a refusal, never a root-only manifest', () => {
+  const hollow: Array<[string, (l: Record<string, unknown>) => void, string]> = [
+    ["'packages' key missing", (l) => { delete l.packages; }, "no 'packages' map"],
+    ["'packages' is {}", (l) => { l.packages = {}; }, "no root '' entry in 'packages'"],
+    ["'packages' is []", (l) => { l.packages = []; }, "no 'packages' map"],
+    ['root entry only', (l) => { l.packages = { '': (l.packages as Pkgs)[''] }; }, 'no package beyond the root'],
+  ];
+  for (const [label, f, why] of hollow) {
+    it(`${label} ⇒ refusal + exit 2 + nothing written`, () => {
+      const l = baseLock() as unknown as Record<string, unknown>;
+      f(l);
+      const d = synth(l);
+      const r = extractStackManifest(d, 'unpinned');
+      expect(r.refusals).toContain(stackRefusalHollowLockfile('package-lock.json', why));
+      expect(r.refusals).toContain(STACK_REFUSAL_NO_LOCKFILE);
+      const out = path.join(d, 'out.json');
+      const cli = runCli(['stack', 'snapshot', '--ct-repo', d, '--no-pin', '--out', out], ROOT);
+      expect(cli.status).toBe(2);
+      expect(cli.stderr).toContain('is hollow');
+      expect(fs.existsSync(out)).toBe(false);
+    });
+  }
+
+  it('every non-root entry null ⇒ malformed-entry refusal (never a silent skip)', () => {
+    const r = extractSynth(mutated((p) => { for (const k of Object.keys(p)) if (k !== '') p[k] = null; }));
+    expect(r.refusals).toContain(stackRefusalMalformedEntry('package-lock.json', 'node_modules/a'));
+    expect(r.refusals).toContain(STACK_REFUSAL_NO_LOCKFILE);
+  });
+
+  it('a numeric version ⇒ malformed-entry refusal', () => {
+    const r = extractSynth(mutated((p) => { p['node_modules/a']!.version = 1; }));
+    expect(r.refusals).toContain(stackRefusalMalformedEntry('package-lock.json', 'node_modules/a'));
+  });
+
+  it('lockfileVersion "3" (a string) is refused with a non-contradictory message', () => {
+    const l = baseLock();
+    l.lockfileVersion = '3';
+    const r = extractSynth(l);
+    expect(r.refusals[0]).toBe(stackRefusalLockfileVersion('3'));
+    expect(r.refusals[0]?.startsWith('lockfileVersion "3" is not 3:')).toBe(true);
+  });
+});
+
+describe('stack slice 1 — hoisting never reaches the digest (flags merge across every copy of one identity)', () => {
+  const z = (dev: boolean): Record<string, unknown> => ({ version: '1.0.0', integrity: 'sha512-ZZ', ...(dev ? { dev: true } : {}) });
+  const layouts: Array<[string, (p: Pkgs) => void]> = [
+    ['top-level dev copy + nested prod copy', (p) => { p['node_modules/z'] = z(true); p['node_modules/a/node_modules/z'] = z(false); }],
+    ['top-level prod copy + nested dev copy', (p) => { p['node_modules/z'] = z(false); p['node_modules/b/node_modules/z'] = z(true); }],
+    ['two nested copies', (p) => { p['node_modules/a/node_modules/z'] = z(false); p['node_modules/b/node_modules/z'] = z(true); }],
+  ];
+  it('three layouts of ONE closure ⇒ one digest; dev = AND across copies', () => {
+    const results = layouts.map(([, f]) => extractSynth(mutated(f)).manifest);
+    const digests = new Set(results.map((m) => m.stackDigest));
+    expect([...digests]).toHaveLength(1);
+    for (const m of results) expect(m.nodes.find((n) => n.name === 'z')?.dev).toBe(false);
+    // and the layout (the only thing that differs) is recorded, unhashed
+    expect(new Set(results.map((m) => JSON.stringify(m.nodes.find((n) => n.name === 'z')?.layout))).size).toBe(3);
+  });
+
+  it('installScript = OR across copies; an all-dev identity stays dev', () => {
+    const m = extractSynth(mutated((p) => {
+      // the flag sits on the LATER-sorting path, so a first-copy-wins implementation would lose it
+      p['node_modules/z'] = { ...z(true), hasInstallScript: true };
+      p['node_modules/b/node_modules/z'] = { ...z(true) };
+    })).manifest;
+    const node = m.nodes.find((n) => n.name === 'z');
+    expect(node?.dev).toBe(true);
+    expect(node?.installScript).toBe(true);
+  });
+
+  it('devOptional is modeled and hashed', () => {
+    const m = extractSynth(mutated((p) => { p['node_modules/a']!.devOptional = true; })).manifest;
+    expect(m.nodes.find((n) => n.name === 'a')?.devOptional).toBe(true);
+    expect(m.stackDigest).not.toBe(BASE_DIGEST);
+  });
+});
+
+describe('stack slice 1 — an entry the extractor cannot model is an OPAQUE HASHED node (different closure ⇒ different digest)', () => {
+  const cases: Array<[string, (p: Pkgs) => void, string, string, string]> = [
+    ['npm: alias', (p) => { p['node_modules/alias'] = { name: 'realpkg', version: '6.6.6', integrity: 'sha512-EVIL', resolved: 'https://registry.npmjs.org/realpkg/-/realpkg-6.6.6.tgz' }; }, 'node_modules/alias', 'npm-alias', 'npm: alias at node_modules/alias — alias resolution owned-by-follow-on'],
+    ['link: workspace entry', (p) => { p['node_modules/ws1'] = { resolved: 'packages/ws1', link: true }; }, 'node_modules/ws1', 'link', 'workspace/link entry node_modules/ws1: local package not part of the declared closure in slice 1'],
+    ['workspace target', (p) => { p['packages/ws1'] = { version: '1.0.0', dependencies: { evil: '1' } }; }, 'packages/ws1', 'not-under-node-modules', 'workspace/link entry packages/ws1: local package not part of the declared closure in slice 1'],
+    ['git dependency', (p) => { p['node_modules/g'] = { version: '1.0.0', resolved: 'git+ssh://git@github.com/x/g.git#abc' }; }, 'node_modules/g', 'local-or-git', 'workspace/link entry node_modules/g: local package not part of the declared closure in slice 1'],
+    ['non-ASCII name', (p) => { p['node_modules/café'] = { version: '1.0.0', integrity: 'sha512-U' }; }, 'node_modules/café', 'non-ascii-name', 'non-ASCII package name at node_modules/café: not modeled (npm registry names are ASCII)'],
+  ];
+  for (const [label, f, key, reason, coverageLine] of cases) {
+    it(`${label}: exit-0 manifest, digest MOVES, opaque node + the fixed coverage line, never a modeled node`, () => {
+      const r = extractSynth(mutated(f));
+      expect(r.refusals).toEqual([]);
+      expect(r.manifest.stackDigest).not.toBe(BASE_DIGEST);
+      expect(r.manifest.unmodeled.map((u) => [u.key, u.reason, u.kind])).toEqual([[key, reason, 'unsupported']]);
+      expect(r.manifest.coverage.unsupported).toContain(coverageLine);
+      // the modeled node set is exactly the base closure — nothing was ingested under a wrong name
+      expect(r.manifest.nodes.map((n) => n.id).sort()).toEqual(extractSynth(baseLock()).manifest.nodes.map((n) => n.id).sort());
+    });
+  }
+
+  it('a git commit change (#abc → #def) moves the digest', () => {
+    const g = (c: string) => extractSynth(mutated((p) => { p['node_modules/g'] = { version: '1.0.0', resolved: `git+ssh://git@github.com/x/g.git#${c}` }; })).manifest.stackDigest;
+    expect(g('abc')).not.toBe(g('def'));
+  });
+
+  it('a change INSIDE a workspace target (its declared deps) moves the digest', () => {
+    const w = (dep: string) => extractSynth(mutated((p) => { p['packages/ws1'] = { version: '1.0.0', dependencies: { [dep]: '1' } }; })).manifest.stackDigest;
+    expect(w('evil')).not.toBe(w('fine'));
+  });
+
+  it('integrity ABSENT ⇒ `resolved` is hashed (a re-pointed tarball moves the digest)', () => {
+    const t = (url: string) => extractSynth(mutated((p) => { p['node_modules/g'] = { version: '1.0.0', resolved: url }; })).manifest;
+    const a = t('https://codeload.github.com/x/g/tar.gz/abc');
+    const b = t('https://codeload.github.com/x/g/tar.gz/EVIL');
+    expect(a.stackDigest).not.toBe(b.stackDigest);
+    expect(a.nodes.find((n) => n.name === 'g')?.resolvedWhenUnpinned).toBe('https://codeload.github.com/x/g/tar.gz/abc');
+  });
+
+  it('integrity PRESENT ⇒ `resolved` is NOT hashed (a mirror swap is content-neutral)', () => {
+    const m = extractSynth(mutated((p) => { p['node_modules/a']!.resolved = 'https://mirror.example/a-1.0.0.tgz'; })).manifest;
+    expect(m.stackDigest).toBe(BASE_DIGEST);
+    expect(m.nodes.find((n) => n.name === 'a')?.resolvedWhenUnpinned).toBeNull();
+  });
+
+  it('missing vs empty-string integrity are different identities; a 3-way id collision keeps ids unique', () => {
+    const m = extractSynth(mutated((p) => {
+      p['node_modules/q@1'] = { version: '2', integrity: 'sha512-Q' };
+      p['node_modules/q'] = { version: '1@2', integrity: 'sha512-Q' };
+      p['node_modules/a/node_modules/q'] = { version: '1@2', integrity: '' };
+    })).manifest;
+    const ids = m.nodes.map((n) => n.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(m.nodes.filter((n) => n.name.startsWith('q'))).toHaveLength(3);
+  });
+});
+
+describe('stack slice 1 — lockfile precedence and symlink refusal', () => {
+  it('npm-shrinkwrap.json wins over package-lock.json (npm\'s rule): the digest is the shrinkwrap\'s, with a coverage line', () => {
+    const other = mutated((p) => { p['node_modules/a']!.version = '9.9.9'; });
+    const both = synth(baseLock(), { lockName: 'npm-shrinkwrap.json', files: { 'package-lock.json': JSON.stringify(other) } });
+    const r = extractStackManifest(both, 'unpinned');
+    expect(r.refusals).toEqual([]);
+    expect(r.manifest.stackDigest).toBe(BASE_DIGEST);
+    expect(r.manifest.stackDigest).not.toBe(extractSynth(other).manifest.stackDigest);
+    expect(r.manifest.coverage.unsupported).toContain("lockfile 'package-lock.json' ignored: npm-shrinkwrap.json takes precedence");
+    expect(r.manifest.sources.map((s) => s.path)).toEqual(['npm-shrinkwrap.json', 'package.json']);
+  });
+
+  it('a malformed shrinkwrap is a refusal even when a good package-lock.json sits beside it', () => {
+    const d = synth(baseLock(), { files: { 'npm-shrinkwrap.json': '{ truncated' } });
+    expect(extractStackManifest(d, 'unpinned').refusals.length).toBeGreaterThan(0);
+  });
+
+  it.skipIf(process.platform === 'win32')('a symlinked lockfile is refused (never followed to a host file outside the tree): exit 2, nothing written', () => {
+    const outside = tmp('outside');
+    fs.writeFileSync(path.join(outside, 'evil-lock.json'), JSON.stringify(baseLock()));
+    const d = synth(null);
+    fs.symlinkSync(path.join(outside, 'evil-lock.json'), path.join(d, 'package-lock.json'));
+    const r = extractStackManifest(d, 'unpinned');
+    expect(r.refusals).toContain(stackRefusalSymlink('package-lock.json'));
+    expect(r.manifest.nodes.filter((n) => n.kind === 'npm')).toHaveLength(1);
+    const out = path.join(d, 'out.json');
+    const cli = runCli(['stack', 'snapshot', '--ct-repo', d, '--no-pin', '--out', out], ROOT);
+    expect(cli.status).toBe(2);
+    expect(cli.stderr).toContain('symbolic link');
+    expect(fs.existsSync(out)).toBe(false);
+  });
+
+  it.skipIf(process.platform === 'win32')('a symlinked Dockerfile / .nvmrc is refused too; a COMMITTED symlink is refused on the pinned git-archive path', () => {
+    const outside = tmp('outside2');
+    fs.writeFileSync(path.join(outside, 'Dockerfile'), 'FROM evil:1\n');
+    fs.writeFileSync(path.join(outside, 'lock.json'), JSON.stringify(baseLock()));
+    const d = synth(baseLock());
+    fs.symlinkSync(path.join(outside, 'Dockerfile'), path.join(d, 'Dockerfile'));
+    const r = extractStackManifest(d, 'unpinned');
+    expect(r.refusals).toEqual([stackRefusalSymlink('Dockerfile')]);
+    expect(r.manifest.images).toEqual([]);
+    // pinned path: commit a symlinked lockfile, snapshot via --ref HEAD (git archive preserves the link)
+    const repo = synth(null);
+    fs.symlinkSync(path.join(outside, 'lock.json'), path.join(repo, 'package-lock.json'));
+    const git = (...a: string[]) => execFileSync('git', ['-C', repo, ...a], { stdio: 'ignore' });
+    git('init', '-q', '-b', 'main');
+    git('-c', 'user.email=t@example.com', '-c', 'user.name=t', 'add', '-A');
+    git('-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '-m', 'symlinked lock');
+    const out = path.join(tmp('pinned-out'), 'out.json');
+    const cli = runCli(['stack', 'snapshot', '--ct-repo', repo, '--out', out], ROOT);
+    expect(cli.status).toBe(2);
+    expect(cli.stderr).toContain(stackRefusalSymlink('package-lock.json'));
+    expect(fs.existsSync(out)).toBe(false);
+  });
+});
+
+describe('stack slice 1 — images and runtime hygiene', () => {
+  it('a comment line above a FROM does NOT move the digest (evidenceRef is quarantined); a changed ref does', () => {
+    const d1 = synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n' } });
+    const d2 = synth(baseLock(), { files: { Dockerfile: '# build image\nFROM node:22\n' } });
+    const d3 = synth(baseLock(), { files: { Dockerfile: 'FROM node:23\n' } });
+    const [m1, m2, m3] = [d1, d2, d3].map((d) => extractStackManifest(d, 'unpinned').manifest);
+    expect(m2!.images[0]?.evidenceRef).toBe('Dockerfile#L2');
+    expect(m2!.stackDigest).toBe(m1!.stackDigest);
+    expect(m3!.stackDigest).not.toBe(m1!.stackDigest);
+  });
+
+  it('a malformed @sha256 digest is never a pin', () => {
+    const m = extractStackManifest(synth(baseLock(), { files: { Dockerfile: 'FROM node:22@sha256:abc\n' } }), 'unpinned').manifest;
+    expect(m.images[0]?.pin).toBe(false);
+    expect(m.coverage.unsupported.some((u) => u.includes('malformed digest'))).toBe(true);
+  });
+
+  it('.nvmrc: first non-comment line only; an alias is recorded with a coverage line, never a multi-line id', () => {
+    const m = extractStackManifest(synth(baseLock(), { files: { '.nvmrc': '# pin\nv22.1.0\n' } }), 'unpinned').manifest;
+    expect(m.runtime.node).toEqual({ declared: '22.1.0', resolvedFrom: 'nvmrc', pin: true });
+    const alias = extractStackManifest(synth(baseLock(), { files: { '.nvmrc': 'lts/*\n' } }), 'unpinned').manifest;
+    expect(alias.runtime.node.pin).toBe(false);
+    expect(alias.coverage.unsupported).toContain("node runtime 'lts/*' is an alias or range, not a version: recorded as declared, pin:false");
+  });
+
+  it('a Dockerfile below the depth-3 walk is NOT read — and the manifest says so', () => {
+    const m = extractStackManifest(synth(baseLock(), { files: { 'a/b/c/d/Dockerfile': 'FROM deep:1\n' } }), 'unpinned').manifest;
+    expect(m.images).toEqual([]);
+    expect(m.coverage.unsupported).toContain(STACK_COVERAGE_IMAGE_WALK_DEPTH);
   });
 });

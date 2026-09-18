@@ -2435,7 +2435,8 @@ async function main(): Promise<void> {
       `       Content-addressed StackManifest of the DECLARED closure (npm lockfile v3 / shrinkwrap, Dockerfile FROM,\n` +
       `       compose image:, node runtime). No network; node_modules never read. stackDigest hashes ONLY the\n` +
       `       identity view (nodes/runtime/images) — a re-serialized lockfile or a spec-only range change keeps\n` +
-      `       the digest; a version/integrity move changes it. No supported lockfile = exit 2, nothing written.\n`;
+      `       the digest; a version/integrity move changes it. npm-shrinkwrap.json wins over package-lock.json.\n` +
+      `       No supported lockfile, a hollow/malformed one, or a symlinked source = exit 2, nothing written.\n`;
   const topicWords = (args._[0] === 'help' ? args._.slice(1) : args._).filter(word => word !== '-h');
   const topic = helpRequested ? topicWords.join(' ') : '';
   if (topic) {
