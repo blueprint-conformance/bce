@@ -666,6 +666,45 @@ family is pinned by an explicit test assertion so it can never silently widen.
 
 ---
 
+## 16. Stack manifest (slice 1 — the declared closure as a content-addressed artifact)
+
+`bce stack snapshot` emits a **StackManifest** (`stack-manifest.schema.json`): the DECLARED dependency
+closure of a repository at a revision. It is a sibling artifact to the observed graph and the
+compliance report — it joins neither in this slice, and no constraint type grades it yet.
+
+**Inputs** (read from the pinned tree, nothing else): `npm-shrinkwrap.json` or `package-lock.json`
+with `lockfileVersion` **3 only**; `package.json`; `.nvmrc` / `.node-version`; `Dockerfile*` `FROM`
+lines and `docker-compose*` / `compose*` `image:` lines (line-anchored, no YAML library).
+**Never**: `node_modules`, the network, `npm ls`, the machine's platform/arch/npm version, the clock.
+
+**Node identity** is `(kind, name, version, integrity)` — never the `node_modules/…` path. Hoisting
+churn is recorded in the non-hashed `layout` list and cannot move the identity. `kind` is `npm`,
+`oci-image` (Dockerfile/compose base images; `@sha256:` ⇒ `pin:true`, a bare ref ⇒ `tag:"latest"`
+with `tagImplicit:true`) or `node-runtime` (`.nvmrc` > `.node-version` > `engines.node`; only an
+exact `x.y.z` is a pin).
+
+**`stackDigest`** = SHA-256 over the canonical serialization (§11 rules) of the **HASHED VIEW**:
+`schemaVersion`, `kind`, `nodes[]` (every field except `layout`), `runtime`, `images[]`.
+**Quarantined out** of the digest and present only in the manifest: `ctRepoRevision` (two revisions
+with the same closure share a digest — that is the join key), `sources[].sha256` (a re-serialized
+lockfile is the same closure), `edges` (a function of the node set plus the resolver walk),
+`coverage`, `stackId` (`stack:` + the first 12 hex) and `manifestDigest` (SHA-256 over the manifest
+minus itself — tamper detection of the file).
+
+**Fail-closed**: `pnpm-lock.yaml` and `yarn.lock` are recorded with fixed refusal strings in
+`coverage.unsupported`; when NO supported lockfile parses (absent, malformed, `lockfileVersion` ≠ 3)
+the verb exits **2** and writes nothing. `npm:` aliases, `link:`/`file:`/git entries and
+`FROM ${ARG}` bases are coverage lines, never fabricated nodes. `images[].resolved` is always
+`false` in this slice: tag→digest resolution is a separate verb that writes a proposal, never a
+manifest field.
+
+**Determinism**: same tree ⇒ byte-identical manifest on every OS (`tests/stack-determinism.test.ts`
+pins a committed golden and its negative controls). This section is descriptive of the verb that
+runs; grading a stack (a `stack` block on the blueprint, version/closure constraint types) is not
+part of this specification version.
+
+---
+
 ## 15. Conformance
 
 An independent implementation conforms to this specification iff:

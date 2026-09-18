@@ -1,0 +1,359 @@
+{
+  "$id": "https://blueprint-conformance.github.io/bce/schemas/stack-manifest.schema.json",
+  "$ref": "#/definitions/StackManifest",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "StackManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage": {
+          "additionalProperties": false,
+          "properties": {
+            "filesScanned": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "unsupported": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "unsupported",
+            "filesScanned"
+          ],
+          "type": "object"
+        },
+        "ctRepoRevision": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "edges": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "dev": {
+                "type": "boolean"
+              },
+              "from": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "optional": {
+                "type": "boolean"
+              },
+              "peer": {
+                "type": "boolean"
+              },
+              "spec": {
+                "type": "string"
+              },
+              "to": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "spec",
+              "dev",
+              "optional",
+              "peer"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "images": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "digest": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "evidenceRef": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "pin": {
+                "type": "boolean"
+              },
+              "ref": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "resolved": {
+                "const": false,
+                "type": "boolean"
+              },
+              "resolvedFrom": {
+                "enum": [
+                  "dockerfile",
+                  "compose"
+                ],
+                "type": "string"
+              },
+              "tag": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tagImplicit": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ref",
+              "name",
+              "tag",
+              "tagImplicit",
+              "digest",
+              "pin",
+              "resolved",
+              "resolvedFrom",
+              "evidenceRef"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "const": "StackManifest",
+          "type": "string"
+        },
+        "manifestDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "dev": {
+                "type": "boolean"
+              },
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "installScript": {
+                "type": "boolean"
+              },
+              "integrity": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "kind": {
+                "enum": [
+                  "npm",
+                  "oci-image",
+                  "node-runtime"
+                ],
+                "type": "string"
+              },
+              "layout": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "name": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "optional": {
+                "type": "boolean"
+              },
+              "peer": {
+                "type": "boolean"
+              },
+              "platformConditional": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "cpu": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "os": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "os",
+                      "cpu"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "resolvedFrom": {
+                "enum": [
+                  "lockfile",
+                  "dockerfile",
+                  "compose",
+                  "engines",
+                  "nvmrc",
+                  "node-version"
+                ],
+                "type": "string"
+              },
+              "root": {
+                "type": "boolean"
+              },
+              "version": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "name",
+              "version",
+              "integrity",
+              "resolvedFrom",
+              "dev",
+              "optional",
+              "peer",
+              "platformConditional",
+              "root",
+              "installScript",
+              "layout"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "runtime": {
+          "additionalProperties": false,
+          "properties": {
+            "node": {
+              "additionalProperties": false,
+              "properties": {
+                "declared": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pin": {
+                  "type": "boolean"
+                },
+                "resolvedFrom": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "nvmrc",
+                        "node-version",
+                        "engines"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "declared",
+                "resolvedFrom",
+                "pin"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "node"
+          ],
+          "type": "object"
+        },
+        "schemaVersion": {
+          "const": "1",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "parser": {
+                "enum": [
+                  "npm-lockfile-v3",
+                  "package-json",
+                  "dockerfile",
+                  "compose",
+                  "nvmrc",
+                  "node-version"
+                ],
+                "type": "string"
+              },
+              "path": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "parser"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "stackDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "stackId": {
+          "pattern": "^stack:[0-9a-f]{12}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "kind",
+        "ctRepoRevision",
+        "sources",
+        "nodes",
+        "edges",
+        "runtime",
+        "images",
+        "coverage",
+        "stackDigest",
+        "stackId",
+        "manifestDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "The content-addressed DECLARED dependency closure `bce stack snapshot` emits (src/stack-manifest.ts, stack slice 1): npm lockfile-v3 nodes (identity = kind,name,version,integrity — never the node_modules path), Dockerfile/compose image refs, the declared node runtime, the resolver edges, and the coverage honesty envelope. `stackDigest` = sha256 over the canonical serialization of the HASHED VIEW (schemaVersion, kind, nodes without layout, runtime, images); ctRepoRevision, sources[].sha256, edges, coverage, stackId and manifestDigest are quarantined out so two revisions with the same closure share a digest. `manifestDigest` = sha256 over the manifest minus itself (tamper detection). Mechanically derived from the normative Zod schema; canonical serialization: sorted keys, 2-space indent, trailing newline.",
+  "title": "StackManifest"
+}

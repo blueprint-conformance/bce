@@ -100,6 +100,61 @@ export type { TeethWaiver } from './teeth-waiver.js';
 
 export { resolveRevision, materializeAtRevision } from './pin.js';
 
+// The stack plane (slice 1): the declared dependency closure as a content-addressed StackManifest.
+// A SEPARATE seam from RepositoryFactsExtractor — a lockfile is not an ArchitectureGraph.
+export {
+  StackManifestSchema,
+  StackNodeSchema,
+  StackEdgeSchema,
+  StackImageSchema,
+  StackRuntimeSchema,
+  StackSourceSchema,
+  StackCoverageSchema,
+  finalizeStackManifest,
+  parseStackManifest,
+  verifyStackManifest,
+  stackHashedView,
+  computeStackDigest,
+  computeManifestDigest,
+  stackIdFor,
+  stackNodeId,
+  compareStackNodes,
+  compareStackEdges,
+  STACK_HASHED_VIEW_KEYS,
+  STACK_QUARANTINED_KEYS,
+} from './stack-manifest.js';
+export type {
+  StackManifest,
+  StackManifestBody,
+  StackNode,
+  StackNodeKind,
+  StackEdge,
+  StackImage,
+  StackRuntime,
+  StackSource,
+  StackCoverage,
+  StackHashedView,
+  StackManifestVerification,
+} from './stack-manifest.js';
+export {
+  extractStackManifest,
+  NpmLockfileStackExtractor,
+  STACK_EXTRACTOR_PROVIDERS,
+  deriveFromLockfileV3,
+  parseImageRef,
+  scanDockerfile,
+  scanComposeFile,
+  findImageFiles,
+  npmNameFromLockPath,
+  stackRefusalLockfileVersion,
+  STACK_REFUSAL_PNPM,
+  STACK_REFUSAL_YARN,
+  STACK_REFUSAL_NO_LOCKFILE,
+  STACK_COVERAGE_DECLARED_NOT_INSTALLED,
+  STACK_COVERAGE_NO_IMAGES,
+} from './stack-extractor.js';
+export type { StackFactsExtractor, StackExtractionResult, ParsedImageRef } from './stack-extractor.js';
+
 export { runGate, discoverBlueprints, blueprintTouchesChanges, resolveTreeRevision, computeGateReport, assembleGateReportDoc } from './gate.js';
 export type { GateResult, GateReportDoc, ComputedGate } from './gate.js';
 export { doctorRepository, checkEngineUpgrade } from './lifecycle.js';

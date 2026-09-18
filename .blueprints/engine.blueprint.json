@@ -74,6 +74,11 @@
       {
         "id": "zod",
         "type": "externalDependency"
+      },
+      {
+        "id": "stack-extractor",
+        "owner": "maintainers",
+        "type": "factsProducer"
       }
     ],
     "relationships": [
@@ -178,6 +183,18 @@
         "from": "review-core",
         "to": "scm-review-io",
         "type": "imports"
+      },
+      {
+        "allowed": true,
+        "from": "cli",
+        "to": "stack-extractor",
+        "type": "imports"
+      },
+      {
+        "allowed": false,
+        "from": "evaluator",
+        "to": "stack-extractor",
+        "type": "imports"
       }
     ]
   },
@@ -195,8 +212,8 @@
         "src/emit.ts",
         "src/evidence-bundle.ts",
         "src/evidence-store.ts",
-        "src/extractor-teeth.ts",
         "src/extractor-registry.ts",
+        "src/extractor-teeth.ts",
         "src/gate.ts",
         "src/graph.ts",
         "src/index.ts",
@@ -220,9 +237,11 @@
         "src/review.ts",
         "src/runtime-identity.ts",
         "src/safe-regex.ts",
-        "src/scm-review.ts",
         "src/schema.ts",
+        "src/scm-review.ts",
         "src/score.ts",
+        "src/stack-extractor.ts",
+        "src/stack-manifest.ts",
         "src/teeth-waiver.ts",
         "src/teeth.ts",
         "src/violation-format.ts",
@@ -245,8 +264,8 @@
         "src/emit.ts",
         "src/evidence-bundle.ts",
         "src/evidence-store.ts",
-        "src/extractor-teeth.ts",
         "src/extractor-registry.ts",
+        "src/extractor-teeth.ts",
         "src/extractors.ts",
         "src/gate.ts",
         "src/graph.ts",
@@ -270,9 +289,11 @@
         "src/review.ts",
         "src/runtime-identity.ts",
         "src/safe-regex.ts",
-        "src/scm-review.ts",
         "src/schema.ts",
+        "src/scm-review.ts",
         "src/score.ts",
+        "src/stack-extractor.ts",
+        "src/stack-manifest.ts",
         "src/teeth-waiver.ts",
         "src/teeth.ts",
         "src/violation-format.ts",
@@ -641,6 +662,22 @@
       "policyRef": "policy/library-modules-never-exit",
       "severity": "high",
       "type": "forbiddenPattern"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--stack-extractor",
+      "path": "src/stack-extractor.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    },
+    {
+      "id": "only-cli-may-call-process-exit--stack-manifest",
+      "path": "src/stack-manifest.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
     }
   ],
   "evidenceRequirements": [
@@ -651,7 +688,7 @@
     }
   ],
   "extraction": {
-    "minFiles": 41,
+    "minFiles": 43,
     "paths": [
       "src/**/*.ts"
     ],
