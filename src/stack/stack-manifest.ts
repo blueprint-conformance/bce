@@ -28,7 +28,7 @@
  */
 import { createHash } from 'node:crypto';
 import { z } from 'zod/v3';
-import { stableStringify } from './report.js';
+import { stableStringify } from '../report.js';
 
 /* -------------------------------------------------------------------------- */
 /* Schema (strict at every level — a typo is a hard error, never a silent extra) */

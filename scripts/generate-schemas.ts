@@ -51,7 +51,7 @@ import {
   ProposalContextSchema,
 } from '../src/review-contracts.js';
 import { AssistantGenerationRecordSchema } from '../src/assistant-adapter.js';
-import { StackManifestSchema } from '../src/stack-manifest.js';
+import { StackManifestSchema } from '../src/stack/stack-manifest.js';
 
 export const SCHEMA_ID_BASE = 'https://blueprint-conformance.github.io/bce/schemas/';
 const DRAFT = 'http://json-schema.org/draft-07/schema#';
@@ -128,7 +128,7 @@ function stackManifestSchema(): Record<string, unknown> {
   return envelope(
     'stack-manifest.schema.json',
     'StackManifest',
-    'The content-addressed DECLARED dependency closure `bce stack snapshot` emits (src/stack-manifest.ts, stack slice 1): ' +
+    'The content-addressed DECLARED dependency closure `bce stack snapshot` emits (src/stack/stack-manifest.ts, stack slice 1): ' +
       'npm lockfile-v3 nodes (identity = kind,name,version,integrity — never the node_modules path), ' +
       'Dockerfile/compose image refs, the declared node runtime, the resolver edges, and the coverage ' +
       'honesty envelope. `stackDigest` = sha256 over the canonical serialization of the HASHED VIEW ' +

@@ -112,7 +112,7 @@ If a label here overstates reality, that is a bug — please open an issue.
   `StackManifest` of the DECLARED dependency closure (npm lockfile v3 / shrinkwrap nodes keyed by
   name+version+integrity, Dockerfile/compose image refs, the declared node runtime) with a
   `stackDigest` that quarantines revision, lockfile bytes, edges and coverage
-  ([`src/stack-manifest.ts`](src/stack-manifest.ts), [`src/stack-extractor.ts`](src/stack-extractor.ts),
+  ([`src/stack/stack-manifest.ts`](src/stack/stack-manifest.ts), [`src/stack/stack-extractor.ts`](src/stack/stack-extractor.ts),
   [`spec/SPEC.md` §16](spec/SPEC.md)). The verb, the extractor and the golden-pinned determinism
   suite ([`tests/stack-determinism.test.ts`](tests/stack-determinism.test.ts)) are in the tree and
   run under the vitest suite; this line moves to **[RUNS]** only when the dedicated built-dist

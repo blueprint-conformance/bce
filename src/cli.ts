@@ -60,7 +60,7 @@ import { assessTeeth, type TeethReport } from './teeth.js';
 import { assessExtractorTeethCorpus, buildSourceReviewProof } from './extractor-teeth.js';
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 import { resolveRevision, materializeAtRevision } from './pin.js';
-import { extractStackManifest } from './stack-extractor.js';
+import { extractStackManifest } from './stack/stack-extractor.js';
 import { discoverBlueprints, runGate, assembleGateReportDoc } from './gate.js';
 import {
   resolveMode,

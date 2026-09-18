@@ -36,7 +36,7 @@ import {
   STACK_HASHED_VIEW_KEYS,
   STACK_QUARANTINED_KEYS,
   type StackManifest,
-} from '../src/stack-manifest.js';
+} from '../src/stack/stack-manifest.js';
 import {
   extractStackManifest,
   parseImageRef,
@@ -47,7 +47,7 @@ import {
   STACK_REFUSAL_PNPM,
   STACK_REFUSAL_YARN,
   stackRefusalLockfileVersion,
-} from '../src/stack-extractor.js';
+} from '../src/stack/stack-extractor.js';
 
 const ROOT = path.join(__dirname, '..');
 const FIXTURE_TREE = path.join(ROOT, 'fixtures', 'stack', 'a949557-tree');

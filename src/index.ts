@@ -122,7 +122,7 @@ export {
   compareStackEdges,
   STACK_HASHED_VIEW_KEYS,
   STACK_QUARANTINED_KEYS,
-} from './stack-manifest.js';
+} from './stack/stack-manifest.js';
 export type {
   StackManifest,
   StackManifestBody,
@@ -135,7 +135,7 @@ export type {
   StackCoverage,
   StackHashedView,
   StackManifestVerification,
-} from './stack-manifest.js';
+} from './stack/stack-manifest.js';
 export {
   extractStackManifest,
   NpmLockfileStackExtractor,
@@ -152,8 +152,8 @@ export {
   STACK_REFUSAL_NO_LOCKFILE,
   STACK_COVERAGE_DECLARED_NOT_INSTALLED,
   STACK_COVERAGE_NO_IMAGES,
-} from './stack-extractor.js';
-export type { StackFactsExtractor, StackExtractionResult, ParsedImageRef } from './stack-extractor.js';
+} from './stack/stack-extractor.js';
+export type { StackFactsExtractor, StackExtractionResult, ParsedImageRef } from './stack/stack-extractor.js';
 
 export { runGate, discoverBlueprints, blueprintTouchesChanges, resolveTreeRevision, computeGateReport, assembleGateReportDoc } from './gate.js';
 export type { GateResult, GateReportDoc, ComputedGate } from './gate.js';
