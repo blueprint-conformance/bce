@@ -4,6 +4,9 @@
  *
  * Inputs (all read from the tree, nothing else):
  *   - `npm-shrinkwrap.json` (preferred) or `package-lock.json`, lockfileVersion 3 ONLY;
+ *   - `pnpm-lock.yaml`, lockfileVersion '9.0' ONLY, through the hand-rolled subset reader in
+ *     `pnpm-lock-reader.ts` (a second SOURCE of the same node shape). It is the declared closure
+ *     when `package.json` `packageManager` names pnpm, or when no npm lockfile is present;
  *   - `package.json` (root identity + `engines.node`);
  *   - `.nvmrc` / `.node-version` (runtime pin);
  *   - `Dockerfile*` / `*.Dockerfile` (`FROM` base images) and `docker-compose*.y*ml` /
@@ -39,13 +42,12 @@ import {
   type StackSource,
   type StackUnmodeled,
 } from './stack-manifest.js';
+import { readPnpmLock } from './pnpm-lock-reader.js';
 
 /* -------------------------------------------------------------------------- */
 /* Fixed refusal / coverage strings (verbatim contract — tests pin these)       */
 /* -------------------------------------------------------------------------- */
 
-export const STACK_REFUSAL_PNPM =
-  "lockfile 'pnpm-lock.yaml' present but not supported in stack slice 1: pnpm v6/v9 importers/packages/snapshots parser is owned-by-follow-on; no stack facts extracted";
 export const STACK_REFUSAL_YARN =
   "lockfile 'yarn.lock' present but not supported in stack slice 1 (classic and berry): owned-by-follow-on; no stack facts extracted";
 export const STACK_REFUSAL_NO_LOCKFILE = 'no supported lockfile: declared closure unknown';
@@ -68,6 +70,10 @@ export function stackRefusalHollowLockfile(rel: string, why: string): string {
 /** A lockfile entry that is not an object or carries a non-string version. */
 export function stackRefusalMalformedEntry(rel: string, key: string): string {
   return `lockfile '${rel}' entry '${key}' is malformed (not an object, or no string version): refused, never a partial manifest`;
+}
+/** A lockfile that lost the precedence decision — recorded, never silently skipped. */
+export function stackCoverageLockfileIgnored(ignored: string, reason: string): string {
+  return `lockfile '${ignored}' ignored: ${reason}`;
 }
 
 /** `lockfileVersion <n> is not 3: …` — npm v1/v2 lockfiles are refused, their tree is not a closure map. */
@@ -671,14 +677,23 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       }
     }
 
-    // ---- lockfile: npm-shrinkwrap.json > package-lock.json; pnpm/yarn refused ----
-    // PRECEDENCE (npm's own rule): npm-shrinkwrap.json wins over package-lock.json when both exist.
+    // ---- lockfile precedence ----
+    // package.json `packageManager: pnpm@…` + a pnpm-lock.yaml ⇒ pnpm-lock IS the declared closure and
+    // any npm lockfile beside it is a stray (recorded, not read, no fallback to it). Otherwise npm's own
+    // rule: npm-shrinkwrap.json > package-lock.json, and pnpm-lock.yaml is read only when NO npm
+    // lockfile is present. yarn is refused.
     let lockParsed = false;
     let lockSeen = false;
+    const pnpmBytes = read('pnpm-lock.yaml');
+    const pnpmDeclared = pnpmBytes !== null && /^pnpm@/.test(asString(pkg?.packageManager) ?? '');
     const lockCandidates = ['npm-shrinkwrap.json', 'package-lock.json'];
     for (const rel of lockCandidates) {
       const bytes = read(rel);
       if (!bytes) continue;
+      if (pnpmDeclared) {
+        unsupported.add(stackCoverageLockfileIgnored(rel, 'package.json packageManager declares pnpm — pnpm-lock.yaml is the declared closure'));
+        continue;
+      }
       if (lockSeen) {
         unsupported.add(`lockfile '${rel}' ignored: npm-shrinkwrap.json takes precedence`);
         continue;
@@ -718,7 +733,26 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       for (const u of derived.unsupported) unsupported.add(u);
       lockParsed = true;
     }
-    if (read('pnpm-lock.yaml')) unsupported.add(STACK_REFUSAL_PNPM);
+    if (pnpmBytes) {
+      if (lockSeen) {
+        unsupported.add(stackCoverageLockfileIgnored('pnpm-lock.yaml', 'an npm lockfile is present and package.json packageManager does not declare pnpm'));
+      } else {
+        filesScanned++;
+        sources.push({ path: 'pnpm-lock.yaml', sha256: sha256(pnpmBytes), parser: 'pnpm-lockfile-v9' });
+        const pnpm = readPnpmLock(pnpmBytes.toString('utf8'), { name: asString(pkg?.name), version: asString(pkg?.version) });
+        if (pnpm.refusals.length > 0 || pnpm.derived === null) {
+          for (const msg of pnpm.refusals) refuse(msg);
+        } else {
+          // loops, never spread: a very large lockfile must not overflow the call stack
+          for (const n of pnpm.derived.nodes) nodes.push(n);
+          for (const e of pnpm.derived.edges) edges.push(e);
+          for (const u of pnpm.derived.unmodeled) unmodeled.push(u);
+          for (const d of pnpm.derived.rootDeclared) rootDeclared.push(d);
+          for (const u of pnpm.derived.unsupported) unsupported.add(u);
+          lockParsed = true;
+        }
+      }
+    }
     if (read('yarn.lock')) unsupported.add(STACK_REFUSAL_YARN);
 
     if (!lockParsed) {
@@ -744,7 +778,6 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       });
       unsupported.add(STACK_REFUSAL_NO_LOCKFILE);
       // the fixed strings first (verbatim, testable), the summary line last
-      if (unsupported.has(STACK_REFUSAL_PNPM)) refusals.push(STACK_REFUSAL_PNPM);
       if (unsupported.has(STACK_REFUSAL_YARN)) refusals.push(STACK_REFUSAL_YARN);
       refusals.push(STACK_REFUSAL_NO_LOCKFILE);
     }
@@ -841,12 +874,12 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
   }
 }
 
-/** The stack provider table — one row per lockfile family (widen-only; pnpm/yarn are follow-ons). */
+/** The stack provider table — one row per lockfile family (widen-only; yarn is a follow-on). */
 export const STACK_EXTRACTOR_PROVIDERS: readonly { source: StackFactsExtractor['source']; fileKinds: readonly string[]; make(): StackFactsExtractor }[] =
   Object.freeze([
     {
       source: 'npm-lockfile',
-      fileKinds: ['npm-shrinkwrap.json', 'package-lock.json', 'package.json', '.nvmrc', '.node-version', 'Dockerfile', 'compose.yml'],
+      fileKinds: ['npm-shrinkwrap.json', 'package-lock.json', 'pnpm-lock.yaml', 'package.json', '.nvmrc', '.node-version', 'Dockerfile', 'compose.yml'],
       make: () => new NpmLockfileStackExtractor(),
     },
   ]);

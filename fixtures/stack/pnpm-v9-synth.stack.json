@@ -1,0 +1,1396 @@
+{
+  "coverage": {
+    "filesScanned": 3,
+    "unsupported": [
+      "declared closure, not installed tree: node_modules is never read",
+      "no Dockerfile or compose file found: images[] is empty by absence, not by proof",
+      "npm: alias packages/app:sw-cjs -> string-width@4.2.3: the real package is a node; the alias name is hashed as an opaque entry",
+      "pnpm catalog reference packages/app:is-number (catalog:): catalog range not dereferenced; edge spec kept verbatim",
+      "pnpm package 'is-positive@https://codeload.github.com/kevva/is-positive/tar.gz/97edff6f525f192a3f83cea1944765f769ae2678': non-registry resolution (tarball URL / git / file: / directory) — no locked registry identity in this slice; hashed as an opaque entry, no node",
+      "pnpm patchedDependencies 'is-odd@3.0.1': a local patch alters the installed package; the node integrity is the UNPATCHED registry tarball — the patch hash is hashed as an opaque entry",
+      "pnpm workspace importers other than '.' have no locked identity: they are not nodes and their direct-dependency edges are attributed to the root node",
+      "pnpm-lock v9 carries no dev/peer flags: dev = not reachable through any importer dependencies/optionalDependencies, peer = reachable only through peerDependencies edges (derived, not read)",
+      "pnpm-lock v9 does not record install scripts: installScript is false for every pnpm node (unknown, not proven absent)",
+      "pnpm-lock v9 records resolved versions, not ranges, for transitive dependencies: edge spec is '' except importer (specifier) and peer (peerDependencies) edges",
+      "workspace/link entry packages/app:synth-lib -> link:../lib: local package not part of the declared closure in slice 1; hashed as an opaque entry, no node"
+    ]
+  },
+  "ctRepoRevision": "synthetic-pnpm-v9-fixture",
+  "edges": [
+    {
+      "dev": false,
+      "from": "npm:ajv-keywords@5.1.0",
+      "optional": false,
+      "peer": true,
+      "spec": "^8.8.2",
+      "to": "npm:ajv@8.20.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:ajv-keywords@5.1.0",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:fast-deep-equal@3.1.3"
+    },
+    {
+      "dev": false,
+      "from": "npm:ajv@8.20.0",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:fast-deep-equal@3.1.3"
+    },
+    {
+      "dev": false,
+      "from": "npm:ajv@8.20.0",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:fast-uri@3.1.8"
+    },
+    {
+      "dev": false,
+      "from": "npm:ajv@8.20.0",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:json-schema-traverse@1.0.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:ajv@8.20.0",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:require-from-string@2.0.2"
+    },
+    {
+      "dev": false,
+      "from": "npm:is-odd@3.0.1",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:is-number@6.0.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:loose-envify@1.4.0",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:js-tokens@4.0.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:react@17.0.2",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:loose-envify@1.4.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:react@17.0.2",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:object-assign@4.1.1"
+    },
+    {
+      "dev": false,
+      "from": "npm:react@18.2.0",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:loose-envify@1.4.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-android-arm-eabi@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-android-arm64@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-darwin-arm64@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-darwin-x64@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-linux-arm-gnueabihf@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-linux-arm-musleabihf@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-linux-arm64-gnu@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-linux-arm64-musl@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-linux-powerpc64le-gnu@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-linux-riscv64-gnu@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-linux-s390x-gnu@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-linux-x64-gnu@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-linux-x64-musl@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-win32-arm64-msvc@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-win32-ia32-msvc@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@rollup/rollup-win32-x64-msvc@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:@types/estree@1.0.5"
+    },
+    {
+      "dev": false,
+      "from": "npm:rollup@4.18.0",
+      "optional": true,
+      "peer": false,
+      "spec": "",
+      "to": "npm:fsevents@2.3.3"
+    },
+    {
+      "dev": false,
+      "from": "npm:string-width@4.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:emoji-regex@8.0.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:string-width@4.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:is-fullwidth-code-point@3.0.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:string-width@4.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:strip-ansi@6.0.1"
+    },
+    {
+      "dev": false,
+      "from": "npm:strip-ansi@6.0.1",
+      "optional": false,
+      "peer": false,
+      "spec": "",
+      "to": "npm:ansi-regex@5.0.1"
+    },
+    {
+      "dev": false,
+      "from": "npm:synth-workspace-root@1.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "5.1.0",
+      "to": "npm:ajv-keywords@5.1.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:synth-workspace-root@1.2.3",
+      "optional": true,
+      "peer": false,
+      "spec": "2.3.3",
+      "to": "npm:fsevents@2.3.3"
+    },
+    {
+      "dev": false,
+      "from": "npm:synth-workspace-root@1.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "catalog:",
+      "to": "npm:is-number@7.0.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:synth-workspace-root@1.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "3.0.1",
+      "to": "npm:is-odd@3.0.1"
+    },
+    {
+      "dev": false,
+      "from": "npm:synth-workspace-root@1.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "17.0.2",
+      "to": "npm:react@17.0.2"
+    },
+    {
+      "dev": false,
+      "from": "npm:synth-workspace-root@1.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "18.2.0",
+      "to": "npm:react@18.2.0"
+    },
+    {
+      "dev": true,
+      "from": "npm:synth-workspace-root@1.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "4.18.0",
+      "to": "npm:rollup@4.18.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:synth-workspace-root@1.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "npm:string-width@^4.2.0",
+      "to": "npm:string-width@4.2.3"
+    },
+    {
+      "dev": false,
+      "from": "npm:synth-workspace-root@1.2.3",
+      "optional": true,
+      "peer": false,
+      "spec": "1.2.0",
+      "to": "npm:use-sync-external-store@1.2.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:synth-workspace-root@1.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "1.2.0",
+      "to": "npm:use-sync-external-store@1.2.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:synth-workspace-root@1.2.3",
+      "optional": false,
+      "peer": false,
+      "spec": "8.17.0",
+      "to": "npm:ws@8.17.0"
+    },
+    {
+      "dev": false,
+      "from": "npm:use-sync-external-store@1.2.0",
+      "optional": false,
+      "peer": true,
+      "spec": "^16.8.0 || ^17.0.0 || ^18.0.0",
+      "to": "npm:react@17.0.2"
+    },
+    {
+      "dev": false,
+      "from": "npm:use-sync-external-store@1.2.0",
+      "optional": false,
+      "peer": true,
+      "spec": "^16.8.0 || ^17.0.0 || ^18.0.0",
+      "to": "npm:react@18.2.0"
+    }
+  ],
+  "images": [],
+  "kind": "StackManifest",
+  "manifestDigest": "ae57ad64bc656a7dc1ccde7956a2b73b34a61614f301d55571241ce4264a67fc",
+  "nodes": [
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "node-runtime:node@22.22.2",
+      "installScript": false,
+      "integrity": null,
+      "kind": "node-runtime",
+      "layout": [],
+      "name": "node",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "nvmrc",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "22.22.2"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-android-arm-eabi@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-Tya6xypR10giZV1XzxmH5wr25VcZSncG0pZIjfePT0OVBvqNEurzValetGNarVrGiq66EBVAFn15iYX4w6FKgQ==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-android-arm-eabi@4.18.0"
+      ],
+      "name": "@rollup/rollup-android-arm-eabi",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "arm"
+        ],
+        "os": [
+          "android"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-android-arm64@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-avCea0RAP03lTsDhEyfy+hpfr85KfyTctMADqHVhLAF3MlIkq83CP8UfAHUssgXTYd+6er6PaAhx/QGv4L1EiA==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-android-arm64@4.18.0"
+      ],
+      "name": "@rollup/rollup-android-arm64",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "arm64"
+        ],
+        "os": [
+          "android"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-darwin-arm64@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-IWfdwU7KDSm07Ty0PuA/W2JYoZ4iTj3TUQjkVsO/6U+4I1jN5lcR71ZEvRh52sDOERdnNhhHU57UITXz5jC1/w==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-darwin-arm64@4.18.0"
+      ],
+      "name": "@rollup/rollup-darwin-arm64",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "arm64"
+        ],
+        "os": [
+          "darwin"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-darwin-x64@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-n2LMsUz7Ynu7DoQrSQkBf8iNrjOGyPLrdSg802vk6XT3FtsgX6JbE8IHRvposskFm9SNxzkLYGSq9QdpLYpRNA==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-darwin-x64@4.18.0"
+      ],
+      "name": "@rollup/rollup-darwin-x64",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "x64"
+        ],
+        "os": [
+          "darwin"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-linux-arm-gnueabihf@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-C/zbRYRXFjWvz9Z4haRxcTdnkPt1BtCkz+7RtBSuNmKzMzp3ZxdM28Mpccn6pt28/UWUCTXa+b0Mx1k3g6NOMA==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-linux-arm-gnueabihf@4.18.0"
+      ],
+      "name": "@rollup/rollup-linux-arm-gnueabihf",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "arm"
+        ],
+        "os": [
+          "linux"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-linux-arm-musleabihf@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-l3m9ewPgjQSXrUMHg93vt0hYCGnrMOcUpTz6FLtbwljo2HluS4zTXFy2571YQbisTnfTKPZ01u/ukJdQTLGh9A==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-linux-arm-musleabihf@4.18.0"
+      ],
+      "name": "@rollup/rollup-linux-arm-musleabihf",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "arm"
+        ],
+        "os": [
+          "linux"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-linux-arm64-gnu@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-rJ5D47d8WD7J+7STKdCUAgmQk49xuFrRi9pZkWoRD1UeSMakbcepWXPF8ycChBoAqs1pb2wzvbY6Q33WmN2ftw==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-linux-arm64-gnu@4.18.0"
+      ],
+      "name": "@rollup/rollup-linux-arm64-gnu",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "arm64"
+        ],
+        "os": [
+          "linux"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-linux-arm64-musl@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-be6Yx37b24ZwxQ+wOQXXLZqpq4jTckJhtGlWGZs68TgdKXJgw54lUUoFYrg6Zs/kjzAQwEwYbp8JxZVzZLRepQ==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-linux-arm64-musl@4.18.0"
+      ],
+      "name": "@rollup/rollup-linux-arm64-musl",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "arm64"
+        ],
+        "os": [
+          "linux"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-linux-powerpc64le-gnu@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-hNVMQK+qrA9Todu9+wqrXOHxFiD5YmdEi3paj6vP02Kx1hjd2LLYR2eaN7DsEshg09+9uzWi2W18MJDlG0cxJA==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-linux-powerpc64le-gnu@4.18.0"
+      ],
+      "name": "@rollup/rollup-linux-powerpc64le-gnu",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "ppc64"
+        ],
+        "os": [
+          "linux"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-linux-riscv64-gnu@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-ROCM7i+m1NfdrsmvwSzoxp9HFtmKGHEqu5NNDiZWQtXLA8S5HBCkVvKAxJ8U+CVctHwV2Gb5VUaK7UAkzhDjlg==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-linux-riscv64-gnu@4.18.0"
+      ],
+      "name": "@rollup/rollup-linux-riscv64-gnu",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "riscv64"
+        ],
+        "os": [
+          "linux"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-linux-s390x-gnu@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-0UyyRHyDN42QL+NbqevXIIUnKA47A+45WyasO+y2bGJ1mhQrfrtXUpTxCOrfxCR4esV3/RLYyucGVPiUsO8xjg==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-linux-s390x-gnu@4.18.0"
+      ],
+      "name": "@rollup/rollup-linux-s390x-gnu",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "s390x"
+        ],
+        "os": [
+          "linux"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-linux-x64-gnu@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-xuglR2rBVHA5UsI8h8UbX4VJ470PtGCf5Vpswh7p2ukaqBGFTnsfzxUBetoWBWymHMxbIG0Cmx7Y9qDZzr648w==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-linux-x64-gnu@4.18.0"
+      ],
+      "name": "@rollup/rollup-linux-x64-gnu",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "x64"
+        ],
+        "os": [
+          "linux"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-linux-x64-musl@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-LKaqQL9osY/ir2geuLVvRRs+utWUNilzdE90TpyoX0eNqPzWjRm14oMEE+YLve4k/NAqCdPkGYDaDF5Sw+xBfg==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-linux-x64-musl@4.18.0"
+      ],
+      "name": "@rollup/rollup-linux-x64-musl",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "x64"
+        ],
+        "os": [
+          "linux"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-win32-arm64-msvc@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-7J6TkZQFGo9qBKH0pk2cEVSRhJbL6MtfWxth7Y5YmZs57Pi+4x6c2dStAUvaQkHQLnEQv1jzBUW43GvZW8OFqA==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-win32-arm64-msvc@4.18.0"
+      ],
+      "name": "@rollup/rollup-win32-arm64-msvc",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "arm64"
+        ],
+        "os": [
+          "win32"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-win32-ia32-msvc@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-Txjh+IxBPbkUB9+SXZMpv+b/vnTEtFyfWZgJ6iyCmt2tdx0OF5WhFowLmnh8ENGNpfUlUZkdI//4IEmhwPieNg==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-win32-ia32-msvc@4.18.0"
+      ],
+      "name": "@rollup/rollup-win32-ia32-msvc",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "ia32"
+        ],
+        "os": [
+          "win32"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@rollup/rollup-win32-x64-msvc@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-UOo5FdvOL0+eIVTgS4tIdbW+TtnBLWg1YBCcU2KWM7nuNwRz9bksDX1bekJJCpu25N1DVWaCwnT39dVQxzqS8g==",
+      "kind": "npm",
+      "layout": [
+        "@rollup/rollup-win32-x64-msvc@4.18.0"
+      ],
+      "name": "@rollup/rollup-win32-x64-msvc",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [
+          "x64"
+        ],
+        "os": [
+          "win32"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:@types/estree@1.0.5",
+      "installScript": false,
+      "integrity": "sha512-/kYRxGDLWzHOB7q+wtSUQlFrtcdUccpfy+X+9iMBpHK8QLLhx2wIPYuS5DYtR9Wa/YlZAbIovy7qVdB1Aq6Lyw==",
+      "kind": "npm",
+      "layout": [
+        "@types/estree@1.0.5"
+      ],
+      "name": "@types/estree",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "1.0.5"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:ajv@8.20.0",
+      "installScript": false,
+      "integrity": "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==",
+      "kind": "npm",
+      "layout": [
+        "ajv@8.20.0"
+      ],
+      "name": "ajv",
+      "optional": false,
+      "peer": true,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "8.20.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:ajv-keywords@5.1.0",
+      "installScript": false,
+      "integrity": "sha512-YCS/JNFAUyr5vAuhk1DWm1CBxRHW9LbJ2ozWeemrIqpbsqKjHVxYPyi5GC0rjZIT5JxJ3virVTS8wk4i/Z+krw==",
+      "kind": "npm",
+      "layout": [
+        "ajv-keywords@5.1.0(ajv@8.20.0)"
+      ],
+      "name": "ajv-keywords",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "5.1.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:ansi-regex@5.0.1",
+      "installScript": false,
+      "integrity": "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==",
+      "kind": "npm",
+      "layout": [
+        "ansi-regex@5.0.1"
+      ],
+      "name": "ansi-regex",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "5.0.1"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:emoji-regex@8.0.0",
+      "installScript": false,
+      "integrity": "sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==",
+      "kind": "npm",
+      "layout": [
+        "emoji-regex@8.0.0"
+      ],
+      "name": "emoji-regex",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "8.0.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:fast-deep-equal@3.1.3",
+      "installScript": false,
+      "integrity": "sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==",
+      "kind": "npm",
+      "layout": [
+        "fast-deep-equal@3.1.3"
+      ],
+      "name": "fast-deep-equal",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "3.1.3"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:fast-uri@3.1.8",
+      "installScript": false,
+      "integrity": "sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==",
+      "kind": "npm",
+      "layout": [
+        "fast-uri@3.1.8"
+      ],
+      "name": "fast-uri",
+      "optional": false,
+      "peer": true,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "3.1.8"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:fsevents@2.3.3",
+      "installScript": false,
+      "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
+      "kind": "npm",
+      "layout": [
+        "fsevents@2.3.3"
+      ],
+      "name": "fsevents",
+      "optional": true,
+      "peer": false,
+      "platformConditional": {
+        "cpu": [],
+        "os": [
+          "darwin"
+        ]
+      },
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "2.3.3"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:is-fullwidth-code-point@3.0.0",
+      "installScript": false,
+      "integrity": "sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==",
+      "kind": "npm",
+      "layout": [
+        "is-fullwidth-code-point@3.0.0"
+      ],
+      "name": "is-fullwidth-code-point",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "3.0.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:is-number@6.0.0",
+      "installScript": false,
+      "integrity": "sha512-Wu1VHeILBK8KAWJUAiSZQX94GmOE45Rg6/538fKwiloUu21KncEkYGPqob2oSZ5mUT73vLGrHQjKw3KMPwfDzg==",
+      "kind": "npm",
+      "layout": [
+        "is-number@6.0.0"
+      ],
+      "name": "is-number",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "6.0.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:is-number@7.0.0",
+      "installScript": false,
+      "integrity": "sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==",
+      "kind": "npm",
+      "layout": [
+        "is-number@7.0.0"
+      ],
+      "name": "is-number",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "7.0.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:is-odd@3.0.1",
+      "installScript": false,
+      "integrity": "sha512-CQpnWPrDwmP1+SMHXZhtLtJv90yiyVfluGsX5iNCVkrhQtU3TQHsUWPG9wkdk9Lgd5yNpAg9jQEo90CBaXgWMA==",
+      "kind": "npm",
+      "layout": [
+        "is-odd@3.0.1(patch_hash=1a72dd5d2472e393b437c7423fd181990431dbb5e2b789002c893b20416cb523)"
+      ],
+      "name": "is-odd",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "3.0.1"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:js-tokens@4.0.0",
+      "installScript": false,
+      "integrity": "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==",
+      "kind": "npm",
+      "layout": [
+        "js-tokens@4.0.0"
+      ],
+      "name": "js-tokens",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.0.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:json-schema-traverse@1.0.0",
+      "installScript": false,
+      "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==",
+      "kind": "npm",
+      "layout": [
+        "json-schema-traverse@1.0.0"
+      ],
+      "name": "json-schema-traverse",
+      "optional": false,
+      "peer": true,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "1.0.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:loose-envify@1.4.0",
+      "installScript": false,
+      "integrity": "sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==",
+      "kind": "npm",
+      "layout": [
+        "loose-envify@1.4.0"
+      ],
+      "name": "loose-envify",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "1.4.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:object-assign@4.1.1",
+      "installScript": false,
+      "integrity": "sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==",
+      "kind": "npm",
+      "layout": [
+        "object-assign@4.1.1"
+      ],
+      "name": "object-assign",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.1.1"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:react@17.0.2",
+      "installScript": false,
+      "integrity": "sha512-gnhPt75i/dq/z3/6q/0asP78D0u592D5L1pd7M8P+dck6Fu/jJeL6iVVK23fptSUZj8Vjf++7wXA8UNclGQcbA==",
+      "kind": "npm",
+      "layout": [
+        "react@17.0.2"
+      ],
+      "name": "react",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "17.0.2"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:react@18.2.0",
+      "installScript": false,
+      "integrity": "sha512-/3IjMdb2L9QbBdWiW5e3P2/npwMBaU9mHCSCUzNln0ZCYbcfTsGbTJrU/kGemdH2IWmB2ioZ+zkxtmq6g09fGQ==",
+      "kind": "npm",
+      "layout": [
+        "react@18.2.0"
+      ],
+      "name": "react",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "18.2.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:require-from-string@2.0.2",
+      "installScript": false,
+      "integrity": "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==",
+      "kind": "npm",
+      "layout": [
+        "require-from-string@2.0.2"
+      ],
+      "name": "require-from-string",
+      "optional": false,
+      "peer": true,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "2.0.2"
+    },
+    {
+      "dev": true,
+      "devOptional": false,
+      "id": "npm:rollup@4.18.0",
+      "installScript": false,
+      "integrity": "sha512-QmJz14PX3rzbJCN1SG4Xe/bAAX2a6NpCP8ab2vfu2GiUr8AQcr2nCV/oEO3yneFarB67zk8ShlIyWb2LGTb3Sg==",
+      "kind": "npm",
+      "layout": [
+        "rollup@4.18.0"
+      ],
+      "name": "rollup",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.18.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:string-width@4.2.3",
+      "installScript": false,
+      "integrity": "sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==",
+      "kind": "npm",
+      "layout": [
+        "string-width@4.2.3"
+      ],
+      "name": "string-width",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "4.2.3"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:strip-ansi@6.0.1",
+      "installScript": false,
+      "integrity": "sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==",
+      "kind": "npm",
+      "layout": [
+        "strip-ansi@6.0.1"
+      ],
+      "name": "strip-ansi",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "6.0.1"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:synth-workspace-root@1.2.3",
+      "installScript": false,
+      "integrity": null,
+      "kind": "npm",
+      "layout": [
+        "."
+      ],
+      "name": "synth-workspace-root",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": true,
+      "version": "1.2.3"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:use-sync-external-store@1.2.0",
+      "installScript": false,
+      "integrity": "sha512-eEgnFxGQ1Ife9bzYs6VLi8/4X6CObHMw9Qr9tPY43iKwsPw8xE8+EFsf/2cFZ5S3esXgpWgtSCtLNS41F+sKPA==",
+      "kind": "npm",
+      "layout": [
+        "use-sync-external-store@1.2.0(react@17.0.2)",
+        "use-sync-external-store@1.2.0(react@18.2.0)"
+      ],
+      "name": "use-sync-external-store",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "1.2.0"
+    },
+    {
+      "dev": false,
+      "devOptional": false,
+      "id": "npm:ws@8.17.0",
+      "installScript": false,
+      "integrity": "sha512-uJq6108EgZMAl20KagGkzCKfMEjxmKvZHG7Tlq0Z6nOky7YF7aq4mOx6xK8TJ/i1LeK4Qus7INktacctDgY8Ow==",
+      "kind": "npm",
+      "layout": [
+        "ws@8.17.0"
+      ],
+      "name": "ws",
+      "optional": false,
+      "peer": false,
+      "platformConditional": null,
+      "resolvedFrom": "lockfile",
+      "resolvedWhenUnpinned": null,
+      "root": false,
+      "version": "8.17.0"
+    }
+  ],
+  "rootDeclared": [
+    {
+      "group": "devDependencies",
+      "name": "rollup",
+      "spec": "4.18.0"
+    }
+  ],
+  "runtime": {
+    "node": {
+      "declared": "22.22.2",
+      "pin": true,
+      "resolvedFrom": "nvmrc"
+    }
+  },
+  "schemaVersion": "1",
+  "sources": [
+    {
+      "parser": "nvmrc",
+      "path": ".nvmrc",
+      "sha256": "4c42fb8d6334c5cdcac68b93f96c581fb83b1f58cda898cff115e5e941ef717d"
+    },
+    {
+      "parser": "package-json",
+      "path": "package.json",
+      "sha256": "db4c0ded4759bdc2d315606288e5e7d8e8f18fd04f82502b366b3685570c5ab4"
+    },
+    {
+      "parser": "pnpm-lockfile-v9",
+      "path": "pnpm-lock.yaml",
+      "sha256": "4aff2938e6c73850c63f14f8cffb9f190586b7c3f7f8f3de5eb60699f5c7c7c5"
+    }
+  ],
+  "stackDigest": "89cf1f633f8773a84e842717af28fac32f1dc8954dcd81746ced6bff9f843397",
+  "stackId": "stack:89cf1f633f87",
+  "unmodeled": [
+    {
+      "entrySha256": "ee85db6b5625089c2462e82d8485f59f2b4a9a53a9f057ebf3cbb645984aba54",
+      "key": "importers/packages/app/dependencies/sw-cjs",
+      "kind": "unsupported",
+      "reason": "npm-alias",
+      "spec": {
+        "integrity": null,
+        "link": false,
+        "name": "sw-cjs",
+        "resolved": null,
+        "version": "string-width@4.2.3"
+      }
+    },
+    {
+      "entrySha256": "332f701b840e10415b782bb4342bc88a1a2e1c68d82b3adb8b9092da0d426a02",
+      "key": "importers/packages/app/dependencies/synth-lib",
+      "kind": "unsupported",
+      "reason": "link",
+      "spec": {
+        "integrity": null,
+        "link": true,
+        "name": "synth-lib",
+        "resolved": null,
+        "version": "link:../lib"
+      }
+    },
+    {
+      "entrySha256": "03551e982e2a04addca24252369bcb357861898c7da42128cafce7c42ece257e",
+      "key": "packages/is-positive@https://codeload.github.com/kevva/is-positive/tar.gz/97edff6f525f192a3f83cea1944765f769ae2678",
+      "kind": "unsupported",
+      "reason": "local-or-git",
+      "spec": {
+        "integrity": null,
+        "link": false,
+        "name": "is-positive",
+        "resolved": "https://codeload.github.com/kevva/is-positive/tar.gz/97edff6f525f192a3f83cea1944765f769ae2678",
+        "version": "3.1.0"
+      }
+    },
+    {
+      "entrySha256": "7776553b2971897fe904238acbdda609148cf129cebfbc0ec088444e19699f25",
+      "key": "patchedDependencies/is-odd@3.0.1",
+      "kind": "unsupported",
+      "reason": "pnpm-patched",
+      "spec": {
+        "integrity": "1a72dd5d2472e393b437c7423fd181990431dbb5e2b789002c893b20416cb523",
+        "link": false,
+        "name": "is-odd",
+        "resolved": null,
+        "version": "3.0.1"
+      }
+    }
+  ]
+}

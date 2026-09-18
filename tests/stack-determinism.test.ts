@@ -10,7 +10,7 @@
  *  3. NEGATIVE CONTROLS — a byte-different but semantically identical lockfile (keys reversed, 4-space
  *     indent, trailing newline stripped; CRLF; renamed to package-lock.json) MUST NOT move the digest
  *     while `sources[].sha256` / `sources[].path` visibly change.
- *  5. REFUSAL LEGS — pnpm-only / yarn-only / lockfileVersion 2 / truncated / no lockfile refuse with the
+ *  5. REFUSAL LEGS — pnpm v6 / degenerate pnpm / yarn-only / lockfileVersion 2 / truncated / no lockfile refuse with the
  *     exact fixed strings (extractor result AND the built CLI: exit 2, stderr carries the string, no
  *     file written); Dockerfile `FROM ${ARG}` is a coverage line with no node; `@sha256:` pins.
  *  Plus: the HASHED-VIEW quarantine is asserted from the outside (a quarantined field cannot move the
@@ -44,7 +44,7 @@ import {
   STACK_COVERAGE_DECLARED_NOT_INSTALLED,
   STACK_COVERAGE_NO_IMAGES,
   STACK_REFUSAL_NO_LOCKFILE,
-  STACK_REFUSAL_PNPM,
+  stackCoverageLockfileIgnored,
   STACK_REFUSAL_YARN,
   STACK_COVERAGE_IMAGE_WALK_DEPTH,
   stackRefusalHollowLockfile,
@@ -52,6 +52,7 @@ import {
   stackRefusalMalformedEntry,
   stackRefusalSymlink,
 } from '../src/stack/stack-extractor.js';
+import { stackRefusalPnpmLockfileVersion, stackRefusalPnpmHollow } from '../src/stack/pnpm-lock-reader.js';
 
 const ROOT = path.join(__dirname, '..');
 const FIXTURE_TREE = path.join(ROOT, 'fixtures', 'stack', 'a949557-tree');
@@ -338,27 +339,28 @@ function minimalPackageJson(dir: string): void {
 }
 
 describe('stack slice 1 — group 5: refusal legs (fixed strings, exit 2, nothing written)', () => {
-  it('pnpm-lock.yaml only ⇒ refusal carries the exact pnpm string + the no-lockfile string; root-only manifest', () => {
+  it('a pnpm-lock.yaml v6 only ⇒ refusal carries the exact pnpm-version string + the no-lockfile string; root-only manifest', () => {
+    // pnpm-lock v9 is INGESTED (tests/stack-pnpm.test.ts); every other pnpm lockfileVersion is refused
     const d = tmp('pnpm');
     minimalPackageJson(d);
-    fs.writeFileSync(path.join(d, 'pnpm-lock.yaml'), "lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies: {}\n");
+    fs.writeFileSync(path.join(d, 'pnpm-lock.yaml'), "lockfileVersion: '6.0'\nimporters:\n  .:\n    dependencies: {}\n");
     const r = extractStackManifest(d, 'unpinned');
-    expect(r.refusals).toEqual([STACK_REFUSAL_PNPM, STACK_REFUSAL_NO_LOCKFILE]);
-    expect(r.manifest.coverage.unsupported).toContain(STACK_REFUSAL_PNPM);
+    expect(r.refusals).toEqual([stackRefusalPnpmLockfileVersion('6.0'), STACK_REFUSAL_NO_LOCKFILE]);
+    expect(r.manifest.coverage.unsupported).toContain(stackRefusalPnpmLockfileVersion('6.0'));
     expect(r.manifest.nodes.filter((n) => n.kind === 'npm')).toHaveLength(1);
     expect(r.manifest.nodes[0]?.root).toBe(true);
     expect(r.manifest.nodes[0]?.id).toBe('npm:example-app@1.2.3');
   });
 
-  it('the built CLI refuses a pnpm-only tree: exit 2, stderr carries the exact string, --out is NOT written', () => {
+  it('the built CLI refuses a degenerate pnpm-only tree (no importers): exit 2, stderr carries the exact string, --out is NOT written', () => {
     const d = tmp('pnpm-cli');
     minimalPackageJson(d);
     fs.writeFileSync(path.join(d, 'pnpm-lock.yaml'), "lockfileVersion: '9.0'\n");
     const out = path.join(d, 'never-written.json');
     const r = runCli(['stack', 'snapshot', '--ct-repo', d, '--no-pin', '--out', out], ROOT);
     expect(r.status).toBe(2);
-    expect(r.stderr).toContain("lockfile 'pnpm-lock.yaml' present but not supported in stack slice 1");
-    expect(r.stderr).toContain(STACK_REFUSAL_PNPM);
+    expect(r.stderr).toContain("lockfile 'pnpm-lock.yaml' is hollow (no 'importers' mapping)");
+    expect(r.stderr).toContain(stackRefusalPnpmHollow("no 'importers' mapping"));
     expect(r.stderr).toContain('REFUSED');
     expect(fs.existsSync(out)).toBe(false);
   });
@@ -402,12 +404,15 @@ describe('stack slice 1 — group 5: refusal legs (fixed strings, exit 2, nothin
     expect(runCli(['stack', 'snapshot', '--ct-repo', d, '--no-pin'], d).status).toBe(2);
   });
 
-  it('a supported lockfile beside pnpm-lock.yaml is NOT a refusal — the pnpm string stays a coverage note', () => {
+  it('an npm lockfile beside pnpm-lock.yaml (no packageManager: pnpm) ⇒ npm wins, the pnpm lockfile is a recorded ignore, never a refusal', () => {
     const d = copyTree('mixed');
     fs.writeFileSync(path.join(d, 'pnpm-lock.yaml'), "lockfileVersion: '9.0'\n");
     const r = extractStackManifest(d, SEED_COMMIT);
     expect(r.refusals).toEqual([]);
-    expect(r.manifest.coverage.unsupported).toContain(STACK_REFUSAL_PNPM);
+    expect(r.manifest.coverage.unsupported).toContain(
+      stackCoverageLockfileIgnored('pnpm-lock.yaml', 'an npm lockfile is present and package.json packageManager does not declare pnpm'),
+    );
+    expect(r.manifest.sources.map((s) => s.parser)).not.toContain('pnpm-lockfile-v9'); // not read, not hashed as a source
     expect(r.manifest.stackDigest).toBe(golden.stackDigest); // coverage is quarantined
   });
 
