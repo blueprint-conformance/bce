@@ -554,6 +554,25 @@ describe('stack slice 1 — fail-closed: a hollow or malformed v3 lockfile is a 
     expect(r.refusals).toContain(STACK_REFUSAL_NO_LOCKFILE);
   });
 
+  it('an EMPTY-STRING version ⇒ the fixed malformed-entry refusal (never a schema crash)', () => {
+    const d = synth(mutated((p) => { p['node_modules/a']!.version = ''; }));
+    expect(extractStackManifest(d, 'unpinned').refusals).toContain(stackRefusalMalformedEntry('package-lock.json', 'node_modules/a'));
+    const cli = runCli(['stack', 'snapshot', '--ct-repo', d, '--no-pin', '--out', path.join(d, 'o.json')], ROOT);
+    expect(cli.status).toBe(2);
+    expect(cli.stderr).toContain('is malformed');
+    expect(cli.stderr).not.toContain('unexpected CLI failure');
+  });
+
+  it('root + ONLY opaque entries is ACCEPTED (the digest is honest) — the floor is "no node AND no unmodeled entry beyond the root"', () => {
+    const l = baseLock();
+    l.packages = { '': l.packages['']!, 'node_modules/ws1': { resolved: 'packages/ws1', link: true } };
+    const r = extractSynth(l);
+    expect(r.refusals).toEqual([]);
+    expect(r.manifest.nodes.filter((n) => n.kind === 'npm').map((n) => n.root)).toEqual([true]);
+    expect(r.manifest.unmodeled).toHaveLength(1);
+    expect(stackRefusalHollowLockfile('x', 'y')).toContain('no node and no unmodeled entry beyond the root');
+  });
+
   it('a numeric version ⇒ malformed-entry refusal', () => {
     const r = extractSynth(mutated((p) => { p['node_modules/a']!.version = 1; }));
     expect(r.refusals).toContain(stackRefusalMalformedEntry('package-lock.json', 'node_modules/a'));
@@ -658,7 +677,7 @@ describe('stack slice 1 — an entry the extractor cannot model is an OPAQUE HAS
   });
 });
 
-describe('stack slice 1 — the root package: its OWN version is quarantined, its DECLARED ranges are hashed', () => {
+describe('stack slice 1 — the root package: its OWN version is quarantined; declared ranges never move the digest', () => {
   it('bumping ONLY the root version (lockfile + package.json) does NOT move the digest — a release is not a closure change', () => {
     const d = copyTree('root-bump');
     const lock = readLock(d);
@@ -670,11 +689,12 @@ describe('stack slice 1 — the root package: its OWN version is quarantined, it
     fs.writeFileSync(path.join(d, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
     const r = extractStackManifest(d, SEED_COMMIT);
     expect(r.manifest.nodes.find((n) => n.root)?.id).toBe('npm:bce-engine@9.9.9'); // still shown in the manifest…
+    expect(r.manifest.nodes.find((n) => n.root)?.version).toBe('9.9.9');
     expect(r.manifest.stackDigest).toBe(golden.stackDigest); // …never in the identity
     const rootView = stackHashedView(r.manifest).nodes.find((n) => n.root) as unknown as Record<string, unknown>;
     expect(rootView.version).toBeUndefined();
-    expect(rootView.id).toBeUndefined();
-    expect(rootView.name).toBe('bce-engine');
+    expect(rootView.id).toBe('root:bce-engine');
+    expect(JSON.stringify(stackHashedView(r.manifest))).not.toContain('9.9.9');
   });
 
   it('renaming the root package DOES move the digest (a renamed fork is a different subject)', () => {
@@ -682,16 +702,60 @@ describe('stack slice 1 — the root package: its OWN version is quarantined, it
     expect(m.stackDigest).not.toBe(BASE_DIGEST);
   });
 
-  it('a root-declared range change with the SAME resolved node moves the digest (declared closure intent)', () => {
-    const m = extractSynth(mutated((p) => { (p['']!.dependencies as Record<string, string>).a = '^1.0.0 || ^2.0.0'; })).manifest;
-    expect(m.nodes).toEqual(extractSynth(baseLock()).manifest.nodes); // nothing resolved differently
-    expect(m.rootDeclared).toContainEqual({ name: 'a', spec: '^1.0.0 || ^2.0.0', group: 'dependencies' });
-    expect(m.stackDigest).not.toBe(BASE_DIGEST);
+  it('a spec-range-only change (root AND non-root) keeps the digest — and the manifest edges carry the new spec for the diff', () => {
+    const m = extractSynth(mutated((p) => {
+      (p['']!.dependencies as Record<string, string>).a = '^1.0.0 || ^2.0.0';
+      (p['node_modules/a']!.dependencies as Record<string, string>).c = '>=1.0.0';
+    })).manifest;
+    expect(m.stackDigest).toBe(BASE_DIGEST);
+    expect(m.edges).toContainEqual({ from: 'npm:r@1.0.0', to: 'npm:a@1.0.0', spec: '^1.0.0 || ^2.0.0', dev: false, optional: false, peer: false });
+    expect(m.edges.find((e) => e.from === 'npm:a@1.0.0' && e.to === 'npm:c@1.0.0')?.spec).toBe('>=1.0.0');
   });
 
-  it('a NON-root range change with the same resolution stays digest-neutral (edges are quarantined)', () => {
-    const m = extractSynth(mutated((p) => { (p['node_modules/a']!.dependencies as Record<string, string>).c = '>=1.0.0'; })).manifest;
+  it('both root-identity fallback paths are quarantined too: root entry without a version (top-level version used / defaulted)', () => {
+    const noRootVersion = (top: string | undefined) => {
+      const l = baseLock() as unknown as Record<string, unknown>;
+      delete (l.packages as Pkgs)['']!.version;
+      if (top === undefined) delete l.version;
+      else l.version = top;
+      return extractSynth(l).manifest;
+    };
+    const a = noRootVersion('1.0.0');
+    const b = noRootVersion('7.7.7');
+    const c = noRootVersion(undefined); // defaults to 0.0.0 with a coverage line
+    expect(b.nodes.find((n) => n.root)?.version).toBe('7.7.7');
+    expect(c.nodes.find((n) => n.root)?.version).toBe('0.0.0');
+    expect(new Set([a.stackDigest, b.stackDigest, c.stackDigest, BASE_DIGEST]).size).toBe(1);
+  });
+
+  it('top-level `version` disagreeing with packages[""].version is not a smuggling channel', () => {
+    const l = baseLock();
+    l.version = '6.6.6';
+    const m = extractSynth(l).manifest;
     expect(m.stackDigest).toBe(BASE_DIGEST);
+    expect(m.nodes.find((n) => n.root)?.version).toBe('1.0.0'); // the root entry wins for display
+  });
+
+  it('a NON-root package sharing the root\'s name (and version) is a real node: unique ids, digest moves, its version stays hashed', () => {
+    const withTwin = (v: string) => extractSynth(mutated((p) => { p['node_modules/r'] = { version: v, integrity: 'sha512-RR' }; })).manifest;
+    const same = withTwin('1.0.0'); // collides with the root's manifest id npm:r@1.0.0 → suffixed
+    const other = withTwin('1.0.1');
+    for (const m of [same, other]) expect(new Set(m.nodes.map((n) => n.id)).size).toBe(m.nodes.length);
+    expect(same.stackDigest).not.toBe(BASE_DIGEST);
+    expect(same.stackDigest).not.toBe(other.stackDigest); // the twin is NOT the root: its version is identity
+    const twinView = stackHashedView(same).nodes.filter((n) => n.name === 'r');
+    expect(twinView).toHaveLength(2);
+    expect(twinView.filter((n) => 'version' in n)).toHaveLength(1);
+  });
+
+  it('the id-collision suffix on the root id does not leak the root version into the digest', () => {
+    // same twin, root bumped: the twin's suffixed/unsuffixed MANIFEST id changes, its hashed identity must not
+    const at = (rootVersion: string) => {
+      const l = mutated((p) => { p['node_modules/r'] = { version: '1.0.0', integrity: 'sha512-RR' }; });
+      l.packages['']!.version = rootVersion;
+      return extractSynth(l).manifest;
+    };
+    expect(at('1.0.0').stackDigest).toBe(at('2.0.0').stackDigest);
   });
 });
 
@@ -774,6 +838,30 @@ describe('stack slice 1 — images and runtime hygiene', () => {
     const alias = extractStackManifest(synth(baseLock(), { files: { '.nvmrc': 'lts/*\n' } }), 'unpinned').manifest;
     expect(alias.runtime.node.pin).toBe(false);
     expect(alias.coverage.unsupported).toContain("node runtime 'lts/*' is an alias or range, not a version: recorded as declared, pin:false");
+  });
+
+  it('the SAME image set declared from different file locations ⇒ same digest (a quarantined field must not decide the hashed order)', () => {
+    const compose = 'services:\n  app:\n    image: node:22\n';
+    const m1 = extractStackManifest(synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n', 'compose.yml': compose } }), 'unpinned').manifest;
+    const m2 = extractStackManifest(synth(baseLock(), { files: { 'zz/Dockerfile': 'FROM node:22\n', 'compose.yml': compose } }), 'unpinned').manifest;
+    expect(m1.images.map((i) => i.evidenceRef)).not.toEqual(m2.images.map((i) => i.evidenceRef));
+    expect(m2.stackDigest).toBe(m1.stackDigest);
+  });
+
+  it.skipIf(process.platform === 'win32')('a symlinked DIRECTORY holding a Dockerfile is a refusal; an empty symlinked directory is a coverage line', () => {
+    const outside = tmp('outside-dir');
+    fs.writeFileSync(path.join(outside, 'Dockerfile'), 'FROM evil:1\n');
+    const d = synth(baseLock());
+    fs.symlinkSync(outside, path.join(d, 'docker'));
+    const r = extractStackManifest(d, 'unpinned');
+    expect(r.refusals).toEqual([stackRefusalSymlink('docker/Dockerfile')]);
+    expect(r.manifest.images).toEqual([]);
+    const empty = tmp('outside-empty');
+    const d2 = synth(baseLock());
+    fs.symlinkSync(empty, path.join(d2, 'assets'));
+    const r2 = extractStackManifest(d2, 'unpinned');
+    expect(r2.refusals).toEqual([]);
+    expect(r2.manifest.coverage.unsupported).toContain("symlinked directory 'assets' is not walked for image files");
   });
 
   it('a Dockerfile below the depth-3 walk is NOT read — and the manifest says so', () => {

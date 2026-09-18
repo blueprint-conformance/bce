@@ -258,36 +258,6 @@
           },
           "type": "array"
         },
-        "rootDeclared": {
-          "items": {
-            "additionalProperties": false,
-            "properties": {
-              "group": {
-                "enum": [
-                  "dependencies",
-                  "devDependencies",
-                  "optionalDependencies",
-                  "peerDependencies"
-                ],
-                "type": "string"
-              },
-              "name": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "spec": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "name",
-              "spec",
-              "group"
-            ],
-            "type": "object"
-          },
-          "type": "array"
-        },
         "runtime": {
           "additionalProperties": false,
           "properties": {
@@ -465,7 +435,6 @@
         "edges",
         "runtime",
         "images",
-        "rootDeclared",
         "unmodeled",
         "coverage",
         "stackDigest",

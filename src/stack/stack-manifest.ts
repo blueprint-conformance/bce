@@ -14,12 +14,13 @@
  * HASHED VIEW (exactly these keys, key-sorted by `stableStringify`):
  *   schemaVersion, kind, nodes[] (every StackNode field EXCEPT `layout`), runtime,
  *   images[] (every field EXCEPT `evidenceRef` — a comment line above a FROM must not re-key),
- *   rootDeclared[] (the root package's DECLARED dependency ranges — closure intent),
  *   unmodeled[] (every lockfile entry the extractor cannot fully model, as an OPAQUE node: the
  *   digest always moves when the closure moves, even where slice 1 cannot say what moved).
- * The ROOT node is hashed as kind + name + root:true only: its own `version` (and the `id` that
- * embeds it) is quarantined, so a release bump of the repository itself never re-keys the digest
- * of an unchanged closure. The root `name` stays hashed — a renamed package is a different subject.
+ * The ROOT node's own `version` is quarantined: in the view it carries no `version` and its `id`
+ * is `root:<name>` (the manifest keeps the real `npm:<name>@<version>` for display), so a release
+ * bump of the repository itself never re-keys the digest of an unchanged closure. The root `name`
+ * stays hashed — a renamed package is a different subject. Declared RANGES (root or not) are never
+ * hashed: the digest names the RESOLVED closure; ranges live in the quarantined `edges`.
  * QUARANTINED OUT of the digest (present in the manifest, never hashed):
  *   ctRepoRevision (same closure at two revisions ⇒ same digest), sources[].sha256 (whitespace /
  *   key-order churn of the lockfile must not move the digest), edges (a pure function of the node
@@ -168,16 +169,6 @@ export const StackUnmodeledSchema = z
   .strict();
 export type StackUnmodeled = z.infer<typeof StackUnmodeledSchema>;
 
-/** One dependency range DECLARED by the root package (`packages[""]`) — HASHED closure intent. */
-export const StackRootDeclaredSchema = z
-  .object({
-    name: z.string().min(1),
-    spec: z.string(),
-    group: z.enum(['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']),
-  })
-  .strict();
-export type StackRootDeclared = z.infer<typeof StackRootDeclaredSchema>;
-
 export const StackCoverageSchema = z
   .object({
     /** every fidelity limit and every refused input, as fixed strings — never claim full coverage */
@@ -204,8 +195,6 @@ export const StackManifestSchema = z
     runtime: StackRuntimeSchema,
     /** sorted by (ref, evidenceRef) */
     images: z.array(StackImageSchema),
-    /** sorted by (group, name) — HASHED: the ranges the root package declares */
-    rootDeclared: z.array(StackRootDeclaredSchema),
     /** sorted by key — HASHED opaque nodes for every lockfile entry slice 1 cannot model */
     unmodeled: z.array(StackUnmodeledSchema),
     coverage: StackCoverageSchema,
@@ -223,7 +212,7 @@ export type StackManifest = z.infer<typeof StackManifestSchema>;
 export type StackManifestBody = Omit<StackManifest, 'stackDigest' | 'stackId' | 'manifestDigest'>;
 
 /** The exact key set that is hashed. Exported so a test can assert the quarantine list, not trust it. */
-export const STACK_HASHED_VIEW_KEYS = Object.freeze(['schemaVersion', 'kind', 'nodes', 'runtime', 'images', 'rootDeclared', 'unmodeled'] as const);
+export const STACK_HASHED_VIEW_KEYS = Object.freeze(['schemaVersion', 'kind', 'nodes', 'runtime', 'images', 'unmodeled'] as const);
 /** The manifest keys deliberately kept OUT of the digest. */
 export const STACK_QUARANTINED_KEYS = Object.freeze([
   'ctRepoRevision',
@@ -263,10 +252,6 @@ export function compareStackImages(a: StackImage, b: StackImage): number {
   return cmp(a.ref, b.ref) || cmp(a.evidenceRef, b.evidenceRef);
 }
 
-export function compareStackRootDeclared(a: StackRootDeclared, b: StackRootDeclared): number {
-  return cmp(a.group, b.group) || cmp(a.name, b.name);
-}
-
 export function compareStackUnmodeled(a: StackUnmodeled, b: StackUnmodeled): number {
   return cmp(a.key, b.key);
 }
@@ -285,10 +270,10 @@ function sha256(s: string): string {
 }
 
 /**
- * The shape of a node that enters the digest: `layout` removed; for the ROOT node `version` and
- * `id` (which embeds the version) are removed too.
+ * The shape of a node that enters the digest: `layout` removed; for the ROOT node `version` is
+ * removed too and `id` is the version-free `root:<name>`.
  */
-export type HashedStackNode = Omit<StackNode, 'layout'> | Omit<StackNode, 'layout' | 'version' | 'id'>;
+export type HashedStackNode = Omit<StackNode, 'layout'> | Omit<StackNode, 'layout' | 'version'>;
 
 /** A StackImage with the non-hashed `evidenceRef` (a line number) removed. */
 export type HashedStackImage = Omit<StackImage, 'evidenceRef'>;
@@ -299,7 +284,6 @@ export interface StackHashedView {
   nodes: HashedStackNode[];
   runtime: StackRuntime;
   images: HashedStackImage[];
-  rootDeclared: StackRootDeclared[];
   unmodeled: StackUnmodeled[];
 }
 
@@ -310,24 +294,33 @@ export interface StackHashedView {
  * an extractor can set that leaks into the digest by accident.
  */
 export function stackHashedView(body: StackManifestBody | StackManifest): StackHashedView {
-  const nodes = [...body.nodes].sort(compareStackNodes).map((n): HashedStackNode => {
+  const hashedNodes = body.nodes.map((n): HashedStackNode => {
     const { layout, ...hashed } = n;
     void layout;
     if (!n.root) return hashed;
     // the repository's OWN version is not part of its dependency closure
-    const { version, id, ...rootHashed } = hashed;
+    const { version, ...rootHashed } = hashed;
     void version;
-    void id;
-    return rootHashed;
+    return { ...rootHashed, id: `root:${n.name}` };
   });
-  const images = [...body.images].sort(compareStackImages).map((i) => {
-    const { evidenceRef, ...hashed } = i;
-    void evidenceRef;
-    return hashed;
-  });
+  // order by the HASHED form, never by a quarantined field (the root's version must not decide
+  // where the root sorts among same-named nodes)
+  const nodes = hashedNodes
+    .map((h) => ({ h, k: stableStringify(h) }))
+    .sort((x, y) => cmp(x.k, y.k))
+    .map((x) => x.h);
+  // strip FIRST, sort AFTER: a quarantined field must not decide the hashed ORDER either
+  const images = body.images
+    .map((i) => {
+      const { evidenceRef, ...hashed } = i;
+      void evidenceRef;
+      return hashed;
+    })
+    .map((h) => ({ h, k: stableStringify(h) }))
+    .sort((a, b) => cmp(a.k, b.k))
+    .map((x) => x.h);
   const unmodeled = [...body.unmodeled].sort(compareStackUnmodeled);
-  const rootDeclared = [...body.rootDeclared].sort(compareStackRootDeclared);
-  return { schemaVersion: '1', kind: 'StackManifest', nodes, runtime: body.runtime, images, rootDeclared, unmodeled };
+  return { schemaVersion: '1', kind: 'StackManifest', nodes, runtime: body.runtime, images, unmodeled };
 }
 
 /** `stackDigest = sha256(stableStringify(hashedView))` — the same formula the evidence record uses. */
@@ -357,7 +350,6 @@ export function finalizeStackManifest(body: StackManifestBody): StackManifest {
     nodes: [...body.nodes].sort(compareStackNodes).map((n) => ({ ...n, layout: [...n.layout].sort() })),
     edges: [...body.edges].sort(compareStackEdges),
     images: [...body.images].sort(compareStackImages),
-    rootDeclared: [...body.rootDeclared].sort(compareStackRootDeclared),
     unmodeled: [...body.unmodeled].sort(compareStackUnmodeled),
     coverage: { ...body.coverage, unsupported: [...new Set(body.coverage.unsupported)].sort() },
   };

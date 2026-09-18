@@ -111,7 +111,6 @@ export {
   StackSourceSchema,
   StackCoverageSchema,
   StackUnmodeledSchema,
-  StackRootDeclaredSchema,
   finalizeStackManifest,
   parseStackManifest,
   verifyStackManifest,
@@ -136,7 +135,6 @@ export type {
   StackSource,
   StackCoverage,
   StackUnmodeled,
-  StackRootDeclared,
   StackHashedView,
   StackManifestVerification,
 } from './stack/stack-manifest.js';

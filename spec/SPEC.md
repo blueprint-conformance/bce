@@ -706,26 +706,30 @@ cannot verify.)
 
 **`stackDigest`** = SHA-256 over the canonical serialization (§11 rules) of the **HASHED VIEW**:
 `schemaVersion`, `kind`, `nodes[]` (every field except `layout`), `runtime`, `images[]` (every field
-except `evidenceRef` — a comment line above a `FROM` must not re-key), `rootDeclared[]`,
-`unmodeled[]`.
+except `evidenceRef`; the hashed images are ordered by their own serialized form AFTER that field
+is removed, so neither a comment line above a `FROM` nor moving a Dockerfile re-keys), `unmodeled[]`.
 **Quarantined out** and present only in the manifest: `ctRepoRevision` (two revisions with the same
 closure share a digest — the join key), `sources[].sha256` (a re-serialized lockfile is the same
 closure), `edges` (a function of the node set plus the resolver walk), `coverage`, `stackId`
 (`stack:` + the first 12 hex) and `manifestDigest` (SHA-256 over the manifest minus itself — tamper
-detection of the file). **The root package** is hashed as `kind` + `name` +
-`root:true` only: its own `version` (and the `id` that embeds it) is quarantined, because a release
-bump of the repository is not a change of its dependency closure — two revisions with the same
-closure share a digest whatever the package calls itself that day. The root `name` stays hashed (a
-renamed fork is a different stack subject), and the ranges the root DECLARES
-(`dependencies` / `devDependencies` / `optionalDependencies` / `peerDependencies` of `packages[""]`)
-are hashed as `rootDeclared[]` — declared closure intent — while ranges declared by non-root
-packages live only in the quarantined `edges`.
+detection of the file). **The root package's own `version` is quarantined.** In the hashed view the root node carries no
+`version` and its `id` is `root:<name>` (the manifest keeps the real `npm:<name>@<version>` for
+display), on every root-identity path — the lockfile root entry, the top-level fallback, the
+defaulted identity. A release bump of the repository is not a change of its dependency closure:
+two revisions with the same closure share a digest whatever the package calls its version that
+day. The root `name` stays hashed (a renamed fork is a different stack subject). A non-root package
+that happens to share the root's name is an ordinary node with a hashed version. **Declared ranges
+never move the digest** — root or not: the digest names the RESOLVED closure, ranges live in the
+quarantined `edges`, and a range-only edit is visible there (a diff reports it as spec-changed).
 
 **Fail-closed** (exit **2**, nothing written): no lockfile; only `pnpm-lock.yaml` / `yarn.lock`
 (fixed refusal strings); malformed JSON; `lockfileVersion` ≠ 3; a **hollow** v3 lockfile (no
-`packages` map, no root entry, or nothing beyond the root — a manifest with only the root node is
-never a green stack); a **malformed entry** (not an object, or no string version); any symbolic
-link among the sources. `FROM ${ARG}` bases and `${VAR}` compose refs are coverage lines, never
+`packages` map, no root entry, or NOTHING beyond the root — a closure with no node and no unmodeled
+entry beyond the root is never a green stack; a root plus only opaque entries IS accepted, because
+those entries are hashed); a **malformed entry** (not an object, or a missing / empty / non-string
+version); any symbolic link among the sources, including a symlinked directory whose first level
+holds a Dockerfile or compose file (other symlinked directories are not walked and are declared in
+coverage). `FROM ${ARG}` bases and `${VAR}` compose refs are coverage lines, never
 fabricated nodes. `images[].resolved` is always `false` in this slice: tag→digest resolution is a
 separate verb that writes a proposal, never a manifest field.
 

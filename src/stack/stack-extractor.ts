@@ -35,7 +35,6 @@ import {
   type StackManifestBody,
   type StackNode,
   type StackRuntime,
-  type StackRootDeclared,
   type StackSource,
   type StackUnmodeled,
 } from './stack-manifest.js';
@@ -63,7 +62,7 @@ export function stackRefusalSymlink(rel: string): string {
 }
 /** A v3 lockfile with no usable `packages` map. */
 export function stackRefusalHollowLockfile(rel: string, why: string): string {
-  return `lockfile '${rel}' is hollow (${why}): a manifest with only the root node is never a green stack; no stack facts extracted`;
+  return `lockfile '${rel}' is hollow (${why}): a closure with no node and no unmodeled entry beyond the root is never a green stack; no stack facts extracted`;
 }
 /** A lockfile entry that is not an object or carries a non-string version. */
 export function stackRefusalMalformedEntry(rel: string, key: string): string {
@@ -163,8 +162,6 @@ export interface ParsedLockfile {
   nodes: StackNode[];
   edges: StackEdge[];
   unmodeled: StackUnmodeled[];
-  /** the ranges the root package declares — hashed closure intent */
-  rootDeclared: StackRootDeclared[];
   unsupported: string[];
   /** lockfile keys whose entry is not an object / has no string version — a REFUSAL, never a skip */
   malformed: string[];
@@ -206,17 +203,16 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
   const unsupported = new Set<string>();
   const malformed: string[] = [];
   const unmodeled: StackUnmodeled[] = [];
-  const rootDeclared: StackRootDeclared[] = [];
   if (!isRecord(lock.packages)) {
-    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, hollow: "no 'packages' map" };
+    return { nodes: [], edges: [], unmodeled, unsupported: [], malformed, hollow: "no 'packages' map" };
   }
   const packages = lock.packages;
   const keys = Object.keys(packages).sort();
   if (!keys.includes('')) {
-    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, hollow: "no root '' entry in 'packages'" };
+    return { nodes: [], edges: [], unmodeled, unsupported: [], malformed, hollow: "no root '' entry in 'packages'" };
   }
   if (keys.length === 1) {
-    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, hollow: 'no package beyond the root' };
+    return { nodes: [], edges: [], unmodeled, unsupported: [], malformed, hollow: 'no package beyond the root' };
   }
   const entries: LockEntry[] = [];
   for (const k of keys) {
@@ -260,13 +256,10 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
         resolvedWhenUnpinned: null,
         layout: [''],
       };
-      for (const group of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const) {
-        const map = isRecord(raw[group]) ? (raw[group] as Record<string, unknown>) : {};
-        for (const dep of Object.keys(map).sort()) rootDeclared.push({ name: dep, spec: asString(map[dep]) ?? '', group });
-      }
       byIdentity.set('root', node);
+      // the root id is NOT reserved: a non-root node must never get a suffix that depends on the
+      // root's (quarantined) version — a collision re-ids the ROOT instead, after the loop.
       idByPath.set('', node.id);
-      idsTaken.set(node.id, 'root');
       continue;
     }
     const pathName = npmNameFromLockPath(p);
@@ -296,7 +289,7 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
       unsupported.add(`non-ASCII package name at ${p}: not modeled (npm registry names are ASCII)`);
       continue;
     }
-    if (version === null) {
+    if (version === null || version === '') {
       malformed.push(p);
       continue;
     }
@@ -355,6 +348,15 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
     idByPath.set(p, node.id);
   }
 
+  const rootNode = byIdentity.get('root');
+  if (rootNode && idsTaken.has(rootNode.id)) {
+    // a non-root package shares the root's name@version: the ROOT's display id yields (its hashed
+    // id is `root:<name>` regardless), so the twin's hashed identity never depends on the root version
+    unsupported.add(`id collision on ${rootNode.id} (a non-root package shares the root's name and version): root id suffixed`);
+    rootNode.id = `${rootNode.id}+root`;
+    idByPath.set('', rootNode.id);
+  }
+
   // edges: nearest-ancestor node_modules walk, exactly npm's resolution
   const edges: StackEdge[] = [];
   const seenEdges = new Set<string>();
@@ -400,7 +402,7 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
     }
   }
 
-  return { nodes: [...byIdentity.values()], edges, unmodeled, rootDeclared, unsupported: [...unsupported], malformed, hollow: null };
+  return { nodes: [...byIdentity.values()], edges, unmodeled, unsupported: [...unsupported], malformed, hollow: null };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -551,10 +553,11 @@ function isComposeName(base: string): boolean {
 }
 
 /** Bounded, sorted walk for Dockerfiles + compose files (depth ≤ 3, build/dep dirs excluded). */
-export function findImageFiles(root: string): { dockerfiles: string[]; composeFiles: string[]; symlinks: string[]; depthCut: boolean } {
+export function findImageFiles(root: string): { dockerfiles: string[]; composeFiles: string[]; symlinks: string[]; symlinkedDirs: string[]; depthCut: boolean } {
   const dockerfiles: string[] = [];
   const composeFiles: string[] = [];
   const symlinks: string[] = [];
+  const symlinkedDirs: string[] = [];
   let depthCut = false;
   const walk = (dir: string, rel: string, depth: number): void => {
     let entries: fs.Dirent[];
@@ -573,8 +576,23 @@ export function findImageFiles(root: string): { dockerfiles: string[]; composeFi
         }
         walk(path.join(dir, e.name), r, depth + 1);
       } else if (e.isSymbolicLink()) {
-        // never followed; a symlinked image file is a refusal, a symlinked directory is simply not walked
-        if (isDockerfileName(e.name) || isComposeName(e.name)) symlinks.push(r);
+        // never followed. A symlinked image FILE is a refusal. A symlinked DIRECTORY is not walked:
+        // it is always declared in coverage, and refused when its first level (names only — no file
+        // is read) holds an image file, exactly like the file-level rule.
+        if (isDockerfileName(e.name) || isComposeName(e.name)) {
+          symlinks.push(r);
+        } else if (!IMAGE_FILE_EXCLUDE.has(e.name)) {
+          let names: string[] | null = null;
+          try {
+            if (fs.statSync(path.join(dir, e.name)).isDirectory()) names = fs.readdirSync(path.join(dir, e.name)).sort();
+          } catch {
+            names = null;
+          }
+          if (names !== null) {
+            symlinkedDirs.push(r);
+            for (const nm of names) if (isDockerfileName(nm) || isComposeName(nm)) symlinks.push(`${r}/${nm}`);
+          }
+        }
       } else if (e.isFile()) {
         if (isDockerfileName(e.name)) dockerfiles.push(r);
         else if (isComposeName(e.name)) composeFiles.push(r);
@@ -582,7 +600,7 @@ export function findImageFiles(root: string): { dockerfiles: string[]; composeFi
     }
   };
   walk(root, '', 0);
-  return { dockerfiles: dockerfiles.sort(), composeFiles: composeFiles.sort(), symlinks: symlinks.sort(), depthCut };
+  return { dockerfiles: dockerfiles.sort(), composeFiles: composeFiles.sort(), symlinks: symlinks.sort(), symlinkedDirs: symlinkedDirs.sort(), depthCut };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -610,7 +628,6 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
     const edges: StackEdge[] = [];
     const images: StackImage[] = [];
     const unmodeled: StackUnmodeled[] = [];
-    const rootDeclared: StackRootDeclared[] = [];
     const unsupported = new Set<string>([STACK_COVERAGE_DECLARED_NOT_INSTALLED]);
     const refusals: string[] = [];
     let filesScanned = 0;
@@ -688,7 +705,6 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       for (const n of derived.nodes) nodes.push(n);
       for (const e of derived.edges) edges.push(e);
       for (const u of derived.unmodeled) unmodeled.push(u);
-      for (const d of derived.rootDeclared) rootDeclared.push(d);
       for (const u of derived.unsupported) unsupported.add(u);
       lockParsed = true;
     }
@@ -766,7 +782,8 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
     }
 
     // ---- images: Dockerfile FROM + compose image: ----
-    const { dockerfiles, composeFiles, symlinks, depthCut } = findImageFiles(repoDir);
+    const { dockerfiles, composeFiles, symlinks, symlinkedDirs, depthCut } = findImageFiles(repoDir);
+    for (const rel of symlinkedDirs) unsupported.add(`symlinked directory '${rel}' is not walked for image files`);
     for (const rel of symlinks) refuse(stackRefusalSymlink(rel));
     if (depthCut) unsupported.add(STACK_COVERAGE_IMAGE_WALK_DEPTH);
     const imageNodeIds = new Set<string>();
@@ -806,7 +823,6 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       edges,
       runtime,
       images,
-      rootDeclared,
       unmodeled,
       coverage: { unsupported: [...unsupported], filesScanned },
     };
