@@ -23,7 +23,7 @@
  * hashed: the digest names the RESOLVED closure; ranges live in the quarantined `edges`.
  * QUARANTINED OUT of the digest (present in the manifest, never hashed):
  *   ctRepoRevision (same closure at two revisions ⇒ same digest), sources[].sha256 (whitespace /
- *   key-order churn of the lockfile must not move the digest), edges (a pure function of the node
+ *   key-order churn of the lockfile must not move the digest), rootDeclared (declared ranges), edges (a pure function of the node
  *   set + the resolver walk — hashing them adds resolver surface, no executable information),
  *   coverage, stackId, manifestDigest. Nothing read from the network, the platform, the machine's
  *   npm/node version, the wall-clock or file mtimes ever enters the view.
@@ -169,6 +169,20 @@ export const StackUnmodeledSchema = z
   .strict();
 export type StackUnmodeled = z.infer<typeof StackUnmodeledSchema>;
 
+/**
+ * One dependency range DECLARED by the root package (`packages[""]`). QUARANTINED — never hashed:
+ * the digest names the RESOLVED closure, and a range-only edit with identical resolved nodes leaves
+ * the running stack identical. Kept in the manifest as the source for a diff's spec-changed rows.
+ */
+export const StackRootDeclaredSchema = z
+  .object({
+    name: z.string().min(1),
+    spec: z.string(),
+    group: z.enum(['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']),
+  })
+  .strict();
+export type StackRootDeclared = z.infer<typeof StackRootDeclaredSchema>;
+
 export const StackCoverageSchema = z
   .object({
     /** every fidelity limit and every refused input, as fixed strings — never claim full coverage */
@@ -195,6 +209,8 @@ export const StackManifestSchema = z
     runtime: StackRuntimeSchema,
     /** sorted by (ref, evidenceRef) */
     images: z.array(StackImageSchema),
+    /** sorted by (group, name) — NOT in the digest: the ranges the root package declares */
+    rootDeclared: z.array(StackRootDeclaredSchema),
     /** sorted by key — HASHED opaque nodes for every lockfile entry slice 1 cannot model */
     unmodeled: z.array(StackUnmodeledSchema),
     coverage: StackCoverageSchema,
@@ -218,6 +234,7 @@ export const STACK_QUARANTINED_KEYS = Object.freeze([
   'ctRepoRevision',
   'sources',
   'edges',
+  'rootDeclared',
   'coverage',
   'stackId',
   'manifestDigest',
@@ -250,6 +267,10 @@ export function compareStackSources(a: StackSource, b: StackSource): number {
 
 export function compareStackImages(a: StackImage, b: StackImage): number {
   return cmp(a.ref, b.ref) || cmp(a.evidenceRef, b.evidenceRef);
+}
+
+export function compareStackRootDeclared(a: StackRootDeclared, b: StackRootDeclared): number {
+  return cmp(a.group, b.group) || cmp(a.name, b.name);
 }
 
 export function compareStackUnmodeled(a: StackUnmodeled, b: StackUnmodeled): number {
@@ -350,6 +371,7 @@ export function finalizeStackManifest(body: StackManifestBody): StackManifest {
     nodes: [...body.nodes].sort(compareStackNodes).map((n) => ({ ...n, layout: [...n.layout].sort() })),
     edges: [...body.edges].sort(compareStackEdges),
     images: [...body.images].sort(compareStackImages),
+    rootDeclared: [...body.rootDeclared].sort(compareStackRootDeclared),
     unmodeled: [...body.unmodeled].sort(compareStackUnmodeled),
     coverage: { ...body.coverage, unsupported: [...new Set(body.coverage.unsupported)].sort() },
   };

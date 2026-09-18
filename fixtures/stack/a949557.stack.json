@@ -5427,7 +5427,7 @@
   ],
   "images": [],
   "kind": "StackManifest",
-  "manifestDigest": "25e720b230703054310af50a4af4a2630979aa55506832fc9f5644196d3d844b",
+  "manifestDigest": "e82b82af64a8eab76ea5ac033c37c10d924624a105ddd4aaa81d4cd93ba853b7",
   "nodes": [
     {
       "dev": false,
@@ -14802,6 +14802,78 @@
       "resolvedWhenUnpinned": null,
       "root": false,
       "version": "3.25.2"
+    }
+  ],
+  "rootDeclared": [
+    {
+      "group": "dependencies",
+      "name": "@lezer/common",
+      "spec": "1.5.2"
+    },
+    {
+      "group": "dependencies",
+      "name": "@lezer/python",
+      "spec": "1.1.19"
+    },
+    {
+      "group": "dependencies",
+      "name": "ts-morph",
+      "spec": "28.0.0"
+    },
+    {
+      "group": "dependencies",
+      "name": "zod",
+      "spec": "4.6.5"
+    },
+    {
+      "group": "devDependencies",
+      "name": "@modelcontextprotocol/inspector",
+      "spec": "2.5.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "@sigstore/cli",
+      "spec": "0.10.3"
+    },
+    {
+      "group": "devDependencies",
+      "name": "@types/node",
+      "spec": "^22.5.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "ajv",
+      "spec": "^8.20.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "rimraf",
+      "spec": "^6.0.1"
+    },
+    {
+      "group": "devDependencies",
+      "name": "tsup",
+      "spec": "^8.3.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "tsx",
+      "spec": "^4.19.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "typescript",
+      "spec": "7.0.2"
+    },
+    {
+      "group": "devDependencies",
+      "name": "vitest",
+      "spec": "^5.0.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "zod-to-json-schema",
+      "spec": "^3.25.2"
     }
   ],
   "runtime": {

@@ -710,7 +710,8 @@ except `evidenceRef`; the hashed images are ordered by their own serialized form
 is removed, so neither a comment line above a `FROM` nor moving a Dockerfile re-keys), `unmodeled[]`.
 **Quarantined out** and present only in the manifest: `ctRepoRevision` (two revisions with the same
 closure share a digest — the join key), `sources[].sha256` (a re-serialized lockfile is the same
-closure), `edges` (a function of the node set plus the resolver walk), `coverage`, `stackId`
+closure), `edges` (a function of the node set plus the resolver walk), `rootDeclared` (declared
+ranges), `coverage`, `stackId`
 (`stack:` + the first 12 hex) and `manifestDigest` (SHA-256 over the manifest minus itself — tamper
 detection of the file). **The root package's own `version` is quarantined.** In the hashed view the root node carries no
 `version` and its `id` is `root:<name>` (the manifest keeps the real `npm:<name>@<version>` for
@@ -720,7 +721,9 @@ two revisions with the same closure share a digest whatever the package calls it
 day. The root `name` stays hashed (a renamed fork is a different stack subject). A non-root package
 that happens to share the root's name is an ordinary node with a hashed version. **Declared ranges
 never move the digest** — root or not: the digest names the RESOLVED closure, ranges live in the
-quarantined `edges`, and a range-only edit is visible there (a diff reports it as spec-changed).
+quarantined `edges` and, for the root package, in the quarantined manifest field
+`rootDeclared[] {name, spec, group}` — a range-only edit with identical resolved nodes leaves the
+running stack identical, so it is visible there (a diff reports it as spec-changed) and never re-keys.
 
 **Fail-closed** (exit **2**, nothing written): no lockfile; only `pnpm-lock.yaml` / `yarn.lock`
 (fixed refusal strings); malformed JSON; `lockfileVersion` ≠ 3; a **hollow** v3 lockfile (no

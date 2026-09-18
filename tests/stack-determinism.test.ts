@@ -194,6 +194,7 @@ describe('stack slice 1 — the HASHED VIEW quarantine', () => {
     expect(computeStackDigest({ ...golden, ctRepoRevision: 'f'.repeat(40) })).toBe(base);
     expect(computeStackDigest({ ...golden, sources: golden.sources.map((s) => ({ ...s, sha256: '0'.repeat(64) })) })).toBe(base);
     expect(computeStackDigest({ ...golden, edges: [] })).toBe(base);
+    expect(computeStackDigest({ ...golden, rootDeclared: [] })).toBe(base);
     expect(computeStackDigest({ ...golden, coverage: { unsupported: [], filesScanned: 0 } })).toBe(base);
     expect(computeStackDigest({ ...golden, nodes: golden.nodes.map((n) => ({ ...n, layout: ['elsewhere'] })) })).toBe(base);
   });
@@ -708,6 +709,9 @@ describe('stack slice 1 — the root package: its OWN version is quarantined; de
       (p['node_modules/a']!.dependencies as Record<string, string>).c = '>=1.0.0';
     })).manifest;
     expect(m.stackDigest).toBe(BASE_DIGEST);
+    expect(m.nodes).toEqual(extractSynth(baseLock()).manifest.nodes); // identical resolved nodes
+    expect(m.rootDeclared).toContainEqual({ name: 'a', spec: '^1.0.0 || ^2.0.0', group: 'dependencies' });
+    expect((stackHashedView(m) as unknown as Record<string, unknown>).rootDeclared).toBeUndefined();
     expect(m.edges).toContainEqual({ from: 'npm:r@1.0.0', to: 'npm:a@1.0.0', spec: '^1.0.0 || ^2.0.0', dev: false, optional: false, peer: false });
     expect(m.edges.find((e) => e.from === 'npm:a@1.0.0' && e.to === 'npm:c@1.0.0')?.spec).toBe('>=1.0.0');
   });
