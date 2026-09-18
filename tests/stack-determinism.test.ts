@@ -658,6 +658,43 @@ describe('stack slice 1 — an entry the extractor cannot model is an OPAQUE HAS
   });
 });
 
+describe('stack slice 1 — the root package: its OWN version is quarantined, its DECLARED ranges are hashed', () => {
+  it('bumping ONLY the root version (lockfile + package.json) does NOT move the digest — a release is not a closure change', () => {
+    const d = copyTree('root-bump');
+    const lock = readLock(d);
+    lock.version = '9.9.9';
+    (lock.packages as Record<string, Record<string, unknown>>)['']!.version = '9.9.9';
+    fs.writeFileSync(path.join(d, 'npm-shrinkwrap.json'), `${JSON.stringify(lock, null, 2)}\n`);
+    const pkg = JSON.parse(fs.readFileSync(path.join(d, 'package.json'), 'utf8')) as Record<string, unknown>;
+    pkg.version = '9.9.9';
+    fs.writeFileSync(path.join(d, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
+    const r = extractStackManifest(d, SEED_COMMIT);
+    expect(r.manifest.nodes.find((n) => n.root)?.id).toBe('npm:bce-engine@9.9.9'); // still shown in the manifest…
+    expect(r.manifest.stackDigest).toBe(golden.stackDigest); // …never in the identity
+    const rootView = stackHashedView(r.manifest).nodes.find((n) => n.root) as unknown as Record<string, unknown>;
+    expect(rootView.version).toBeUndefined();
+    expect(rootView.id).toBeUndefined();
+    expect(rootView.name).toBe('bce-engine');
+  });
+
+  it('renaming the root package DOES move the digest (a renamed fork is a different subject)', () => {
+    const m = extractSynth({ ...baseLock(), packages: { ...baseLock().packages, '': { ...baseLock().packages['']!, name: 'forked' } } }).manifest;
+    expect(m.stackDigest).not.toBe(BASE_DIGEST);
+  });
+
+  it('a root-declared range change with the SAME resolved node moves the digest (declared closure intent)', () => {
+    const m = extractSynth(mutated((p) => { (p['']!.dependencies as Record<string, string>).a = '^1.0.0 || ^2.0.0'; })).manifest;
+    expect(m.nodes).toEqual(extractSynth(baseLock()).manifest.nodes); // nothing resolved differently
+    expect(m.rootDeclared).toContainEqual({ name: 'a', spec: '^1.0.0 || ^2.0.0', group: 'dependencies' });
+    expect(m.stackDigest).not.toBe(BASE_DIGEST);
+  });
+
+  it('a NON-root range change with the same resolution stays digest-neutral (edges are quarantined)', () => {
+    const m = extractSynth(mutated((p) => { (p['node_modules/a']!.dependencies as Record<string, string>).c = '>=1.0.0'; })).manifest;
+    expect(m.stackDigest).toBe(BASE_DIGEST);
+  });
+});
+
 describe('stack slice 1 — lockfile precedence and symlink refusal', () => {
   it('npm-shrinkwrap.json wins over package-lock.json (npm\'s rule): the digest is the shrinkwrap\'s, with a coverage line', () => {
     const other = mutated((p) => { p['node_modules/a']!.version = '9.9.9'; });

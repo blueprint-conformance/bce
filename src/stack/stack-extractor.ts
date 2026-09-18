@@ -35,6 +35,7 @@ import {
   type StackManifestBody,
   type StackNode,
   type StackRuntime,
+  type StackRootDeclared,
   type StackSource,
   type StackUnmodeled,
 } from './stack-manifest.js';
@@ -162,6 +163,8 @@ export interface ParsedLockfile {
   nodes: StackNode[];
   edges: StackEdge[];
   unmodeled: StackUnmodeled[];
+  /** the ranges the root package declares — hashed closure intent */
+  rootDeclared: StackRootDeclared[];
   unsupported: string[];
   /** lockfile keys whose entry is not an object / has no string version — a REFUSAL, never a skip */
   malformed: string[];
@@ -203,16 +206,17 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
   const unsupported = new Set<string>();
   const malformed: string[] = [];
   const unmodeled: StackUnmodeled[] = [];
+  const rootDeclared: StackRootDeclared[] = [];
   if (!isRecord(lock.packages)) {
-    return { nodes: [], edges: [], unmodeled, unsupported: [], malformed, hollow: "no 'packages' map" };
+    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, hollow: "no 'packages' map" };
   }
   const packages = lock.packages;
   const keys = Object.keys(packages).sort();
   if (!keys.includes('')) {
-    return { nodes: [], edges: [], unmodeled, unsupported: [], malformed, hollow: "no root '' entry in 'packages'" };
+    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, hollow: "no root '' entry in 'packages'" };
   }
   if (keys.length === 1) {
-    return { nodes: [], edges: [], unmodeled, unsupported: [], malformed, hollow: 'no package beyond the root' };
+    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, hollow: 'no package beyond the root' };
   }
   const entries: LockEntry[] = [];
   for (const k of keys) {
@@ -256,6 +260,10 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
         resolvedWhenUnpinned: null,
         layout: [''],
       };
+      for (const group of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const) {
+        const map = isRecord(raw[group]) ? (raw[group] as Record<string, unknown>) : {};
+        for (const dep of Object.keys(map).sort()) rootDeclared.push({ name: dep, spec: asString(map[dep]) ?? '', group });
+      }
       byIdentity.set('root', node);
       idByPath.set('', node.id);
       idsTaken.set(node.id, 'root');
@@ -392,7 +400,7 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
     }
   }
 
-  return { nodes: [...byIdentity.values()], edges, unmodeled, unsupported: [...unsupported], malformed, hollow: null };
+  return { nodes: [...byIdentity.values()], edges, unmodeled, rootDeclared, unsupported: [...unsupported], malformed, hollow: null };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -602,6 +610,7 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
     const edges: StackEdge[] = [];
     const images: StackImage[] = [];
     const unmodeled: StackUnmodeled[] = [];
+    const rootDeclared: StackRootDeclared[] = [];
     const unsupported = new Set<string>([STACK_COVERAGE_DECLARED_NOT_INSTALLED]);
     const refusals: string[] = [];
     let filesScanned = 0;
@@ -679,6 +688,7 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       for (const n of derived.nodes) nodes.push(n);
       for (const e of derived.edges) edges.push(e);
       for (const u of derived.unmodeled) unmodeled.push(u);
+      for (const d of derived.rootDeclared) rootDeclared.push(d);
       for (const u of derived.unsupported) unsupported.add(u);
       lockParsed = true;
     }
@@ -796,6 +806,7 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       edges,
       runtime,
       images,
+      rootDeclared,
       unmodeled,
       coverage: { unsupported: [...unsupported], filesScanned },
     };

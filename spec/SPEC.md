@@ -706,13 +706,20 @@ cannot verify.)
 
 **`stackDigest`** = SHA-256 over the canonical serialization (§11 rules) of the **HASHED VIEW**:
 `schemaVersion`, `kind`, `nodes[]` (every field except `layout`), `runtime`, `images[]` (every field
-except `evidenceRef` — a comment line above a `FROM` must not re-key), `unmodeled[]`.
+except `evidenceRef` — a comment line above a `FROM` must not re-key), `rootDeclared[]`,
+`unmodeled[]`.
 **Quarantined out** and present only in the manifest: `ctRepoRevision` (two revisions with the same
 closure share a digest — the join key), `sources[].sha256` (a re-serialized lockfile is the same
 closure), `edges` (a function of the node set plus the resolver walk), `coverage`, `stackId`
 (`stack:` + the first 12 hex) and `manifestDigest` (SHA-256 over the manifest minus itself — tamper
-detection of the file). Known limit: the ROOT package is a hashed node, so a release that bumps the
-repository's own `version` re-keys the digest even when every dependency is unchanged.
+detection of the file). **The root package** is hashed as `kind` + `name` +
+`root:true` only: its own `version` (and the `id` that embeds it) is quarantined, because a release
+bump of the repository is not a change of its dependency closure — two revisions with the same
+closure share a digest whatever the package calls itself that day. The root `name` stays hashed (a
+renamed fork is a different stack subject), and the ranges the root DECLARES
+(`dependencies` / `devDependencies` / `optionalDependencies` / `peerDependencies` of `packages[""]`)
+are hashed as `rootDeclared[]` — declared closure intent — while ranges declared by non-root
+packages live only in the quarantined `edges`.
 
 **Fail-closed** (exit **2**, nothing written): no lockfile; only `pnpm-lock.yaml` / `yarn.lock`
 (fixed refusal strings); malformed JSON; `lockfileVersion` ≠ 3; a **hollow** v3 lockfile (no

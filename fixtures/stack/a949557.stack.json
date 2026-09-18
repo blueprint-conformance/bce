@@ -5427,7 +5427,7 @@
   ],
   "images": [],
   "kind": "StackManifest",
-  "manifestDigest": "dd4b252339df7097c48bce00840faf49f956118c2fb606d2ff4b267f2fc6db11",
+  "manifestDigest": "1ee9236cb83c026b60c104fe6fe00af8bfc3e4faee7468e03732dcd3f9bb87c0",
   "nodes": [
     {
       "dev": false,
@@ -14804,6 +14804,78 @@
       "version": "3.25.2"
     }
   ],
+  "rootDeclared": [
+    {
+      "group": "dependencies",
+      "name": "@lezer/common",
+      "spec": "1.5.2"
+    },
+    {
+      "group": "dependencies",
+      "name": "@lezer/python",
+      "spec": "1.1.19"
+    },
+    {
+      "group": "dependencies",
+      "name": "ts-morph",
+      "spec": "28.0.0"
+    },
+    {
+      "group": "dependencies",
+      "name": "zod",
+      "spec": "4.6.5"
+    },
+    {
+      "group": "devDependencies",
+      "name": "@modelcontextprotocol/inspector",
+      "spec": "2.5.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "@sigstore/cli",
+      "spec": "0.10.3"
+    },
+    {
+      "group": "devDependencies",
+      "name": "@types/node",
+      "spec": "^22.5.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "ajv",
+      "spec": "^8.20.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "rimraf",
+      "spec": "^6.0.1"
+    },
+    {
+      "group": "devDependencies",
+      "name": "tsup",
+      "spec": "^8.3.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "tsx",
+      "spec": "^4.19.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "typescript",
+      "spec": "7.0.2"
+    },
+    {
+      "group": "devDependencies",
+      "name": "vitest",
+      "spec": "^5.0.0"
+    },
+    {
+      "group": "devDependencies",
+      "name": "zod-to-json-schema",
+      "spec": "^3.25.2"
+    }
+  ],
   "runtime": {
     "node": {
       "declared": "22",
@@ -14829,7 +14901,7 @@
       "sha256": "0a9006ec4f2f11597d7c43d4591ebc9984a644942c38610a8688d2ea2bc88a20"
     }
   ],
-  "stackDigest": "3251bd9fbd0557fcb2942f27becf7c01c8d693f4cb9ff12abf68c11e7cefebed",
-  "stackId": "stack:3251bd9fbd05",
+  "stackDigest": "28d0e5d9b7d87785ce19ec051e94d552df3dabd68e0ac3a893daea265bc0c1a6",
+  "stackId": "stack:28d0e5d9b7d8",
   "unmodeled": []
 }
