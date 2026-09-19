@@ -10,9 +10,12 @@
  * node: / relative, so this file carries a STRICT SUBSET reader for exactly the grammar pnpm's own
  * serializer emits: indentation-nested block mappings, block sequences of scalars, single-line flow
  * maps/sequences (`{integrity: …}`, `[darwin]`, `{}`), plain / single-quoted / double-quoted
- * scalars, and block scalars (kept opaque). Everything else YAML allows — anchors, aliases, tags,
+ * scalars, and block scalars (a distinct non-string value: inert in a `deprecated:` message, a
+ * `malformed` refusal in any identity position). Everything else YAML allows — anchors, aliases, tags, the merge key `<<`,
  * multi-document streams, complex keys, multi-line flow collections or quoted scalars, inline
- * comments, tab indentation, duplicate keys — is a HARD parse error carrying its line number. A
+ * comments, tab indentation, duplicate keys, block nesting deeper than 64 — is a HARD parse error
+ * carrying its line number. Plain `null` / `~` / an empty value is ABSENT (never the string "null")
+ * and plain `true` / `false` are booleans, exactly as a YAML parser types them. A
  * lockfile this reader cannot walk is REFUSED whole; it is never half-read into wrong identities.
  *
  * What pnpm-lock v9 does NOT record (stated in coverage on every pnpm manifest, never guessed):
@@ -63,7 +66,23 @@ export function stackRefusalPnpmSubset(line: number, reason: string): string {
 /* The subset reader                                                           */
 /* -------------------------------------------------------------------------- */
 
-export type PnpmYamlValue = string | PnpmYamlMap | PnpmYamlValue[];
+/**
+ * A PLAIN scalar the YAML core schema types as null (`null` / `Null` / `NULL` / `~` / an empty value)
+ * is `null` here — ABSENT, never the string "null" — and a plain `true` / `false` (any of the three
+ * core-schema spellings) is a boolean. A QUOTED scalar is always a string. Numbers stay strings
+ * (versions such as `9.0` must not be re-spelled by a float round-trip).
+ */
+export type PnpmYamlValue = string | boolean | null | PnpmBlockScalar | PnpmYamlMap | PnpmYamlValue[];
+
+/**
+ * A block scalar (`|`, `>`), kept as its raw body lines. It is deliberately NOT a string: this reader
+ * neither folds nor clips, so the text is not what a YAML parser would produce, and no identity
+ * position (`integrity`, `tarball`, `version`, `hash`, a dependency reference, `os` / `cpu`) accepts
+ * it — there it is a `malformed` refusal. Elsewhere (a multi-line `deprecated:` message) it is inert.
+ */
+export class PnpmBlockScalar {
+  constructor(readonly text: string) {}
+}
 /** A Map, never an object: lockfile keys are attacker-shaped strings (`__proto__`, `constructor`). */
 export type PnpmYamlMap = Map<string, PnpmYamlValue>;
 
@@ -92,7 +111,7 @@ function toLines(source: string): Line[] {
     if (full.trim() === '') continue;
     const lead = /^[ \t]*/.exec(full)?.[0] ?? '';
     if (lead.includes('\t')) throw new PnpmLockSubsetError(no, 'tab indentation');
-    const text = full.slice(lead.length).replace(/\s+$/, '');
+    const text = full.slice(lead.length).trimEnd(); // linear — a /\s+$/ replace is quadratic on interior whitespace
     if (text.startsWith('#')) continue;
     if (lead.length === 0 && (text === '---' || text.startsWith('--- ') || text === '...' || text.startsWith('%'))) {
       throw new PnpmLockSubsetError(no, 'document marker or directive (multi-document stream)');
@@ -143,6 +162,25 @@ function readQuoted(text: string, pos: number, lineNo: number): { value: string;
 }
 
 const PLAIN_FORBIDDEN_START = /^[&*!|>%@`?]/;
+/** Block nesting cap: a lockfile nests 5 deep; past this the reader refuses instead of recursing. */
+export const PNPM_LOCK_MAX_NESTING = 64;
+const YAML_NULL = new Set(['null', 'Null', 'NULL', '~']);
+const YAML_TRUE = new Set(['true', 'True', 'TRUE']);
+const YAML_FALSE = new Set(['false', 'False', 'FALSE']);
+
+/** Core-schema typing of a PLAIN (unquoted) scalar that already passed `checkPlain`. */
+function typePlain(value: string): string | boolean | null {
+  if (value === '' || YAML_NULL.has(value)) return null;
+  if (YAML_TRUE.has(value)) return true;
+  if (YAML_FALSE.has(value)) return false;
+  return value;
+}
+
+/** `<<` is the YAML 1.1 merge key: a real parser would splice another mapping in. Never stored, always refused. */
+function checkKey(key: string, lineNo: number): string {
+  if (key === '<<') throw new PnpmLockSubsetError(lineNo, "merge key '<<'");
+  return key;
+}
 
 function checkPlain(value: string, lineNo: number, what: string): string {
   if (value === '') return value;
@@ -185,6 +223,7 @@ function readFlow(text: string, pos: number, lineNo: number, depth: number): { v
         p = k + 1;
       }
       if (key === '') throw new PnpmLockSubsetError(lineNo, 'empty flow mapping key');
+      checkKey(key, lineNo);
       if (map.has(key)) throw new PnpmLockSubsetError(lineNo, `duplicate key '${key}'`);
       const v = readFlow(text, p, lineNo, depth + 1);
       map.set(key, v.value);
@@ -220,7 +259,7 @@ function readFlow(text: string, pos: number, lineNo: number, depth: number): { v
   while (e < text.length && text[e] !== ',' && text[e] !== '}' && text[e] !== ']') e++;
   const value = checkPlain(text.slice(p, e).trim(), lineNo, 'flow scalar');
   if (value === '') throw new PnpmLockSubsetError(lineNo, 'empty flow scalar');
-  return { value, end: e };
+  return { value: typePlain(value), end: e };
 }
 
 class SubsetParser {
@@ -232,7 +271,7 @@ class SubsetParser {
     const first = this.lines[0]!;
     if (first.indent !== 0) throw new PnpmLockSubsetError(first.no, 'document does not start at column 0');
     if (first.text.startsWith('- ') || first.text === '-') throw new PnpmLockSubsetError(first.no, 'top-level sequence (a lockfile is a mapping)');
-    const doc = this.parseMap(0);
+    const doc = this.parseMap(0, 0);
     const rest = this.lines[this.i];
     if (rest) throw new PnpmLockSubsetError(rest.no, 'inconsistent indentation');
     return doc;
@@ -242,7 +281,7 @@ class SubsetParser {
     return this.lines[this.i];
   }
 
-  private parseMap(indent: number): PnpmYamlMap {
+  private parseMap(indent: number, depth: number): PnpmYamlMap {
     const map: PnpmYamlMap = new Map();
     for (;;) {
       const line = this.peek();
@@ -250,10 +289,12 @@ class SubsetParser {
       if (line.indent > indent) throw new PnpmLockSubsetError(line.no, 'inconsistent indentation');
       if (line.text.startsWith('- ') || line.text === '-') throw new PnpmLockSubsetError(line.no, 'sequence item inside a mapping');
       if (line.text.startsWith('? ') || line.text === '?') throw new PnpmLockSubsetError(line.no, 'complex mapping key');
+      if (depth > PNPM_LOCK_MAX_NESTING) throw new PnpmLockSubsetError(line.no, `block nesting deeper than ${PNPM_LOCK_MAX_NESTING}`);
       const { key, rest } = this.splitKey(line);
+      checkKey(key, line.no);
       if (map.has(key)) throw new PnpmLockSubsetError(line.no, `duplicate key '${key}'`);
       this.i++;
-      map.set(key, this.parseValue(rest, line));
+      map.set(key, this.parseValue(rest, line, depth));
     }
   }
 
@@ -273,15 +314,15 @@ class SubsetParser {
     return { key, rest: t.slice(k + 1).trim() };
   }
 
-  private parseValue(rest: string, line: Line): PnpmYamlValue {
+  private parseValue(rest: string, line: Line, depth: number): PnpmYamlValue {
     const next = this.peek();
     if (rest === '') {
       if (next && next.indent > line.indent) {
-        return next.text.startsWith('- ') || next.text === '-' ? this.parseSeq(next.indent) : this.parseMap(next.indent);
+        return next.text.startsWith('- ') || next.text === '-' ? this.parseSeq(next.indent) : this.parseMap(next.indent, depth + 1);
       }
       // YAML allows a block sequence at the SAME indentation as its key
       if (next && next.indent === line.indent && (next.text.startsWith('- ') || next.text === '-')) return this.parseSeq(next.indent);
-      return '';
+      return null; // an empty value is YAML null: ABSENT, never the string ''
     }
     const head = rest[0] ?? '';
     if (head === '|' || head === '>') {
@@ -293,7 +334,7 @@ class SubsetParser {
         body.push(l.text);
         this.i++;
       }
-      return body.join('\n'); // opaque: never folded, never read as an identity field
+      return new PnpmBlockScalar(body.join('\n')); // never a string: no identity position reads it
     }
     let value: PnpmYamlValue;
     if (head === '{' || head === '[' || head === "'" || head === '"') {
@@ -301,7 +342,7 @@ class SubsetParser {
       if (rest.slice(r.end).trim() !== '') throw new PnpmLockSubsetError(line.no, 'trailing content after a value (inline comment or multi-line collection)');
       value = r.value;
     } else {
-      value = checkPlain(rest, line.no, 'scalar');
+      value = typePlain(checkPlain(rest, line.no, 'scalar'));
     }
     if (next && next.indent > line.indent) throw new PnpmLockSubsetError(next.no, 'multi-line plain scalar or mis-indented entry');
     return value;
@@ -324,7 +365,7 @@ class SubsetParser {
         list.push(r.value);
       } else {
         if (/^[^\s'"]+:(\s|$)/.test(item)) throw new PnpmLockSubsetError(line.no, 'mapping inside a block sequence item');
-        list.push(checkPlain(item, line.no, 'sequence item'));
+        list.push(typePlain(checkPlain(item, line.no, 'sequence item')));
       }
       const next = this.peek();
       if (next && next.indent > indent) throw new PnpmLockSubsetError(next.no, 'multi-line sequence item');
@@ -367,8 +408,10 @@ export interface PnpmDerived {
 
 /** Canonical bytes of a parsed value: mapping keys sorted at every depth, so file order never matters. */
 export function canonicalPnpmValue(v: PnpmYamlValue | undefined): string {
-  if (v === undefined) return 'null';
+  if (v === undefined || v === null) return 'null';
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
   if (typeof v === 'string') return JSON.stringify(v);
+  if (v instanceof PnpmBlockScalar) return `|${JSON.stringify(v.text)}`;
   if (Array.isArray(v)) return `[${v.map(canonicalPnpmValue).join(',')}]`;
   return `{${[...v.keys()].sort().map((k) => `${JSON.stringify(k)}:${canonicalPnpmValue(v.get(k))}`).join(',')}}`;
 }
@@ -386,6 +429,10 @@ const isStr = (v: PnpmYamlValue | undefined): v is string => typeof v === 'strin
 const sortedKeys = (m: PnpmYamlMap): string[] => [...m.keys()].sort();
 
 const ASCII = /^[\x21-\x7e]+$/;
+/** The shape of a package NAME in a v9 key: `name` or `@scope/name`. A v6-style `/name@1.0.0` path key is not one. */
+const PACKAGE_NAME_SHAPE = /^(?:@[^\s/@]+\/)?[^\s/@]+$/;
+/** One SRI-style hash, the only form pnpm writes. Anything else in `resolution.integrity` names no bytes. */
+const INTEGRITY = /^(?:sha1|sha256|sha384|sha512)-[A-Za-z0-9+/]+={0,2}$/;
 /** A registry version. Anything else after `name@` (URL, `file:`, `link:`, git) has no locked registry identity. */
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
 
@@ -487,14 +534,28 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
   for (const key of sortedKeys(packages)) {
     const entry = packages.get(key);
     const parts = splitPnpmKey(key);
-    if (!parts || parts.pkgKey !== key || !isMap(entry)) {
+    if (!parts || parts.pkgKey !== key || !isMap(entry) || !PACKAGE_NAME_SHAPE.test(parts.name)) {
       malformed.push(`packages entry '${key}' (not a 'name@version' mapping)`);
+      refusedPkgKeys.add(key);
       continue;
     }
     const resolution = entry.get('resolution');
     const res: PnpmYamlMap = isMap(resolution) ? resolution : new Map();
     const resStr = (k: string): string | null => (isStr(res.get(k)) && res.get(k) !== '' ? (res.get(k) as string) : null);
     const integrity = resStr('integrity');
+    // present-but-unusable is a refusal; YAML null (or no key at all) is ABSENT and falls to the tarball rule below
+    const integrityRaw = res.get('integrity');
+    if (integrityRaw !== undefined && integrityRaw !== null && (integrity === null || !INTEGRITY.test(integrity))) {
+      malformed.push(`packages entry '${key}' (integrity is not a sha1-/sha256-/sha384-/sha512- hash)`);
+      refusedPkgKeys.add(key);
+      continue;
+    }
+    const badResField = ['tarball', 'repo', 'commit', 'directory', 'type'].find((f) => res.has(f) && res.get(f) !== null && !isStr(res.get(f)));
+    if ((resolution !== undefined && resolution !== null && !isMap(resolution)) || badResField !== undefined) {
+      malformed.push(`packages entry '${key}' (resolution${badResField ? `.${badResField}` : ''} is not ${badResField ? 'a string' : 'a mapping'})`);
+      refusedPkgKeys.add(key);
+      continue;
+    }
     const resolvedRaw = resStr('tarball') ?? (resStr('repo') && resStr('commit') ? `${resStr('repo')}#${resStr('commit')}` : null) ?? resStr('directory');
     const declaredVersion = isStr(entry.get('version')) ? (entry.get('version') as string) : null;
     if (!SEMVER.test(parts.version) || res.has('type') || res.has('directory') || res.has('repo')) {
@@ -514,18 +575,21 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     const id = stackNodeId('npm', parts.name, parts.version);
     if (id === rootNode.id) {
       malformed.push(`packages entry '${key}' (it carries the root package's own identity)`);
+      refusedPkgKeys.add(key);
       continue;
     }
     if (integrity === null && resolvedRaw === null) {
       malformed.push(`packages entry '${key}' (no integrity and no tarball to name it)`);
+      refusedPkgKeys.add(key);
       continue;
     }
     if (integrity === null) unsupported.add(`pnpm package '${key}' has no integrity: its tarball URL is hashed instead`);
     const strList = (field: string): string[] | null => {
       const v = entry.get(field);
       if (v === undefined) return null;
+      if (v === null) return null;
       if (Array.isArray(v) && v.every((x) => typeof x === 'string')) return [...(v as string[])].sort();
-      unsupported.add(`pnpm package '${key}': '${field}' is not a list of strings: ignored`);
+      malformed.push(`packages entry '${key}' ('${field}' is not a list of strings)`);
       return null;
     };
     const os = strList('os');
@@ -581,6 +645,11 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
       malformed.push(`snapshots entry '${key}' (no packages entry names it)`);
       continue;
     }
+    const snapEntry = snapshots.get(key);
+    if (snapEntry !== null && !isMap(snapEntry)) {
+      malformed.push(`snapshots entry '${key}' (not a mapping)`);
+      continue;
+    }
     node.layout.push(key);
     const list = snapshotKeysByPkgKey.get(pkgKey) ?? [];
     list.push(key);
@@ -597,7 +666,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
       continue;
     }
     // optional only when EVERY variant is optional — one required variant makes the package required
-    node.optional = keys.every((k) => snapshotMap(k).get('optional') === 'true');
+    node.optional = keys.every((k) => snapshotMap(k).get('optional') === true); // a real YAML true — the quoted string 'true' is not
   }
 
   /** Resolve a dependency reference to a snapshot key. `null` = no node (link:, refused, or missing). */
@@ -632,20 +701,34 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
   const seedsAll: string[] = [];
   for (const imp of sortedKeys(importers)) {
     const impMap = importers.get(imp);
-    if (!isMap(impMap)) continue;
+    if (!isMap(impMap)) {
+      // `importers: {.: {}}` is an importer with no dependencies; a scalar or a list is not an importer
+      malformed.push(`importer '${imp}' (not a mapping)`);
+      continue;
+    }
     if (imp !== '.') unsupported.add(STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS);
     for (const bucket of IMPORTER_BUCKETS) {
       const deps = impMap.get(bucket.key);
-      if (!isMap(deps)) continue;
+      if (deps === undefined || deps === null) continue;
+      if (!isMap(deps)) {
+        malformed.push(`importer ${imp} '${bucket.key}' (not a mapping)`);
+        continue;
+      }
       for (const dep of sortedKeys(deps)) {
         const d = deps.get(dep);
+        if (!isMap(d)) {
+          malformed.push(`importer ${imp} dependency '${dep}' (not a specifier/version mapping)`);
+          continue;
+        }
         const specifier = isMap(d) && isStr(d.get('specifier')) ? (d.get('specifier') as string) : '';
         const version = isMap(d) && isStr(d.get('version')) ? (d.get('version') as string) : '';
         if (imp === '.') rootDeclared.push({ name: dep, spec: specifier, group: bucket.key });
         const depKey = `importers/${imp}/${bucket.key}/${dep}`;
         if (version.startsWith('link:')) {
           unsupported.add(`workspace/link entry ${imp}:${dep} -> ${version}: local package not part of the declared closure in slice 1; hashed as an opaque entry, no node`);
-          opaque(depKey, 'link', d, { name: dep, version, link: true });
+          // the declared range (`specifier: workspace:*`) is quarantined like every other range: only the
+          // dependency name (in the key) and the RESOLVED link target are hashed
+          opaque(depKey, 'link', version, { name: dep, version, link: true });
           continue;
         }
         if (specifier.startsWith('catalog:')) {
@@ -660,7 +743,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
         if (target.name !== dep) {
           // an npm: alias — the REAL identity is a node; the alias name itself is hashed as an opaque entry
           unsupported.add(`npm: alias ${imp}:${dep} -> ${version}: the real package is a node; the alias name is hashed as an opaque entry`);
-          opaque(depKey, 'npm-alias', d, { name: dep, version });
+          opaque(depKey, 'npm-alias', version, { name: dep, version }); // alias name + resolved target; the range is quarantined
         }
         seedsAll.push(snapKey);
         if (!bucket.dev) seedsProd.push(snapKey);
@@ -683,10 +766,17 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     const out: Adj[] = [];
     for (const bucket of SNAPSHOT_BUCKETS) {
       const deps = snapshotMap(key).get(bucket.key);
-      if (!isMap(deps)) continue;
+      if (deps === undefined || deps === null) continue;
+      if (!isMap(deps)) {
+        malformed.push(`snapshot ${key} '${bucket.key}' (not a mapping)`);
+        continue;
+      }
       for (const dep of sortedKeys(deps)) {
         const ref = deps.get(dep);
-        if (!isStr(ref) || ref === '') continue;
+        if (!isStr(ref) || ref === '') {
+          malformed.push(`snapshot ${key} dependency '${dep}' (no version string)`);
+          continue;
+        }
         const depKey = `snapshots/${key}/${bucket.key}/${dep}`;
         if (ref.startsWith('link:')) {
           unsupported.add(`workspace/link entry ${key}:${dep} -> ${ref}: local package not part of the declared closure in slice 1; hashed as an opaque entry, no node`);
@@ -766,8 +856,16 @@ export function readPnpmLock(source: string, root: PnpmRootIdentity): PnpmLockRe
     throw e;
   }
   const version = pnpmLockfileVersion(doc);
+  // EXACTLY '9.0' (quoted or not — numbers are never re-spelled): '9', '9.1', '10.0' are other formats
   if (version !== '9.0') return { derived: null, refusals: [stackRefusalPnpmLockfileVersion(version)] };
-  const derived = deriveFromPnpmLockV9(doc, root);
+  let derived: PnpmDerived;
+  try {
+    derived = deriveFromPnpmLockV9(doc, root);
+  } catch (e) {
+    // belt to the nesting cap: content can never surface as an exception to a library / MCP caller
+    if (e instanceof RangeError) return { derived: null, refusals: [stackRefusalPnpmMalformed('document (nested too deeply for the reader)')] };
+    throw e;
+  }
   if (derived.hollow !== null) return { derived: null, refusals: [stackRefusalPnpmHollow(derived.hollow)] };
   if (derived.malformed.length > 0) return { derived: null, refusals: derived.malformed.map(stackRefusalPnpmMalformed) };
   return { derived, refusals: [] };

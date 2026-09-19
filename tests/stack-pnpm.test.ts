@@ -34,6 +34,8 @@ import { parseStackManifest, verifyStackManifest, type StackManifest, type Stack
 import {
   extractStackManifest,
   stackCoverageLockfileIgnored,
+  stackCoveragePackageManagerMismatch,
+  STACK_REFUSAL_YARN,
   stackRefusalSymlink,
   STACK_COVERAGE_DECLARED_NOT_INSTALLED,
   STACK_COVERAGE_NO_IMAGES,
@@ -43,6 +45,8 @@ import {
   deriveFromPnpmLockV9,
   parsePnpmLockSubset,
   PnpmLockSubsetError,
+  PnpmBlockScalar,
+  PNPM_LOCK_MAX_NESTING,
   readPnpmLock,
   splitPnpmKey,
   stackRefusalPnpmLockfileVersion,
@@ -108,6 +112,10 @@ function emitYaml(value: PnpmYamlValue, indent: number, depth = 0): string {
   const pad = ' '.repeat(indent * depth);
   const q = (s: string): string => `'${s.replace(/'/g, "''")}'`;
   if (typeof value === 'string') return q(value);
+  // typed scalars must stay PLAIN: quoting `true` / `null` would turn them into different (string) values
+  if (value === null) return '~';
+  if (typeof value === 'boolean') return value ? 'True' : 'FALSE';
+  if (value instanceof PnpmBlockScalar) throw new Error('the fixture carries no block scalar');
   if (Array.isArray(value)) {
     if (value.length === 0) return '[]';
     return value.map((v) => `${pad}- ${emitYaml(v, indent, depth + 1)}`).join('\n');
@@ -117,7 +125,7 @@ function emitYaml(value: PnpmYamlValue, indent: number, depth = 0): string {
     .reverse()
     .map((k) => {
       const v = value.get(k)!;
-      const inline = typeof v === 'string' || (Array.isArray(v) ? v.length === 0 : v.size === 0);
+      const inline = typeof v === 'string' || typeof v === 'boolean' || v === null || v instanceof PnpmBlockScalar || (Array.isArray(v) ? v.length === 0 : v.size === 0);
       return inline ? `${pad}${q(k)}: ${emitYaml(v, indent, depth + 1)}` : `${pad}${q(k)}:\n${emitYaml(v, indent, depth + 1)}`;
     })
     .join('\n');
@@ -440,10 +448,12 @@ describe('stack pnpm — group 5: the YAML-subset reader', () => {
     expect((p.get('engines') as PnpmYamlMap).get('npm')).toBe('^8.16.0 || >=10');
     expect(p.get('cpu')).toEqual(['x64', 'arm64']);
     expect(p.get('os')).toEqual([]);
-    expect(p.get('deprecated')).toBe('first line: with a colon'); // block scalar: opaque, comment-looking body lines dropped
+    // a block scalar is NOT a string (no identity position can read it); comment-looking body lines are dropped
+    expect(p.get('deprecated')).toBeInstanceOf(PnpmBlockScalar);
+    expect((p.get('deprecated') as PnpmBlockScalar).text).toBe('first line: with a colon');
     expect(p.get('bundledDependencies')).toEqual(['one', 'two']);
     expect(p.get('sameIndentList')).toEqual(['a']);
-    expect(p.get('hasBin')).toBe('true'); // scalars stay strings — nothing is type-guessed
+    expect(p.get('hasBin')).toBe(true); // a PLAIN true is a boolean, exactly as a YAML parser types it
     expect((pkgs.get('__proto__@1.0.0') as PnpmYamlMap).size).toBe(0);
     expect((pkgs.get('dq@1.0.0') as PnpmYamlMap).get('note')).toBe('tab\tquote"');
     expect((pkgs.get('dq@1.0.0') as PnpmYamlMap).get('sq')).toBe("it's");
@@ -453,7 +463,14 @@ describe('stack pnpm — group 5: the YAML-subset reader', () => {
   const REFUSED: Array<[string, string, number, string]> = [
     ['an anchor', "a: &x 1\nb: 2\n", 1, 'anchor or alias in scalar'],
     ['an alias', "a: 1\nb: *x\n", 2, 'anchor or alias in scalar'],
-    ['a merge key / alias in a flow map', 'a: {<<: *base}\n', 1, 'anchor or alias in flow scalar'],
+    // the merge key is refused AS a merge key — with an alias, with an inline mapping, in block form, quoted
+    ['a merge key with an alias in a flow map', 'a: {<<: *base}\n', 1, "merge key '<<'"],
+    ['a merge key with an inline mapping in a flow map', 'a: {<<: {os: [linux]}, k: 1}\n', 1, "merge key '<<'"],
+    ['a block merge key', "a:\n  k: 1\n  <<: {os: [linux]}\n", 3, "merge key '<<'"],
+    ['a quoted merge key', "a:\n  '<<': {os: [linux]}\n", 2, "merge key '<<'"],
+    ['trailing content after a flow mapping', 'a: {x: 1} junk\n', 1, 'trailing content after a value (inline comment or multi-line collection)'],
+    ['trailing content after a quoted scalar', "a: 'x' junk\n", 1, 'trailing content after a value (inline comment or multi-line collection)'],
+    ['a flow collection nested deeper than 8', `a: ${'['.repeat(10)}x${']'.repeat(10)}\n`, 1, 'flow collection nested deeper than 8'],
     ['a tag', 'a: !!str 1\n', 1, 'tag in scalar'],
     ['tab indentation', "a:\n\tb: 1\n", 2, 'tab indentation'],
     ['a second document', "a: 1\n---\nb: 2\n", 2, 'document marker or directive (multi-document stream)'],
@@ -819,5 +836,350 @@ describe('stack pnpm — group 7: one closure, two lockfile families', () => {
     expect(b.manifest.sources.map((s) => s.parser)).toContain('pnpm-lockfile-v9');
     expect(b.manifest.stackDigest).toBe(a.manifest.stackDigest);
     expect(b.manifest.nodes.map(({ layout, ...n }) => (void layout, n))).toEqual(a.manifest.nodes.map(({ layout, ...n }) => (void layout, n)));
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* 8. adversarial-review round 1 — every finding pinned by NAME                 */
+/* -------------------------------------------------------------------------- */
+
+describe('stack pnpm — group 8: typed scalars, the merge key, and the safety lines', () => {
+  const ROOT_ID = { name: 'r', version: '1.0.0' };
+  const wsIntegrity = node(golden, 'npm:ws@8.17.0')!.integrity!;
+  const flowRes = `    resolution: {integrity: ${wsIntegrity}}\n`;
+  const mini = (extra: { pkgs?: string; snaps?: string; imp?: string; head?: string; tail?: string } = {}): string =>
+    [
+      extra.head ?? "lockfileVersion: '9.0'",
+      'importers:',
+      '  .:',
+      extra.imp ?? '    dependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}',
+      'packages:',
+      '  a@1.0.0:',
+      '    resolution: {integrity: sha512-AAAA==}',
+      ...(extra.pkgs ? [extra.pkgs] : []),
+      'snapshots:',
+      '  a@1.0.0: {}',
+      ...(extra.snaps ? [extra.snaps] : []),
+      ...(extra.tail ? [extra.tail] : []),
+      '',
+    ].join('\n');
+  const refusalsOf = (text: string): string[] => readPnpmLock(text, ROOT_ID).refusals;
+
+  /* ---- MAJOR-1: YAML null is ABSENT, never the string "null" ---- */
+  for (const spelling of ['null', 'Null', 'NULL', '~', '']) {
+    it(`integrity: ${spelling === '' ? '(empty value)' : spelling} is ABSENT ⇒ the tarball URL is hashed: two URLs for ws@8.17.0 never share a stackDigest`, () => {
+      expect(fixtureLock).toContain(flowRes);
+      const unpinned = (url: string): string =>
+        fixtureLock.replace(flowRes, `    resolution:\n      integrity:${spelling === '' ? '' : ` ${spelling}`}\n      tarball: ${url}\n`);
+      const a = extractStackManifest(treeWith('null-a', unpinned('https://registry.example/ws-8.17.0.tgz')), REVISION);
+      const b = extractStackManifest(treeWith('null-b', unpinned('https://evil.example/ws-8.17.0.tgz')), REVISION);
+      expect(a.refusals).toEqual([]);
+      expect(b.refusals).toEqual([]);
+      expect(node(a.manifest, 'npm:ws@8.17.0')).toMatchObject({ integrity: null, resolvedWhenUnpinned: 'https://registry.example/ws-8.17.0.tgz' });
+      expect(node(b.manifest, 'npm:ws@8.17.0')).toMatchObject({ integrity: null, resolvedWhenUnpinned: 'https://evil.example/ws-8.17.0.tgz' });
+      expect(a.manifest.stackDigest).not.toBe(b.manifest.stackDigest);
+      if (spelling !== '') {
+        // the flow spelling of the same thing
+        const flow = (url: string): string => fixtureLock.replace(flowRes, `    resolution: {integrity: ${spelling}, tarball: ${url}}\n`);
+        const fa = extractStackManifest(treeWith('null-fa', flow('https://registry.example/ws-8.17.0.tgz')), REVISION);
+        expect(fa.refusals).toEqual([]);
+        expect(fa.manifest.stackDigest).toBe(a.manifest.stackDigest);
+      }
+    });
+  }
+
+  it('typed plain scalars: null spellings are null, true/false spellings are booleans, QUOTED ones stay strings, numbers stay strings', () => {
+    const doc = parsePnpmLockSubset("a: null\nb: ~\nc:\nd: 'null'\ne: True\nf: FALSE\ng: 'true'\nh: 9.0\ni: [~, true, 'x']\nj: {k: NULL, l: false}\nm: nullish\n");
+    expect([...doc.entries()].slice(0, 8)).toEqual([['a', null], ['b', null], ['c', null], ['d', 'null'], ['e', true], ['f', false], ['g', 'true'], ['h', '9.0']]);
+    expect(doc.get('i')).toEqual([null, true, 'x']);
+    expect([...(doc.get('j') as PnpmYamlMap).entries()]).toEqual([['k', null], ['l', false]]);
+    expect(doc.get('m')).toBe('nullish');
+    // and the canonical bytes keep a typed value apart from its quoted twin
+    expect(canonicalPnpmValue(doc)).toContain('"a":null');
+    expect(canonicalPnpmValue(doc)).toContain('"d":"null"');
+    expect(canonicalPnpmValue(doc)).toContain('"e":true');
+    expect(canonicalPnpmValue(doc)).toContain('"g":"true"');
+  });
+
+  it('integrity must be ONE sha1-/sha256-/sha384-/sha512- hash: anything else present is the fixed malformed refusal', () => {
+    const bad = (value: string): string[] => refusalsOf(mini({ pkgs: `  b@1.0.0:\n    resolution: {integrity: ${value}, tarball: https://registry.example/b.tgz}`, snaps: '  b@1.0.0: {}' }));
+    const expected = [stackRefusalPnpmMalformed("packages entry 'b@1.0.0' (integrity is not a sha1-/sha256-/sha384-/sha512- hash)")];
+    for (const v of ["'null'", 'md5-AAAA==', 'sha512-', 'sha512-AA AA', 'true', "''", '[sha512-AAAA==]']) expect(bad(v), v).toEqual(expected);
+    for (const v of ['sha1-AAAA', 'sha256-AAAA=', 'sha384-AA+/', 'sha512-AAAA==']) expect(bad(v), v).toEqual([]);
+    // a non-string tarball / commit is a refusal too — never silently "absent"
+    expect(refusalsOf(mini({ pkgs: '  b@1.0.0:\n    resolution: {tarball: true}', snaps: '  b@1.0.0: {}' }))).toEqual([
+      stackRefusalPnpmMalformed("packages entry 'b@1.0.0' (resolution.tarball is not a string)"),
+    ]);
+  });
+
+  /* ---- MAJOR-2: the merge key is refused through the whole path ---- */
+  it('MAJOR-2 repro: an os list or `optional: true` smuggled in through `<<` is a whole-lockfile refusal, never a silently different node', () => {
+    const osMerge = fixtureLock.replace(flowRes, `${flowRes}    <<: {os: [win32], cpu: [x64]}\n`);
+    expect(osMerge).not.toBe(fixtureLock);
+    const line = osMerge.split('\n').findIndex((l) => l.includes('<<:')) + 1;
+    const r = extractStackManifest(treeWith('merge-os', osMerge), REVISION);
+    expect(r.refusals).toEqual([stackRefusalPnpmSubset(line, "merge key '<<'"), STACK_REFUSAL_NO_LOCKFILE]);
+    expect(r.manifest.nodes.filter((n) => n.kind === 'npm')).toHaveLength(1); // the root only — and the CLI writes nothing on a refusal
+
+    const optMerge = fixtureLock.replace(/^ {2}ws@8\.17\.0: \{\}$/m, '  ws@8.17.0:\n    <<: {optional: true}');
+    expect(optMerge).not.toBe(fixtureLock);
+    const line2 = optMerge.split('\n').findIndex((l) => l.includes('<<:')) + 1;
+    expect(extractStackManifest(treeWith('merge-opt', optMerge), REVISION).refusals).toEqual([stackRefusalPnpmSubset(line2, "merge key '<<'"), STACK_REFUSAL_NO_LOCKFILE]);
+
+    const out = path.join(tmp('merge-cli'), 'm.json');
+    const cli = runCli(['stack', 'snapshot', '--ct-repo', treeWith('merge-cli-tree', osMerge), '--no-pin', '--out', out], ROOT);
+    expect(cli.status).toBe(2);
+    expect(cli.stderr).toContain("merge key '<<'");
+    expect(fs.existsSync(out)).toBe(false);
+  });
+
+  /* ---- MAJOR-3: the eleven safety lines ---- */
+  it("R07: a packages entry carrying the ROOT's own identity is refused", () => {
+    expect(refusalsOf(mini({ pkgs: '  r@1.0.0:\n    resolution: {integrity: sha512-RRRR==}', snaps: '  r@1.0.0: {}' }))).toEqual([
+      stackRefusalPnpmMalformed("packages entry 'r@1.0.0' (it carries the root package's own identity)"),
+    ]);
+  });
+
+  it('R08: a patchedDependencies entry without a hash is refused (a patch changes the installed bytes; no hash ⇒ nothing names them)', () => {
+    for (const entry of ['{path: patches/a.patch}', '{path: patches/a.patch, hash: ~}', '{path: patches/a.patch, hash: true}']) {
+      expect(refusalsOf(mini({ tail: `patchedDependencies:\n  a@1.0.0: ${entry}` })), entry).toEqual([stackRefusalPnpmMalformed("patchedDependencies entry 'a@1.0.0' (no hash)")]);
+    }
+    expect(refusalsOf(mini({ tail: 'patchedDependencies:\n  a@1.0.0: {path: patches/a.patch, hash: abc123}' }))).toEqual([]);
+  });
+
+  it('R10: a non-ASCII package name is a HASHED opaque entry, never a node', () => {
+    const text = mini({ pkgs: '  naïve@2.0.0:\n    resolution: {integrity: sha512-NNNN==}', snaps: '  naïve@2.0.0: {}' });
+    const d = deriveFromPnpmLockV9(parsePnpmLockSubset(text), ROOT_ID);
+    expect(d.malformed).toEqual([]);
+    expect(d.nodes.map((n) => n.id)).toEqual(['npm:r@1.0.0', 'npm:a@1.0.0']);
+    expect(d.unmodeled.map((u) => `${u.key}|${u.reason}|${u.spec.integrity}`)).toEqual(['packages/naïve@2.0.0|non-ascii-name|sha512-NNNN==']);
+    expect(d.unsupported).toContain('non-ASCII package name at naïve@2.0.0: hashed as an opaque entry, no node (npm registry names are ASCII)');
+  });
+
+  it("R13: lockfileVersion is EXACTLY 9.0 (quoted or not) — '9', '9.1', '9.00', '09.0' and a boolean are other formats", () => {
+    for (const head of ["lockfileVersion: '9.0'", 'lockfileVersion: 9.0', 'lockfileVersion: "9.0"']) expect(refusalsOf(mini({ head })), head).toEqual([]);
+    for (const v of ['9', '9.1', '9.00', '09.0', '9.0.0', '10.0']) {
+      expect(refusalsOf(mini({ head: `lockfileVersion: '${v}'` })), v).toEqual([`pnpm lockfileVersion ${v} is not 9.0: unknown pnpm lockfile format refused; no stack facts extracted`]);
+    }
+    for (const head of ['lockfileVersion: true', 'lockfileVersion: ~', 'lockfileVersion: [9.0]']) {
+      expect(refusalsOf(mini({ head })), head).toEqual(["lockfile 'pnpm-lock.yaml' has no lockfileVersion: refused; no stack facts extracted"]);
+    }
+  });
+
+  it('R18: flow nesting of exactly 8 is read; the cap is what refuses 9+ (see the refusal table)', () => {
+    const doc = parsePnpmLockSubset(`a: ${'['.repeat(8)}x${']'.repeat(8)}\n`); // 8 collections, the scalar at depth 8
+    let v: PnpmYamlValue = doc.get('a')!;
+    let depth = 0;
+    while (Array.isArray(v)) {
+      v = v[0]!;
+      depth++;
+    }
+    expect({ depth, leaf: v }).toEqual({ depth: 8, leaf: 'x' });
+    expect(() => parsePnpmLockSubset(`a: ${'['.repeat(9)}x${']'.repeat(9)}\n`)).toThrow(PnpmLockSubsetError);
+  });
+
+  it('R19 + R20: a SNAPSHOT-level link: dependency and a snapshot-level npm: alias are HASHED opaque entries that move with their target', () => {
+    const doc = (link: string, alias: string): string =>
+      mini({
+        pkgs: '  b@2.0.0:\n    resolution: {integrity: sha512-BBBB==}\n  c@3.0.0:\n    resolution: {integrity: sha512-CCCC==}',
+        imp: '    dependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0(x@1)}',
+        snaps: `  b@2.0.0: {}\n  c@3.0.0: {}\n  a@1.0.0(x@1):\n    dependencies:\n      local-lib: link:${link}\n      b-cjs: ${alias}`,
+      }).replace('  a@1.0.0: {}\n', '');
+    const derive = (t: string) => deriveFromPnpmLockV9(parsePnpmLockSubset(t), ROOT_ID);
+    const base = derive(doc('../lib', 'b@2.0.0'));
+    expect(base.malformed).toEqual([]);
+    expect(base.unmodeled.map((u) => `${u.key}|${u.reason}|${u.spec.version}|${u.spec.link}`)).toEqual([
+      'snapshots/a@1.0.0(x@1)/dependencies/b-cjs|npm-alias|b@2.0.0|false',
+      'snapshots/a@1.0.0(x@1)/dependencies/local-lib|link|link:../lib|true',
+    ]);
+    expect(base.nodes.map((n) => n.id)).not.toContain('npm:local-lib@link:../lib');
+    expect(base.edges.map((e) => e.to)).toContain('npm:b@2.0.0'); // the alias's REAL package is the edge target
+    const sha = (d: ReturnType<typeof derive>, reason: string): string => d.unmodeled.find((u) => u.reason === reason)!.entrySha256;
+    expect(sha(derive(doc('../other', 'b@2.0.0')), 'link')).not.toBe(sha(base, 'link'));
+    expect(sha(derive(doc('../lib', 'c@3.0.0')), 'npm-alias')).not.toBe(sha(base, 'npm-alias'));
+    // and through the digest: same nodes, different link target ⇒ different stackDigest
+    const digest = (t: string): string => extractStackManifest(treeWith('snap-link', t, ROOT_ID), REVISION).manifest.stackDigest;
+    expect(digest(doc('../other', 'b@2.0.0'))).not.toBe(digest(doc('../lib', 'b@2.0.0')));
+  });
+
+  it("R30: optional is true only for a REAL YAML true — the quoted string 'true', yes, 1 and a mapping are not", () => {
+    const flagOf = (value: string): boolean => {
+      const d = deriveFromPnpmLockV9(parsePnpmLockSubset(mini().replace('  a@1.0.0: {}', `  a@1.0.0:\n    optional: ${value}`)), ROOT_ID);
+      expect(d.malformed).toEqual([]);
+      return d.nodes.find((n) => n.name === 'a')!.optional;
+    };
+    for (const v of ['true', 'True', 'TRUE']) expect(flagOf(v), v).toBe(true);
+    for (const v of ["'true'", '"true"', 'yes', '1', 'false', '~', '{}', 'truthy']) expect(flagOf(v), v).toBe(false);
+  });
+
+  it('R23: os / cpu list ORDER is presentation — sorted in the node, same stackDigest', () => {
+    const withOs = (os: string, cpu: string): ReturnType<typeof extractStackManifest> =>
+      extractStackManifest(treeWith('os-order', fixtureLock.replace(flowRes, `${flowRes}    os: ${os}\n    cpu: ${cpu}\n`)), REVISION);
+    const a = withOs('[win32, darwin, linux]', '[x64, arm64]');
+    const b = withOs('[darwin, linux, win32]', '[arm64, x64]');
+    expect(a.refusals).toEqual([]);
+    expect(node(a.manifest, 'npm:ws@8.17.0')!.platformConditional).toEqual({ os: ['darwin', 'linux', 'win32'], cpu: ['arm64', 'x64'] });
+    expect(a.manifest.stackDigest).toBe(b.manifest.stackDigest);
+    expect(a.manifest.stackDigest).not.toBe(golden.stackDigest);
+    // a non-list os is a refusal, never an ignored condition on a HASHED field
+    expect(refusalsOf(mini({ pkgs: '  b@1.0.0:\n    resolution: {integrity: sha512-BBBB==}\n    os: linux', snaps: '  b@1.0.0: {}' }))).toEqual([
+      stackRefusalPnpmMalformed("packages entry 'b@1.0.0' ('os' is not a list of strings)"),
+    ]);
+  });
+
+  it('X02: the precedence rule is anchored — only a packageManager that STARTS with pnpm@ makes pnpm-lock.yaml win over an npm lockfile', () => {
+    const npmLock = JSON.stringify({
+      name: 'example-app',
+      version: '1.2.3',
+      lockfileVersion: 3,
+      packages: { '': { name: 'example-app', version: '1.2.3' }, 'node_modules/zod': { version: '4.6.5', integrity: 'sha512-x' } },
+    });
+    const parserFor = (packageManager: string): string[] => {
+      const d = treeWith('anchored', fixtureLock, { name: 'example-app', version: '1.2.3', packageManager });
+      fs.writeFileSync(path.join(d, 'package-lock.json'), npmLock);
+      const r = extractStackManifest(d, REVISION);
+      expect(r.refusals, packageManager).toEqual([]);
+      return r.manifest.sources.map((s) => s.parser).filter((p) => p.includes('lockfile'));
+    };
+    expect(parserFor('pnpm@10.11.1')).toEqual(['pnpm-lockfile-v9']);
+    for (const pm of ['not-pnpm@1.0.0', 'xpnpm@9.0.0', '@scope/pnpm@9.0.0', 'pnpmx@1', 'pnpm', 'npm@10.0.0 (was pnpm@9)']) expect(parserFor(pm), pm).toEqual(['npm-lockfile-v3']);
+  });
+
+  /* ---- minors ---- */
+  it('MINOR-4: nesting deeper than the cap is a fixed refusal with a line number — readPnpmLock never throws on content', () => {
+    const deep = (n: number): string => Array.from({ length: n }, (_, i) => `${' '.repeat(i)}k${i}:`).join('\n') + `\n${' '.repeat(n)}leaf: 1\n`;
+    expect(() => parsePnpmLockSubset(deep(PNPM_LOCK_MAX_NESTING))).not.toThrow();
+    let r: ReturnType<typeof readPnpmLock> | undefined;
+    expect(() => (r = readPnpmLock(deep(5000), ROOT_ID))).not.toThrow();
+    expect(r!.refusals).toEqual([stackRefusalPnpmSubset(PNPM_LOCK_MAX_NESTING + 2, `block nesting deeper than ${PNPM_LOCK_MAX_NESTING}`)]);
+  });
+
+  it('MINOR-5: a line with 200 000 interior spaces is read in linear time (the trailing-whitespace trim is not a backtracking regex)', () => {
+    const started = Date.now();
+    const doc = parsePnpmLockSubset(`zz: a${' '.repeat(200_000)}b\nyy: c${' '.repeat(200_000)}\n`);
+    const elapsed = Date.now() - started;
+    expect((doc.get('zz') as string).length).toBe(200_002);
+    expect(doc.get('yy')).toBe('c');
+    expect(elapsed).toBeLessThan(5_000); // generous: the quadratic form measured 17 s for ONE such line
+  });
+
+  it('MINOR-6: a type error in importers / snapshots / dependencies is a malformed REFUSAL, never a silent skip', () => {
+    const cases: Array<[string, string]> = [
+      [mini().replace("  .:\n    dependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}", '  .: garbage'), "importer '.' (not a mapping)"],
+      [mini({ imp: '    dependencies: garbage' }), "importer . 'dependencies' (not a mapping)"],
+      [mini({ imp: '    dependencies:\n      a: 1.0.0' }), "importer . dependency 'a' (not a specifier/version mapping)"],
+      [mini().replace('  a@1.0.0: {}', '  a@1.0.0: garbage'), "snapshots entry 'a@1.0.0' (not a mapping)"],
+      [mini().replace('  a@1.0.0: {}', '  a@1.0.0:\n    dependencies: garbage'), "snapshot a@1.0.0 'dependencies' (not a mapping)"],
+      [mini().replace('  a@1.0.0: {}', '  a@1.0.0:\n    dependencies:\n      a: {nested: 1.0.0}'), "snapshot a@1.0.0 dependency 'a' (no version string)"],
+      [mini().replace('  a@1.0.0: {}', '  a@1.0.0:\n    dependencies:\n      a: ~'), "snapshot a@1.0.0 dependency 'a' (no version string)"],
+    ];
+    for (const [text, what] of cases) expect(refusalsOf(text), what).toEqual([stackRefusalPnpmMalformed(what)]);
+    // the legitimate empties stay legitimate
+    expect(refusalsOf(mini().replace('  a@1.0.0: {}', '  a@1.0.0:'))).toEqual([]);
+    expect(refusalsOf(mini().replace('  a@1.0.0: {}', '  a@1.0.0:\n    dependencies: {}'))).toEqual([]);
+  });
+
+  it("MINOR-7: v6-style '/name@version' path keys under a 9.0 header are refused — a package key is `name@version` or `@scope/name@version`", () => {
+    const v6 = mini().replace(/a@1\.0\.0/g, '/a@1.0.0').replace('      /a@1.0.0', '      a');
+    expect(refusalsOf(v6)).toContain(stackRefusalPnpmMalformed("packages entry '/a@1.0.0' (not a 'name@version' mapping)"));
+    for (const key of ['a/b@1.0.0', '@s/a/b@1.0.0', '@/a@1.0.0']) {
+      expect(refusalsOf(mini({ pkgs: `  '${key}':\n    resolution: {integrity: sha512-BBBB==}` })), key).toContain(stackRefusalPnpmMalformed(`packages entry '${key}' (not a 'name@version' mapping)`));
+    }
+    expect(refusalsOf(mini({ pkgs: "  '@s/b@1.0.0':\n    resolution: {integrity: sha512-BBBB==}", snaps: "  '@s/b@1.0.0': {}" }))).toEqual([]);
+  });
+
+  it('MINOR-8: a block scalar is never an identity value — refused as integrity / version / dependency ref, inert as a deprecated message', () => {
+    expect(refusalsOf(mini({ pkgs: '  b@1.0.0:\n    resolution:\n      integrity: |-\n        sha512-BBBB==', snaps: '  b@1.0.0: {}' }))).toEqual([
+      stackRefusalPnpmMalformed("packages entry 'b@1.0.0' (integrity is not a sha1-/sha256-/sha384-/sha512- hash)"),
+    ]);
+    expect(refusalsOf(mini({ pkgs: '  b@1.0.0:\n    resolution:\n      tarball: >-\n        https://registry.example/b.tgz', snaps: '  b@1.0.0: {}' }))).toEqual([
+      stackRefusalPnpmMalformed("packages entry 'b@1.0.0' (resolution.tarball is not a string)"),
+    ]);
+    expect(refusalsOf(mini({ imp: '    dependencies:\n      a:\n        specifier: ^1.0.0\n        version: |-\n          1.0.0' }))).toEqual([
+      stackRefusalPnpmMalformed("importer . dependency 'a' (version '' names no snapshot)"),
+    ]);
+    expect(refusalsOf(mini().replace('  a@1.0.0: {}', '  a@1.0.0:\n    dependencies:\n      a: |-\n        1.0.0'))).toEqual([stackRefusalPnpmMalformed("snapshot a@1.0.0 dependency 'a' (no version string)")]);
+    // a multi-line deprecation notice is what pnpm really writes as a block scalar: read past, same closure
+    const digest = (t: string): string => extractStackManifest(treeWith('deprecated', t, ROOT_ID), REVISION).manifest.stackDigest;
+    const noticed = mini().replace('    resolution: {integrity: sha512-AAAA==}', '    resolution: {integrity: sha512-AAAA==}\n    deprecated: |-\n      no longer maintained\n      use something else');
+    expect(refusalsOf(noticed)).toEqual([]);
+    expect(digest(noticed)).toBe(digest(mini()));
+  });
+
+  /* ---- MINOR-10: declared ranges never move the digest — for opaque importer entries too ---- */
+  describe('MINOR-10: an importer-level opaque entry hashes the dependency name + the RESOLVED value; the specifier is quarantined', () => {
+    const run = (label: string, text: string) => {
+      const r = extractStackManifest(treeWith(label, text), REVISION);
+      expect(r.refusals, label).toEqual([]);
+      return r.manifest;
+    };
+    const entry = (m: StackManifest, reason: string) => m.unmodeled.find((u) => u.reason === reason && u.key.startsWith('importers/'))!;
+    const edit = (from: string, to: string): string => {
+      const out = fixtureLock.replace(from, to);
+      expect(out, from).not.toBe(fixtureLock);
+      return out;
+    };
+
+    it('link: specifier workspace:* → workspace:^ ⇒ SAME stackDigest and entrySha256 (only manifestDigest moves)', () => {
+      const m = run('link-spec', edit('        specifier: workspace:*\n', '        specifier: workspace:^\n'));
+      expect(m.stackDigest).toBe(golden.stackDigest);
+      expect(entry(m, 'link').entrySha256).toBe(entry(golden, 'link').entrySha256);
+    });
+    it('link: TARGET link:../lib → link:../other ⇒ stackDigest and entrySha256 MOVE', () => {
+      const m = run('link-target', edit('        version: link:../lib\n', '        version: link:../other\n'));
+      expect(m.stackDigest).not.toBe(golden.stackDigest);
+      expect(entry(m, 'link').entrySha256).not.toBe(entry(golden, 'link').entrySha256);
+      expect(entry(m, 'link').spec.version).toBe('link:../other');
+    });
+    it('alias: specifier npm:string-width@^4.2.0 → ^4.2.1 ⇒ SAME stackDigest and entrySha256; the edge carries the new range', () => {
+      const m = run('alias-spec', edit('        specifier: npm:string-width@^4.2.0\n', '        specifier: npm:string-width@^4.2.1\n'));
+      expect(m.stackDigest).toBe(golden.stackDigest);
+      expect(entry(m, 'npm-alias').entrySha256).toBe(entry(golden, 'npm-alias').entrySha256);
+      expect(m.edges.some((e) => e.spec === 'npm:string-width@^4.2.1')).toBe(true);
+      expect(m.manifestDigest).not.toBe(golden.manifestDigest);
+    });
+    it('alias: RESOLVED target string-width@4.2.3 → another locked package ⇒ stackDigest and entrySha256 MOVE', () => {
+      const m = run('alias-target', edit('        version: string-width@4.2.3\n', '        version: is-number@7.0.0\n'));
+      expect(m.stackDigest).not.toBe(golden.stackDigest);
+      expect(entry(m, 'npm-alias').entrySha256).not.toBe(entry(golden, 'npm-alias').entrySha256);
+      // …and the alias NAME is still part of the entry: same target under another name is another entry
+      const renamed = run('alias-name', edit('      sw-cjs:\n', '      sw-esm:\n'));
+      expect(entry(renamed, 'npm-alias').key).toBe('importers/packages/app/dependencies/sw-esm');
+      expect(renamed.stackDigest).not.toBe(golden.stackDigest);
+    });
+  });
+
+  /* ---- MINOR-3: the declared manager and the family that was read disagree ---- */
+  it('MINOR-3: packageManager names a manager whose lockfile is not the one read ⇒ a coverage line (never a refusal); agreement ⇒ no line', () => {
+    const npmLock = JSON.stringify({
+      name: 'example-app',
+      version: '1.2.3',
+      lockfileVersion: 3,
+      packages: { '': { name: 'example-app', version: '1.2.3' }, 'node_modules/zod': { version: '4.6.5', integrity: 'sha512-x' } },
+    });
+    const tree = (packageManager: string | null, files: Record<string, string>): string => {
+      const d = tmp('declared');
+      fs.writeFileSync(path.join(d, 'package.json'), JSON.stringify({ name: 'example-app', version: '1.2.3', ...(packageManager ? { packageManager } : {}) }));
+      for (const [rel, text] of Object.entries(files)) fs.writeFileSync(path.join(d, rel), text);
+      return d;
+    };
+    const coverage = (d: string): string[] => {
+      const r = extractStackManifest(d, REVISION);
+      expect(r.refusals).toEqual([]);
+      return r.manifest.coverage.unsupported;
+    };
+    // pnpm declared, only an npm lockfile exists
+    expect(coverage(tree('pnpm@10.11.1', { 'package-lock.json': npmLock }))).toContain(stackCoveragePackageManagerMismatch('pnpm', 'package-lock.json'));
+    // yarn declared, yarn.lock unsupported, pnpm-lock read
+    const yarnCase = coverage(tree('yarn@4.1.0', { 'yarn.lock': '# yarn lockfile v1\n', 'pnpm-lock.yaml': fixtureLock }));
+    expect(yarnCase).toContain(stackCoveragePackageManagerMismatch('yarn', 'pnpm-lock.yaml'));
+    expect(yarnCase).toContain(STACK_REFUSAL_YARN);
+    // npm declared, only pnpm-lock exists
+    expect(coverage(tree('npm@10.0.0', { 'pnpm-lock.yaml': fixtureLock }))).toContain(stackCoveragePackageManagerMismatch('npm', 'pnpm-lock.yaml'));
+    // agreement or no declaration: no such line
+    for (const d of [tree('pnpm@10.11.1', { 'pnpm-lock.yaml': fixtureLock }), tree('npm@10.0.0', { 'package-lock.json': npmLock }), tree(null, { 'package-lock.json': npmLock })]) {
+      expect(coverage(d).filter((l) => l.includes('packageManager declares') && l.includes('but the lockfile read'))).toEqual([]);
+    }
+    expect(golden.coverage.unsupported.filter((l) => l.includes('but the lockfile read'))).toEqual([]);
   });
 });

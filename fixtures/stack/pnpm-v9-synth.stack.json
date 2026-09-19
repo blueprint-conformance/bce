@@ -388,7 +388,7 @@
   ],
   "images": [],
   "kind": "StackManifest",
-  "manifestDigest": "ae57ad64bc656a7dc1ccde7956a2b73b34a61614f301d55571241ce4264a67fc",
+  "manifestDigest": "c58bc7a182cfe3df3ba3ae50eccf751074e7f46051e5c3f7653a7897a46886a6",
   "nodes": [
     {
       "dev": false,
@@ -1337,11 +1337,11 @@
       "sha256": "4aff2938e6c73850c63f14f8cffb9f190586b7c3f7f8f3de5eb60699f5c7c7c5"
     }
   ],
-  "stackDigest": "89cf1f633f8773a84e842717af28fac32f1dc8954dcd81746ced6bff9f843397",
-  "stackId": "stack:89cf1f633f87",
+  "stackDigest": "cf189264198c371e252e911ae950cde12f0c4092c674c59285694449e7bb010d",
+  "stackId": "stack:cf189264198c",
   "unmodeled": [
     {
-      "entrySha256": "ee85db6b5625089c2462e82d8485f59f2b4a9a53a9f057ebf3cbb645984aba54",
+      "entrySha256": "ad48fa8926cf966b1e4a4a0e646fc998b57df2fc6fd0bd6b528de3b13e4be86d",
       "key": "importers/packages/app/dependencies/sw-cjs",
       "kind": "unsupported",
       "reason": "npm-alias",
@@ -1354,7 +1354,7 @@
       }
     },
     {
-      "entrySha256": "332f701b840e10415b782bb4342bc88a1a2e1c68d82b3adb8b9092da0d426a02",
+      "entrySha256": "b8efd31b70a75e01ffa0807c7df3cbb60bbc89ad432aef2b051a807bd7f15b5d",
       "key": "importers/packages/app/dependencies/synth-lib",
       "kind": "unsupported",
       "reason": "link",

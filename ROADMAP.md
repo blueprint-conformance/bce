@@ -120,6 +120,9 @@ If a label here overstates reality, that is a bug — please open an issue.
   run under the vitest suite; this line moves to **[RUNS]** only when the dedicated built-dist
   RED/GREEN CLI leg (the discriminating-pair convention above) lands. yarn lockfiles, pnpm lockfiles other than v9, `stack
   diff`, image-tag resolution and any blueprint constraint over a stack are not built.
+  Unreleased API note: the `STACK_REFUSAL_PNPM` export (the slice-1 "pnpm is not supported" refusal
+  string, never shipped in a published version) is removed — a `pnpm-lock.yaml` is now read, and its own
+  refusals are the `stackRefusalPnpm*` strings.
 
 ## Directions — [FUTURE]
 

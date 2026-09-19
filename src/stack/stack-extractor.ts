@@ -76,6 +76,15 @@ export function stackCoverageLockfileIgnored(ignored: string, reason: string): s
   return `lockfile '${ignored}' ignored: ${reason}`;
 }
 
+/**
+ * `package.json` `packageManager` names one manager but the lockfile that was READ belongs to another
+ * family (the declared manager's own lockfile is absent or unsupported). Recorded, never a refusal:
+ * the lockfile that exists is still the only declared closure in the tree.
+ */
+export function stackCoveragePackageManagerMismatch(declared: string, readRel: string): string {
+  return `package.json packageManager declares ${declared} but the lockfile read is '${readRel}': the declared manager's own lockfile is absent or unsupported, so this closure may not be the one that manager would install`;
+}
+
 /** `lockfileVersion <n> is not 3: …` — npm v1/v2 lockfiles are refused, their tree is not a closure map. */
 export function stackRefusalLockfileVersion(version: unknown): string {
   return `lockfileVersion ${typeof version === 'number' ? String(version) : JSON.stringify(version) ?? 'undefined'} is not 3: npm v1/v2 lockfiles are refused (their 'dependencies' tree is not a closure map); regenerate with npm >= 7`;
@@ -684,6 +693,8 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
     // lockfile is present. yarn is refused.
     let lockParsed = false;
     let lockSeen = false;
+    /** the lockfile actually parsed into nodes, and its family — for the declared-manager mismatch line */
+    let lockRead: { rel: string; family: 'npm' | 'pnpm' } | null = null;
     const pnpmBytes = read('pnpm-lock.yaml');
     const pnpmDeclared = pnpmBytes !== null && /^pnpm@/.test(asString(pkg?.packageManager) ?? '');
     const lockCandidates = ['npm-shrinkwrap.json', 'package-lock.json'];
@@ -732,6 +743,7 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       for (const d of derived.rootDeclared) rootDeclared.push(d);
       for (const u of derived.unsupported) unsupported.add(u);
       lockParsed = true;
+      lockRead = { rel, family: 'npm' };
     }
     if (pnpmBytes) {
       if (lockSeen) {
@@ -750,10 +762,17 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
           for (const d of pnpm.derived.rootDeclared) rootDeclared.push(d);
           for (const u of pnpm.derived.unsupported) unsupported.add(u);
           lockParsed = true;
+          lockRead = { rel: 'pnpm-lock.yaml', family: 'pnpm' };
         }
       }
     }
     if (read('yarn.lock')) unsupported.add(STACK_REFUSAL_YARN);
+    // declared manager vs the family actually read (npm has no lockfile of its own name to disagree with
+    // package-lock.json / npm-shrinkwrap.json, so only pnpm@ and yarn@ declarations can mismatch an npm read)
+    const declaredManager = /^(npm|pnpm|yarn)@/.exec(asString(pkg?.packageManager) ?? '')?.[1] ?? null;
+    if (lockRead && declaredManager && declaredManager !== lockRead.family) {
+      unsupported.add(stackCoveragePackageManagerMismatch(declaredManager, lockRead.rel));
+    }
 
     if (!lockParsed) {
       // root-only manifest: identity from package.json when present; never a green stack
