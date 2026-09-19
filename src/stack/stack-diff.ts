@@ -29,7 +29,8 @@
  * JOIN KEY + SET MATCHING: npm rows join on (kind, name) — NEVER on the node id `name@version`. A
  * lockfile routinely carries several copies of one name. Per name, the versions present on BOTH
  * sides are RETAINED (no row unless their identity differs). THE ROOT'S OWN RESOLUTION PAIRS FIRST:
- * for a name the root declares on both sides, the version the root's edge resolves to on A vs on B
+ * for a name the root has an edge to on both sides (its own declarations, and in a pnpm workspace
+ * its importers', which rootDeclared[] does not list), the version that edge resolves to on A vs B
  * is one pair when it moved (root 2.0.0 -> 1.0.0 is backward even while a new dependency nests
  * 3.0.0 — that copy is then added). The remaining one-sided versions are sorted by
  * (precedence, full version string) and paired FROM THE TOP — highest dropped with highest new; each
@@ -718,18 +719,17 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
       });
     };
     // FIRST: the version the ROOT itself resolves to, on A vs on B. The root's own edge names what the
-    // repository gets; when it moves, that is THE pair for this name, whatever other copies do. Only
-    // when the root declares the name on both sides (else plain set matching below).
+    // repository gets; when it moves, that is THE pair for this name, whatever other copies do. A root
+    // edge to the name on BOTH sides is required (a name the root declares on one side only has no
+    // pair here and falls back to plain set matching below).
     let remainingA = onlyA;
     let remainingB = onlyB;
-    if (rootDeclA.has(key) && rootDeclB.has(key)) {
-      const ra = rootResolvedA.get(key) ?? null;
-      const rb = rootResolvedB.get(key) ?? null;
-      if (ra !== null && rb !== null && ra !== rb && ga.byVersion.has(ra) && gb.byVersion.has(rb)) {
-        pairRow(ra, rb, `the version the root itself resolved to on the base side (${ra})`);
-        remainingA = onlyA.filter((v) => v !== ra);
-        remainingB = onlyB.filter((v) => v !== rb);
-      }
+    const ra = rootResolvedA.get(key) ?? null;
+    const rb = rootResolvedB.get(key) ?? null;
+    if (ra !== null && rb !== null && ra !== rb && ga.byVersion.has(ra) && gb.byVersion.has(rb)) {
+      pairRow(ra, rb, `the version the root itself resolved to on the base side (${ra})`);
+      remainingA = onlyA.filter((v) => v !== ra);
+      remainingB = onlyB.filter((v) => v !== rb);
     }
     const droppedDesc = sortVersionsDesc(remainingA);
     const newDesc = sortVersionsDesc(remainingB);

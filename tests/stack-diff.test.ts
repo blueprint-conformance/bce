@@ -1025,6 +1025,32 @@ describe('stack diff — L: the version the ROOT resolves to pairs first; other 
     expect(r.moves[0]?.rootSpec).toEqual({ from: '^2.0.0', to: null });
   });
 
+  it('pnpm workspace shape: an IMPORTER dependency (a root edge that rootDeclared[] does not list) downgraded beside a rising nested copy is BACKWARD, exit 2', () => {
+    const orig = load(path.join(FIXTURES, 'pnpm-v9-synth.stack.json'));
+    const root = orig.nodes.find((n) => n.root) as StackNode;
+    const wsId = stackNodeId('npm', 'ws', '8.17.0');
+    // the premise: the root has an edge to ws, and the root's own rootDeclared[] does NOT name it
+    expect(orig.edges.some((e) => e.from === root.id && e.to === wsId)).toBe(true);
+    expect(orig.rootDeclared.some((d) => d.name === 'ws')).toBe(false);
+    const ws = orig.nodes.find((n) => n.id === wsId) as StackNode;
+    const down: StackNode = { ...ws, id: stackNodeId('npm', 'ws', '8.16.0'), version: '8.16.0', integrity: 'sha512-ws-8.16.0' };
+    const nested: StackNode = { ...ws, id: stackNodeId('npm', 'ws', '9.0.0'), version: '9.0.0', integrity: 'sha512-ws-9.0.0', layout: [] };
+    const parent = orig.nodes.find((n) => n.name === 'rollup') as StackNode;
+    const { stackDigest, stackId, manifestDigest, ...body } = orig;
+    void stackDigest;
+    void stackId;
+    void manifestDigest;
+    const head0 = finalizeStackManifest({
+      ...body,
+      nodes: [...orig.nodes.filter((n) => n.id !== wsId), down, nested],
+      edges: [...orig.edges.map((e) => (e.to === wsId ? { ...e, to: down.id } : e)), { from: parent.id, to: nested.id, spec: '^9.0.0', dev: false, optional: false, peer: false }],
+    });
+    const r = diffStackManifests(orig, head0);
+    expect(r.moves.map((m) => `${m.class} ${m.name} ${m.from ?? '-'} -> ${m.to ?? '-'}${m.copy ? ' (copy)' : ''}`)).toEqual(['backward ws 8.17.0 -> 8.16.0', 'added ws - -> 9.0.0 (copy)']);
+    expect(r.moves[0]?.rootDeclared).toBe(false);
+    expect(stackDiffExitCode(r)).toBe(2);
+  });
+
   it('the seed table is unchanged by root-edge pairing: vitest is the root pair, 7 forward / 1 added copy / 7 removed', () => {
     const r = diffStackManifests(base, head);
     expect(r.summary).toEqual({ added: 1, removed: 7, forward: 7, backward: 0, rewritten: 0, 'flags-changed': 0, 'spec-changed': 0, unknown: 0 });

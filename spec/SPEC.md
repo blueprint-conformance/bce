@@ -864,11 +864,12 @@ re-derivation is a consistency check, not an authenticity check: the digests are
 **Join key and set matching.** npm rows join on `(kind, name)` — never on the node id
 `name@version`. A lockfile routinely holds several copies of one name. Per name, the versions present
 on both sides are **retained** and produce no row unless their identity differs. **The root's own
-resolution pairs first**: for a name the root declares on both sides, the version the root's own edge
-resolves to on A and on B is one pair when they differ (a root that moves from `x@2.0.0` to `x@1.0.0`
+resolution pairs first**: for a name the root node has an edge to on both sides (its own declared
+dependencies and, in a pnpm workspace, those of its importers — which `rootDeclared[]` does not
+list), the single version that edge resolves to on A and on B is one pair when they differ (a root that moves from `x@2.0.0` to `x@1.0.0`
 is `backward`, even while a new dependency nests `x@3.0.0` — that copy is then `added`); an unchanged
-root resolution produces no row of its own, and a name the root declares on one side only falls back
-to plain set matching. The remaining versions present on one side only are sorted by (SemVer 2.0.0 §11
+root resolution produces no row of its own; a name the root has an edge to on one side only, or
+resolves to several versions of, falls back to plain set matching. The remaining versions present on one side only are sorted by (SemVer 2.0.0 §11
 precedence, full version string) and **paired from the top**: highest dropped with highest new, and so
 on. Each pair is `forward` or `backward`.
 Leftover dropped versions are `removed` copies and leftover new versions are `added` copies; such a
