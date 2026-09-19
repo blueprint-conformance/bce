@@ -1146,6 +1146,52 @@ describe('stack diff — K: manifests read from different lockfile families are 
     expect(back.stdout.split('\n')[0]).toContain('lockfile-family  npm-lockfile-v3 -> pnpm-lockfile-v9');
   });
 
+  it('pnpm -> pnpm on the committed synth manifest: one version bump is ONE forward row, exit 0; an opaque importer entry that changes is unknown, exit 2', () => {
+    const PNPM = path.join(FIXTURES, 'pnpm-v9-synth.stack.json');
+    const orig = load(PNPM);
+    expect(orig.unmodeled.length).toBeGreaterThan(0);
+    expect(orig.rootDeclared.length).toBeGreaterThan(0);
+    const body = (m: StackManifest) => {
+      const { stackDigest, stackId, manifestDigest, ...rest } = m;
+      void stackDigest;
+      void stackId;
+      void manifestDigest;
+      return rest;
+    };
+    // bump ws 8.17.0 -> 8.17.1 (node id + every edge that points at it), everything else untouched
+    const from = stackNodeId('npm', 'ws', '8.17.0');
+    const to = stackNodeId('npm', 'ws', '8.17.1');
+    expect(orig.nodes.some((n) => n.id === from)).toBe(true);
+    const bumped = finalizeStackManifest({
+      ...body(orig),
+      nodes: orig.nodes.map((n) => (n.id === from ? { ...n, id: to, version: '8.17.1' } : n)),
+      edges: orig.edges.map((e) => ({ ...e, from: e.from === from ? to : e.from, to: e.to === from ? to : e.to })),
+    });
+    const r = diffStackManifests(orig, bumped);
+    expect(line(r)).toEqual(['forward/nodes ws 8.17.0 -> 8.17.1']);
+    expect(r.unexplained).toEqual([]);
+    expect(r.classification).toBe('forward');
+    expect(stackDiffExitCode(r)).toBe(0);
+    const dir = tmp('pnpm-bump');
+    const fb = path.join(dir, 'bumped.stack.json');
+    fs.writeFileSync(fb, stableStringify(bumped));
+    const cli = runCli(['stack', 'diff', '--from', PNPM, '--to', fb, '--out', path.join(dir, 'o.json')], ROOT);
+    expect(cli.status, cli.stderr).toBe(0);
+    expect(cli.stdout).toContain('forward       ws  8.17.0 -> 8.17.1');
+    // an importer-level opaque entry (the npm alias) whose hashed content moves is unknown and blocks
+    const alias = orig.unmodeled.find((u) => u.reason === 'npm-alias') as StackUnmodeled;
+    const opaque = finalizeStackManifest({
+      ...body(orig),
+      unmodeled: orig.unmodeled.map((u) => (u.key === alias.key ? { ...u, entrySha256: 'f'.repeat(64) } : u)),
+    });
+    const o = diffStackManifests(orig, opaque);
+    expect(line(o)).toEqual([`unknown/unmodeled ${alias.key} ${alias.reason} sha256:${alias.entrySha256.slice(0, 12)} -> ${alias.reason} sha256:ffffffffffff`]);
+    expect(o.classification).toBe('unknown-potential-backward');
+    expect(stackDiffExitCode(o)).toBe(2);
+    // and the synth manifest against itself is identical
+    expect(diffStackManifests(orig, orig).moves).toEqual([]);
+  });
+
   it('control: the SAME family on both sides adds no row and changes no byte — whatever the file paths and non-lockfile sources', () => {
     const F = manifest([node('x', '2.0.1'), node('y', '1.0.0')]);
     const plain = diffStackManifests(A, F);
