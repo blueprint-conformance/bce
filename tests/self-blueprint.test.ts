@@ -59,6 +59,7 @@ function loadBlueprint(): EngineeringBlueprint {
 const STACK_GLOB = 'src/stack/**/*.ts';
 const STACK_NEVER_EXIT_ID = 'only-cli-may-call-process-exit--stack';
 const STACK_NO_NETWORK_ID = 'stack-plane-no-network-no-subprocess';
+const STACK_NO_GLOBAL_NETWORK_ID = 'stack-plane-no-global-network-api';
 
 function srcFilesRecursive(): string[] {
   const out: string[] = [];
@@ -139,14 +140,23 @@ describe('self-blueprint: the engine gates its own architecture', () => {
 
   it('SYNC: extraction.minFiles equals the actual src file count (fail-closed scan floor)', () => {
     const bp = loadBlueprint();
-    // once the stack plane is covered the floor is the REAL scanned count (src/**/*.ts recurses)
-    expect(bp.extraction?.minFiles).toBe(stackPlaneCovered(bp) ? srcFilesRecursive().length : srcFiles().length);
+    if (!stackPlaneCovered(bp)) {
+      expect(bp.extraction?.minFiles).toBe(srcFiles().length);
+      return;
+    }
+    // Once the stack plane is covered by GLOB rows, a new file under src/stack/ inherits coverage
+    // and must NOT force an amendment, so the floor is a RANGE rather than an equality: it covers
+    // every flat src file plus at least one plane file (a collapsed scan still fails closed), and
+    // it can never exceed the real scanned count (a floor above reality would refuse every run).
+    const floor = bp.extraction?.minFiles ?? 0;
+    expect(floor).toBeGreaterThan(srcFiles().length);
+    expect(floor).toBeLessThanOrEqual(srcFilesRecursive().length);
   });
 
   it('SYNC: once amended, the stack plane carries its never-exit AND no-network rows as globs', () => {
     const bp = loadBlueprint();
     if (!stackPlaneCovered(bp)) return; // ratified 0.1.1: the amendment is the PR that adds them
-    for (const id of [STACK_NEVER_EXIT_ID, STACK_NO_NETWORK_ID]) {
+    for (const id of [STACK_NEVER_EXIT_ID, STACK_NO_NETWORK_ID, STACK_NO_GLOBAL_NETWORK_ID]) {
       const c = bp.constraints.find((x) => x.id === id);
       expect(c, `missing constraint '${id}'`).toBeDefined();
       expect(c?.type).toBe('forbiddenPattern');

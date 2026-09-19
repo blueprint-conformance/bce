@@ -64,6 +64,9 @@ const cases = blueprint.constraints.map((constraint) => {
   if (constraint.id === 'stack-plane-no-network-no-subprocess') {
     return appendCase(constraint, STACK_PLANE_TARGET, "\nimport * as __bceMutationHttps from 'node:https';\n");
   }
+  if (constraint.id === 'stack-plane-no-global-network-api') {
+    return appendCase(constraint, STACK_PLANE_TARGET, "\nexport async function __bceMutationFetch(): Promise<unknown> { return fetch('https://example.invalid/'); }\n");
+  }
   if (constraint.id.startsWith('only-cli-may-call-process-exit--') && constraint.type === 'forbiddenPattern' && constraint.path) {
     return appendCase(constraint, constraint.path, '\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n');
   }

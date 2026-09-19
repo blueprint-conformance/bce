@@ -655,7 +655,15 @@
     {
       "id": "stack-plane-no-network-no-subprocess",
       "path": "src/stack/**/*.ts",
-      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"]node:(?:child_process|https?|net|dgram|tls|dns)['\"]",
+      "pattern": "(?:\\bfrom\\s+|\\bimport\\s*\\(\\s*|\\brequire\\s*\\(\\s*|^\\s*import\\s+)['\"](?:node:)?(?:child_process|https?|http2|net|dgram|tls|dns)(?:/promises)?['\"]",
+      "policyRef": "policy/stack-plane-no-network",
+      "severity": "critical",
+      "type": "forbiddenPattern"
+    },
+    {
+      "id": "stack-plane-no-global-network-api",
+      "path": "src/stack/**/*.ts",
+      "pattern": "\\bfetch\\s*\\(|\\bnew\\s+(?:WebSocket|XMLHttpRequest|EventSource)\\b",
       "policyRef": "policy/stack-plane-no-network",
       "severity": "critical",
       "type": "forbiddenPattern"

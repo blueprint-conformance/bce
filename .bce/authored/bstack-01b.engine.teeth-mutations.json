@@ -586,6 +586,18 @@
       ]
     },
     {
+      "id": "source-mutant-stack-plane-no-global-network-api",
+      "constraintId": "stack-plane-no-global-network-api",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/stack/stack-extractor.ts",
+        "preconditionSha256": "22da26f217e2cca393b4f57346127a55a68a5f4c706f249167adeaaaf6b4dd23",
+        "content": "\nexport async function __bceMutationFetch(): Promise<unknown> { return fetch('https://example.invalid/'); }\n"
+      },
+      "expectedEvidencePath": "src/stack/stack-extractor.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
       "id": "source-mutant-stack-plane-no-network-no-subprocess",
       "constraintId": "stack-plane-no-network-no-subprocess",
       "operation": {
