@@ -50,6 +50,39 @@ function loadBlueprint(): EngineeringBlueprint {
   return parseBlueprint(JSON.parse(fs.readFileSync(BLUEPRINT_PATH, 'utf8')));
 }
 
+/**
+ * Sub-directory planes (today: `src/stack/`) are covered by ONE glob per policy rather than a row
+ * per file, so a new file there inherits coverage with no further amendment. The glob coverage is
+ * REQUIRED as soon as the blueprint carries the stack never-exit row (the 0.1.2 amendment); the
+ * ratified 0.1.1 text predates it, and both must parse as SYNC while the amendment is in review.
+ */
+const STACK_GLOB = 'src/stack/**/*.ts';
+const STACK_NEVER_EXIT_ID = 'only-cli-may-call-process-exit--stack';
+const STACK_NO_NETWORK_ID = 'stack-plane-no-network-no-subprocess';
+const STACK_NO_GLOBAL_NETWORK_ID = 'stack-plane-no-global-network-api';
+
+function srcFilesRecursive(): string[] {
+  const out: string[] = [];
+  const walk = (dir: string, rel: string): void => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) walk(path.join(dir, e.name), `${rel}${e.name}/`);
+      else if (e.name.endsWith('.ts')) out.push(`${rel}${e.name}`);
+    }
+  };
+  walk(path.join(ROOT, 'src'), '');
+  return out.sort();
+}
+
+function stackPlaneCovered(bp: EngineeringBlueprint): boolean {
+  return bp.constraints.some((x) => x.id === STACK_NEVER_EXIT_ID);
+}
+
+/** scopePaths a seam constraint must carry: the flat file list, plus the stack glob once amended. */
+function expectedSeamScope(bp: EngineeringBlueprint, except: string): string[] {
+  const flat = srcFiles().filter((f) => f !== except).map((f) => `src/${f}`);
+  return (stackPlaneCovered(bp) ? [...flat, STACK_GLOB] : flat).sort();
+}
+
 function srcFiles(): string[] {
   return fs
     .readdirSync(path.join(ROOT, 'src'))
@@ -95,25 +128,40 @@ describe('self-blueprint: the engine gates its own architecture', () => {
     const bp = loadBlueprint();
     const c = bp.constraints.find((x) => x.id === 'only-extractors-may-import-ts-morph');
     expect(c).toBeDefined();
-    const expected = srcFiles()
-      .filter((f) => f !== 'extractors.ts')
-      .map((f) => `src/${f}`);
-    expect([...(c?.scopePaths ?? [])].sort()).toEqual(expected);
+    expect([...(c?.scopePaths ?? [])].sort()).toEqual(expectedSeamScope(bp, 'extractors.ts'));
   });
 
   it('SYNC: the Lezer seam constraint scopes EVERY src file except python-module-graph.ts', () => {
     const bp = loadBlueprint();
     const c = bp.constraints.find((x) => x.id === 'only-python-module-graph-may-import-lezer');
     expect(c).toBeDefined();
-    const expected = srcFiles()
-      .filter((f) => f !== 'python-module-graph.ts')
-      .map((f) => `src/${f}`);
-    expect([...(c?.scopePaths ?? [])].sort()).toEqual(expected);
+    expect([...(c?.scopePaths ?? [])].sort()).toEqual(expectedSeamScope(bp, 'python-module-graph.ts'));
   });
 
   it('SYNC: extraction.minFiles equals the actual src file count (fail-closed scan floor)', () => {
     const bp = loadBlueprint();
-    expect(bp.extraction?.minFiles).toBe(srcFiles().length);
+    if (!stackPlaneCovered(bp)) {
+      expect(bp.extraction?.minFiles).toBe(srcFiles().length);
+      return;
+    }
+    // Once the stack plane is covered by GLOB rows, a new file under src/stack/ inherits coverage
+    // and must NOT force an amendment, so the floor is a RANGE rather than an equality: it covers
+    // every flat src file plus at least one plane file (a collapsed scan still fails closed), and
+    // it can never exceed the real scanned count (a floor above reality would refuse every run).
+    const floor = bp.extraction?.minFiles ?? 0;
+    expect(floor).toBeGreaterThan(srcFiles().length);
+    expect(floor).toBeLessThanOrEqual(srcFilesRecursive().length);
+  });
+
+  it('SYNC: once amended, the stack plane carries its never-exit AND no-network rows as globs', () => {
+    const bp = loadBlueprint();
+    if (!stackPlaneCovered(bp)) return; // ratified 0.1.1: the amendment is the PR that adds them
+    for (const id of [STACK_NEVER_EXIT_ID, STACK_NO_NETWORK_ID, STACK_NO_GLOBAL_NETWORK_ID]) {
+      const c = bp.constraints.find((x) => x.id === id);
+      expect(c, `missing constraint '${id}'`).toBeDefined();
+      expect(c?.type).toBe('forbiddenPattern');
+      expect(c?.path).toBe(STACK_GLOB);
+    }
   });
 
   it('GATE: the engine gates its own tree GREEN (full sweep, AST extractor)', () => {

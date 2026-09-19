@@ -145,8 +145,8 @@ npm run test:self-teeth-mutations
 npx vitest run tests/self-blueprint.test.ts
 ```
 
-Expected: blueprint VALID, gate score 100 (pass), and `extractor-real-proven` with all 47
-constraints killed by 47 separately materialized source-tree mutants. The mutation manifest is
+Expected: blueprint VALID, gate score 100 (pass), and `extractor-real-proven` with all 50
+constraints killed by 50 separately materialized source-tree mutants. The mutation manifest is
 regenerated from the blueprint and is freshness-checked before the real CLI proof runs. Tests are
 green. To watch the gate actually bite, add `import { Project } from 'ts-morph';` to
 `src/score.ts` and re-run the gate: it exits 1 with two violations (the seam constraint,
@@ -163,7 +163,7 @@ discriminating regression test in `tests/self-blueprint.test.ts`. The former eva
 now closed by `.blueprints/engine.teeth-mutations.json`: every self-blueprint clause maps to one
 real create/replace/append/delete mutation, and the CLI refuses missing, duplicate, surviving,
 out-of-scope, protected-surface, syntax-invalid, or collateral mutations. This proves the current
-47 clauses can bite the current extraction/evaluation path; it does not prove the blueprint is a
+50 clauses can bite the current extraction/evaluation path; it does not prove the blueprint is a
 complete specification of every desirable property.
 
 ## Full self-adoption
@@ -177,5 +177,5 @@ exercises the actual project MCP configuration. The enforced mode is explicit in
 check for a completed lifecycle is `node dist/cli.js doctor --repo .`: real-source teeth, matching
 approved policy and adoption history, exact CI pin, project integrations, and full gate must agree.
 A missing ceremony remains a warning until its authenticated history exists. Both blueprints now
-carry digest-bound source mutation manifests: 47 engine clauses and 13 skill-standard clauses.
+carry digest-bound source mutation manifests: 50 engine clauses and 13 skill-standard clauses.
 The latter includes exact file evidence for forbidden files, without inventing line numbers.
