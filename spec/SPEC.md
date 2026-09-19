@@ -616,6 +616,8 @@ evidence anchor), so identical runs yield identical proposals.
 | `bce ratify` / `bce amend` | attended packet-bound policy ceremony recorded | malformed input / usage error | stale/invalid packet, non-approving or unreproducible SCM decision, missing extractor-real teeth, or unsafe policy transition refused |
 | `bce upgrade --check` | candidate is compatible | — | mutable/malformed candidate or incompatible engine floor refused |
 | `bce verify-bundle` | hashes and verdict reproduce | bundle malformed or integrity/reproduction check fails | — |
+| `bce stack snapshot` | StackManifest written | usage error | no supported lockfile parses: nothing written |
+| `bce stack diff` | report written; no blocking move | usage error (missing `--from`/`--to`, unknown flag, extra positional argument) | a `backward`, `unknown` or `rewritten` move, a same-version install-script gain, or a hashed change no row explains (report still written); or a refused input — not a strict StackManifest, a symlink, recorded digests that do not re-derive, or an `--out` that resolves to an input (nothing written) |
 | `bce portfolio compile` | overlays written | validation / usage error | — |
 | `bce portfolio collect` | rollup produced | refusal (missing/extra repo, member floor) or validation error | — |
 | *(unknown command)* | — | usage printed, non-zero | — |
@@ -849,6 +851,103 @@ consumer to read it.
 and `tests/stack-pnpm.test.ts` pin committed goldens, their negative controls, and one test per
 rule above). This section is descriptive of the verb that runs; grading a stack (a `stack` block on
 the blueprint, version/closure constraint types) is not part of this specification version.
+
+### 16.2 Stack diff (the closure classifier)
+
+`bce stack diff --from <A> --to <B>` classifies every move between two StackManifests. Its inputs are
+**manifests, never repositories**. An input is refused (exit **2**, nothing written) when it is not a
+strict StackManifest (the message names the first failing path: `… is not a valid StackManifest: at
+'<path>': …`), when its path is a symbolic link, or when its recorded `stackDigest` / `stackId` /
+`manifestDigest` do not re-derive. `--out` is refused when it resolves to either input. The digest
+re-derivation is a consistency check, not an authenticity check: the digests are unkeyed.
+
+**Join key and set matching.** npm rows join on `(kind, name)` — never on the node id
+`name@version`. A lockfile routinely holds several copies of one name. Per name, the versions present
+on both sides are **retained** and produce no row unless their identity differs. **The root's own
+resolution pairs first**: for a name the root declares on both sides, the version the root's own edge
+resolves to on A and on B is one pair when they differ (a root that moves from `x@2.0.0` to `x@1.0.0`
+is `backward`, even while a new dependency nests `x@3.0.0` — that copy is then `added`); an unchanged
+root resolution produces no row of its own, and a name the root declares on one side only falls back
+to plain set matching. The remaining versions present on one side only are sorted by (SemVer 2.0.0 §11
+precedence, full version string) and **paired from the top**: highest dropped with highest new, and so
+on. Each pair is `forward` or `backward`.
+Leftover dropped versions are `removed` copies and leftover new versions are `added` copies; such a
+row has `scope: "version"`, `copy: true` and lists the unmoved versions in `retained`, so it cannot
+be mistaken for a whole-name add or remove. A patch upgrade of a non-maximum copy beside a retained
+maximum is therefore one `forward` row, and a new lower copy beside a retained maximum is an `added`
+copy — neither is a downgrade.
+
+| class | condition |
+|---|---|
+| `added` / `removed` | the name is present on one side only (`scope: "name"`); or one copy of a name that stays present entered / left (`scope: "version"`, `copy: true`). A **removed** name is `removed` whatever its version looks like |
+| `forward` / `backward` | a dropped version paired with a new version of the same name, strictly higher / lower. Boolean flags that moved between the two nodes ride on the row as `flagsChanged` and do not block |
+| `rewritten` | same name and version, different hashed identity: `integrity`, or any other non-flag hashed field. The compared field set is derived from the node itself, so every hashed field (e.g. `resolvedWhenUnpinned` on a node without integrity) is compared, including one a later manifest revision adds. The row names the `fields` and carries **both** values as `integrity: {from, to}`. **Blocks** (`approvalBlocked`, exit 2) |
+| `flags-changed` | same name, version and integrity; only boolean flags moved (`dev`, `optional`, `peer`, `devOptional`, `installScript`). The row lists each as `flagsChanged: [{flag, from, to}]` and explains the digest change. It blocks **only** when `installScript` goes `false` → `true` |
+| `spec-changed` | resolved nodes unchanged; a declared range on an edge moved, or the root started / stopped declaring a name or moved it between dependency groups — digest-neutral, informational, never emitted on an edge whose endpoint was rewritten |
+| `unknown` | the direction cannot be proven: **any** version of a name that moved — on either side, moved or retained — is not strict `x.y.z[-pre][+build]` (git ref, tag, range, partial such as `22`); two versions of the name are precedence-equal but differ (build metadata), in whatever order they are listed; an **added** node has a non-semver version; an image tag or runtime declaration moved and the two values cannot be ordered; an entering image has neither a digest pin nor a strict-version tag; a hashed item differs and no row of its own sub-view names it; or **any** move (added, removed or changed) of an OPAQUE entry — a hashed `unmodeled[]` entry |
+
+**Images and runtime.** `images[]` entries join on the image name. One entry replaced by one entry:
+a different tag is `forward` / `backward` when both tags are strict versions and `unknown` otherwise;
+the same tag with a different digest is `rewritten` and carries both digests; the same tag and digest
+with another hashed field moved is `rewritten` naming the field. An entering image is `added` only
+when a digest pins it or its tag is a strict version; a leaving image is `removed`; several entries
+of one name moving at once are `unknown`. The `runtime.node` block: a different declared value is
+`forward` / `backward` when both are exact versions, else `unknown`; the same declared value with
+another field moved is `rewritten`. The `oci-image` and `node-runtime` **nodes** are projections of
+these blocks and are explained by these rows.
+
+**Every hashed sub-view is explained by its own rows.** The hashed view has four parts — `nodes`,
+`runtime`, `images`, `unmodeled`. After the rows are built, every hashed item that differs between
+the two views must be named by a digest-bearing row **of the same sub-view**. Anything left over is
+listed in `unexplained` (`<view>:<key>`), `unexplainedDigestChange` is `true`, the classification is
+`unknown-potential-backward` and the exit code is **2**. A node row never explains an image, runtime
+or unmodeled change, and a `spec-changed` row explains nothing. The digests in the report are
+re-derived from the hashed view; the recorded `stackDigest` field is never read.
+
+**The root.** The root node is compared apart from the closure and joined on its name. Its OWN
+version is quarantined out of the digest, so two manifests that differ only in the root version are
+an empty diff (exit 0); a different root *name* is a different subject and is `unknown`; a root whose
+only moved fields are boolean flags is `flags-changed` (blocking only on an install-script gain, as
+for a dependency); any other hashed root field that moved is `rewritten`. A dependency that merely shares the root's name is
+joined with dependencies, never with the root. Declared ranges are quarantined too and live only in
+`rootDeclared[]` / `edges`: every row carries `rootSpec` — the range(s) the root declares for that
+name on each side, read from the manifest's `rootDeclared[]` (from the edges leaving the root when a
+manifest carries none) (e.g. `^4.1.11` → `^5.0.0`) — as the evidence that a root-declared move was
+asked for, and an edge leaving the root is keyed by the version-free `root:<name>`.
+
+`layout` (hoisting) is not identity and never produces a row; rows carry path counts only. An
+unchanged node never produces a row, whatever its version looks like — identical closures are an
+empty diff.
+
+**Exit contract.** `unknown` mirrors the policy-change classifier: the report classification is
+`unknown-potential-backward`, and there is no approve-anyway input. The report carries two
+independent flags and the verb exits **2** when either is set, else **0**:
+
+| flag | set by |
+|---|---|
+| `approvalBlocked` | any `unknown` row (including the lockfile-family row); any `rewritten` row; a `flags-changed` row whose `installScript` went `false` → `true`; an unexplained hashed change |
+| `downgradeAckRequired` | any `backward` row; any `unknown` row; an unexplained hashed change |
+
+`added`, `removed`, `forward`, `spec-changed`, and a `flags-changed` row that gains no install script
+do not set either flag. Each row carries its own `approvalBlocked`.
+
+**Lockfile family.** The parser that read each side's lockfile is visible only in the quarantined
+`sources[].parser`, so neither digest can see it. Every parser value other than the non-lockfile ones
+(`package-json`, `dockerfile`, `compose`, `nvmrc`, `node-version`) is a lockfile *family*, compared as
+an opaque string — a family a later extractor adds is compared, not ignored. When the two sides'
+family sets differ (including a side that has none), the closures are not comparable: the report
+classification is `unknown-potential-backward` (even above a `backward` row), `approvalBlocked` is
+`true`, the exit code is **2**, and the **first** row is `unknown` with `view: "sources"`, name
+`lockfile-family`, and both family sets as `from` / `to`. The per-node rows are still listed beneath
+it. With the same family set on both sides no row is added and no report byte changes.
+
+**Rank and order.** `backward > unknown > rewritten|flags-changed > added|removed > forward >
+spec-changed > identical`; the report classification is the highest rank present, and inside one rank
+the louder class names it (`rewritten` over `flags-changed`, `removed` over `added`). Rows are sorted
+by the explicit total comparator `(lockfile-family row first, rank desc, name, kind, class, from, to,
+declaredBy, canonical row bytes)` and the report is serialized by the §11 rules, so the same pair — in any `nodes[]` /
+`edges[]` / `images[]` / `unmodeled[]` array order — yields byte-identical report bytes. The report
+is a verb output, not a published schema in this specification version.
 
 ---
 
