@@ -170,6 +170,7 @@ export {
   compareSemverLite,
   STACK_MOVE_RANK,
   STACK_FLAG_FIELDS,
+  stackLockfileFamilies,
   STACK_DIFF_UNKNOWN_CLASSIFICATION,
 } from './stack/stack-diff.js';
 export type {

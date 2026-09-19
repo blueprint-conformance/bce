@@ -2525,7 +2525,7 @@ async function main(): Promise<void> {
       `       spec-changed | unknown. Image and runtime moves get their own rows. Exit 2 (FAILS CLOSED, report\n` +
       `       still written) on: unknown (non-semver / unorderable / unexplained hashed change), backward,\n` +
       `       rewritten (same name@version, different integrity — both values shown), or a same-version\n` +
-      `       install-script gain. Inputs are manifests, not repositories; a symlinked input, an input whose\n` +
+      `       install-script gain, or two manifests read from DIFFERENT lockfile families. Inputs are manifests, not repositories; a symlinked input, an input whose\n` +
       `       recorded digests do not re-derive, or an --out that resolves to an input is refused (nothing written).\n`;
   const topicWords = (args._[0] === 'help' ? args._.slice(1) : args._).filter(word => word !== '-h');
   const topic = helpRequested ? topicWords.join(' ') : '';

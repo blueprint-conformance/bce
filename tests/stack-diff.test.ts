@@ -25,6 +25,7 @@
  *  I. IMAGES + RUNTIME — real-extractor repros: a tag / digest / runtime move alone and masked by an
  *     unrelated bump; strict-version tags order; entering / leaving images; array permutation.
  *  J. ROOT DECLARATIONS — declare / un-declare / group move with nodes unchanged is informational.
+ *  K. LOCKFILE FAMILY — different lockfile parsers on the two sides fail closed, both directions.
  *  H. CLI — refusals (missing flag, extra positional, a repository, a symlink, a tampered manifest,
  *     a schema violation naming its path, --out onto an input, a snapshot-only flag) write nothing.
  *
@@ -54,6 +55,7 @@ import {
   compareStackMoves,
   diffStackManifests,
   sortVersionsDesc,
+  stackLockfileFamilies,
   parseSemverLite,
   stackDiffExitCode,
   STACK_DIFF_UNKNOWN_CLASSIFICATION,
@@ -1082,6 +1084,62 @@ describe('stack diff — J: a root declaration that appears, disappears or chang
     expect(stackDiffExitCode(moved)).toBe(0);
     // unchanged declarations never produce a row
     expect(diffStackManifests(both, both).moves).toEqual([]);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* K. lockfile family                                                          */
+/* -------------------------------------------------------------------------- */
+
+describe('stack diff — K: manifests read from different lockfile families are not comparable — fail closed, rows still listed', () => {
+  const src = (p: string, parser: string): StackManifest['sources'][number] => ({ path: p, sha256: '0'.repeat(64), parser: parser as StackManifest['sources'][number]['parser'] });
+  const NPM = [src('package-lock.json', 'npm-lockfile-v3'), src('package.json', 'package-json'), src('.nvmrc', 'nvmrc')];
+  // a family this engine version does not know: `parser` is compared as an opaque string
+  const OTHER = [src('other-lock.yaml', 'some-future-lockfile'), src('package.json', 'package-json')];
+  const withSources = (m: StackManifest, sources: StackManifest['sources']): StackManifest => ({ ...m, sources });
+  const A = manifest([node('x', '2.0.0'), node('y', '1.0.0')]);
+  const B = manifest([node('x', '1.0.0'), node('y', '1.0.1')]);
+  const line = (r: ReturnType<typeof diffStackManifests>): string[] => r.moves.map((m) => `${m.class}/${m.view} ${m.name} ${m.from ?? '-'} -> ${m.to ?? '-'}`);
+
+  it('stackLockfileFamilies ignores the non-lockfile parsers and keeps every other string', () => {
+    expect(stackLockfileFamilies(withSources(A, NPM))).toEqual(['npm-lockfile-v3']);
+    expect(stackLockfileFamilies(withSources(A, OTHER))).toEqual(['some-future-lockfile']);
+    expect(stackLockfileFamilies(A)).toEqual([]);
+    expect(stackLockfileFamilies(base)).toEqual(['npm-lockfile-v3']);
+  });
+
+  it('both directions: the family row is FIRST (above a backward row), classification unknown, exit 2, node rows beneath', () => {
+    const r = diffStackManifests(withSources(A, NPM), withSources(B, OTHER));
+    expect(line(r)).toEqual(['unknown/sources lockfile-family npm-lockfile-v3 -> some-future-lockfile', 'backward/nodes x 2.0.0 -> 1.0.0', 'forward/nodes y 1.0.0 -> 1.0.1']);
+    expect(r.moves[0]?.reasons[0]).toContain('npm-lockfile-v3');
+    expect(r.moves[0]?.reasons[0]).toContain('some-future-lockfile');
+    expect(r.classification).toBe('unknown-potential-backward');
+    expect(r.approvalBlocked).toBe(true);
+    expect(stackDiffExitCode(r)).toBe(2);
+    const rev = diffStackManifests(withSources(B, OTHER), withSources(A, NPM));
+    expect(line(rev)).toEqual(['unknown/sources lockfile-family some-future-lockfile -> npm-lockfile-v3', 'backward/nodes y 1.0.1 -> 1.0.0', 'forward/nodes x 1.0.0 -> 2.0.0']);
+    expect(rev.classification).toBe('unknown-potential-backward');
+    expect(stackDiffExitCode(rev)).toBe(2);
+    // an otherwise clean forward-only pair is blocked by the family row alone
+    const F = manifest([node('x', '2.0.1'), node('y', '1.0.0')]);
+    const fwd = diffStackManifests(withSources(A, NPM), withSources(F, OTHER));
+    expect(line(fwd)).toEqual(['unknown/sources lockfile-family npm-lockfile-v3 -> some-future-lockfile', 'forward/nodes x 2.0.0 -> 2.0.1']);
+    expect(stackDiffExitCode(fwd)).toBe(2);
+    // a side with NO lockfile source at all is a different family set too
+    expect(line(diffStackManifests(withSources(A, NPM), F))[0]).toBe('unknown/sources lockfile-family npm-lockfile-v3 -> (none)');
+  });
+
+  it('control: the SAME family on both sides adds no row and changes no byte — whatever the file paths and non-lockfile sources', () => {
+    const F = manifest([node('x', '2.0.1'), node('y', '1.0.0')]);
+    const plain = diffStackManifests(A, F);
+    const sameNpm = diffStackManifests(withSources(A, NPM), withSources(F, [src('npm-shrinkwrap.json', 'npm-lockfile-v3'), src('Dockerfile', 'dockerfile')]));
+    const sameOther = diffStackManifests(withSources(A, OTHER), withSources(F, OTHER));
+    expect(line(plain)).toEqual(['forward/nodes x 2.0.0 -> 2.0.1']);
+    expect(stableStringify(sameNpm)).toBe(stableStringify(plain));
+    expect(stableStringify(sameOther)).toBe(stableStringify(plain));
+    expect(stackDiffExitCode(sameNpm)).toBe(0);
+    // the committed seed pair is one family: no family row
+    expect(diffStackManifests(base, head).moves.some((m) => m.view === 'sources')).toBe(false);
   });
 });
 

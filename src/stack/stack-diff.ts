@@ -43,6 +43,11 @@
  * is `unknown-potential-backward` and the exit code is 2. A node row can therefore never mask an
  * image, runtime or unmodeled change, and a `spec-changed` row explains nothing.
  *
+ * LOCKFILE FAMILY: the parser that read each side's lockfile is visible only in the quarantined
+ * `sources[]`. When the two sides' lockfile-family sets differ the report is
+ * `unknown-potential-backward`, exit 2, with a FIRST row (`view: 'sources'`, name `lockfile-family`)
+ * naming both; the per-node rows are still listed beneath it. Same family: nothing changes.
+ *
  * FAIL CLOSED, mirroring `policy-change.ts` (`unknown-potential-relaxation`): `unknown` is reported
  * as `unknown-potential-backward`. Exit 2 when `approvalBlocked` (unknown, rewritten, install-script
  * gain, unexplained change) or `downgradeAckRequired` (backward, unknown). No approve-anyway input.
@@ -160,8 +165,8 @@ export type StackDiffClassification =
   | 'unknown-potential-backward'
   | 'backward';
 
-/** The hashed sub-view a row explains (`edges` rows are digest-neutral and explain nothing). */
-export type StackMoveView = 'nodes' | 'runtime' | 'images' | 'unmodeled' | 'edges';
+/** The hashed sub-view a row explains (`edges` rows are digest-neutral and explain nothing; `sources` is the lockfile-family row). */
+export type StackMoveView = 'nodes' | 'runtime' | 'images' | 'unmodeled' | 'edges' | 'sources';
 
 /** backward > unknown > rewritten|flags-changed > added|removed > forward > spec-changed > identical(0). */
 export const STACK_MOVE_RANK: Readonly<Record<StackMoveClass, number>> = Object.freeze({
@@ -287,6 +292,8 @@ function cmp(a: string, b: string): number {
  */
 export function compareStackMoves(a: StackMove, b: StackMove): number {
   return (
+    // the lockfile-family row is about the COMPARISON itself, so it is always the first row
+    (a.view === 'sources' ? 0 : 1) - (b.view === 'sources' ? 0 : 1) ||
     STACK_MOVE_RANK[b.class] - STACK_MOVE_RANK[a.class] ||
     cmp(a.name, b.name) ||
     cmp(a.kind, b.kind) ||
@@ -486,6 +493,17 @@ function specsByPair(manifest: StackManifest): Map<string, { from: string; to: s
     else pairs.set(key, { from, to, specs: new Set([e.spec]) });
   }
   return new Map([...pairs].map(([k, p]) => [k, { from: p.from, to: p.to, specs: [...p.specs].sort() }] as const));
+}
+
+/**
+ * `sources[].parser` values that do NOT read a lockfile. Every OTHER parser string is a lockfile
+ * FAMILY — deliberately an exclusion list, so a parser a later extractor adds is compared, not ignored.
+ */
+const NON_LOCKFILE_PARSERS = new Set(['package-json', 'dockerfile', 'compose', 'nvmrc', 'node-version']);
+
+/** The sorted set of lockfile families a manifest was extracted from (`parser` treated as an opaque string). */
+export function stackLockfileFamilies(manifest: StackManifest): string[] {
+  return [...new Set(manifest.sources.map((src) => src.parser as string).filter((parser) => !NON_LOCKFILE_PARSERS.has(parser)))].sort();
 }
 
 /** Multiset difference of two serialized lists: the items on one side only, as [onlyA, onlyB]. */
@@ -984,6 +1002,30 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
     }
   }
 
+  // ---- LOCKFILE FAMILY: two manifests read by different lockfile parsers are not comparable ----
+  // The family lives only in the quarantined `sources[]`, so the digests cannot see it. The same
+  // repository read from two lockfile families resolves to different closures, and the per-node rows
+  // below such a pair describe the two package managers, not a move — the verdict fails closed.
+  const familiesA = stackLockfileFamilies(a);
+  const familiesB = stackLockfileFamilies(b);
+  const familyMismatch = familiesA.join(SEP) !== familiesB.join(SEP);
+  if (familyMismatch) {
+    const show = (f: string[]): string => (f.length === 0 ? '(none)' : f.join(', '));
+    row(
+      {
+        class: 'unknown',
+        view: 'sources',
+        kind: 'unsupported',
+        name: 'lockfile-family',
+        from: show(familiesA),
+        to: show(familiesB),
+        scope: 'name',
+        reasons: [`the base manifest was extracted by lockfile parser(s) ${show(familiesA)} and the head by ${show(familiesB)}: closures read from different lockfile families are not comparable, so no row below proves a direction`],
+      },
+      [],
+    );
+  }
+
   moves.sort(compareStackMoves);
 
   // ---- COMPLETENESS: every hashed item that differs must be named by a row OF ITS OWN SUB-VIEW ----
@@ -1023,7 +1065,8 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
 
   let top: StackMoveClass | null = unexplainedDigestChange ? 'unknown' : null;
   for (const m of moves) {
-    if (top === null) top = m.class;
+    if (familyMismatch) top = 'unknown'; // the comparison itself is unproven: no backward row may outrank that
+    else if (top === null) top = m.class;
     else if (STACK_MOVE_RANK[m.class] > STACK_MOVE_RANK[top]) top = m.class;
     else if (STACK_MOVE_RANK[m.class] === STACK_MOVE_RANK[top] && RANK_TIE[m.class] > RANK_TIE[top]) top = m.class;
   }

@@ -810,17 +810,27 @@ independent flags and the verb exits **2** when either is set, else **0**:
 
 | flag | set by |
 |---|---|
-| `approvalBlocked` | any `unknown` row; any `rewritten` row; a `flags-changed` row whose `installScript` went `false` → `true`; an unexplained hashed change |
+| `approvalBlocked` | any `unknown` row (including the lockfile-family row); any `rewritten` row; a `flags-changed` row whose `installScript` went `false` → `true`; an unexplained hashed change |
 | `downgradeAckRequired` | any `backward` row; any `unknown` row; an unexplained hashed change |
 
 `added`, `removed`, `forward`, `spec-changed`, and a `flags-changed` row that gains no install script
 do not set either flag. Each row carries its own `approvalBlocked`.
 
+**Lockfile family.** The parser that read each side's lockfile is visible only in the quarantined
+`sources[].parser`, so neither digest can see it. Every parser value other than the non-lockfile ones
+(`package-json`, `dockerfile`, `compose`, `nvmrc`, `node-version`) is a lockfile *family*, compared as
+an opaque string — a family a later extractor adds is compared, not ignored. When the two sides'
+family sets differ (including a side that has none), the closures are not comparable: the report
+classification is `unknown-potential-backward` (even above a `backward` row), `approvalBlocked` is
+`true`, the exit code is **2**, and the **first** row is `unknown` with `view: "sources"`, name
+`lockfile-family`, and both family sets as `from` / `to`. The per-node rows are still listed beneath
+it. With the same family set on both sides no row is added and no report byte changes.
+
 **Rank and order.** `backward > unknown > rewritten|flags-changed > added|removed > forward >
 spec-changed > identical`; the report classification is the highest rank present, and inside one rank
 the louder class names it (`rewritten` over `flags-changed`, `removed` over `added`). Rows are sorted
-by the explicit total comparator `(rank desc, name, kind, class, from, to, declaredBy, canonical
-row bytes)` and the report is serialized by the §11 rules, so the same pair — in any `nodes[]` /
+by the explicit total comparator `(lockfile-family row first, rank desc, name, kind, class, from, to,
+declaredBy, canonical row bytes)` and the report is serialized by the §11 rules, so the same pair — in any `nodes[]` /
 `edges[]` / `images[]` / `unmodeled[]` array order — yields byte-identical report bytes. The report
 is a verb output, not a published schema in this specification version.
 
