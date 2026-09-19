@@ -2315,7 +2315,10 @@ async function main(): Promise<void> {
       );
       const code = stackDiffExitCode(report);
       if (code !== 0) {
-        die(`stack diff FAILS CLOSED: classification ${report.classification}${report.approvalBlocked ? ', approval blocked' : ''}${report.downgradeAckRequired ? ', downgrade acknowledgement required' : ''} — a backward, rewritten or unproven move needs an explicit acknowledged rationale`, code);
+        // Not die(): a large report leaves stdout still draining on a pipe, and process.exit() would
+        // drop the summary line. Set the exit code and let the event loop flush.
+        process.stderr.write(`::error::stack diff FAILS CLOSED: classification ${report.classification}${report.approvalBlocked ? ', approval blocked' : ''}${report.downgradeAckRequired ? ', downgrade acknowledgement required' : ''} — a backward, rewritten or unproven move needs an explicit acknowledged rationale\n`);
+        process.exitCode = code;
       }
       return;
     }
