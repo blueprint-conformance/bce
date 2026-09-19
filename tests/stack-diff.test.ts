@@ -22,6 +22,8 @@
  *     precedence ties in every input order, non-semver on either side and among retained copies,
  *     flag moves (same version and riding a version move), spec-only moves, a hashed change no row
  *     of its sub-view explains (alone AND masked), re-derived digests, OPAQUE nodes, rank and ties.
+ *  L. ROOT PAIR — the version the root itself resolves to pairs first (backward on a root downgrade
+ *     even when a nested copy rises); other copies set-match afterwards.
  *  I. IMAGES + RUNTIME — real-extractor repros: a tag / digest / runtime move alone and masked by an
  *     unrelated bump; strict-version tags order; entering / leaving images; array permutation.
  *  J. ROOT DECLARATIONS — declare / un-declare / group move with nodes unchanged is informational.
@@ -799,15 +801,27 @@ describe('stack diff — G: classifier edges on synthetic manifests', () => {
     expect(sig(r)).toEqual(['forward/version app 0.1.0 -> 0.2.0']);
   });
 
-  it('a different root NAME is a different subject: unknown, fails closed; a changed root flag is rewritten', () => {
+  it('a different root NAME is a different subject: unknown, fails closed; a root flag move is flags-changed, another root field is rewritten', () => {
     const OTHER = node('other', '1.0.0', { root: true, integrity: null, layout: [''] });
     const renamed = diffStackManifests(manifest([]), manifest([], [], false, [], OTHER));
     expect(sig(renamed)).toEqual(['unknown/name app 1.0.0 -> -', 'unknown/name other - -> 1.0.0']);
     expect(stackDiffExitCode(renamed)).toBe(2);
     const SCRIPTED = node('app', '1.0.0', { root: true, integrity: null, layout: [''], installScript: true });
     const flagged = diffStackManifests(manifest([]), manifest([], [], false, [], SCRIPTED));
-    expect(sig(flagged)).toEqual(['rewritten/name app 1.0.0 -> 1.0.0']);
-    expect(flagged.moves[0]?.reasons).toEqual(['root package, different installScript']);
+    // the same rule as for a dependency: flags only = flags-changed; an install-script gain blocks
+    expect(sig(flagged)).toEqual(['flags-changed/name app 1.0.0 -> 1.0.0']);
+    expect(flagged.moves[0]?.flagsChanged).toEqual([{ flag: 'installScript', from: false, to: true }]);
+    expect(flagged.moves[0]?.approvalBlocked).toBe(true);
+    expect(stackDiffExitCode(flagged)).toBe(2);
+    const DEV_ROOT = node('app', '1.0.0', { root: true, integrity: null, layout: [''], dev: true });
+    const devFlag = diffStackManifests(manifest([]), manifest([], [], false, [], DEV_ROOT));
+    expect(sig(devFlag)).toEqual(['flags-changed/name app 1.0.0 -> 1.0.0']);
+    expect(stackDiffExitCode(devFlag)).toBe(0);
+    // a non-flag root field is still rewritten
+    const RESOLVED_ROOT = node('app', '1.0.0', { root: true, integrity: null, layout: [''], resolvedWhenUnpinned: 'file:.' });
+    const rew = diffStackManifests(manifest([]), manifest([], [], false, [], RESOLVED_ROOT));
+    expect(sig(rew)).toEqual(['rewritten/name app 1.0.0 -> 1.0.0']);
+    expect(rew.moves[0]?.reasons).toEqual(['root package, different resolvedWhenUnpinned']);
   });
 
   it('a hashed change no row OF ITS OWN SUB-VIEW explains FAILS CLOSED — even in the company of other rows', () => {
@@ -942,6 +956,86 @@ describe('stack diff — G: classifier edges on synthetic manifests', () => {
 });
 
 /* -------------------------------------------------------------------------- */
+/* L. the root's own resolution pairs FIRST                                    */
+/* -------------------------------------------------------------------------- */
+
+describe('stack diff — L: the version the ROOT resolves to pairs first; other copies set-match afterwards', () => {
+  /** the reviewer's shape, through the REAL extractor: root declares x; optionally a dep w nests its own x */
+  function repo(label: string, o: { rootX: string; rootSpec: string; nestedX?: string }): StackManifest {
+    const dir = tmp(label);
+    const deps: Record<string, string> = { x: o.rootSpec, ...(o.nestedX ? { w: '^1.0.0' } : {}) };
+    const pkg = { name: 'demo', version: '1.0.0', dependencies: deps };
+    const x = (v: string) => ({ version: v, resolved: `https://registry.example/x/-/x-${v}.tgz`, integrity: `sha512-x${v}` });
+    const packages: Record<string, unknown> = { '': pkg, 'node_modules/x': x(o.rootX) };
+    if (o.nestedX) {
+      packages['node_modules/w'] = { version: '1.0.0', resolved: 'https://registry.example/w/-/w-1.0.0.tgz', integrity: 'sha512-w', dependencies: { x: `^${o.nestedX}` } };
+      packages['node_modules/w/node_modules/x'] = x(o.nestedX);
+    }
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(pkg));
+    fs.writeFileSync(path.join(dir, 'package-lock.json'), JSON.stringify({ name: 'demo', version: '1.0.0', lockfileVersion: 3, requires: true, packages }));
+    return extract(dir);
+  }
+  const sig = (r: ReturnType<typeof diffStackManifests>): string[] => r.moves.map((m) => `${m.class}/${m.scope} ${m.name} ${m.from ?? '-'} -> ${m.to ?? '-'}${m.copy ? ' (copy)' : ''}`);
+
+  it("the reviewer's repro: root ^2.0.0 -> ^1.0.0 while a new dep nests x@3.0.0 is BACKWARD (root's pair) + an added copy, exit 2", () => {
+    const base0 = repo('re-base', { rootX: '2.0.0', rootSpec: '^2.0.0' });
+    const head0 = repo('re-head', { rootX: '1.0.0', rootSpec: '^1.0.0', nestedX: '3.0.0' });
+    const r = diffStackManifests(base0, head0);
+    expect(sig(r)).toEqual(['backward/version x 2.0.0 -> 1.0.0', 'added/name w - -> 1.0.0', 'added/version x - -> 3.0.0 (copy)']);
+    const back = r.moves[0] as StackMove;
+    expect(back.rootDeclared).toBe(true);
+    expect(back.rootSpec).toEqual({ from: '^2.0.0', to: '^1.0.0' });
+    expect(back.reasons[0]).toContain('the root itself resolved to');
+    expect(r.classification).toBe('backward');
+    expect(r.downgradeAckRequired).toBe(true);
+    expect(stackDiffExitCode(r)).toBe(2);
+    // the mirror: root ^1 -> ^2 while the nested 3.0.0 disappears with w = forward + removed copy, exit 0
+    const m = diffStackManifests(head0, base0);
+    expect(sig(m)).toEqual(['removed/name w 1.0.0 -> -', 'removed/version x 3.0.0 -> - (copy)', 'forward/version x 1.0.0 -> 2.0.0']);
+    expect(m.moves[2]?.rootDeclared).toBe(true);
+    expect(stackDiffExitCode(m)).toBe(0);
+  });
+
+  it("an unchanged root resolution produces no row of its own; the root's dropped version still present elsewhere is still the root's pair", () => {
+    // root keeps x@1.0.0 on both sides; only the nested copy moves 2.0.0 -> 3.0.0
+    const A = repo('same-a', { rootX: '1.0.0', rootSpec: '^1.0.0', nestedX: '2.0.0' });
+    const B = repo('same-b', { rootX: '1.0.0', rootSpec: '^1.0.0', nestedX: '3.0.0' });
+    const r = diffStackManifests(A, B);
+    expect(sig(r)).toEqual(['forward/version x 2.0.0 -> 3.0.0']);
+    expect(r.moves[0]?.reasons[0]).toContain('the paired base version 2.0.0');
+    expect(stackDiffExitCode(r)).toBe(0);
+    // root moves 2.0.0 -> 1.0.0 while 2.0.0 STAYS present as a nested copy: still the root's backward pair, 2.0.0 listed as retained
+    const C = repo('keep-a', { rootX: '2.0.0', rootSpec: '^2.0.0' });
+    const D = repo('keep-b', { rootX: '1.0.0', rootSpec: '^1.0.0', nestedX: '2.0.0' });
+    const k = diffStackManifests(C, D);
+    expect(sig(k)).toEqual(['backward/version x 2.0.0 -> 1.0.0', 'added/name w - -> 1.0.0']);
+    expect(k.moves[0]?.retained).toEqual(['2.0.0']);
+    expect(stackDiffExitCode(k)).toBe(2);
+  });
+
+  it('a name the root declares on ONE side only falls back to plain set matching', () => {
+    const p = node('p', '1.0.0');
+    const x2 = node('x', '2.0.0');
+    const x3 = node('x', '3.0.0');
+    const A = manifest([p, x2], [edge(APP, x2, '^2.0.0'), edge(p, x2, '^2.0.0')], false, [], APP, [{ name: 'x', spec: '^2.0.0', group: 'dependencies' }, { name: 'p', spec: '^1.0.0', group: 'dependencies' }]);
+    const B = manifest([p, x3], [edge(p, x3, '^3.0.0')], false, [], APP, [{ name: 'p', spec: '^1.0.0', group: 'dependencies' }]);
+    const r = diffStackManifests(A, B);
+    expect(r.moves.map((m) => `${m.class} ${m.name} ${m.from} -> ${m.to}`)).toEqual(['forward x 2.0.0 -> 3.0.0']);
+    expect(r.moves[0]?.rootDeclared).toBe(true);
+    expect(r.moves[0]?.rootSpec).toEqual({ from: '^2.0.0', to: null });
+  });
+
+  it('the seed table is unchanged by root-edge pairing: vitest is the root pair, 7 forward / 1 added copy / 7 removed', () => {
+    const r = diffStackManifests(base, head);
+    expect(r.summary).toEqual({ added: 1, removed: 7, forward: 7, backward: 0, rewritten: 0, 'flags-changed': 0, 'spec-changed': 0, unknown: 0 });
+    const vitest = r.moves.find((m) => m.name === 'vitest') as StackMove;
+    expect(`${vitest.class} ${vitest.from} -> ${vitest.to}`).toBe('forward 4.1.11 -> 5.0.0');
+    expect(vitest.reasons[0]).toContain('the root itself resolved to on the base side (4.1.11)');
+    expect(stackDiffExitCode(r)).toBe(0);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
 /* I. images[] and runtime: real rows, never masked                            */
 /* -------------------------------------------------------------------------- */
 
@@ -1047,6 +1141,45 @@ describe('stack diff — I: image and runtime moves get rows of their OWN sub-vi
     expect(line(pinFlip)).toEqual(['rewritten/runtime node-runtime node - -> -']);
     expect(pinFlip.moves[0]?.fields).toEqual(['pin']);
     expect(stackDiffExitCode(pinFlip)).toBe(2);
+  });
+
+  it('a runtime declaration that ENTERS as a non-exact version (adding `.nvmrc` = 22) is unknown, exit 2; an exact one is added, exit 0', () => {
+    const none = repo('rt-none', { x: '1.0.0' });
+    const entersRange = diffStackManifests(none, repo('rt-enters-22', { x: '1.0.0', nvmrc: '22' }));
+    expect(line(entersRange)).toEqual(['unknown/runtime node-runtime node - -> 22']);
+    expect(entersRange.moves[0]?.approvalBlocked).toBe(true);
+    expect(stackDiffExitCode(entersRange)).toBe(2);
+    const entersExact = diffStackManifests(none, repo('rt-enters-exact', { x: '1.0.0', nvmrc: '22.22.2' }));
+    expect(line(entersExact)).toEqual(['added/runtime node-runtime node - -> 22.22.2']);
+    expect(stackDiffExitCode(entersExact)).toBe(0);
+    const leaves = diffStackManifests(repo('rt-leaves', { x: '1.0.0', nvmrc: '22' }), none);
+    expect(line(leaves)).toEqual(['removed/runtime node-runtime node 22 -> -']);
+    expect(stackDiffExitCode(leaves)).toBe(0);
+  });
+
+  it('several entries of ONE image name moving at once cannot be paired: unknown, exit 2 (two Dockerfiles both bumping node)', () => {
+    const two = (label: string, tag: string): StackManifest => {
+      const m0 = repo(`${label}-0`, { x: '1.0.0', from: `node:${tag}-alpine` });
+      void m0;
+      const dir = tmp(label);
+      fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'demo', version: '1.0.0', dependencies: { x: '^1.0.0' } }));
+      fs.writeFileSync(
+        path.join(dir, 'package-lock.json'),
+        JSON.stringify({ name: 'demo', version: '1.0.0', lockfileVersion: 3, requires: true, packages: { '': { name: 'demo', version: '1.0.0', dependencies: { x: '^1.0.0' } }, 'node_modules/x': { version: '1.0.0', resolved: 'https://registry.example/x/-/x-1.0.0.tgz', integrity: 'sha512-AAAA' } } }),
+      );
+      fs.writeFileSync(path.join(dir, 'Dockerfile'), `FROM node:${tag}-alpine\n`);
+      fs.mkdirSync(path.join(dir, 'worker'));
+      fs.writeFileSync(path.join(dir, 'worker', 'Dockerfile'), `FROM node:${tag}-bookworm\n`);
+      return extract(dir);
+    };
+    const A = two('img2-a', '22');
+    const B = two('img2-b', '20');
+    expect(A.images).toHaveLength(2);
+    const r = diffStackManifests(A, B);
+    expect(line(r)).toEqual(['unknown/images oci-image node node:22-alpine, node:22-bookworm -> node:20-alpine, node:20-bookworm']);
+    expect(r.moves[0]?.reasons[0]).toContain('cannot be paired');
+    expect(r.unexplainedDigestChange).toBe(false);
+    expect(stackDiffExitCode(r)).toBe(2);
   });
 
   it('permuting images[] cannot move a report byte', () => {
@@ -1316,5 +1449,37 @@ describe('stack diff — H: the CLI takes manifests, refuses everything else, an
     expect(r.status).toBe(2);
     expect(r.stderr).toContain('the manifest path is a symbolic link');
     expect(fs.existsSync(out)).toBe(false);
+  });
+  it('the `unexplained` list reaches stdout with its sub-view key, and the CLI exits 2', () => {
+    const img = (v: string): StackNode => ({ ...node('node', v, { integrity: null, resolvedFrom: 'dockerfile', layout: [] }), kind: 'oci-image', id: `oci-image:node@${v}` });
+    const dir = tmp('unexplained-cli');
+    const fa = path.join(dir, 'a.json');
+    const fb = path.join(dir, 'b.json');
+    fs.writeFileSync(fa, stableStringify(manifest([node('x', '1.0.0'), img('22-alpine')])));
+    fs.writeFileSync(fb, stableStringify(manifest([node('x', '1.0.1'), img('18-alpine')])));
+    const out = path.join(dir, 'o.json');
+    const r = runCli(['stack', 'diff', '--from', fa, '--to', fb, '--out', out], ROOT);
+    expect(r.status).toBe(2);
+    expect(r.stdout).toContain('hashed content changed with no row of its own sub-view explaining it (nodes:oci-image/node) — fail closed');
+    expect(r.stdout).toContain('classification unknown-potential-backward');
+    expect((JSON.parse(fs.readFileSync(out, 'utf8')) as { unexplained: string[] }).unexplained).toEqual(['nodes:oci-image/node']);
+  });
+
+  it.skipIf(process.platform === 'win32')('a consumer that closes the pipe early (| head -1) keeps the 0 / 2 exit contract — never an EPIPE crash (exit 1)', () => {
+    const cli = fs.existsSync(DIST_CLI) ? `${JSON.stringify(process.execPath)} ${JSON.stringify(DIST_CLI)}` : `${JSON.stringify(path.join(ROOT, 'node_modules', '.bin', 'tsx'))} ${JSON.stringify(SRC_CLI)}`;
+    const dir = tmp('epipe');
+    const run = (from: string, to: string): { code: string; stderr: string } => {
+      const res = spawnSync('bash', ['-c', `${cli} stack diff --from ${JSON.stringify(from)} --to ${JSON.stringify(to)} --out ${JSON.stringify(path.join(dir, 'o.json'))} 2>${JSON.stringify(path.join(dir, 'err.txt'))} | head -1 >/dev/null; echo "\${PIPESTATUS[0]}"`], { cwd: ROOT, encoding: 'utf8' });
+      return { code: res.stdout.trim(), stderr: fs.readFileSync(path.join(dir, 'err.txt'), 'utf8') };
+    };
+    // a ~450-row fail-closed report (pnpm vs npm): exit 2, no stack trace
+    const closed = run(path.join(FIXTURES, 'pnpm-v9-synth.stack.json'), FILE.head);
+    expect(closed.code).toBe('2');
+    expect(closed.stderr).not.toContain('EPIPE');
+    expect(closed.stderr).not.toMatch(/at .*\(node:/);
+    // a passing report: exit 0
+    const ok = run(FILE.base, FILE.head);
+    expect(ok.code).toBe('0');
+    expect(ok.stderr).not.toContain('EPIPE');
   });
 });

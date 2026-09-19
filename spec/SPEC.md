@@ -863,9 +863,14 @@ re-derivation is a consistency check, not an authenticity check: the digests are
 
 **Join key and set matching.** npm rows join on `(kind, name)` — never on the node id
 `name@version`. A lockfile routinely holds several copies of one name. Per name, the versions present
-on both sides are **retained** and produce no row unless their identity differs. The versions present
-on one side only are sorted by (SemVer 2.0.0 §11 precedence, full version string) and **paired from
-the top**: highest dropped with highest new, and so on. Each pair is `forward` or `backward`.
+on both sides are **retained** and produce no row unless their identity differs. **The root's own
+resolution pairs first**: for a name the root declares on both sides, the version the root's own edge
+resolves to on A and on B is one pair when they differ (a root that moves from `x@2.0.0` to `x@1.0.0`
+is `backward`, even while a new dependency nests `x@3.0.0` — that copy is then `added`); an unchanged
+root resolution produces no row of its own, and a name the root declares on one side only falls back
+to plain set matching. The remaining versions present on one side only are sorted by (SemVer 2.0.0 §11
+precedence, full version string) and **paired from the top**: highest dropped with highest new, and so
+on. Each pair is `forward` or `backward`.
 Leftover dropped versions are `removed` copies and leftover new versions are `added` copies; such a
 row has `scope: "version"`, `copy: true` and lists the unmoved versions in `retained`, so it cannot
 be mistaken for a whole-name add or remove. A patch upgrade of a non-maximum copy beside a retained
@@ -901,8 +906,9 @@ re-derived from the hashed view; the recorded `stackDigest` field is never read.
 
 **The root.** The root node is compared apart from the closure and joined on its name. Its OWN
 version is quarantined out of the digest, so two manifests that differ only in the root version are
-an empty diff (exit 0); a different root *name* is a different subject and is `unknown`; any other
-hashed root field that moved is `rewritten`. A dependency that merely shares the root's name is
+an empty diff (exit 0); a different root *name* is a different subject and is `unknown`; a root whose
+only moved fields are boolean flags is `flags-changed` (blocking only on an install-script gain, as
+for a dependency); any other hashed root field that moved is `rewritten`. A dependency that merely shares the root's name is
 joined with dependencies, never with the root. Declared ranges are quarantined too and live only in
 `rootDeclared[]` / `edges`: every row carries `rootSpec` — the range(s) the root declares for that
 name on each side, read from the manifest's `rootDeclared[]` (from the edges leaving the root when a

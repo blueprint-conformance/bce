@@ -28,7 +28,10 @@
  *
  * JOIN KEY + SET MATCHING: npm rows join on (kind, name) — NEVER on the node id `name@version`. A
  * lockfile routinely carries several copies of one name. Per name, the versions present on BOTH
- * sides are RETAINED (no row unless their identity differs). The one-sided versions are sorted by
+ * sides are RETAINED (no row unless their identity differs). THE ROOT'S OWN RESOLUTION PAIRS FIRST:
+ * for a name the root declares on both sides, the version the root's edge resolves to on A vs on B
+ * is one pair when it moved (root 2.0.0 -> 1.0.0 is backward even while a new dependency nests
+ * 3.0.0 — that copy is then added). The remaining one-sided versions are sorted by
  * (precedence, full version string) and paired FROM THE TOP — highest dropped with highest new; each
  * pair is `forward` or `backward`. Leftover dropped versions are `removed` copies, leftover new
  * versions are `added` copies. So a patch bump of a non-max copy beside a retained max is one
@@ -506,6 +509,27 @@ export function stackLockfileFamilies(manifest: StackManifest): string[] {
   return [...new Set(manifest.sources.map((src) => src.parser as string).filter((parser) => !NON_LOCKFILE_PARSERS.has(parser)))].sort();
 }
 
+/**
+ * The version the ROOT's own edge resolves to, per (kind, name) key — what the repository itself gets.
+ * Null when the root has no edge to that name or resolves to several versions (then only plain set
+ * matching applies).
+ */
+function rootResolvedVersions(manifest: StackManifest): Map<string, string | null> {
+  const byId = new Map(manifest.nodes.map((n) => [n.id, n] as const));
+  const rootIds = new Set(manifest.nodes.filter((n) => n.root).map((n) => n.id));
+  const seen = new Map<string, Set<string>>();
+  for (const e of manifest.edges) {
+    if (!rootIds.has(e.from)) continue;
+    const target = byId.get(e.to);
+    if (!target || target.root) continue;
+    const key = `${target.kind}${SEP}${target.name}`;
+    const set = seen.get(key);
+    if (set) set.add(target.version);
+    else seen.set(key, new Set([target.version]));
+  }
+  return new Map([...seen].map(([k, v]) => [k, v.size === 1 ? [...v][0] as string : null] as const));
+}
+
 /** Multiset difference of two serialized lists: the items on one side only, as [onlyA, onlyB]. */
 function multisetDiff<T>(a: readonly T[], b: readonly T[], ser: (x: T) => string): [T[], T[]] {
   const count = new Map<string, number>();
@@ -551,6 +575,8 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
   const groupsB = groupByName(b.nodes.filter(isNpmDep));
   const rootDeclA = rootDeclarations(a);
   const rootDeclB = rootDeclarations(b);
+  const rootResolvedA = rootResolvedVersions(a);
+  const rootResolvedB = rootResolvedVersions(b);
   const rootKeys = new Set([...rootDeclA.keys(), ...rootDeclB.keys()]);
   const rootSpecOf = (key: string): StackMove['rootSpec'] => ({ from: rootDeclA.get(key)?.spec ?? null, to: rootDeclB.get(key)?.spec ?? null });
   const moves: StackMove[] = [];
@@ -678,24 +704,37 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
 
     // ---- SET MATCHING: retained versions are no move; the one-sided versions pair from the top ----
     const sortedRetained = sortVersionsDesc(retained).reverse();
-    const droppedDesc = sortVersionsDesc(onlyA);
-    const newDesc = sortVersionsDesc(onlyB);
-    const pairs = Math.min(droppedDesc.length, newDesc.length);
-    for (let i = 0; i < pairs; i++) {
-      const from = droppedDesc[i] as string;
-      const to = newDesc[i] as string;
+    const pairRow = (from: string, to: string, why: string): void => {
       const c = compareSemverLite(parseSemverLite(to) as SemverLite, parseSemverLite(from) as SemverLite);
       const na = ga.byVersion.get(from) as StackNode[];
       const nb = gb.byVersion.get(to) as StackNode[];
       const single = na.length === 1 && nb.length === 1;
       const flagsChanged = single ? flagChanges(na[0] as StackNode, nb[0] as StackNode) : [];
       // precedence ties were refused above, so a pair is never equal
-      pushNode(gb, key, c > 0 ? 'forward' : 'backward', from, to, 'version', [`semver strictly ${c > 0 ? 'higher' : 'lower'} than the paired base version ${from}`], {
+      pushNode(gb, key, c > 0 ? 'forward' : 'backward', from, to, 'version', [`semver strictly ${c > 0 ? 'higher' : 'lower'} than ${why}`], {
         retained: sortedRetained,
         flagsChanged,
         fields: flagsChanged.map((f) => f.flag),
       });
+    };
+    // FIRST: the version the ROOT itself resolves to, on A vs on B. The root's own edge names what the
+    // repository gets; when it moves, that is THE pair for this name, whatever other copies do. Only
+    // when the root declares the name on both sides (else plain set matching below).
+    let remainingA = onlyA;
+    let remainingB = onlyB;
+    if (rootDeclA.has(key) && rootDeclB.has(key)) {
+      const ra = rootResolvedA.get(key) ?? null;
+      const rb = rootResolvedB.get(key) ?? null;
+      if (ra !== null && rb !== null && ra !== rb && ga.byVersion.has(ra) && gb.byVersion.has(rb)) {
+        pairRow(ra, rb, `the version the root itself resolved to on the base side (${ra})`);
+        remainingA = onlyA.filter((v) => v !== ra);
+        remainingB = onlyB.filter((v) => v !== rb);
+      }
     }
+    const droppedDesc = sortVersionsDesc(remainingA);
+    const newDesc = sortVersionsDesc(remainingB);
+    const pairs = Math.min(droppedDesc.length, newDesc.length);
+    for (let i = 0; i < pairs; i++) pairRow(droppedDesc[i] as string, newDesc[i] as string, `the paired base version ${droppedDesc[i] as string}`);
     for (const v of droppedDesc.slice(pairs)) {
       pushNode(ga, key, 'removed', v, null, 'version', ['a copy of a name that is still present was dropped'], { copy: true, retained: sortedRetained });
     }
@@ -748,11 +787,17 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
     } else if (ra.map(rootIdentity).sort().join(SEP + SEP) !== rb.map(rootIdentity).sort().join(SEP + SEP)) {
       const single = ra.length === 1 && rb.length === 1;
       const fields = single ? changedFields(ra[0] as StackNode, rb[0] as StackNode) : [];
-      rootRow('rewritten', fields.length > 0 ? `root package, different ${fields.join(', ')}` : 'root package, different node set', {
-        fields,
-        flagsChanged: single ? flagChanges(ra[0] as StackNode, rb[0] as StackNode) : [],
-        integrity: { from: ra.map((n) => n.integrity ?? '(none)').sort().join(', '), to: rb.map((n) => n.integrity ?? '(none)').sort().join(', ') },
-      });
+      const flagsChanged = single ? flagChanges(ra[0] as StackNode, rb[0] as StackNode) : [];
+      if (single && fields.length > 0 && fields.every((f) => STACK_FLAG_FIELDS.includes(f))) {
+        // the same rule as for a dependency: flags only = flags-changed (blocks only on an install-script gain)
+        rootRow('flags-changed', `root package, flags moved: ${flagsChanged.map((c) => `${c.flag} ${String(c.from)} -> ${String(c.to)}`).join(', ')}`, { fields, flagsChanged });
+      } else {
+        rootRow('rewritten', fields.length > 0 ? `root package, different ${fields.join(', ')}` : 'root package, different node set', {
+          fields,
+          flagsChanged,
+          integrity: { from: ra.map((n) => n.integrity ?? '(none)').sort().join(', '), to: rb.map((n) => n.integrity ?? '(none)').sort().join(', ') },
+        });
+      }
     }
     // same root identity, different own version: NOT a move (the version is quarantined out of the digest)
   }

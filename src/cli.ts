@@ -162,6 +162,13 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
+// A consumer that closes the pipe early (`| head -1`) must not turn a 0/2 verdict into an EPIPE crash
+// (exit 1 + stack trace): swallow EPIPE on stdout and keep the exit code the verb decided.
+process.stdout.on('error', (e: NodeJS.ErrnoException) => {
+  if (e.code === 'EPIPE') return;
+  throw e;
+});
+
 function die(msg: string, code = 1): never {
   process.stderr.write(`::error::${msg}\n`);
   process.exit(code);
@@ -996,7 +1003,8 @@ async function main(): Promise<void> {
       process.stdout.write(`  ${check.status === 'pass' ? '✓' : check.status === 'warning' ? '!' : '✗'} ${check.id}: ${check.detail}\n`);
     }
     process.stdout.write(`bce doctor: ${report.outcome} (exit ${report.exitCode})\n`);
-    process.exit(report.exitCode);
+    process.exitCode = report.exitCode;
+    return;
   }
 
   if (cmd === 'verify-bundle') {
@@ -1007,7 +1015,8 @@ async function main(): Promise<void> {
     catch (e) { die(`bundle is not valid JSON: ${(e as Error).message}`, 2); }
     const result = verifyEvidenceBundle(bundle);
     process.stdout.write(stableStringify(result));
-    process.exit(result.valid ? 0 : 2);
+    process.exitCode = result.valid ? 0 : 2;
+    return;
   }
 
   if (cmd === 'upgrade' && (args.check === true || args.check === 'true')) {
@@ -1017,7 +1026,8 @@ async function main(): Promise<void> {
     const result = checkEngineUpgrade(blueprintDir, candidateVersion);
     if (typeof args.out === 'string') fs.writeFileSync(args.out, stableStringify(result));
     process.stdout.write(stableStringify(result));
-    process.exit(result.exitCode);
+    process.exitCode = result.exitCode;
+    return;
   }
 
   if (cmd === 'adopt' || cmd === 'onboard') {
@@ -1793,7 +1803,8 @@ async function main(): Promise<void> {
       );
     }
     // exit 1 on a failing verdict so CI can gate on it (a real conformance gate).
-    process.exit(report.verdict === 'pass' ? 0 : 1);
+    process.exitCode = report.verdict === 'pass' ? 0 : 1;
+    return;
   }
 
   if (cmd === 'teeth') {
@@ -1837,7 +1848,8 @@ async function main(): Promise<void> {
         for (const entry of report.cases.filter((item) => item.status !== 'killed')) {
           process.stderr.write(`::error::  [${entry.constraintId}/${entry.id}] ${entry.status}: ${entry.detail}\n`);
         }
-        process.exit(2);
+        process.exitCode = 2;
+        return;
       }
       process.stdout.write(
         `ExtractorTeethReport: ${report.blueprintRef} -> extractor-real-proven — ` +
@@ -1898,7 +1910,8 @@ async function main(): Promise<void> {
           `${teeth.toothed}/${teeth.witnesses.length} proven. Evaluator-only, trivial, or indeterminate witnesses are insufficient\n`,
       );
     }
-    process.exit(teeth.verdict === 'toothless' || readinessRefused ? 2 : 0);
+    process.exitCode = teeth.verdict === 'toothless' || readinessRefused ? 2 : 0;
+    return;
   }
 
   if (cmd === 'gate') {
@@ -2073,7 +2086,8 @@ async function main(): Promise<void> {
         die(`--report-json: could not write machine report to ${reportJsonPath}: ${(e as Error).message}`, 1);
       }
     }
-    process.exit(doc.exitCode);
+    process.exitCode = doc.exitCode;
+    return;
   }
 
   if (cmd === 'baseline') {
@@ -2127,7 +2141,8 @@ async function main(): Promise<void> {
         `BaselineCheck: ${checked.state} — ${checked.currentViolations} current, ${checked.removable} removable, ` +
           `${checked.unacceptedNew} unaccepted-new (exit ${checked.exitCode})\n`,
       );
-      process.exit(checked.exitCode);
+      process.exitCode = checked.exitCode;
+      return;
     }
 
     if (plan.hadExisting) {
