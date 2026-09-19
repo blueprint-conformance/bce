@@ -61,7 +61,7 @@ import { assessExtractorTeethCorpus, buildSourceReviewProof } from './extractor-
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 import { resolveRevision, materializeAtRevision } from './pin.js';
 import { extractStackManifest } from './stack/stack-extractor.js';
-import { parseStackManifest, verifyStackManifest, type StackManifest } from './stack/stack-manifest.js';
+import { StackManifestSchema, verifyStackManifest, type StackManifest } from './stack/stack-manifest.js';
 import { diffStackManifests, stackDiffExitCode } from './stack/stack-diff.js';
 import { discoverBlueprints, runGate, assembleGateReportDoc } from './gate.js';
 import {
@@ -2242,42 +2242,80 @@ async function main(): Promise<void> {
     if (sub === 'diff') {
       // bce stack diff --from <A.stack.json> --to <B.stack.json> [--out <path>]
       //   Classify every move between two StackManifests (added / removed / forward / backward /
-      //   rewritten / spec-changed / unknown). Inputs are MANIFESTS, never raw repositories: a file
-      //   that is not a strict StackManifest, or whose digests do not re-derive, is refused (exit 2,
-      //   nothing written). `backward` or `unknown` exits 2 — unknown FAILS CLOSED, no approve-anyway.
+      //   rewritten / flags-changed / spec-changed / unknown). Inputs are MANIFESTS, never raw
+      //   repositories: a file that is not a strict StackManifest, is a symlink, or whose digests do
+      //   not re-derive, is refused (exit 2, nothing written); so is an --out that resolves to an input.
+      //   `backward`, `unknown`, `rewritten` or an install-script gain exits 2 — no approve-anyway.
       const usage = 'usage: bce stack diff --from <A.stack.json> --to <B.stack.json> [--out <path>]';
       if (args._.length !== 2) die(`unexpected stack diff argument '${args._[2]}'; ${usage}`, 1);
       const loadManifest = (flag: 'from' | 'to'): StackManifest => {
         const file = args[flag];
         if (typeof file !== 'string' || !file) die(`--${flag} <manifest.json> is required; ${usage}`, 1);
-        if (!fs.existsSync(file) || !fs.statSync(file).isFile()) die(`--${flag} is not a StackManifest file: ${file} (pass a manifest written by 'bce stack snapshot', not a repository)`, 2);
-        let manifest: StackManifest;
+        // lstat, never stat: a symlinked manifest is refused, the same stance `stack snapshot` takes on its sources
+        const st = fs.lstatSync(file, { throwIfNoEntry: false });
+        if (st?.isSymbolicLink()) die(`--${flag} ${file} REFUSED: the manifest path is a symbolic link (pass the file itself)`, 2);
+        if (!st || !st.isFile()) die(`--${flag} is not a StackManifest file: ${file} (pass a manifest written by 'bce stack snapshot', not a repository)`, 2);
+        let raw: unknown;
         try {
-          manifest = parseStackManifest(JSON.parse(fs.readFileSync(file, 'utf8')));
+          raw = JSON.parse(fs.readFileSync(file, 'utf8'));
         } catch (e) {
-          die(`--${flag} ${file} is not a valid StackManifest: ${(e as Error).message.split('\n')[0]}`, 2);
+          die(`--${flag} ${file} is not a valid StackManifest: not JSON (${(e as Error).message.split('\n')[0]})`, 2);
         }
+        const parsed = StackManifestSchema.safeParse(raw);
+        if (!parsed.success) {
+          const issue = parsed.error.issues[0];
+          const where = issue && issue.path.length > 0 ? issue.path.map(String).join('.') : '(document root)';
+          die(`--${flag} ${file} is not a valid StackManifest: at '${where}': ${issue?.message ?? 'schema violation'} (${parsed.error.issues.length} issue(s))`, 2);
+        }
+        const manifest: StackManifest = parsed.data;
         const check = verifyStackManifest(manifest);
         if (!check.valid) {
           die(`--${flag} ${file} REFUSED: recorded digests do not re-derive (stackDigest ${check.stackDigestOk ? 'ok' : 'MISMATCH'}, stackId ${check.stackIdOk ? 'ok' : 'MISMATCH'}, manifestDigest ${check.manifestDigestOk ? 'ok' : 'MISMATCH'}) — the manifest was edited after extraction`, 2);
         }
         return manifest;
       };
-      const report = diffStackManifests(loadManifest('from'), loadManifest('to'));
+      // refuse BEFORE reading or writing anything: the report must never overwrite one of its own inputs
       const out = (typeof args.out === 'string' && args.out) || 'stack-diff.json';
+      const canonical = (p: string): string => {
+        const abs = path.resolve(p);
+        try {
+          return fs.realpathSync(abs);
+        } catch {
+          try {
+            return path.join(fs.realpathSync(path.dirname(abs)), path.basename(abs));
+          } catch {
+            return abs;
+          }
+        }
+      };
+      for (const flag of ['from', 'to'] as const) {
+        const file = args[flag];
+        if (typeof file === 'string' && file && canonical(file) === canonical(out)) {
+          die(`--out ${out} REFUSED: it resolves to the --${flag} manifest; the report would overwrite its own input`, 2);
+        }
+      }
+      const report = diffStackManifests(loadManifest('from'), loadManifest('to'));
       fs.writeFileSync(out, stableStringify(report));
       for (const m of report.moves) {
-        process.stdout.write(`  ${m.class.padEnd(12)} ${m.name}  ${m.from ?? '-'} -> ${m.to ?? '-'}${m.rootDeclared ? `  [root-declared ${m.rootSpec.from ?? '-'} -> ${m.rootSpec.to ?? '-'}]` : ''}${m.declaredBy ? `  (declared by ${m.declaredBy})` : ''}\n`);
+        const notes: string[] = [];
+        if (m.rootDeclared) notes.push(`[root-declared ${m.rootSpec.from ?? '-'} -> ${m.rootSpec.to ?? '-'}]`);
+        if (m.copy) notes.push(`(copy; retained ${m.retained.join(', ') || '-'})`);
+        if (m.class === 'rewritten' && m.integrity) notes.push(`[integrity ${m.integrity.from ?? '-'} -> ${m.integrity.to ?? '-'}]`);
+        if (m.class === 'rewritten' && m.fields.length > 0) notes.push(`[fields ${m.fields.join(', ')}]`);
+        if (m.flagsChanged.length > 0) notes.push(`[flags ${m.flagsChanged.map((f) => `${f.flag} ${String(f.from)} -> ${String(f.to)}`).join(', ')}]`);
+        if (m.declaredBy) notes.push(`(declared by ${m.declaredBy})`);
+        if (m.approvalBlocked) notes.push('BLOCKS');
+        process.stdout.write(`  ${m.class.padEnd(13)} ${m.name}  ${m.from ?? '-'} -> ${m.to ?? '-'}${notes.length > 0 ? `  ${notes.join('  ')}` : ''}\n`);
       }
       const counts = (Object.keys(report.summary) as (keyof typeof report.summary)[]).sort().map((k) => `${k} ${report.summary[k]}`).join(', ');
       process.stdout.write(
         `bce stack diff: ${report.from.stackId} -> ${report.to.stackId}  classification ${report.classification}  (${counts})\n` +
-          (report.unexplainedDigestChange ? `stackDigest changed but no node-level move explains it (runtime/images view moved) — fail closed\n` : '') +
+          (report.unexplainedDigestChange ? `hashed content changed with no row of its own sub-view explaining it (${report.unexplained.join(', ')}) — fail closed\n` : '') +
           `wrote ${out}\n`,
       );
       const code = stackDiffExitCode(report);
       if (code !== 0) {
-        die(`stack diff FAILS CLOSED: classification ${report.classification}${report.approvalBlocked ? ', approval blocked' : ''} — a backward or unproven move needs an explicit acknowledged rationale`, code);
+        die(`stack diff FAILS CLOSED: classification ${report.classification}${report.approvalBlocked ? ', approval blocked' : ''}${report.downgradeAckRequired ? ', downgrade acknowledgement required' : ''} — a backward, rewritten or unproven move needs an explicit acknowledged rationale`, code);
       }
       return;
     }
@@ -2482,10 +2520,13 @@ async function main(): Promise<void> {
       `       the digest; a version/integrity move changes it. npm-shrinkwrap.json wins over package-lock.json.\n` +
       `       No supported lockfile, a hollow/malformed one, or a symlinked source = exit 2, nothing written.\n` +
       `  bce stack diff --from <A.stack.json> --to <B.stack.json> [--out <path>]\n` +
-      `       Per-node move classes between two StackManifests, joined on (kind, name) — never on name@version:\n` +
-      `       added | removed | forward | backward | rewritten | spec-changed | unknown. A non-semver or unprovable\n` +
-      `       move is 'unknown' and FAILS CLOSED (classification unknown-potential-backward, approvalBlocked,\n` +
-      `       exit 2); 'backward' also exits 2. Inputs are manifests, not repositories; a tampered manifest is refused.\n`;
+      `       Move classes between two StackManifests, joined on (kind, name) — never on name@version — with\n` +
+      `       per-name set matching: added | removed | forward | backward | rewritten | flags-changed |\n` +
+      `       spec-changed | unknown. Image and runtime moves get their own rows. Exit 2 (FAILS CLOSED, report\n` +
+      `       still written) on: unknown (non-semver / unorderable / unexplained hashed change), backward,\n` +
+      `       rewritten (same name@version, different integrity — both values shown), or a same-version\n` +
+      `       install-script gain. Inputs are manifests, not repositories; a symlinked input, an input whose\n` +
+      `       recorded digests do not re-derive, or an --out that resolves to an input is refused (nothing written).\n`;
   const topicWords = (args._[0] === 'help' ? args._.slice(1) : args._).filter(word => word !== '-h');
   const topic = helpRequested ? topicWords.join(' ') : '';
   if (topic) {

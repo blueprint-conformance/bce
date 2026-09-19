@@ -10,19 +10,23 @@
  * Groups:
  *  A. SEMVER-LITE — the strict parser and SemVer 2.0.0 §11 precedence (no `semver` dependency).
  *  B. IDENTICAL — the same closure diffs to zero moves, exit 0 (SC-1).
- *  C. SEED TABLE — 47a51f4 → a949557 is exactly: vitest the sole root-declared forward, 7 transitive
- *     forwards (magic-string 0.30.21→1.3.1 among them, though 0.30.21 stays present), 0 added,
- *     7 removed, 0 backward / rewritten / unknown (SC-2).
+ *  C. SEED TABLE — 47a51f4 → a949557 is exactly: vitest the sole root-declared forward, 6 transitive
+ *     forwards, ONE added copy (magic-string 1.3.1 beside the retained 0.30.21), 7 removed,
+ *     0 backward / rewritten / flags-changed / unknown (SC-2).
  *  D. TWO-REVISION INVARIANCE — e0f7344 and a949557 share a digest and diff to zero moves; 47a51f4
- *     does not (memo group 4). Fixtures re-derive from git when the checkout carries the history.
- *  E. MUTATION — a lockfile version bump is exactly one `forward`; an integrity flip is `rewritten`;
- *     `version: "main"` is `unknown`, approvalBlocked, exit 2 (memo group 2, SC-3).
+ *     does not (memo group 4). One VISIBLE skipIf leg per fixture re-derives it from git.
+ *  E. MUTATION — a lockfile version bump is exactly one `forward`; an integrity flip is `rewritten`,
+ *     carries both integrity values and BLOCKS; `version: "main"` is `unknown`, exit 2 (SC-3).
  *  F. ORDER INDEPENDENCE — permuting `nodes[]` / `edges[]` cannot move a byte of the report (SC-4).
- *  G. CLASSIFIER EDGES — backward, dropped copies, build metadata, flag flips, spec-only moves, an
- *     unexplained digest change, OPAQUE (`unsupported`) nodes failing closed, rank and sort order —
- *     on small synthetic manifests.
- *  H. CLI — refusals (missing flag, a repository instead of a manifest, a tampered manifest, a
- *     snapshot-only flag) write nothing and exit non-zero.
+ *  G. CLASSIFIER EDGES — set matching (non-max patch bump, new lower copy, pairing from the top),
+ *     precedence ties in every input order, non-semver on either side and among retained copies,
+ *     flag moves (same version and riding a version move), spec-only moves, a hashed change no row
+ *     of its sub-view explains (alone AND masked), re-derived digests, OPAQUE nodes, rank and ties.
+ *  I. IMAGES + RUNTIME — real-extractor repros: a tag / digest / runtime move alone and masked by an
+ *     unrelated bump; strict-version tags order; entering / leaving images; array permutation.
+ *  J. ROOT DECLARATIONS — declare / un-declare / group move with nodes unchanged is informational.
+ *  H. CLI — refusals (missing flag, extra positional, a repository, a symlink, a tampered manifest,
+ *     a schema violation naming its path, --out onto an input, a snapshot-only flag) write nothing.
  *
  * Everything runs on temp copies; the repository and its fixtures are never mutated.
  */
@@ -47,7 +51,9 @@ import {
 import { extractStackManifest } from '../src/stack/stack-extractor.js';
 import {
   compareSemverLite,
+  compareStackMoves,
   diffStackManifests,
+  sortVersionsDesc,
   parseSemverLite,
   stackDiffExitCode,
   STACK_DIFF_UNKNOWN_CLASSIFICATION,
@@ -194,6 +200,24 @@ describe('stack diff — A: strict semver-lite', () => {
 /* B. identical                                                                */
 /* -------------------------------------------------------------------------- */
 
+describe('stack diff — A2: the two orders are TOTAL — input order can never decide', () => {
+  it('sortVersionsDesc breaks a precedence tie on the full version string, in every input order', () => {
+    const expected = ['2.0.0', '1.0.0+b', '1.0.0+a', '1.0.0-rc.1'];
+    expect(sortVersionsDesc(['1.0.0+a', '1.0.0+b', '2.0.0', '1.0.0-rc.1'])).toEqual(expected);
+    expect(sortVersionsDesc(['1.0.0-rc.1', '2.0.0', '1.0.0+b', '1.0.0+a'])).toEqual(expected);
+  });
+
+  it('compareStackMoves separates two rows that tie on every named key by their canonical bytes, antisymmetrically', () => {
+    const r = diffStackManifests(manifest([node('x', '1.0.0')]), manifest([node('x', '1.0.1')]));
+    const one = r.moves[0] as StackMove;
+    const two: StackMove = { ...one, layoutPaths: { from: 9, to: 9 } };
+    expect(compareStackMoves(one, one)).toBe(0);
+    expect(compareStackMoves(one, two)).not.toBe(0);
+    expect(Math.sign(compareStackMoves(one, two))).toBe(-Math.sign(compareStackMoves(two, one)));
+    expect([two, one].sort(compareStackMoves)).toEqual([one, two].sort(compareStackMoves));
+  });
+});
+
 describe('stack diff — B: an identical closure is an empty diff (SC-1)', () => {
   it('two extractions of the same tree diff to zero moves, classification identical, exit 0', () => {
     const r = diffStackManifests(extract(FIXTURE_TREE), extract(FIXTURE_TREE));
@@ -222,13 +246,12 @@ describe('stack diff — B: an identical closure is an empty diff (SC-1)', () =>
 describe('stack diff — C: 47a51f4 -> a949557, the vitest 4 -> 5 bump (SC-2)', () => {
   const report = diffStackManifests(base, head);
 
-  it('names exactly 8 forward moves: vitest root-declared, 7 transitive', () => {
+  it('names exactly 7 forward moves: vitest root-declared, 6 transitive', () => {
     expect(rows(report.moves, 'forward')).toEqual([
       '@jridgewell/sourcemap-codec 1.5.5 -> 1.6.0',
       '@vitest/mocker 4.1.11 -> 5.0.0',
       '@vitest/spy 4.1.11 -> 5.0.0',
       'es-module-lexer 2.3.1 -> 2.3.2',
-      'magic-string 0.30.21 -> 1.3.1',
       'picomatch 4.0.5 -> 4.0.7',
       'tinybench 2.9.0 -> 6.1.4',
       'vitest 4.1.11 -> 5.0.0',
@@ -241,7 +264,7 @@ describe('stack diff — C: 47a51f4 -> a949557, the vitest 4 -> 5 bump (SC-2)', 
     expect(report.moves.filter((m) => !m.rootDeclared).every((m) => m.rootSpec.from === null && m.rootSpec.to === null)).toBe(true);
   });
 
-  it('names exactly 7 removed names and nothing added, backward, rewritten, spec-changed or unknown', () => {
+  it('names exactly 7 removed names, ONE added copy, and nothing backward, rewritten, flags-changed, spec-changed or unknown', () => {
     expect(rows(report.moves, 'removed')).toEqual([
       '@vitest/expect 4.1.11 -> -',
       '@vitest/pretty-format 4.1.11 -> -',
@@ -252,15 +275,23 @@ describe('stack diff — C: 47a51f4 -> a949557, the vitest 4 -> 5 bump (SC-2)', 
       'tinyrainbow 3.1.1 -> -',
     ]);
     expect(report.moves.filter((m) => m.class === 'removed').every((m) => m.scope === 'name')).toBe(true);
-    expect(report.summary).toEqual({ added: 0, removed: 7, forward: 8, backward: 0, rewritten: 0, 'spec-changed': 0, unknown: 0 });
+    expect(report.moves.filter((m) => m.class === 'removed').every((m) => !m.copy)).toBe(true);
+    expect(rows(report.moves, 'added')).toEqual(['magic-string - -> 1.3.1']);
+    expect(report.summary).toEqual({ added: 1, removed: 7, forward: 7, backward: 0, rewritten: 0, 'flags-changed': 0, 'spec-changed': 0, unknown: 0 });
     expect(report.moves).toHaveLength(15);
   });
 
-  it('joins on the NAME: magic-string is forward although 0.30.21 is still present on the head side', () => {
+  it('SET MATCHING: magic-string 1.3.1 is an ADDED COPY beside the retained 0.30.21 — never a whole-name add, never a move of 0.30.21', () => {
     expect(base.nodes.filter((n) => n.name === 'magic-string').map((n) => n.version)).toEqual(['0.30.21']);
     expect(head.nodes.filter((n) => n.name === 'magic-string').map((n) => n.version)).toEqual(['0.30.21', '1.3.1']);
     const moves = report.moves.filter((m) => m.name === 'magic-string');
-    expect(moves.map((m) => m.class)).toEqual(['forward']);
+    expect(moves.map((m) => `${m.class} ${m.from ?? '-'} -> ${m.to ?? '-'}`)).toEqual(['added - -> 1.3.1']);
+    // the row says it is ONE COPY of a name that stays present — a reader can tell it from a new dependency
+    expect(moves[0]?.copy).toBe(true);
+    expect(moves[0]?.scope).toBe('version');
+    expect(moves[0]?.retained).toEqual(['0.30.21']);
+    // a whole-name add/remove is never flagged as a copy
+    expect(report.moves.filter((m) => m.copy).map((m) => m.name)).toEqual(['magic-string']);
   });
 
   it('reads picomatch hoisting (3 nested paths -> 1 top-level) as layout, never as a move of its own', () => {
@@ -282,9 +313,11 @@ describe('stack diff — C: 47a51f4 -> a949557, the vitest 4 -> 5 bump (SC-2)', 
     expect(stackDiffExitCode(report)).toBe(0);
   });
 
-  it('the reverse direction is the mirror image and FAILS CLOSED on 8 backward moves', () => {
+  it('the reverse direction is the mirror image and FAILS CLOSED on 7 backward moves', () => {
     const reverse = diffStackManifests(head, base);
-    expect(reverse.summary).toEqual({ added: 7, removed: 0, forward: 0, backward: 8, rewritten: 0, 'spec-changed': 0, unknown: 0 });
+    expect(reverse.summary).toEqual({ added: 7, removed: 1, forward: 0, backward: 7, rewritten: 0, 'flags-changed': 0, 'spec-changed': 0, unknown: 0 });
+    expect(rows(reverse.moves, 'removed')).toEqual(['magic-string 1.3.1 -> -']);
+    expect(reverse.moves.find((m) => m.class === 'removed')?.copy).toBe(true);
     expect(reverse.classification).toBe('backward');
     expect(reverse.downgradeAckRequired).toBe(true);
     expect(stackDiffExitCode(reverse)).toBe(2);
@@ -332,15 +365,24 @@ describe('stack diff — D: same closure at two revisions, same digest (memo gro
     }
   });
 
-  it('the committed manifests are what `stack snapshot` extracts from git, when history is available', () => {
-    for (const file of [FILE.base, FILE.head, FILE.merge]) {
+  // One VISIBLE leg per committed manifest: a leg whose commit is not in the local object store is
+  // reported as SKIPPED, never passed silently. 47a51f4 and e0f7344 are on the default branch, so a
+  // full-history checkout (ci.yml: fetch-depth 0) runs them. a949557 is the bump's BRANCH commit and
+  // is reachable from no branch: it is skipped in CI and in a fresh clone, and runs only where that
+  // commit was fetched by its full sha. Its digest is still pinned by the two legs above.
+  const hasCommit = (sha: string): boolean => {
+    try {
+      execFileSync('git', ['-C', ROOT, 'cat-file', '-e', `${sha}^{commit}`], { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  for (const [label, file] of [['47a51f4', FILE.base], ['a949557', FILE.head], ['e0f7344', FILE.merge]] as const) {
+    const sha = load(file).ctRepoRevision;
+    it.skipIf(!hasCommit(sha))(`the committed ${label} manifest is what \`stack snapshot\` extracts from git at ${sha.slice(0, 7)}`, () => {
+      expect(sha.startsWith(label)).toBe(true);
       const committed = fs.readFileSync(file, 'utf8');
-      const sha = load(file).ctRepoRevision;
-      try {
-        execFileSync('git', ['-C', ROOT, 'cat-file', '-e', `${sha}^{commit}`], { stdio: 'ignore' });
-      } catch {
-        continue; // shallow checkout: the committed-fixture legs above already ran
-      }
       const tree = materializeAtRevision(ROOT, sha);
       tempDirs.push(tree);
       const r = extractStackManifest(tree, sha);
@@ -350,8 +392,8 @@ describe('stack diff — D: same closure at two revisions, same digest (memo gro
       // `coverage` notes legitimately differ from a full-tree extraction — never its digest.
       expect(r.manifest.stackDigest, sha).toBe(load(file).stackDigest);
       if (file !== FILE.head) expect(stableStringify(r.manifest), sha).toBe(committed);
-    }
-  });
+    });
+  }
 });
 
 /* -------------------------------------------------------------------------- */
@@ -384,9 +426,30 @@ describe('stack diff — E: lockfile mutants through the real extractor (memo gr
     const r = diffStackManifests(clean, extract(dir));
     expect(r.moves.map((m) => `${m.class} ${m.name} ${m.from} -> ${m.to}`)).toEqual(['rewritten zod 4.6.5 -> 4.6.5']);
     expect(r.moves[0]?.reasons).toEqual(['same name+version, different integrity']);
+    expect(r.moves[0]?.fields).toEqual(['integrity']);
+    // BOTH integrity values ride on the row: a reviewer can tell a re-hash from a swapped artifact
+    const before = clean.nodes.find((n) => n.name === 'zod')?.integrity as string;
+    expect(r.moves[0]?.integrity?.from).toBe(before);
+    expect(r.moves[0]?.integrity?.to).not.toBe(before);
+    expect(r.moves[0]?.integrity?.to).toMatch(/^sha512-/);
+    // different bytes under an unchanged name@version is the loudest signal this verb can see: it BLOCKS
     expect(r.classification).toBe('rewritten');
-    expect(r.approvalBlocked).toBe(false);
-    expect(stackDiffExitCode(r)).toBe(0);
+    expect(r.moves[0]?.approvalBlocked).toBe(true);
+    expect(r.approvalBlocked).toBe(true);
+    expect(r.downgradeAckRequired).toBe(false);
+    expect(stackDiffExitCode(r)).toBe(2);
+    // and the CLI line shows both values and exits 2, with the report still written
+    const dir2 = tmp('flip-cli');
+    const fa = path.join(dir2, 'a.json');
+    const fb = path.join(dir2, 'b.json');
+    const out = path.join(dir2, 'diff.json');
+    fs.writeFileSync(fa, stableStringify(clean));
+    fs.writeFileSync(fb, stableStringify(extract(dir)));
+    const cli = runCli(['stack', 'diff', '--from', fa, '--to', fb, '--out', out], ROOT);
+    expect(cli.status).toBe(2);
+    expect(cli.stdout).toContain(`[integrity ${before} -> ${r.moves[0]?.integrity?.to ?? ''}]`);
+    expect(cli.stdout).toContain('BLOCKS');
+    expect(fs.existsSync(out)).toBe(true);
   });
 
   it('version "main" is unknown: unknown-potential-backward, approvalBlocked, exit 2 — library and CLI', () => {
@@ -473,20 +536,103 @@ describe('stack diff — G: classifier edges on synthetic manifests', () => {
     expect(stackDiffExitCode(r)).toBe(2);
   });
 
-  it('compares each head version against the MAX base version when several copies exist', () => {
-    const r = diffStackManifests(manifest([node('x', '1.0.0'), node('x', '5.0.0')]), manifest([node('x', '5.0.0'), node('x', '6.0.0'), node('x', '3.0.0')]));
-    expect(sig(r)).toEqual(['backward/version x 5.0.0 -> 3.0.0', 'removed/version x 1.0.0 -> -', 'forward/version x 5.0.0 -> 6.0.0']);
+  it('SET MATCHING: a patch upgrade of a NON-MAX copy is one forward row, exit 0 — never a downgrade from the retained max', () => {
+    // the jose shape: 4.15.9 -> 4.15.10 while 6.2.10 stays on both sides
+    const r = diffStackManifests(manifest([node('jose', '4.15.9'), node('jose', '6.2.10')]), manifest([node('jose', '4.15.10'), node('jose', '6.2.10')]));
+    expect(sig(r)).toEqual(['forward/version jose 4.15.9 -> 4.15.10']);
+    expect(r.moves[0]?.retained).toEqual(['6.2.10']);
+    expect(r.moves[0]?.copy).toBe(false);
+    expect(r.classification).toBe('forward');
+    expect(stackDiffExitCode(r)).toBe(0);
+    // A{1,3} -> B{2,3}: the retained 3.0.0 is no move; 1 -> 2 is forward
+    expect(sig(diffStackManifests(manifest([node('x', '1.0.0'), node('x', '3.0.0')]), manifest([node('x', '2.0.0'), node('x', '3.0.0')])))).toEqual(['forward/version x 1.0.0 -> 2.0.0']);
   });
 
-  it('a dropped lower copy is removed/version; a dropped HIGHEST copy is backward', () => {
-    expect(sig(diffStackManifests(manifest([node('x', '1.0.0'), node('x', '2.0.0')]), manifest([node('x', '2.0.0')])))).toEqual(['removed/version x 1.0.0 -> -']);
-    expect(sig(diffStackManifests(manifest([node('x', '1.0.0'), node('x', '2.0.0')]), manifest([node('x', '1.0.0')])))).toEqual(['backward/version x 2.0.0 -> 1.0.0']);
+  it('SET MATCHING: a NEW version BELOW a retained max is an added copy, exit 0 — not backward', () => {
+    const r = diffStackManifests(manifest([node('x', '1.0.0'), node('x', '2.0.0')]), manifest([node('x', '1.0.0'), node('x', '1.5.0'), node('x', '2.0.0')]));
+    expect(sig(r)).toEqual(['added/version x - -> 1.5.0']);
+    expect(r.moves[0]?.copy).toBe(true);
+    expect(r.moves[0]?.retained).toEqual(['1.0.0', '2.0.0']);
+    expect(stackDiffExitCode(r)).toBe(0);
+  });
+
+  it('SET MATCHING: one-sided versions pair FROM THE TOP; leftovers are removed / added copies', () => {
+    // A-only {1.0.0}, B-only {6.0.0, 3.0.0}, retained {5.0.0}: 1.0.0 pairs with the highest new version
+    const r = diffStackManifests(manifest([node('x', '1.0.0'), node('x', '5.0.0')]), manifest([node('x', '5.0.0'), node('x', '6.0.0'), node('x', '3.0.0')]));
+    expect(sig(r)).toEqual(['added/version x - -> 3.0.0', 'forward/version x 1.0.0 -> 6.0.0']);
+    // a real downgrade still pairs and still fails closed: A{2,1} -> B{1.5} is 2 -> 1.5 backward + a dropped copy
+    const down = diffStackManifests(manifest([node('x', '1.0.0'), node('x', '2.0.0')]), manifest([node('x', '1.5.0')]));
+    expect(sig(down)).toEqual(['backward/version x 2.0.0 -> 1.5.0', 'removed/version x 1.0.0 -> -']);
+    expect(stackDiffExitCode(down)).toBe(2);
+  });
+
+  it('a dropped copy (lowest OR highest) of a name that stays present is removed/version, flagged as a copy', () => {
+    const low = diffStackManifests(manifest([node('x', '1.0.0'), node('x', '2.0.0')]), manifest([node('x', '2.0.0')]));
+    expect(sig(low)).toEqual(['removed/version x 1.0.0 -> -']);
+    expect(low.moves[0]?.copy).toBe(true);
+    expect(low.moves[0]?.retained).toEqual(['2.0.0']);
+    const high = diffStackManifests(manifest([node('x', '1.0.0'), node('x', '2.0.0')]), manifest([node('x', '1.0.0')]));
+    expect(sig(high)).toEqual(['removed/version x 2.0.0 -> -']);
+    expect(high.moves[0]?.retained).toEqual(['1.0.0']);
+  });
+
+  it('spec-changed rows of one name order by (from, to, declaredBy) — the named keys decide before the canonical-bytes fallback', () => {
+    const x = node('x', '1.0.0');
+    const pa = node('a-parent', '1.0.0');
+    const pb = node('b-parent', '1.0.0');
+    const r = diffStackManifests(manifest([pa, pb, x], [edge(pa, x, '^2.0.0'), edge(pb, x, '^1.0.0')]), manifest([pa, pb, x], [edge(pa, x, '~2.0.0'), edge(pb, x, '~1.0.0')]));
+    // `from` ascending puts b-parent's row first, although `declaredBy` (which sorts earlier in the row's bytes) says a-parent
+    expect(r.moves.map((m) => `${m.from} ${m.declaredBy}`)).toEqual(['^1.0.0 npm:b-parent@1.0.0', '^2.0.0 npm:a-parent@1.0.0']);
+  });
+
+  it('two rows that tie on (rank, name, kind, class) are ordered by `from` ascending — never by insertion order', () => {
+    const r = diffStackManifests(manifest([node('x', '1.0.0'), node('x', '2.0.0'), node('x', '3.0.0')]), manifest([node('x', '3.0.0')]));
+    expect(sig(r)).toEqual(['removed/version x 1.0.0 -> -', 'removed/version x 2.0.0 -> -']);
+    const added = diffStackManifests(manifest([node('x', '3.0.0')]), manifest([node('x', '1.0.0'), node('x', '2.0.0'), node('x', '3.0.0')]));
+    expect(sig(added)).toEqual(['added/version x - -> 1.0.0', 'added/version x - -> 2.0.0']);
   });
 
   it('a prerelease of the same core is backward; build-metadata-only difference is unknown', () => {
     expect(sig(diffStackManifests(manifest([node('x', '1.0.0')]), manifest([node('x', '1.0.0-rc.1')])))).toEqual(['backward/version x 1.0.0 -> 1.0.0-rc.1']);
     const r = diffStackManifests(manifest([node('x', '1.0.0+a')]), manifest([node('x', '1.0.0+b')]));
-    expect(sig(r)).toEqual(['unknown/version x 1.0.0+a -> 1.0.0+b']);
+    expect(sig(r)).toEqual(['unknown/version x - -> 1.0.0+b', 'unknown/version x 1.0.0+a -> -']);
+    expect(stackDiffExitCode(r)).toBe(2);
+  });
+
+  it('precedence-equal versions are unknown in EVERY nodes[] order: same bytes, same exit code', () => {
+    // A = {y@1.0.0+a, y@1.0.0+b}, B = {y@1.0.0+b}: the two A manifests differ ONLY in nodes[] order
+    const ya = node('y', '1.0.0+a');
+    const yb = node('y', '1.0.0+b');
+    const sortedA = manifest([ya, yb]);
+    const reversedA: StackManifest = { ...sortedA, nodes: [...sortedA.nodes].reverse() };
+    expect(verifyStackManifest(reversedA).stackDigestOk).toBe(true);
+    expect(reversedA.nodes.map((n) => n.id)).not.toEqual(sortedA.nodes.map((n) => n.id));
+    const B = manifest([yb]);
+    const r1 = diffStackManifests(sortedA, B);
+    const r2 = diffStackManifests(reversedA, B);
+    expect(sig(r1)).toEqual(['unknown/version y 1.0.0+a -> -']);
+    expect(r1.moves[0]?.reasons[0]).toContain('equal semver precedence');
+    expect(stableStringify(r2)).toBe(stableStringify(r1));
+    expect(stackDiffExitCode(r1)).toBe(2);
+    expect(stackDiffExitCode(r2)).toBe(2);
+    // and the mirror image (the tie is on the HEAD side) is unknown too, in both orders
+    const m1 = diffStackManifests(B, sortedA);
+    const m2 = diffStackManifests(B, reversedA);
+    expect(sig(m1)).toEqual(['unknown/version y - -> 1.0.0+a']);
+    expect(stableStringify(m2)).toBe(stableStringify(m1));
+    expect(stackDiffExitCode(m1)).toBe(2);
+  });
+
+  it('a non-semver version on the BASE side of a version move is unknown (both sides are checked)', () => {
+    const r = diffStackManifests(manifest([node('x', 'main')]), manifest([node('x', '1.0.0')]));
+    expect(sig(r)).toEqual(['unknown/version x - -> 1.0.0', 'unknown/version x main -> -']);
+    expect(stackDiffExitCode(r)).toBe(2);
+  });
+
+  it('EVERY version of the name must parse, not only the moved ones: a RETAINED non-semver copy makes a sibling move unknown', () => {
+    const r = diffStackManifests(manifest([node('x', 'main'), node('x', '1.0.0')]), manifest([node('x', 'main'), node('x', '1.0.1')]));
+    expect(sig(r)).toEqual(['unknown/version x - -> 1.0.1', 'unknown/version x 1.0.0 -> -']);
+    expect(r.moves[0]?.reasons[0]).toContain("'main'");
     expect(stackDiffExitCode(r)).toBe(2);
   });
 
@@ -507,11 +653,66 @@ describe('stack diff — G: classifier edges on synthetic manifests', () => {
     expect(sig(r)).toEqual(['forward/version x 1.0.0 -> 1.0.1']);
   });
 
-  it('a flipped hashed flag on the same name+version is rewritten and names the field', () => {
+  it('a same-version flag move is its own VISIBLE row (flags-changed); gaining an install script BLOCKS', () => {
     const r = diffStackManifests(manifest([node('x', '1.0.0')]), manifest([node('x', '1.0.0', { installScript: true, dev: true })]));
-    expect(sig(r)).toEqual(['rewritten/version x 1.0.0 -> 1.0.0']);
-    expect(r.moves[0]?.reasons).toEqual(['same name+version, different dev, installScript']);
+    expect(sig(r)).toEqual(['flags-changed/version x 1.0.0 -> 1.0.0']);
+    expect(r.moves[0]?.flagsChanged).toEqual([
+      { flag: 'dev', from: false, to: true },
+      { flag: 'installScript', from: false, to: true },
+    ]);
+    expect(r.moves[0]?.fields).toEqual(['dev', 'installScript']);
+    expect(r.moves[0]?.integrity).toBeNull();
     expect(r.digestEqual).toBe(false);
+    expect(r.unexplainedDigestChange).toBe(false);
+    expect(r.classification).toBe('flags-changed');
+    expect(r.moves[0]?.approvalBlocked).toBe(true);
+    expect(stackDiffExitCode(r)).toBe(2);
+    // a flag move that gains NO install script is visible, explains the digest, and does not block
+    const dev = diffStackManifests(manifest([node('x', '1.0.0', { dev: true })]), manifest([node('x', '1.0.0')]));
+    expect(sig(dev)).toEqual(['flags-changed/version x 1.0.0 -> 1.0.0']);
+    expect(dev.moves[0]?.flagsChanged).toEqual([{ flag: 'dev', from: true, to: false }]);
+    expect(dev.moves[0]?.approvalBlocked).toBe(false);
+    expect(dev.unexplainedDigestChange).toBe(false);
+    expect(stackDiffExitCode(dev)).toBe(0);
+    // LOSING an install script does not block either
+    const lost = diffStackManifests(manifest([node('x', '1.0.0', { installScript: true })]), manifest([node('x', '1.0.0')]));
+    expect(lost.moves[0]?.approvalBlocked).toBe(false);
+    expect(stackDiffExitCode(lost)).toBe(0);
+    // flags + integrity together is `rewritten` (the louder class) and still lists the flags
+    const both = diffStackManifests(manifest([node('x', '1.0.0')]), manifest([node('x', '1.0.0', { dev: true, integrity: 'sha512-other' })]));
+    expect(sig(both)).toEqual(['rewritten/version x 1.0.0 -> 1.0.0']);
+    expect(both.moves[0]?.integrity).toEqual({ from: 'sha512-x-1.0.0', to: 'sha512-other' });
+    expect(both.moves[0]?.flagsChanged).toEqual([{ flag: 'dev', from: false, to: true }]);
+  });
+
+  it('flags that RIDE on a version move are visible on the row and do not block', () => {
+    const r = diffStackManifests(manifest([node('y', '1.0.0', { dev: true })]), manifest([node('y', '1.0.1', { installScript: true })]));
+    expect(sig(r)).toEqual(['forward/version y 1.0.0 -> 1.0.1']);
+    expect(r.moves[0]?.flagsChanged).toEqual([
+      { flag: 'dev', from: true, to: false },
+      { flag: 'installScript', from: false, to: true },
+    ]);
+    expect(r.moves[0]?.approvalBlocked).toBe(false);
+    expect(stackDiffExitCode(r)).toBe(0);
+    const dir = tmp('flags-cli');
+    const fa = path.join(dir, 'a.json');
+    const fb = path.join(dir, 'b.json');
+    fs.writeFileSync(fa, stableStringify(manifest([node('y', '1.0.0', { dev: true })])));
+    fs.writeFileSync(fb, stableStringify(manifest([node('y', '1.0.1', { installScript: true })])));
+    const cli = runCli(['stack', 'diff', '--from', fa, '--to', fb, '--out', path.join(dir, 'o.json')], ROOT);
+    expect(cli.status).toBe(0);
+    expect(cli.stdout).toContain('[flags dev true -> false, installScript false -> true]');
+  });
+
+  it('a spec-changed row is never emitted on an edge whose endpoint was rewritten', () => {
+    const x1 = node('x', '1.0.0');
+    const x2 = node('x', '1.0.0', { integrity: 'sha512-other' });
+    const p = node('p', '1.0.0');
+    const r = diffStackManifests(manifest([p, x1], [edge(p, x1, '^1.0.0')]), manifest([p, x2], [edge(p, x2, '~1.0.0')]));
+    expect(sig(r)).toEqual(['rewritten/version x 1.0.0 -> 1.0.0']);
+    // control: with unchanged endpoints the same range move IS a spec-changed row
+    const control = diffStackManifests(manifest([p, x1], [edge(p, x1, '^1.0.0')]), manifest([p, x1], [edge(p, x1, '~1.0.0')]));
+    expect(sig(control)).toEqual(['spec-changed/edge x ^1.0.0 -> ~1.0.0']);
   });
 
   it('a layout-only change (hoisting) is not a move at all', () => {
@@ -607,14 +808,49 @@ describe('stack diff — G: classifier edges on synthetic manifests', () => {
     expect(flagged.moves[0]?.reasons).toEqual(['root package, different installScript']);
   });
 
-  it('a digest change no node row explains FAILS CLOSED', () => {
-    const r = diffStackManifests(manifest([node('x', '1.0.0')], [], false), manifest([node('x', '1.0.0')], [], true));
-    expect(r.moves).toEqual([]);
+  it('a hashed change no row OF ITS OWN SUB-VIEW explains FAILS CLOSED — even in the company of other rows', () => {
+    // an `oci-image` node is a projection of images[]; one that moves while images[] does not is a
+    // manifest no extractor writes. No images row names it, so it is unexplained — alone …
+    const img = (v: string): StackNode => ({ ...node('node', v, { integrity: null, resolvedFrom: 'dockerfile', layout: [] }), kind: 'oci-image', id: `oci-image:node@${v}` });
+    const alone = diffStackManifests(manifest([node('x', '1.0.0'), img('22-alpine')]), manifest([node('x', '1.0.0'), img('18-alpine')]));
+    expect(alone.moves).toEqual([]);
+    expect(alone.digestEqual).toBe(false);
+    expect(alone.unexplainedDigestChange).toBe(true);
+    expect(alone.unexplained).toEqual(['nodes:oci-image/node']);
+    expect(alone.classification).toBe('unknown-potential-backward');
+    expect(alone.approvalBlocked).toBe(true);
+    expect(stackDiffExitCode(alone)).toBe(2);
+    // … and MASKED by an unrelated forward bump AND a spec-changed row: neither explains it
+    const p = node('p', '1.0.0');
+    const masked = diffStackManifests(
+      manifest([p, node('x', '1.0.0'), node('z', '1.0.0'), img('22-alpine')], [edge(p, node('z', '1.0.0'), '^1.0.0')]),
+      manifest([p, node('x', '1.0.1'), node('z', '1.0.0'), img('18-alpine')], [edge(p, node('z', '1.0.0'), '~1.0.0')]),
+    );
+    expect(sig(masked)).toEqual(['forward/version x 1.0.0 -> 1.0.1', 'spec-changed/edge z ^1.0.0 -> ~1.0.0']);
+    expect(masked.unexplained).toEqual(['nodes:oci-image/node']);
+    expect(masked.classification).toBe('unknown-potential-backward');
+    expect(stackDiffExitCode(masked)).toBe(2);
+    // a spec-changed row ALONE explains nothing either
+    const specOnly = diffStackManifests(
+      manifest([p, node('z', '1.0.0'), img('22-alpine')], [edge(p, node('z', '1.0.0'), '^1.0.0')]),
+      manifest([p, node('z', '1.0.0'), img('18-alpine')], [edge(p, node('z', '1.0.0'), '~1.0.0')]),
+    );
+    expect(sig(specOnly)).toEqual(['spec-changed/edge z ^1.0.0 -> ~1.0.0']);
+    expect(specOnly.unexplainedDigestChange).toBe(true);
+    expect(stackDiffExitCode(specOnly)).toBe(2);
+  });
+
+  it('the digests in the report are RE-DERIVED: a recorded stackDigest that lies is never trusted', () => {
+    const A = manifest([node('x', '1.0.0')]);
+    const B = manifest([node('x', '1.0.1')]);
+    const lying: StackManifest = { ...B, stackDigest: A.stackDigest, stackId: A.stackId };
+    const r = diffStackManifests(A, lying);
+    expect(r.to.stackDigest).toBe(B.stackDigest);
+    expect(r.to.stackDigest).not.toBe(lying.stackDigest);
+    expect(r.to.stackId).toBe(B.stackId);
     expect(r.digestEqual).toBe(false);
-    expect(r.unexplainedDigestChange).toBe(true);
-    expect(r.classification).toBe('unknown-potential-backward');
-    expect(r.approvalBlocked).toBe(true);
-    expect(stackDiffExitCode(r)).toBe(2);
+    const lyingBase: StackManifest = { ...A, stackDigest: B.stackDigest, stackId: B.stackId };
+    expect(diffStackManifests(lyingBase, B).from.stackDigest).toBe(A.stackDigest);
   });
 
   const alias = (version: string): StackUnmodeled => ({
@@ -662,6 +898,9 @@ describe('stack diff — G: classifier edges on synthetic manifests', () => {
     const future = { ...node('y', '1.0.0'), kind: 'wasm-module' } as unknown as StackNode;
     const r = diffStackManifests(plain, { ...plain, nodes: [...plain.nodes, future] });
     expect(r.moves.map((m) => `${m.class} ${m.kind} ${m.name}`)).toEqual(['unknown wasm-module y']);
+    // the ROW blocks, not only the report
+    expect(r.moves[0]?.approvalBlocked).toBe(true);
+    expect(r.moves.every((m) => m.class !== 'unknown' || m.approvalBlocked)).toBe(true);
     expect(r.summary.added).toBe(0);
     expect(stackDiffExitCode(r)).toBe(2);
   });
@@ -672,9 +911,21 @@ describe('stack diff — G: classifier edges on synthetic manifests', () => {
     expect(sig(r)).toEqual(['rewritten/version x 1.0.0 -> 1.0.0']);
     expect(r.moves[0]?.reasons).toEqual(['same name+version, different resolvedWhenUnpinned']);
     expect(r.digestEqual).toBe(false);
+    expect(stackDiffExitCode(r)).toBe(2);
   });
 
-  it('rank: backward > unknown > rewritten > added|removed > forward > spec-changed', () => {
+  it('rank: backward > unknown > rewritten|flags-changed > added|removed > forward > spec-changed', () => {
+    expect(STACK_MOVE_RANK['flags-changed']).toBe(STACK_MOVE_RANK.rewritten);
+    // inside one rank the louder class names the report — whatever the row order
+    const tie = diffStackManifests(manifest([node('a', '1.0.0'), node('z', '1.0.0')]), manifest([node('a', '1.0.0', { dev: true }), node('z', '1.0.0', { integrity: 'sha512-other' })]));
+    expect(tie.moves.map((m) => m.class)).toEqual(['flags-changed', 'rewritten']);
+    expect(tie.classification).toBe('rewritten');
+    const tie2 = diffStackManifests(manifest([node('a', '1.0.0', { integrity: 'sha512-other' }), node('z', '1.0.0')]), manifest([node('a', '1.0.0'), node('z', '1.0.0', { dev: true })]));
+    expect(tie2.moves.map((m) => m.class)).toEqual(['rewritten', 'flags-changed']);
+    expect(tie2.classification).toBe('rewritten');
+    const addRemove = diffStackManifests(manifest([node('z', '1.0.0')]), manifest([node('a', '1.0.0')]));
+    expect(addRemove.moves.map((m) => m.class)).toEqual(['added', 'removed']);
+    expect(addRemove.classification).toBe('removed');
     const order = ['backward', 'unknown', 'rewritten', 'removed', 'forward', 'spec-changed'] as const;
     for (let i = 1; i < order.length; i++) {
       expect(STACK_MOVE_RANK[order[i - 1] as StackMove['class']]).toBeGreaterThan(STACK_MOVE_RANK[order[i] as StackMove['class']]);
@@ -685,6 +936,152 @@ describe('stack diff — G: classifier edges on synthetic manifests', () => {
     expect(r.classification).toBe('backward');
     expect(r.approvalBlocked).toBe(true);
     expect(r.moves.map((m) => m.class)).toEqual(['backward', 'unknown', 'unknown']);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* I. images[] and runtime: real rows, never masked                            */
+/* -------------------------------------------------------------------------- */
+
+describe('stack diff — I: image and runtime moves get rows of their OWN sub-view and are never masked by a node row', () => {
+  const DIGEST_A = `sha256:${'ab'.repeat(32)}`;
+  const DIGEST_B = `sha256:${'cd'.repeat(32)}`;
+  /** a tiny repository for the REAL extractor: one dependency x, optionally a Dockerfile and an .nvmrc */
+  function repo(label: string, o: { x: string; from?: string; nvmrc?: string; integrity?: string }): StackManifest {
+    const dir = tmp(label);
+    const pkg = { name: 'demo', version: '1.0.0', dependencies: { x: '^1.0.0' } };
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(pkg));
+    fs.writeFileSync(
+      path.join(dir, 'package-lock.json'),
+      JSON.stringify({
+        name: 'demo',
+        version: '1.0.0',
+        lockfileVersion: 3,
+        requires: true,
+        packages: { '': pkg, 'node_modules/x': { version: o.x, resolved: `https://registry.example/x/-/x-${o.x}.tgz`, integrity: o.integrity ?? 'sha512-AAAA' } },
+      }),
+    );
+    if (o.from) fs.writeFileSync(path.join(dir, 'Dockerfile'), `FROM ${o.from}\n`);
+    if (o.nvmrc) fs.writeFileSync(path.join(dir, '.nvmrc'), `${o.nvmrc}\n`);
+    return extract(dir);
+  }
+  const line = (r: ReturnType<typeof diffStackManifests>): string[] => r.moves.map((m) => `${m.class}/${m.view} ${m.kind} ${m.name} ${m.from ?? '-'} -> ${m.to ?? '-'}`);
+
+  it('an image TAG move is unknown ALONE and unknown IN COMPANY of an unrelated bump (the masked repro)', () => {
+    const base0 = repo('img-base', { x: '1.0.0', from: `node:22-alpine@${DIGEST_A}` });
+    const tagOnly = repo('img-tag', { x: '1.0.0', from: `node:18-alpine@${DIGEST_A}` });
+    const tagAndBump = repo('img-tag-bump', { x: '1.0.1', from: `node:18-alpine@${DIGEST_A}` });
+    const alone = diffStackManifests(base0, tagOnly);
+    expect(line(alone)).toEqual([`unknown/images oci-image node node:22-alpine@${DIGEST_A} -> node:18-alpine@${DIGEST_A}`]);
+    expect(stackDiffExitCode(alone)).toBe(2);
+    const masked = diffStackManifests(base0, tagAndBump);
+    expect(line(masked)).toEqual([`unknown/images oci-image node node:22-alpine@${DIGEST_A} -> node:18-alpine@${DIGEST_A}`, 'forward/nodes npm x 1.0.0 -> 1.0.1']);
+    expect(masked.classification).toBe('unknown-potential-backward');
+    expect(masked.unexplainedDigestChange).toBe(false);
+    expect(masked.approvalBlocked).toBe(true);
+    expect(stackDiffExitCode(masked)).toBe(2);
+  });
+
+  it('same image ref, different DIGEST is rewritten: both digests on the row, blocks, exit 2', () => {
+    const r = diffStackManifests(repo('dg-a', { x: '1.0.0', from: `node:22-alpine@${DIGEST_A}` }), repo('dg-b', { x: '1.0.1', from: `node:22-alpine@${DIGEST_B}` }));
+    expect(line(r)).toEqual([`rewritten/images oci-image node node:22-alpine@${DIGEST_A} -> node:22-alpine@${DIGEST_B}`, 'forward/nodes npm x 1.0.0 -> 1.0.1']);
+    expect(r.moves[0]?.integrity).toEqual({ from: DIGEST_A, to: DIGEST_B });
+    expect(r.moves[0]?.approvalBlocked).toBe(true);
+    expect(stackDiffExitCode(r)).toBe(2);
+  });
+
+  it('a strict-version image tag orders: forward exit 0, backward exit 2; an unpinned moving tag that ENTERS is unknown', () => {
+    const v = (tag: string): StackManifest => repo(`tag-${tag}`, { x: '1.0.0', from: `registry.example/app:${tag}` });
+    const up = diffStackManifests(v('1.2.3'), v('1.2.4'));
+    expect(line(up)).toEqual(['forward/images oci-image registry.example/app registry.example/app:1.2.3 -> registry.example/app:1.2.4']);
+    expect(stackDiffExitCode(up)).toBe(0);
+    const down = diffStackManifests(v('1.2.4'), v('1.2.3'));
+    expect(down.moves.map((m) => m.class)).toEqual(['backward']);
+    expect(stackDiffExitCode(down)).toBe(2);
+    const none = repo('no-image', { x: '1.0.0' });
+    const entersMoving = diffStackManifests(none, repo('enters-moving', { x: '1.0.0', from: 'node:22-alpine' }));
+    expect(entersMoving.moves.map((m) => `${m.class}/${m.view}`)).toEqual(['unknown/images']);
+    expect(stackDiffExitCode(entersMoving)).toBe(2);
+    const entersPinned = diffStackManifests(none, repo('enters-pinned', { x: '1.0.0', from: `node:22-alpine@${DIGEST_A}` }));
+    expect(entersPinned.moves.map((m) => `${m.class}/${m.view}`)).toEqual(['added/images']);
+    expect(entersPinned.moves[0]?.integrity).toEqual({ from: null, to: DIGEST_A });
+    expect(stackDiffExitCode(entersPinned)).toBe(0);
+    const leaves = diffStackManifests(repo('leaves', { x: '1.0.0', from: 'node:22-alpine' }), none);
+    expect(leaves.moves.map((m) => `${m.class}/${m.view}`)).toEqual(['removed/images']);
+    expect(stackDiffExitCode(leaves)).toBe(0);
+  });
+
+  it('a runtime 22 -> 16 move is unknown ALONE and IN COMPANY of an unrelated bump (the masked repro)', () => {
+    const base0 = repo('rt-base', { x: '1.0.0', nvmrc: '22' });
+    const alone = diffStackManifests(base0, repo('rt-16', { x: '1.0.0', nvmrc: '16' }));
+    expect(line(alone)).toEqual(['unknown/runtime node-runtime node 22 -> 16']);
+    expect(stackDiffExitCode(alone)).toBe(2);
+    const masked = diffStackManifests(base0, repo('rt-16-bump', { x: '1.0.1', nvmrc: '16' }));
+    expect(line(masked)).toEqual(['unknown/runtime node-runtime node 22 -> 16', 'forward/nodes npm x 1.0.0 -> 1.0.1']);
+    expect(masked.unexplainedDigestChange).toBe(false);
+    expect(stackDiffExitCode(masked)).toBe(2);
+  });
+
+  it('an EXACT runtime version orders by semver; a runtime block that moves WITHOUT its node is still a runtime row', () => {
+    const up = diffStackManifests(repo('rt-a', { x: '1.0.0', nvmrc: '22.1.0' }), repo('rt-b', { x: '1.0.0', nvmrc: '22.2.0' }));
+    expect(line(up)).toEqual(['forward/runtime node-runtime node 22.1.0 -> 22.2.0']);
+    expect(stackDiffExitCode(up)).toBe(0);
+    const down = diffStackManifests(repo('rt-c', { x: '1.0.0', nvmrc: '22.2.0' }), repo('rt-d', { x: '1.0.1', nvmrc: '20.0.0' }));
+    expect(line(down)).toEqual(['backward/runtime node-runtime node 22.2.0 -> 20.0.0', 'forward/nodes npm x 1.0.0 -> 1.0.1']);
+    expect(stackDiffExitCode(down)).toBe(2);
+    // hand-built: `runtime.node.declared` downgraded while the node-runtime NODE is left untouched, plus an unrelated bump
+    const A = repo('rt-e', { x: '1.0.0', nvmrc: '22.2.0' });
+    const B0 = repo('rt-f', { x: '1.0.1', nvmrc: '22.2.0' });
+    const { stackDigest, stackId, manifestDigest, ...body } = B0;
+    void stackDigest;
+    void stackId;
+    void manifestDigest;
+    const B = finalizeStackManifest({ ...body, runtime: { node: { ...body.runtime.node, declared: '16.0.0' } } });
+    const r = diffStackManifests(A, B);
+    expect(line(r)).toEqual(['backward/runtime node-runtime node 22.2.0 -> 16.0.0', 'forward/nodes npm x 1.0.0 -> 1.0.1']);
+    expect(stackDiffExitCode(r)).toBe(2);
+    // a pin-only flip of the runtime block (same declared value) is a rewritten runtime row naming the field
+    const pinFlip = diffStackManifests(manifest([node('x', '1.0.0')], [], false), manifest([node('x', '1.0.0')], [], true));
+    expect(line(pinFlip)).toEqual(['rewritten/runtime node-runtime node - -> -']);
+    expect(pinFlip.moves[0]?.fields).toEqual(['pin']);
+    expect(stackDiffExitCode(pinFlip)).toBe(2);
+  });
+
+  it('permuting images[] cannot move a report byte', () => {
+    const A = repo('perm-a', { x: '1.0.0', from: `node:22-alpine@${DIGEST_A}`, nvmrc: '22' });
+    const B = repo('perm-b', { x: '1.0.1', from: `node:22-alpine@${DIGEST_B}`, nvmrc: '20' });
+    const shuffle = (m: StackManifest): StackManifest => ({ ...m, nodes: permute(m.nodes), edges: permute(m.edges), images: permute(m.images) });
+    expect(stableStringify(diffStackManifests(shuffle(A), shuffle(B)))).toBe(stableStringify(diffStackManifests(A, B)));
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* J. root declarations with unchanged nodes                                   */
+/* -------------------------------------------------------------------------- */
+
+describe('stack diff — J: a root declaration that appears, disappears or changes group with nodes unchanged is an informational row', () => {
+  const x = node('x', '1.0.0');
+  const y = node('y', '1.0.0');
+  const decl = (name: string, spec: string, group: StackRootDeclared['group']): StackRootDeclared => ({ name, spec, group });
+  const m = (rd: StackRootDeclared[]): StackManifest => manifest([x, y], [], false, [], APP, rd);
+  const line = (r: ReturnType<typeof diffStackManifests>): string[] => r.moves.map((mv) => `${mv.class} ${mv.name} ${mv.from ?? '-'} -> ${mv.to ?? '-'} | ${mv.reasons[0] ?? ''}`);
+
+  it('declares, un-declares, moves group: one spec-changed row each, digest equal, exit 0', () => {
+    const both = m([decl('x', '^1.0.0', 'dependencies'), decl('y', '^1.0.0', 'dependencies')]);
+    const onlyX = m([decl('x', '^1.0.0', 'dependencies')]);
+    const declared = diffStackManifests(onlyX, both);
+    expect(line(declared)).toEqual(["spec-changed y - -> ^1.0.0 | root:app now declares 'y' (dependencies); the resolved nodes are unchanged (digest-neutral)"]);
+    expect(declared.digestEqual).toBe(true);
+    expect(stackDiffExitCode(declared)).toBe(0);
+    const undeclared = diffStackManifests(both, onlyX);
+    expect(line(undeclared)).toEqual(["spec-changed y ^1.0.0 -> - | root:app no longer declares 'y' (dependencies); the resolved nodes are unchanged (digest-neutral)"]);
+    expect(stackDiffExitCode(undeclared)).toBe(0);
+    const moved = diffStackManifests(both, m([decl('x', '^1.0.0', 'dependencies'), decl('y', '^1.0.0', 'devDependencies')]));
+    expect(line(moved)).toEqual(["spec-changed y ^1.0.0 -> ^1.0.0 | declaration of 'y' on root:app moved dependencies -> devDependencies; the resolved nodes are unchanged (digest-neutral)"]);
+    expect(moved.classification).toBe('spec-changed');
+    expect(stackDiffExitCode(moved)).toBe(0);
+    // unchanged declarations never produce a row
+    expect(diffStackManifests(both, both).moves).toEqual([]);
   });
 });
 
@@ -737,6 +1134,66 @@ describe('stack diff — H: the CLI takes manifests, refuses everything else, an
     const s = runCli(['stack', 'snapshot', '--ct-repo', FIXTURE_TREE, '--no-pin', '--from', FILE.base, '--out', out], ROOT);
     expect(s.status).toBe(1);
     expect(s.stderr).toContain('unknown option for bce stack: --from');
+    expect(fs.existsSync(out)).toBe(false);
+  });
+  it('an extra positional argument is a usage error (exit 1), nothing written', () => {
+    const out = path.join(tmp('positional'), 'diff.json');
+    const r = runCli(['stack', 'diff', 'surprise', '--from', FILE.base, '--to', FILE.head, '--out', out], ROOT);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("unexpected stack diff argument 'surprise'");
+    expect(fs.existsSync(out)).toBe(false);
+  });
+
+  it('--out that resolves to either input is refused (exit 2): the inputs are left byte-identical', () => {
+    const dir = tmp('out-is-input');
+    const a = path.join(dir, 'a.stack.json');
+    const b = path.join(dir, 'b.stack.json');
+    fs.copyFileSync(FILE.base, a);
+    fs.copyFileSync(FILE.head, b);
+    const bytesA = fs.readFileSync(a, 'utf8');
+    const bytesB = fs.readFileSync(b, 'utf8');
+    const viaFrom = runCli(['stack', 'diff', '--from', a, '--to', b, '--out', path.join(dir, '.', 'a.stack.json')], ROOT);
+    expect(viaFrom.status).toBe(2);
+    expect(viaFrom.stderr).toContain('it resolves to the --from manifest');
+    const viaTo = runCli(['stack', 'diff', '--from', a, '--to', b, '--out', 'b.stack.json'], dir);
+    expect(viaTo.status).toBe(2);
+    expect(viaTo.stderr).toContain('it resolves to the --to manifest');
+    expect(fs.readFileSync(a, 'utf8')).toBe(bytesA);
+    expect(fs.readFileSync(b, 'utf8')).toBe(bytesB);
+  });
+
+  it('a schema refusal names the FIRST failing path behind a fixed prefix', () => {
+    const dir = tmp('schema-path');
+    const bad = JSON.parse(fs.readFileSync(FILE.head, 'utf8')) as Record<string, unknown>;
+    bad.schemaVersion = '2';
+    const file = path.join(dir, 'bad.stack.json');
+    fs.writeFileSync(file, JSON.stringify(bad));
+    const out = path.join(dir, 'diff.json');
+    const r = runCli(['stack', 'diff', '--from', FILE.base, '--to', file, '--out', out], ROOT);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain(`--to ${file} is not a valid StackManifest: at 'schemaVersion': `);
+    expect(fs.existsSync(out)).toBe(false);
+    const nested = JSON.parse(fs.readFileSync(FILE.head, 'utf8')) as { nodes: Record<string, unknown>[] };
+    (nested.nodes[3] as Record<string, unknown>).dev = 'yes';
+    fs.writeFileSync(file, JSON.stringify(nested));
+    const n = runCli(['stack', 'diff', '--from', FILE.base, '--to', file, '--out', out], ROOT);
+    expect(n.status).toBe(2);
+    expect(n.stderr).toContain("is not a valid StackManifest: at 'nodes.3.dev': ");
+    fs.writeFileSync(file, '{ not json');
+    const j = runCli(['stack', 'diff', '--from', FILE.base, '--to', file, '--out', out], ROOT);
+    expect(j.status).toBe(2);
+    expect(j.stderr).toContain('is not a valid StackManifest: not JSON');
+    expect(fs.existsSync(out)).toBe(false);
+  });
+
+  it.skipIf(process.platform === 'win32')('a SYMLINKED manifest is refused (exit 2), the same stance the extractor takes on its sources', () => {
+    const dir = tmp('symlink');
+    const link = path.join(dir, 'link.stack.json');
+    fs.symlinkSync(FILE.head, link);
+    const out = path.join(dir, 'diff.json');
+    const r = runCli(['stack', 'diff', '--from', FILE.base, '--to', link, '--out', out], ROOT);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('the manifest path is a symbolic link');
     expect(fs.existsSync(out)).toBe(false);
   });
 });

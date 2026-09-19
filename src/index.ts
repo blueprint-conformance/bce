@@ -169,6 +169,7 @@ export {
   parseSemverLite,
   compareSemverLite,
   STACK_MOVE_RANK,
+  STACK_FLAG_FIELDS,
   STACK_DIFF_UNKNOWN_CLASSIFICATION,
 } from './stack/stack-diff.js';
 export type {
@@ -177,6 +178,8 @@ export type {
   StackDiffClassification,
   StackMove,
   StackMoveClass,
+  StackMoveView,
+  StackFlagChange,
   SemverLite,
 } from './stack/stack-diff.js';
 
