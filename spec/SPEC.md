@@ -676,10 +676,12 @@ compliance report — it joins neither in this slice, and no constraint type gra
 
 **Inputs** (read from the pinned tree, nothing else): `npm-shrinkwrap.json` or `package-lock.json`
 with `lockfileVersion` **3 only** — when both exist **`npm-shrinkwrap.json` wins** (npm's own rule)
-and the other is a coverage line; `package.json`; `.nvmrc` / `.node-version` (first non-comment
-line); `Dockerfile*` `FROM` lines and `docker-compose*` / `compose*` `image:` lines (line-anchored,
-no YAML library), searched to **directory depth 3** with `node_modules`, `.git`, `dist`, `build`,
-`coverage` and virtualenv directories excluded — a deeper file is NOT read and the manifest says so.
+and the other is a coverage line; `pnpm-lock.yaml` with `lockfileVersion` **'9.0' only** (§16.1,
+including which lockfile family wins when several are present); `package.json`; `.nvmrc` /
+`.node-version` (first non-comment line); `Dockerfile*` `FROM` lines and `docker-compose*` /
+`compose*` `image:` lines (line-anchored, no YAML library), searched to **directory depth 3** with
+`node_modules`, `.git`, `dist`, `build`, `coverage` and virtualenv directories excluded — a deeper
+file is NOT read and the manifest says so.
 **Never**: `node_modules`, the network, `npm ls`, the machine's platform/arch/npm version, the clock.
 **Never a symbolic link**: every named source is `lstat`ed and must resolve inside the tree; a
 symlinked (or tree-escaping) lockfile, `package.json`, runtime file, Dockerfile or compose file is a
@@ -727,23 +729,130 @@ quarantined `edges` and, for the root package, in the quarantined manifest field
 `rootDeclared[] {name, spec, group}` — a range-only edit with identical resolved nodes leaves the
 running stack identical, so it is visible there (a diff reports it as spec-changed) and never re-keys.
 
-**Fail-closed** (exit **2**, nothing written): no lockfile; only `pnpm-lock.yaml` / `yarn.lock`
-(fixed refusal strings); malformed JSON; `lockfileVersion` ≠ 3; a **hollow** v3 lockfile (no
-`packages` map, no root entry, or NOTHING beyond the root — a closure with no node and no unmodeled
-entry beyond the root is never a green stack; a root plus only opaque entries IS accepted, because
-those entries are hashed); a **malformed entry** (not an object, or a missing / empty / non-string
-version); any symbolic link among the sources, including a symlinked directory whose first level
-holds a Dockerfile or compose file (other symlinked directories are not walked and are declared in
-coverage). `FROM ${ARG}` bases and `${VAR}` compose refs are coverage lines, never
-fabricated nodes. `images[].resolved` is always `false` in this slice: tag→digest resolution is a
-separate verb that writes a proposal, never a manifest field.
+**Fail-closed** (exit **2**, nothing written): no lockfile; only `yarn.lock` (fixed refusal
+string); malformed JSON; npm `lockfileVersion` ≠ 3; pnpm `lockfileVersion` ≠ '9.0' or a pnpm
+lockfile outside the reader's YAML subset (§16.1); a **hollow** lockfile (npm: no `packages` map, no
+root entry, or NOTHING beyond the root; pnpm: no `importers`, `packages` or `snapshots` mapping — a
+closure with no node and no unmodeled entry beyond the root is never a green stack; a root plus only
+opaque entries IS accepted, because those entries are hashed); a **malformed entry** (not an
+object, or a missing / empty / non-string version; for pnpm see §16.1); any symbolic link among the
+sources, including a symlinked directory whose first level holds a Dockerfile or compose file
+(other symlinked directories are not walked and are declared in coverage). `FROM ${ARG}` bases and
+`${VAR}` compose refs are coverage lines, never fabricated nodes. `images[].resolved` is always
+`false` in this slice: tag→digest resolution is a separate verb that writes a proposal, never a
+manifest field.
+
+### 16.1 pnpm-lock.yaml v9 — a second source, not a second schema
+
+`pnpm-lock.yaml` produces the SAME `StackNode` shape (`sources[].parser: "pnpm-lockfile-v9"`). The
+engine carries **no YAML library**: a hand-rolled reader walks exactly the subset pnpm's serializer
+emits — indentation-nested block mappings, block sequences of scalars, single-line flow
+maps/sequences, plain / single- / double-quoted scalars, block scalars. Anchors, aliases, tags,
+the merge key `<<` (quoted or not, with or without an alias), multi-document streams, complex keys,
+multi-line flow collections or quoted scalars, inline comments, tab indentation, duplicate keys,
+trailing content after a flow or quoted value, flow collections nested deeper than 8 and block
+nesting deeper than 64 are a parse error with a line number, and the lockfile is then **refused
+whole** — never half-read. The reader never throws on lockfile content.
+
+**Scalar typing** follows the YAML core schema where it decides identity: a PLAIN `null` / `Null` /
+`NULL` / `~` or an empty value is **absent** (never the string `"null"`), a plain `true` / `false`
+(three spellings each) is a boolean, and a QUOTED scalar is always a string. Numbers stay strings, so
+`lockfileVersion: 9.0` and `'9.0'` are the same accepted value and nothing is re-spelled by a float
+round-trip; every other value — `9`, `9.1`, `10.0`, a boolean, a list — is a fixed version refusal.
+A block scalar (`|`, `>`) is a distinct non-string value: this reader neither folds nor clips, so it
+is inert where pnpm really writes one (a multi-line `deprecated:` notice) and a `malformed` refusal in
+every identity position (`integrity`, `tarball`, `version`, a dependency reference, `os` / `cpu`).
+
+**Precedence**: when `package.json` `packageManager` starts with `pnpm@` and a `pnpm-lock.yaml`
+exists, it IS the declared closure and any npm lockfile beside it is a recorded ignore (no fallback
+to it if the pnpm lockfile is refused). Otherwise `npm-shrinkwrap.json` > `package-lock.json`, and
+`pnpm-lock.yaml` is read only when no npm lockfile is present. The rule is anchored: only a
+`packageManager` that STARTS with `pnpm@` selects the pnpm lockfile. A symlinked `package.json` is a
+refusal, so the precedence rule is never decided from a file outside the revision. When
+`packageManager` names a manager (`npm@`, `pnpm@`, `yarn@`) whose own lockfile is absent or
+unsupported and ANOTHER family's lockfile is the one read, coverage says so (`package.json
+packageManager declares … but the lockfile read is '…'`) — a recorded disagreement, never a refusal:
+the lockfile that exists is still the only declared closure in the tree.
+
+**Derivation**: a node per `packages` key `name@version` (or `@scope/name@version` — a v6-style
+`/name@version` path key is refused) with a registry (semver) version; `integrity` from
+`resolution.integrity`, which must be ONE `sha1-` / `sha256-` / `sha384-` / `sha512-` hash when
+present; `platformConditional` from `os`/`cpu` (sorted: list order is presentation). `snapshots` keys
+(`name@version(peer@x)(patch_hash=…)`) are peer/patch VARIANTS of one identity: they collapse into
+one node and are listed in the non-hashed `layout`. `optional` is read (true only when EVERY variant
+carries a real YAML `true` — the quoted string `'true'` is not one). pnpm v9 records no `dev`/`peer` flags, so both are **derived by reachability
+from the importers**: `dev` = not reachable through any importer's `dependencies` /
+`optionalDependencies`; `peer` = reachable only through `peerDependencies` edges. v9 records no
+install-script flag, so `installScript` is always `false` for a pnpm node (stated in coverage:
+unknown, not proven absent). The root node's identity comes from `package.json` and is `root:true`,
+so its own `version` is quarantined exactly as for npm: a release bump never re-keys the digest. Workspace
+importers other than `.` have no locked identity: they are not nodes, and their direct-dependency
+edges are attributed to the root. An `npm:` alias resolves to the REAL package identity (the alias
+names an edge, never a node). Transitive edges carry `spec: ""` (v9 records resolved versions, not
+ranges); importer edges carry the `specifier`, peer edges the `peerDependencies` range. The quarantined
+`rootDeclared[]` lists importer `.`'s `specifier`s by group — declared ranges are visible, never hashed.
+
+**Opaque entries, never fabricated nodes and never a silent drop**: what the reader cannot fully
+model enters the HASHED top-level `unmodeled[]` as `{kind:"unsupported", key, reason, spec,
+entrySha256}` AND is declared in `coverage.unsupported`. `entrySha256` covers the CANONICAL
+serialization of the hashed part of the entry (mapping keys sorted, scalars unquoted, typed values
+kept apart from their quoted twins), so YAML key order, quoting and flow/block style cannot move the
+digest while any change of content does. `key` is the
+entry's location in the lockfile (`importers/<importer>/<bucket>/<dep>`, `packages/<key>`,
+`patchedDependencies/<name@version>`, `sections/<name>`). A workspace-local package is pinned by
+the repository revision the report already carries, which is why a `link:` entry records the target
+PATH, not a version. **Declared ranges never move the digest, for opaque entries too**: an
+importer-level `link:` or alias entry hashes the dependency NAME (in its `key`) and the RESOLVED
+value (the `version:` field — the link target path, the alias target `name@version`); its
+`specifier` is quarantined with every other range (`workspace:*` → `workspace:^` and
+`npm:string-width@^4.2.0` → `^4.2.1` keep the digest; a new link target or a new resolved alias
+target moves it). Snapshot-level `link:` dependencies and `npm:` aliases are hashed the same way
+(name + reference). Package-level, patch and section entries hash their whole raw entry. The entries: `link:` workspace dependencies; packages whose version is not a registry
+version or whose resolution is `git` / `directory` (`file:`, git-hosted tarball URLs — the commit /
+URL is in `spec.resolved`); the NAME of an `npm:` alias; every `patchedDependencies` entry (reason `pnpm-patched`, the patch hash in `spec.integrity`: a
+patch changes the installed bytes while the node integrity stays the UNPATCHED tarball, so the
+patch hash — not a node field — is what moves the digest); non-ASCII names;
+unread top-level sections. A registry package without integrity keeps its node and carries its
+tarball URL (`resolvedWhenUnpinned`). Coverage-only (fully modelled otherwise): `catalog:`
+specifiers (the resolved version IS the node; the edge spec stays `catalog:` verbatim) and a `libc`
+condition.
+
+**Sections read past and NOT hashed**: `settings`, `overrides`, `catalogs`, `time`,
+`pnpmfileChecksum`, `packageExtensionsChecksum` and `ignoredOptionalDependencies`. Each of them
+steers RESOLUTION (which versions pnpm picks, which optional packages it drops, which hooks rewrite
+manifests) or records when a version was published; none of them names installed bytes. Their whole
+effect is the resolved closure already written to `packages` / `snapshots`, and that closure is what
+is hashed — hashing the inputs as well would move the digest for two lockfiles that install exactly
+the same thing. Any OTHER top-level section is unknown to this reader and is hashed whole as an
+opaque entry (`pnpm-unread-section`).
+
+**Fail-closed**: a HOLLOW lockfile (no or empty `importers`, `packages` or `snapshots`) and a lockfile with an entry the reader cannot trust (a dependency naming no
+snapshot, a snapshot no package names, a key that is not `name@version`, a package with neither
+integrity nor tarball, an integrity that is not a hash, a package carrying the root's own identity,
+a patch without a hash, an importer / snapshot / dependency bucket / dependency entry of the wrong
+type, an `os` / `cpu` that is not a list of strings) are refused WHOLE: exit 2, nothing written. A
+`pnpm-lock.yaml` that is a symbolic link, or whose real path leaves the tree, is never followed.
+
+**Cross-family digests**: `resolvedFrom` is `lockfile` for both families and `sources` is
+quarantined, so the lockfile family itself never moves the digest — a closure with no install
+scripts and no dev/peer/optional-flag disagreement hashes IDENTICALLY from an npm v3 and a pnpm v9
+lockfile (pinned by `tests/stack-pnpm.test.ts` group 7). Equality is **not guaranteed** in general:
+`installScript` (npm records it, pnpm v9 does not) and the derived-vs-recorded `dev`/`peer` flags
+are hashed node fields and can differ for the same packages. Compare digests across families only
+with that in mind; within one family the digest is the join key.
+
+**Schema evolution before 1.0**: the manifest's strict enums (`sources[].parser`,
+`unmodeled[].reason`) may WIDEN without a `schemaVersion` bump while the package is pre-1.0. A
+consumer built against an older release therefore REJECTS a manifest produced from a newer lockfile
+family (an unknown enum value is a validation error, never a silently-accepted guess); upgrade the
+consumer to read it.
 
 **Determinism**: same tree ⇒ byte-identical manifest on every OS (`tests/stack-determinism.test.ts`
-pins a committed golden, its negative controls, and one test per rule above). This section is
-descriptive of the verb that runs; grading a stack (a `stack` block on the blueprint,
-version/closure constraint types) is not part of this specification version.
+and `tests/stack-pnpm.test.ts` pin committed goldens, their negative controls, and one test per
+rule above). This section is descriptive of the verb that runs; grading a stack (a `stack` block on
+the blueprint, version/closure constraint types) is not part of this specification version.
 
-### 16.1 Stack diff (the closure classifier)
+### 16.2 Stack diff (the closure classifier)
 
 `bce stack diff --from <A> --to <B>` classifies every move between two StackManifests. Its inputs are
 **manifests, never repositories**. An input is refused (exit **2**, nothing written) when it is not a

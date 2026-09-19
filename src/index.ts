@@ -155,7 +155,8 @@ export {
   stackRefusalHollowLockfile,
   stackRefusalMalformedEntry,
   STACK_COVERAGE_IMAGE_WALK_DEPTH,
-  STACK_REFUSAL_PNPM,
+  stackCoverageLockfileIgnored,
+  stackCoveragePackageManagerMismatch,
   STACK_REFUSAL_YARN,
   STACK_REFUSAL_NO_LOCKFILE,
   STACK_COVERAGE_DECLARED_NOT_INSTALLED,
@@ -183,6 +184,26 @@ export type {
   StackFlagChange,
   SemverLite,
 } from './stack/stack-diff.js';
+// pnpm-lock.yaml v9 — a second SOURCE of the same node shape, read by a hand-rolled YAML-subset reader (no YAML library).
+export {
+  readPnpmLock,
+  parsePnpmLockSubset,
+  deriveFromPnpmLockV9,
+  splitPnpmKey,
+  pnpmLockfileVersion,
+  PnpmLockSubsetError,
+  stackRefusalPnpmLockfileVersion,
+  stackRefusalPnpmSubset,
+  stackRefusalPnpmHollow,
+  stackRefusalPnpmMalformed,
+  PNPM_LOCK_MAX_NESTING,
+  canonicalPnpmValue,
+  STACK_COVERAGE_PNPM_NO_INSTALL_SCRIPTS,
+  STACK_COVERAGE_PNPM_DERIVED_FLAGS,
+  STACK_COVERAGE_PNPM_NO_TRANSITIVE_SPECS,
+  STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS,
+} from './stack/pnpm-lock-reader.js';
+export type { PnpmYamlValue, PnpmYamlMap, PnpmDerived, PnpmUnmodeled, PnpmStackNode, PnpmRootIdentity, PnpmLockReadResult } from './stack/pnpm-lock-reader.js';
 
 export { runGate, discoverBlueprints, blueprintTouchesChanges, resolveTreeRevision, computeGateReport, assembleGateReportDoc } from './gate.js';
 export type { GateResult, GateReportDoc, ComputedGate } from './gate.js';

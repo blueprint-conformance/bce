@@ -1129,6 +1129,23 @@ describe('stack diff — K: manifests read from different lockfile families are 
     expect(line(diffStackManifests(withSources(A, NPM), F))[0]).toBe('unknown/sources lockfile-family npm-lockfile-v3 -> (none)');
   });
 
+  it('REAL families through the built CLI: a committed pnpm-lock manifest vs a committed npm manifest — first stdout row, exit 2, report still written', () => {
+    const PNPM = path.join(FIXTURES, 'pnpm-v9-synth.stack.json');
+    expect(stackLockfileFamilies(load(PNPM))).toEqual(['pnpm-lockfile-v9']);
+    const dir = tmp('family-cli');
+    const out = path.join(dir, 'diff.json');
+    const r = runCli(['stack', 'diff', '--from', PNPM, '--to', FILE.head, '--out', out], ROOT);
+    expect(r.status).toBe(2);
+    expect(r.stdout.split('\n')[0]).toContain('lockfile-family  pnpm-lockfile-v9 -> npm-lockfile-v3');
+    expect(r.stdout).toContain('classification unknown-potential-backward');
+    const written = JSON.parse(fs.readFileSync(out, 'utf8')) as { moves: StackMove[]; classification: string };
+    expect(written.moves[0]?.view).toBe('sources');
+    expect(written.moves.length).toBeGreaterThan(1);
+    const back = runCli(['stack', 'diff', '--from', FILE.head, '--to', PNPM, '--out', out], ROOT);
+    expect(back.status).toBe(2);
+    expect(back.stdout.split('\n')[0]).toContain('lockfile-family  npm-lockfile-v3 -> pnpm-lockfile-v9');
+  });
+
   it('control: the SAME family on both sides adds no row and changes no byte — whatever the file paths and non-lockfile sources', () => {
     const F = manifest([node('x', '2.0.1'), node('y', '1.0.0')]);
     const plain = diffStackManifests(A, F);

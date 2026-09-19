@@ -103,7 +103,7 @@ export const StackSourceSchema = z
     path: z.string().min(1),
     /** sha256 of the file bytes as read — NOT in the digest (a re-serialized lockfile is the same closure) */
     sha256: z.string().regex(/^[0-9a-f]{64}$/),
-    parser: z.enum(['npm-lockfile-v3', 'package-json', 'dockerfile', 'compose', 'nvmrc', 'node-version']),
+    parser: z.enum(['npm-lockfile-v3', 'pnpm-lockfile-v9', 'package-json', 'dockerfile', 'compose', 'nvmrc', 'node-version']),
   })
   .strict();
 export type StackSource = z.infer<typeof StackSourceSchema>;
@@ -152,7 +152,7 @@ export const StackUnmodeledSchema = z
   .object({
     kind: z.literal('unsupported'),
     key: z.string().min(1),
-    reason: z.enum(['npm-alias', 'link', 'local-or-git', 'non-ascii-name', 'not-under-node-modules']),
+    reason: z.enum(['npm-alias', 'link', 'local-or-git', 'non-ascii-name', 'not-under-node-modules', 'pnpm-patched', 'pnpm-unread-section']),
     /** the raw distinguishing strings, as read */
     spec: z
       .object({
