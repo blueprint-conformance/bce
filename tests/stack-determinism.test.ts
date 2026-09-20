@@ -1039,6 +1039,81 @@ describe('stack slice 1 — images and runtime hygiene', () => {
     expect(extractStackManifest(a, 'unpinned').manifest.images.map((i) => i.ref)).toEqual(['node:22']);
   });
 
+  it('MINOR-2 (pass 2): what git knows decides — an untracked clone is skipped, the PINNED view reads the sha (never the index), prefixes end at a slash, gitlinks are not tracked files, and nothing is left in the temp dir', () => {
+    const git = (repo: string, ...a: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.email=t@example.com', '-c', 'user.name=t', ...a], { encoding: 'utf8' }).trim();
+    const repo = synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n', 'vendor/tool2/keep.txt': 'tracked\n', '.gitignore': 'vendor/clone/\nvendor/tool/\n' } });
+    git(repo, 'init', '-q', '-b', 'main');
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'base');
+    const head = git(repo, 'rev-parse', 'HEAD');
+    const view = (extra: string[]) => {
+      const out = path.join(tmp('m2-out'), 'm.json');
+      const cli = runCli(['stack', 'snapshot', '--ct-repo', repo, ...extra, '--out', out], ROOT);
+      expect(cli.stderr).toBe('');
+      const m = parseStackManifest(JSON.parse(fs.readFileSync(out, 'utf8')));
+      return { digest: m.stackDigest, refs: m.images.map((i) => i.ref).sort(), nested: m.coverage.unsupported.filter((l) => l.startsWith('nested git checkout')) };
+    };
+    const before = view([]);
+    expect(before).toEqual({ digest: expect.any(String), refs: ['node:22'], nested: [] });
+
+    // E05 — the feature's main case: an UNTRACKED clone inside a real repository. git knows nothing under it, so the
+    // `.git` marker decides: its image is not this repository's, and the unpinned view says so in coverage.
+    // E08 — `vendor/tool` is such a clone too; the tracked `vendor/tool2/keep.txt` shares its PREFIX but not its directory.
+    for (const clone of ['vendor/clone', 'vendor/tool']) {
+      fs.mkdirSync(path.join(repo, clone, '.git'), { recursive: true });
+      fs.writeFileSync(path.join(repo, clone, 'Dockerfile'), `FROM ${path.basename(clone)}/base:1\n`);
+    }
+    const unpinned = view(['--no-pin']);
+    expect(unpinned.refs).toEqual(['node:22']);
+    expect(unpinned.digest).toBe(before.digest);
+    expect(unpinned.nested).toEqual([stackCoverageNestedCheckout('vendor/clone'), stackCoverageNestedCheckout('vendor/tool')]);
+    expect(view([])).toEqual(before); // the pinned tree never held them
+
+    // P05 / K02 — index ≠ commit: a gitlink and a file STAGED but not committed. The pinned view reads the sha.
+    git(repo, 'update-index', '--add', '--cacheinfo', `160000,${'0'.repeat(39)}1,deps/staged`);
+    fs.writeFileSync(path.join(repo, 'staged.txt'), 'staged\n');
+    git(repo, 'add', 'staged.txt');
+    const index = listTreeKnowledge(repo)!;
+    const atHead = listTreeKnowledge(repo, head)!;
+    expect(index.gitlinks).toEqual(['deps/staged']);
+    expect(index.tracked.has('staged.txt')).toBe(true);
+    expect(atHead.gitlinks).toEqual([]);
+    expect(atHead.tracked.has('staged.txt')).toBe(false);
+    expect(view([]).nested).toEqual([]); // the CLI's pinned view: nothing staged leaks into it
+    expect(view(['--no-pin']).nested).toContain(stackCoverageNestedCheckout('deps/staged')); // the working-tree view reads the index
+
+    // P07 — a gitlink is another repository's tree, never one of this repository's tracked files
+    expect(index.tracked.has('deps/staged')).toBe(false);
+    expect([...index.tracked].some((t) => t.startsWith('deps/staged'))).toBe(false);
+
+    // E02 / E03 — a gitlink the image walk could never reach (deeper than the walk, or under an excluded directory)
+    // gets no coverage line: coverage describes what the walk skipped, not the whole repository
+    git(repo, 'update-index', '--add', '--cacheinfo', `160000,${'0'.repeat(39)}2,a/b/c/deep`);
+    git(repo, 'update-index', '--add', '--cacheinfo', `160000,${'0'.repeat(39)}3,dist/sub`);
+    git(repo, 'update-index', '--add', '--cacheinfo', `160000,${'0'.repeat(39)}4,a/b/edge`);
+    git(repo, 'commit', '-q', '-m', 'gitlinks');
+    expect(listTreeKnowledge(repo)!.gitlinks).toEqual(['a/b/c/deep', 'a/b/edge', 'deps/staged', 'dist/sub']);
+    expect(view([]).nested).toEqual([stackCoverageNestedCheckout('a/b/edge'), stackCoverageNestedCheckout('deps/staged')]);
+
+    // P01 — the listing is streamed through a temp dir that is removed on success AND on every failure path
+    const saved = { TMPDIR: process.env.TMPDIR, TEMP: process.env.TEMP, TMP: process.env.TMP };
+    const privateTmp = tmp('m2-private-tmp');
+    try {
+      process.env.TMPDIR = process.env.TEMP = process.env.TMP = privateTmp;
+      expect(fs.realpathSync(os.tmpdir())).toBe(fs.realpathSync(privateTmp));
+      expect(listTreeKnowledge(repo)).not.toBeNull();
+      expect(listTreeKnowledge(repo, git(repo, 'rev-parse', 'HEAD'))).not.toBeNull();
+      expect(listTreeKnowledge(repo, 'f'.repeat(40))).toBeNull(); // a sha git does not know
+      expect(listTreeKnowledge(path.join(privateTmp, 'missing'))).toBeNull(); // no such directory
+      expect(fs.readdirSync(privateTmp)).toEqual([]);
+    } finally {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
+  });
+
   it('hashed images are a SET: the same ref declared again (second Dockerfile, second compose service) keeps the digest; the manifest keeps every declaration', () => {
     const one = extractStackManifest(synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n' } }), 'unpinned').manifest;
     const many = extractStackManifest(

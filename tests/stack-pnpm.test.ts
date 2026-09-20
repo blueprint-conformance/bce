@@ -26,7 +26,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { Ajv } from 'ajv';
 import { generateSchemas } from '../scripts/generate-schemas.js';
 import { stableStringify } from '../src/report.js';
@@ -40,6 +40,8 @@ import {
   STACK_COVERAGE_DECLARED_NOT_INSTALLED,
   STACK_COVERAGE_NO_IMAGES,
   STACK_REFUSAL_NO_LOCKFILE,
+  checkPnpmLockCoversTree,
+  findPackageJsonDirs,
 } from '../src/stack/stack-extractor.js';
 import {
   deriveFromPnpmLockV9,
@@ -58,6 +60,11 @@ import {
   STACK_COVERAGE_PNPM_DEPENDENCY_FREE,
   stackRefusalPnpmHollow,
   stackRefusalPnpmMalformed,
+  stackRefusalPnpmLostClosure,
+  pnpmLinkTarget,
+  pnpmWorkspaceGlobToRegExp,
+  readPnpmWorkspacePatterns,
+  isPnpmWorkspaceDir,
   canonicalPnpmValue,
   type PnpmUnmodeled,
   type PnpmYamlMap,
@@ -84,8 +91,14 @@ function tmp(label: string): string {
   tempDirs.push(d);
   return d;
 }
-/** A temp tree with the fixture's root files and the given lockfile text (never the fixture itself). */
-function treeWith(label: string, lockText: string, pkg?: Record<string, unknown>): string {
+/**
+ * A temp tree with the fixture's root files and the given lockfile text (never the fixture itself).
+ * The lockfile must COVER its tree (truncation guards c + d), so every importer the text names gets a
+ * `package.json`: the fixture's own when the fixture's root manifest is used (no `pkg`) and it has
+ * one, else a manifest declaring nothing. `files`
+ * adds or overrides tree files (a `null` value leaves the file out).
+ */
+function treeWith(label: string, lockText: string, pkg?: Record<string, unknown>, files: Record<string, string | null> = {}): string {
   const d = tmp(label);
   fs.writeFileSync(path.join(d, '.nvmrc'), fs.readFileSync(path.join(FIXTURE_TREE, '.nvmrc')));
   fs.writeFileSync(
@@ -93,7 +106,42 @@ function treeWith(label: string, lockText: string, pkg?: Record<string, unknown>
     pkg ? JSON.stringify(pkg, null, 2) : fs.readFileSync(path.join(FIXTURE_TREE, 'package.json')),
   );
   fs.writeFileSync(path.join(d, 'pnpm-lock.yaml'), lockText);
+  const importersBlock = /^['"]?importers['"]?:[ \t]*\r?\n((?:(?:[ \t]+.*)?\r?\n)*)/m.exec(lockText.replace(/^\uFEFF/, ''))?.[1] ?? '';
+  const indent = /^( +)\S/m.exec(importersBlock)?.[1] ?? '  ';
+  for (const m of importersBlock.matchAll(new RegExp(`^${indent}(?:'([^']+)'|"([^"]+)"|([^\\s'":][^:]*)):`, 'gm'))) {
+    const imp = m[1] ?? m[2] ?? m[3] ?? '';
+    if (imp === '.' || imp === '' || imp.startsWith('..') || path.isAbsolute(imp)) continue;
+    const own = path.join(FIXTURE_TREE, imp, 'package.json');
+    fs.mkdirSync(path.join(d, imp), { recursive: true });
+    fs.writeFileSync(path.join(d, imp, 'package.json'), !pkg && fs.existsSync(own) ? fs.readFileSync(own) : JSON.stringify({ name: path.basename(imp), version: '1.0.0' }));
+  }
+  // a lockfile with workspace importers sits in a workspace: the tree names them (guard d)
+  if (fs.readdirSync(d).some((e) => fs.statSync(path.join(d, e)).isDirectory())) {
+    const dirs = fs.readdirSync(d, { recursive: true, withFileTypes: true }).filter((e) => e.isFile() && e.name === 'package.json' && path.relative(d, e.parentPath) !== '');
+    fs.writeFileSync(path.join(d, 'pnpm-workspace.yaml'), `packages:\n${dirs.map((e) => `  - '${path.relative(d, e.parentPath).split(path.sep).join('/')}'\n`).join('')}`);
+  }
+  for (const [rel, content] of Object.entries(files)) {
+    const abs = path.join(d, rel);
+    if (content === null) {
+      fs.rmSync(abs, { force: true });
+      continue;
+    }
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, content);
+  }
   return d;
+}
+/** Move the workspace package `packages/lib` to `packages/other`: its importer AND the link that points at it (guard b). */
+function relinkLibToOther(text: string): string {
+  const out = text.replace('version: link:../lib', 'version: link:../other').replace('\n  packages/lib:\n', '\n  packages/other:\n');
+  expect(out).toContain('\n  packages/other:\n');
+  return out;
+}
+/** The fixture's `packages/app/package.json` with one dependency renamed — the tree must declare what the lockfile records (guard c). */
+function appManifestRenaming(from: string, to: string): Record<string, string> {
+  const raw = fs.readFileSync(path.join(FIXTURE_TREE, 'packages', 'app', 'package.json'), 'utf8');
+  expect(raw).toContain(`"${from}"`);
+  return { 'packages/app/package.json': raw.replace(`"${from}"`, `"${to}"`) };
 }
 function runCli(args: string[], cwd: string): { status: number; stdout: string; stderr: string } {
   const useDist = fs.existsSync(DIST_CLI);
@@ -363,8 +411,8 @@ describe('stack pnpm — group 4: a real closure change moves the digest', () =>
   });
 
   it('what the reader cannot model still MOVES the stackDigest: patch hash, link target, git commit, alias name, unpinned tarball URL', () => {
-    const digest = (label: string, text: string): string => {
-      const r = extractStackManifest(treeWith(label, text), REVISION);
+    const digest = (label: string, text: string, files: Record<string, string> = {}): string => {
+      const r = extractStackManifest(treeWith(label, text, undefined, files), REVISION);
       expect(r.refusals, label).toEqual([]);
       return r.manifest.stackDigest;
     };
@@ -376,9 +424,9 @@ describe('stack pnpm — group 4: a real closure change moves the digest', () =>
     ]);
     const moved = [
       digest('patch', fixtureLock.replace(/1a72dd5d/g, '2b72dd5d')),
-      digest('link', fixtureLock.replace('version: link:../lib', 'version: link:../other')),
+      digest('link', relinkLibToOther(fixtureLock)),
       digest('commit', fixtureLock.replace(/97edff6f525f192a3f83cea1944765f769ae2678/g, '07edff6f525f192a3f83cea1944765f769ae2678')),
-      digest('alias', fixtureLock.replace('      sw-cjs:\n', '      sw-esm:\n')),
+      digest('alias', fixtureLock.replace('      sw-cjs:\n', '      sw-esm:\n'), appManifestRenaming('sw-cjs', 'sw-esm')),
     ];
     for (const d of moved) expect(d).not.toBe(golden.stackDigest);
     expect(new Set(moved).size).toBe(moved.length);
@@ -452,9 +500,10 @@ describe('stack pnpm — group 5: the YAML-subset reader', () => {
     expect(p.get('cpu')).toEqual(['x64', 'arm64']);
     expect(p.get('os')).toEqual([]);
     // a block scalar is NOT a string (no identity position can read it). Inside the body a `#`-led line and
-    // a TAB-led line are ordinary text; every line is right-trimmed once
+    // a TAB-led line are ordinary text; a body line keeps its trailing whitespace (content in a literal scalar)
     expect(p.get('deprecated')).toBeInstanceOf(PnpmBlockScalar);
-    expect((p.get('deprecated') as PnpmBlockScalar).text).toBe('# a hash-led FIRST body line\nfirst line: with a colon\n\ttab-led body line\n# second line');
+    expect((p.get('deprecated') as PnpmBlockScalar).header).toBe('|-');
+    expect((p.get('deprecated') as PnpmBlockScalar).text).toBe('# a hash-led FIRST body line\nfirst line: with a colon   \n\ttab-led body line\n# second line');
     expect(p.get('bundledDependencies')).toEqual(['one', 'two']);
     expect(p.get('sameIndentList')).toEqual(['a']);
     expect(p.get('hasBin')).toBe(true); // a PLAIN true is a boolean, exactly as a YAML parser types it
@@ -604,8 +653,8 @@ describe('stack pnpm — group 5: the YAML-subset reader', () => {
       'local-or-git:packages/is-positive@https://codeload.github.com/kevva/is-positive/tar.gz/97edff6f525f192a3f83cea1944765f769ae2678',
       `pnpm-patched:${PATCH}`,
     ]);
-    expect(fx(fixtureLock.replace('version: link:../lib', 'version: link:../other'), LINK)).toMatchObject({ spec: { version: 'link:../other', link: true } });
-    expect(fx(fixtureLock.replace('version: link:../lib', 'version: link:../other'), LINK).entrySha256).not.toBe(fx(fixtureLock, LINK).entrySha256);
+    expect(fx(relinkLibToOther(fixtureLock), LINK)).toMatchObject({ spec: { version: 'link:../other', link: true } });
+    expect(fx(relinkLibToOther(fixtureLock), LINK).entrySha256).not.toBe(fx(fixtureLock, LINK).entrySha256);
     const repatched = fixtureLock.replace(/1a72dd5d/g, '2b72dd5d');
     expect(fx(repatched, PATCH).spec.integrity).toMatch(/^2b72dd5d/);
     expect(fx(repatched, PATCH).entrySha256).not.toBe(fx(fixtureLock, PATCH).entrySha256);
@@ -1101,9 +1150,19 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
       [mini().replace('  a@1.0.0: {}', '  a@1.0.0:\n    dependencies:\n      a: ~'), "snapshot a@1.0.0 dependency 'a' (no version string)"],
     ];
     for (const [text, what] of cases) expect(refusalsOf(text), what).toEqual([stackRefusalPnpmMalformed(what)]);
-    // the legitimate empties stay legitimate
-    expect(refusalsOf(mini().replace('  a@1.0.0: {}', '  a@1.0.0:'))).toEqual([]);
-    expect(refusalsOf(mini().replace('  a@1.0.0: {}', '  a@1.0.0:\n    dependencies: {}'))).toEqual([]);
+    // the one legitimate empty is what pnpm writes: `{}`. A bare key (YAML null) and a bucket with nothing in it are
+    // shapes pnpm never writes (0 in 130 real lockfiles) and exactly what a cut in the tail looks like — guard (a), snapshot side
+    expect(refusalsOf(mini())).toEqual([]);
+    for (const empty of ['', ' ~', ' null']) {
+      expect(refusalsOf(mini().replace('  a@1.0.0: {}', `  a@1.0.0:${empty}`)), empty).toEqual([stackRefusalPnpmMalformed("snapshots entry 'a@1.0.0' (an entry with no value: pnpm writes '{}' — the lockfile is cut short)")]);
+    }
+    for (const key of ['dependencies', 'optionalDependencies']) {
+      for (const empty of ['', ' {}', ' ~']) {
+        expect(refusalsOf(mini().replace('  a@1.0.0: {}', `  a@1.0.0:\n    ${key}:${empty}`)), `${key}:${empty}`).toEqual([
+          stackRefusalPnpmMalformed(`snapshot a@1.0.0 '${key}' (a bucket with no entries: pnpm never writes one — the lockfile is cut short)`),
+        ]);
+      }
+    }
   });
 
   it("MINOR-7: v6-style '/name@version' path keys under a 9.0 header are refused — a package key is `name@version` or `@scope/name@version`", () => {
@@ -1135,8 +1194,8 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
 
   /* ---- MINOR-10: declared ranges never move the digest — for opaque importer entries too ---- */
   describe('MINOR-10: an importer-level opaque entry hashes the dependency name + the RESOLVED value; the specifier is quarantined', () => {
-    const run = (label: string, text: string) => {
-      const r = extractStackManifest(treeWith(label, text), REVISION);
+    const run = (label: string, text: string, files: Record<string, string> = {}) => {
+      const r = extractStackManifest(treeWith(label, text, undefined, files), REVISION);
       expect(r.refusals, label).toEqual([]);
       return r.manifest;
     };
@@ -1153,7 +1212,8 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
       expect(entry(m, 'link').entrySha256).toBe(entry(golden, 'link').entrySha256);
     });
     it('link: TARGET link:../lib → link:../other ⇒ stackDigest and entrySha256 MOVE', () => {
-      const m = run('link-target', edit('        version: link:../lib\n', '        version: link:../other\n'));
+      // the workspace package moves WITH its link: a link whose target is not an importer is a cut lockfile (guard b)
+      const m = run('link-target', relinkLibToOther(fixtureLock));
       expect(m.stackDigest).not.toBe(golden.stackDigest);
       expect(entry(m, 'link').entrySha256).not.toBe(entry(golden, 'link').entrySha256);
       expect(entry(m, 'link').spec.version).toBe('link:../other');
@@ -1170,7 +1230,7 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
       expect(m.stackDigest).not.toBe(golden.stackDigest);
       expect(entry(m, 'npm-alias').entrySha256).not.toBe(entry(golden, 'npm-alias').entrySha256);
       // …and the alias NAME is still part of the entry: same target under another name is another entry
-      const renamed = run('alias-name', edit('      sw-cjs:\n', '      sw-esm:\n'));
+      const renamed = run('alias-name', edit('      sw-cjs:\n', '      sw-esm:\n'), appManifestRenaming('sw-cjs', 'sw-esm'));
       expect(entry(renamed, 'npm-alias').key).toBe('importers/packages/app/dependencies/sw-esm');
       expect(renamed.stackDigest).not.toBe(golden.stackDigest);
     });
@@ -1188,6 +1248,11 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
       const d = tmp('declared');
       fs.writeFileSync(path.join(d, 'package.json'), JSON.stringify({ name: 'example-app', version: '1.2.3', ...(packageManager ? { packageManager } : {}) }));
       for (const [rel, text] of Object.entries(files)) fs.writeFileSync(path.join(d, rel), text);
+      // the fixture lockfile names the fixture's workspace packages: the tree carries them (guard c)
+      if ('pnpm-lock.yaml' in files) {
+        fs.cpSync(path.join(FIXTURE_TREE, 'packages'), path.join(d, 'packages'), { recursive: true });
+        fs.copyFileSync(path.join(FIXTURE_TREE, 'pnpm-workspace.yaml'), path.join(d, 'pnpm-workspace.yaml'));
+      }
       return d;
     };
     const coverage = (d: string): string[] => {
@@ -1260,12 +1325,14 @@ describe('stack pnpm — group 9: block-scalar bodies, the dependency-free proje
     ]);
   });
 
-  it('every line is right-trimmed ONCE, before anything reads it: a padded document marker is still a marker, a body line keeps no trailing blanks', () => {
+  it('STRUCTURE is right-trimmed once: a padded document marker is still a marker and a padded plain scalar is its trimmed text — a block-scalar BODY line keeps its trailing whitespace', () => {
     expect(readPnpmLock("lockfileVersion: '9.0'   \n---   \nimporters:\n  .: {}\n", ROOT_ID).refusals).toEqual([
       stackRefusalPnpmSubset(2, 'document marker or directive (multi-document stream)'),
     ]);
     const parsed = parsePnpmLockSubset('a: |-\n  body   \t \nb: plain   \n');
-    expect((parsed.get('a') as PnpmBlockScalar).text).toBe('body');
+    // trailing whitespace is CONTENT inside a literal block scalar: kept, so it can never hash like the trimmed form
+    expect((parsed.get('a') as PnpmBlockScalar).text).toBe('body   \t ');
+    expect((parsed.get('a') as PnpmBlockScalar).lines).toEqual([[0, 'body   \t ']]);
     expect(parsed.get('b')).toBe('plain');
   });
 
@@ -1274,8 +1341,24 @@ describe('stack pnpm — group 9: block-scalar bodies, the dependency-free proje
     const free = [
       `${head}importers:\n\n  .: {}\n`,
       `${head}importers:\n  .: {}\n  packages/lib: {}\n`,
-      `${head}importers:\n  .:\n    dependencies: {}\n    devDependencies:\n    optionalDependencies: {}\npackages: {}\nsnapshots:\n`,
+      `${head}importers:\n  .: {}\npackages: {}\nsnapshots:\n`,
     ];
+
+    it('TRUNCATION GUARD (a): a bucket with NO entries (`dependencies:` null or `{}`) is a shape pnpm never writes — refused, in every bucket and every importer', () => {
+      const bucket = (imp: string, key: string): string => stackRefusalPnpmMalformed(`importer ${imp} '${key}' (a bucket with no entries: pnpm never writes one — the lockfile is cut short)`);
+      for (const key of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+        for (const empty of ['', ' {}', ' ~', ' null']) {
+          expect(readPnpmLock(`${head}importers:\n  .:\n    ${key}:${empty}\n`, ROOT_ID).refusals, `${key}:${empty}`).toEqual([bucket('.', key)]);
+        }
+        // in a workspace importer, beside a healthy one, and through the extractor: exit-2 refusal, never a manifest
+        const cut = `${head}importers:\n  .: {}\n  packages/lib:\n    ${key}:\n`;
+        expect(extractStackManifest(treeWith('null-bucket', cut, ROOT_ID), REVISION).refusals).toEqual([bucket('packages/lib', key), STACK_REFUSAL_NO_LOCKFILE]);
+      }
+      // what a lockfile cut right after the bucket key looks like, with the closure still present below it in the real file
+      const full = `${head}importers:\n  .:\n    dependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}\npackages:\n  a@1.0.0:\n    resolution: {integrity: ${H}}\nsnapshots:\n  a@1.0.0: {}\n`;
+      expect(readPnpmLock(full, ROOT_ID).refusals).toEqual([]);
+      expect(readPnpmLock(full.slice(0, full.indexOf('      a:')), ROOT_ID).refusals).toEqual([bucket('.', 'dependencies')]);
+    });
 
     it('is ACCEPTED when EVERY importer declares zero dependencies: root-only closure, a coverage line, no refusal', () => {
       const digests = free.map((text) => {
@@ -1369,7 +1452,8 @@ describe('stack pnpm — group 10: a link-only workspace is not hollow; block-sc
     expect(linkOnly.unmodeled.map((u) => `${u.reason}:${u.key}`)).toEqual(['link:importers/packages/a/dependencies/b', 'link:importers/packages/b/dependencies/a']);
     expect(readFixture('injected').manifest.unmodeled.map((u) => u.key)).toEqual(['importers/packages/a/dependencies/b']);
     expect(linkOnly.stackDigest).not.toBe(readFixture('injected').manifest.stackDigest);
-    const moved = fs.readFileSync(path.join(REAL, 'link-only', 'pnpm-lock.yaml'), 'utf8').replace('version: link:../a', 'version: link:../other');
+    // the linked package moves WITH the link that names it (a link whose target is no importer is a cut lockfile — guard b)
+    const moved = fs.readFileSync(path.join(REAL, 'link-only', 'pnpm-lock.yaml'), 'utf8').replace('version: link:../a', 'version: link:../other').replace('\n  packages/a:\n', '\n  packages/other:\n');
     const r2 = extractStackManifest(treeWith('link-moved', moved, { name: 'synth-link-only', version: '1.0.0' }), REVISION);
     expect(r2.refusals).toEqual([]);
     expect(r2.manifest.stackDigest).not.toBe(linkOnly.stackDigest);
@@ -1385,9 +1469,14 @@ describe('stack pnpm — group 10: a link-only workspace is not hollow; block-sc
     expect(fs.existsSync(out)).toBe(false);
     // a link-shaped specifier with a NON-link resolved value, or the reverse, is what decides: the RESOLVED value or a workspace: range
     const head = "lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n";
-    expect(readPnpmLock(`${head}      a:\n        specifier: workspace:*\n        version: link:../a\n`, { name: 'r', version: '1.0.0' }).refusals).toEqual([]);
+    expect(readPnpmLock(`${head}      a:\n        specifier: workspace:*\n        version: link:packages/a\n  packages/a: {}\n`, { name: 'r', version: '1.0.0' }).refusals).toEqual([]);
     expect(readPnpmLock(`${head}      a:\n        specifier: ^1.0.0\n        version: 1.0.0\n`, { name: 'r', version: '1.0.0' }).refusals).toEqual([stackRefusalPnpmHollow("no 'packages' mapping")]);
     expect(readPnpmLock(`${head}      a:\n        specifier: file:../a\n        version: file:../a\n`, { name: 'r', version: '1.0.0' }).refusals).toEqual([stackRefusalPnpmHollow("no 'packages' mapping")]);
+    // a `workspace:` RANGE whose resolved value is not a link is not a lost closure (nothing registry-shaped was declared) —
+    // it is an entry that names no snapshot: the malformed refusal, never the hollow one (survivor R02)
+    expect(readPnpmLock(`${head}      a:\n        specifier: workspace:*\n        version: 1.0.0\n`, { name: 'r', version: '1.0.0' }).refusals).toEqual([
+      stackRefusalPnpmMalformed("importer . dependency 'a' (version '1.0.0' names no snapshot)"),
+    ]);
     // the real CLI accepts the link-only workspace: exit 0, root-only closure plus the two hashed links
     const ok = runCli(['stack', 'snapshot', '--ct-repo', path.join(REAL, 'link-only'), '--no-pin', '--out', path.join(tmp('link-only-out'), 'm.json')], ROOT);
     expect(ok.status).toBe(0);
@@ -1411,12 +1500,52 @@ describe('stack pnpm — group 10: a link-only workspace is not hollow; block-sc
     it('a git / non-registry package entry', () => three((body) => base(`  g@https://host/g/tar.gz/abc:\n    resolution: {tarball: https://host/g/tar.gz/abc}\n    version: 1.0.0\n    deprecated: |-\n      ${body}\n`, '  g@https://host/g/tar.gz/abc: {}\n')));
     it('a patchedDependencies entry', () => three((body) => base('', `patchedDependencies:\n  a@1.0.0:\n    hash: abc123\n    path: |-\n      ${body}\n`)));
     it('an unread top-level section', () => three((body) => base('', `futureSection:\n  note: |-\n    ${body.replace(/\n {6}/g, '\n    ').replace(/\n {8}/g, '\n      ')}\n`)));
-    it('the raw shape is what the reader keeps: relative indentation, interior blank lines, no trailing blank lines, right-trimmed', () => {
+    it('the raw shape is what the reader keeps: the header, relative indentation, interior blank lines, trailing whitespace — no trailing blank lines unless the header keeps them', () => {
       const doc = parsePnpmLockSubset('a: |-\n    first  \n\n      indented\n    last\n\n\nb: 1\n');
-      expect((doc.get('a') as PnpmBlockScalar).text).toBe('first\n\n  indented\nlast');
+      const a = doc.get('a') as PnpmBlockScalar;
+      expect(a.header).toBe('|-');
+      expect(a.text).toBe('first  \n\n  indented\nlast');
+      expect(a.lines).toEqual([[0, 'first  '], [0, ''], [2, 'indented'], [0, 'last']]);
       expect(doc.get('b')).toBe('1');
-      // a body line LESS indented than the first body line (but still inside the scalar) keeps no negative indent
-      expect((parsePnpmLockSubset('a: |-\n      deep\n    shallow\n').get('a') as PnpmBlockScalar).text).toBe('deep\nshallow');
+      // a body line LESS indented than the first body line (still inside the scalar): readable text clamps, the hashed lines do not
+      const shallow = parsePnpmLockSubset('a: |-\n      deep\n    shallow\n').get('a') as PnpmBlockScalar;
+      expect(shallow.text).toBe('deep\nshallow');
+      expect(shallow.lines).toEqual([[0, 'deep'], [-2, 'shallow']]);
+      // `+` KEEPS trailing blank lines in YAML, so there they are counted; an indentation indicator states the body indentation
+      expect((parsePnpmLockSubset('a: |+\n  x\n\n\nb: 1\n').get('a') as PnpmBlockScalar).lines).toEqual([[0, 'x'], [0, ''], [0, '']]);
+      expect((parsePnpmLockSubset('a: |2\n    x\n  y\n').get('a') as PnpmBlockScalar).lines).toEqual([[2, 'x'], [0, 'y']]);
+      expect(() => parsePnpmLockSubset('a: |0\n  x\n')).toThrow(/malformed block scalar header/);
+    });
+
+    it('MINOR-1 (pass 2): the HEADER and the lossless body are hashed — `|` vs `>`, chomping, an indentation indicator, a less-indented line, trailing and whitespace-only content never collide', () => {
+      const git = (header: string, body: string): string =>
+        base(`  g@https://host/g/tar.gz/abc:\n    resolution: {tarball: https://host/g/tar.gz/abc}\n    version: 1.0.0\n    deprecated: ${header}\n${body}`, '  g@https://host/g/tar.gz/abc: {}\n');
+      const two = '      alpha\n      beta\n';
+      const variants: Array<[string, string]> = [
+        ['literal', git('|', two)],
+        ['folded', git('>', two)],
+        ['literal strip', git('|-', two)],
+        ['literal keep', git('|+', two)],
+        ['folded strip', git('>-', two)],
+        ['folded keep', git('>+', two)],
+        ['indentation indicator', git('|6', two)],
+        ['keep + one trailing blank line', git('|+', `${two}\n`)],
+        ['keep + two trailing blank lines', git('|+', `${two}\n\n`)],
+        ['second line indented less', git('|', '        alpha\n      beta\n')],
+        ['second line indented more', git('|', '      alpha\n        beta\n')],
+        ['trailing spaces on a body line', git('|', '      alpha  \n      beta\n')],
+        ['a whitespace-only interior line longer than the body indentation', git('|', '      alpha\n        \n      beta\n')],
+        ['an empty interior line', git('|', '      alpha\n\n      beta\n')],
+      ];
+      const digests = variants.map(([, text]) => digest(text));
+      for (let i = 0; i < variants.length; i++) {
+        for (let j = i + 1; j < variants.length; j++) expect(digests[i], `${variants[i]![0]} vs ${variants[j]![0]}`).not.toBe(digests[j]);
+      }
+      // …and what is only the FILE's layout still moves nothing: trailing blank lines under clip / strip, a
+      // whitespace-only line no longer than the body indentation (an empty line in YAML), the key's own depth
+      expect(digest(git('|', `${two}\n\n`))).toBe(digest(git('|', two)));
+      expect(digest(git('|-', `${two}\n`))).toBe(digest(git('|-', two)));
+      expect(digest(git('|', '      alpha\n    \n      beta\n'))).toBe(digest(git('|', '      alpha\n\n      beta\n')));
     });
   });
 
@@ -1426,5 +1555,315 @@ describe('stack pnpm — group 10: a link-only workspace is not hollow; block-sc
     expect(readPnpmLock(text, { name: 'r', version: '1.0.0' }).refusals).toEqual([stackRefusalPnpmSubset(11, 'tab indentation')]);
     // …while the same tab-led line WITH the body's spaces is body text
     expect(readPnpmLock(text.replace('    \tnot body', '      \tis body'), { name: 'r', version: '1.0.0' }).refusals).toEqual([]);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* 11. review round 3 — a TRUNCATED lockfile is never a smaller legitimate one   */
+/* -------------------------------------------------------------------------- */
+
+describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link target, (c) declared dependencies, (d) workspace packages', () => {
+  const REAL = path.join(ROOT, 'fixtures', 'stack', 'pnpm-v9-real-shapes');
+  const lost = (what: string): string => stackRefusalPnpmLostClosure(what);
+  const bucket = (imp: string, key: string): string => stackRefusalPnpmMalformed(`importer ${imp} '${key}' (a bucket with no entries: pnpm never writes one — the lockfile is cut short)`);
+  /** A temp copy of a committed fixture tree whose lockfile is cut to its first `n` lines (all of it when `n` is undefined). */
+  const cutCopy = (fixtureDir: string, n?: number): string => {
+    const d = tmp('cut');
+    fs.cpSync(fixtureDir, d, { recursive: true });
+    const lines = fs.readFileSync(path.join(fixtureDir, 'pnpm-lock.yaml'), 'utf8').split(/(?<=\n)/);
+    if (n !== undefined) fs.writeFileSync(path.join(d, 'pnpm-lock.yaml'), lines.slice(0, n).join(''));
+    return d;
+  };
+  const lineCount = (fixtureDir: string): number => fs.readFileSync(path.join(fixtureDir, 'pnpm-lock.yaml'), 'utf8').split(/(?<=\n)/).length;
+
+  it('THE SWEEP: every line prefix of every real pnpm-written lockfile is REFUSED — only the whole file is a stack', () => {
+    const trees = [...['mixed', 'link-only', 'injected', 'link-workspace-packages', 'link-protocol', 'exclude-links', 'negated-globs'].map((n) => path.join(REAL, n)), FIXTURE_TREE];
+    for (const tree of trees) {
+      const total = lineCount(tree);
+      expect(total, tree).toBeGreaterThan(10);
+      const accepted: number[] = [];
+      for (let n = 1; n <= total; n++) {
+        if (extractStackManifest(cutCopy(tree, n), REVISION).refusals.length === 0) accepted.push(n);
+      }
+      expect(accepted, path.basename(tree)).toEqual([total]);
+    }
+    // …and BYTE by byte (a cut inside a line): only the whole file, and the whole file without its final newline —
+    // which is the same document
+    for (const name of ['mixed', 'link-only', 'link-workspace-packages']) {
+      const lock = fs.readFileSync(path.join(REAL, name, 'pnpm-lock.yaml'), 'utf8');
+      const d = cutCopy(path.join(REAL, name));
+      const accepted: number[] = [];
+      for (let n = 1; n <= lock.length; n++) {
+        fs.writeFileSync(path.join(d, 'pnpm-lock.yaml'), lock.slice(0, n));
+        if (extractStackManifest(d, REVISION).refusals.length === 0) accepted.push(n);
+      }
+      expect(lock.endsWith('\n'), name).toBe(true);
+      expect(accepted, name).toEqual([lock.length - 1, lock.length]);
+    }
+  }, 120_000);
+
+  it('each guard decides the prefixes no other guard can: (a) 12/18/24, (b) 15/16, (d) 9/10/21/22, (c) 27 of the real mixed workspace', () => {
+    const mixed = path.join(REAL, 'mixed');
+    const refusalsAt = (n: number): string[] => extractStackManifest(cutCopy(mixed, n), REVISION).refusals;
+    // (a) the cut falls right after a bucket key: a bare `dependencies:`
+    expect(refusalsAt(12)).toEqual([bucket('packages/a', 'dependencies'), STACK_REFUSAL_NO_LOCKFILE]);
+    expect(refusalsAt(18)).toEqual([bucket('packages/b', 'dependencies'), STACK_REFUSAL_NO_LOCKFILE]);
+    expect(refusalsAt(24)).toEqual([bucket('packages/c', 'dependencies'), STACK_REFUSAL_NO_LOCKFILE]);
+    // (b) packages/a links to ../b but the cut came before the `packages/b` importer
+    const noTarget = stackRefusalPnpmMalformed("importer packages/a dependency 'b' (workspace link target 'packages/b' is not an importer — the lockfile is cut short)");
+    expect(refusalsAt(15)).toEqual([noTarget, STACK_REFUSAL_NO_LOCKFILE]);
+    expect(refusalsAt(16)).toEqual([noTarget, STACK_REFUSAL_NO_LOCKFILE]);
+    // (d) the cut falls on an importer BOUNDARY: the lockfile is well-formed and self-consistent — only the workspace disagrees
+    const named = (dir: string): string => lost(`pnpm-workspace.yaml names package '${dir}' but the lockfile has no importer for it`);
+    for (const n of [9, 10]) expect(refusalsAt(n), String(n)).toEqual([named('packages/a'), named('packages/b'), named('packages/c'), STACK_REFUSAL_NO_LOCKFILE]);
+    for (const n of [21, 22]) expect(refusalsAt(n), String(n)).toEqual([named('packages/c'), STACK_REFUSAL_NO_LOCKFILE]);
+    // (c) `packages/c` is an importer and its link entry is complete — the registry dependency its package.json declares is gone
+    expect(refusalsAt(27)).toEqual([
+      lost("importer 'packages/c': 'packages/c/package.json' declares dependencies 'is-number' but the lockfile's importer entry does not record it"),
+      STACK_REFUSAL_NO_LOCKFILE,
+    ]);
+  });
+
+  it('prefix 21 of the mixed lockfile is BYTE-IDENTICAL to the legitimate link-only lockfile: the same bytes are a stack in one tree and a lost closure in the other — through the real CLI, exit 2, nothing written', () => {
+    const mixedLock = fs.readFileSync(path.join(REAL, 'mixed', 'pnpm-lock.yaml'), 'utf8').split(/(?<=\n)/);
+    const linkOnlyLock = fs.readFileSync(path.join(REAL, 'link-only', 'pnpm-lock.yaml'), 'utf8');
+    expect(mixedLock.slice(0, 21).join('')).toBe(linkOnlyLock);
+    expect(readPnpmLock(linkOnlyLock, { name: 'r', version: '1.0.0' }).refusals).toEqual([]); // the lockfile ALONE cannot tell
+    const snapshot = (dir: string) => {
+      const out = path.join(tmp('cut-out'), 'm.json');
+      const cli = runCli(['stack', 'snapshot', '--ct-repo', dir, '--no-pin', '--out', out], ROOT);
+      return { status: cli.status, stderr: cli.stderr, wrote: fs.existsSync(out) };
+    };
+    expect(snapshot(path.join(REAL, 'link-only'))).toMatchObject({ status: 0, wrote: true });
+    const cut = snapshot(cutCopy(path.join(REAL, 'mixed'), 21));
+    expect(cut).toMatchObject({ status: 2, wrote: false });
+    expect(cut.stderr).toContain(lost("pnpm-workspace.yaml names package 'packages/c' but the lockfile has no importer for it"));
+    // a PINNED view of a committed cut lockfile refuses the same way: the guards read the view the verb reads
+    const repo = cutCopy(path.join(REAL, 'mixed'), 27);
+    const git = (...a: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.email=t@example.com', '-c', 'user.name=t', ...a], { encoding: 'utf8' });
+    git('init', '-q', '-b', 'main');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'cut lockfile');
+    for (const extra of [[], ['--no-pin']]) {
+      const out = path.join(tmp('cut-pinned-out'), 'm.json');
+      const cli = runCli(['stack', 'snapshot', '--ct-repo', repo, ...extra, '--out', out], ROOT);
+      expect(cli.status, extra.join(' ')).toBe(2);
+      expect(cli.stderr).toContain("declares dependencies 'is-number' but the lockfile's importer entry does not record it");
+      expect(fs.existsSync(out)).toBe(false);
+    }
+    // …and the pinned view reads the COMMIT: repairing the working tree does not make the committed cut a stack
+    fs.copyFileSync(path.join(REAL, 'mixed', 'pnpm-lock.yaml'), path.join(repo, 'pnpm-lock.yaml'));
+    expect(runCli(['stack', 'snapshot', '--ct-repo', repo, '--no-pin', '--out', path.join(tmp('o'), 'm.json')], ROOT).status).toBe(0);
+    expect(runCli(['stack', 'snapshot', '--ct-repo', repo, '--out', path.join(tmp('o'), 'm.json')], ROOT).status).toBe(2);
+  });
+
+  it('the legitimate shapes pnpm 10.11.1 really writes are all still read: link-only, injected, link-workspace-packages (survivor R01), link: protocol, excludeLinksFromLockfile, negated globs, registry + links', () => {
+    const read = (name: string) => extractStackManifest(path.join(REAL, name), REVISION);
+    for (const name of ['link-only', 'injected', 'link-workspace-packages', 'link-protocol', 'exclude-links', 'negated-globs', 'mixed']) expect(read(name).refusals, name).toEqual([]);
+    // R01 — `link-workspace-packages=true`: a PLAIN range resolved to a workspace link. No `workspace:` specifier anywhere, so
+    // only the RESOLVED `link:` value says this dependency needs no packages entry — and the closure is still the root alone
+    const lwpLock = fs.readFileSync(path.join(REAL, 'link-workspace-packages', 'pnpm-lock.yaml'), 'utf8');
+    expect(lwpLock).toContain('specifier: ^1.0.0\n        version: link:../b');
+    expect(lwpLock).not.toContain('workspace:');
+    const lwp = read('link-workspace-packages').manifest;
+    expect(lwp.coverage.unsupported).toContain(STACK_COVERAGE_PNPM_DEPENDENCY_FREE);
+    expect(lwp.unmodeled.map((u) => `${u.reason}:${u.key}`)).toEqual(['link:importers/packages/a/dependencies/b']);
+    expect(lwp.nodes.filter((n) => n.kind === 'npm').map((n) => n.id)).toEqual(['npm:synth-link-workspace-packages@1.0.0']);
+    // a `link:`-PROTOCOL dependency names a directory by path: pnpm writes NO importer for it (one even sits outside the tree)
+    const protoLock = fs.readFileSync(path.join(REAL, 'link-protocol', 'pnpm-lock.yaml'), 'utf8');
+    expect(protoLock).toContain('specifier: link:../outside\n        version: link:../outside');
+    expect(protoLock).not.toContain('\n  vendor/lib:');
+    expect(read('link-protocol').manifest.unmodeled.map((u) => u.spec.version)).toEqual(['link:vendor/lib', 'link:../outside', 'link:../../vendor/lib']);
+    // excludeLinksFromLockfile: pnpm itself leaves the `link:` dependencies out of the importers — and ONLY under that setting
+    const exclude = path.join(REAL, 'exclude-links');
+    expect(fs.readFileSync(path.join(exclude, 'pnpm-lock.yaml'), 'utf8')).toContain('excludeLinksFromLockfile: true');
+    const notExcluded = cutCopy(exclude);
+    fs.writeFileSync(path.join(notExcluded, 'pnpm-lock.yaml'), fs.readFileSync(path.join(exclude, 'pnpm-lock.yaml'), 'utf8').replace('excludeLinksFromLockfile: true', 'excludeLinksFromLockfile: false'));
+    expect(extractStackManifest(notExcluded, REVISION).refusals).toEqual([
+      lost("importer '.': 'package.json' declares dependencies 'lib' but the lockfile's importer entry does not record it"),
+      lost("importer 'packages/a': 'packages/a/package.json' declares dependencies 'lib' but the lockfile's importer entry does not record it"),
+      STACK_REFUSAL_NO_LOCKFILE,
+    ]);
+    // negated globs: `packages/skip` holds a package.json and matches `packages/*`, but `!packages/skip` takes it out again
+    expect(fs.existsSync(path.join(REAL, 'negated-globs', 'packages', 'skip', 'package.json'))).toBe(true);
+    const unNegated = cutCopy(path.join(REAL, 'negated-globs'));
+    fs.writeFileSync(path.join(unNegated, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n  - apps/**\n');
+    expect(extractStackManifest(unNegated, REVISION).refusals).toEqual([lost("pnpm-workspace.yaml names package 'packages/skip' but the lockfile has no importer for it"), STACK_REFUSAL_NO_LOCKFILE]);
+    // founder ruling D4-1: a project whose package.json declares NO dependency and whose lockfile is `importers: {.: {}}` alone
+    const free = extractStackManifest(treeWith('d4-1', "lockfileVersion: '9.0'\n\nimporters:\n\n  .: {}\n", { name: 'r', version: '1.0.0' }), REVISION);
+    expect(free.refusals).toEqual([]);
+    expect(free.manifest.coverage.unsupported).toContain(STACK_COVERAGE_PNPM_DEPENDENCY_FREE);
+  });
+
+  it('guard (b): a workspace link must land on an importer — `..` segments resolve from the importer, and a link: PROTOCOL specifier is the only exemption', () => {
+    expect(pnpmLinkTarget('packages/a', 'link:../b')).toBe('packages/b');
+    expect(pnpmLinkTarget('.', 'link:packages/a')).toBe('packages/a');
+    expect(pnpmLinkTarget('packages/a', 'link:../..')).toBe('.');
+    expect(pnpmLinkTarget('packages/a', 'link:./../b/')).toBe('packages/b');
+    expect(pnpmLinkTarget('.', 'link:../outside')).toBe('../outside');
+    expect(pnpmLinkTarget('a', 'link:../../x')).toBe('../x');
+    const head = "lockfileVersion: '9.0'\nimporters:\n  .: {}\n  packages/a:\n    dependencies:\n      b:\n";
+    const refusalsOf = (entry: string, tail = ''): string[] => readPnpmLock(`${head}${entry}${tail}`, { name: 'r', version: '1.0.0' }).refusals;
+    const noTarget = (target: string): string => stackRefusalPnpmMalformed(`importer packages/a dependency 'b' (workspace link target '${target}' is not an importer — the lockfile is cut short)`);
+    expect(refusalsOf('        specifier: workspace:*\n        version: link:../b\n', '  packages/b: {}\n')).toEqual([]);
+    expect(refusalsOf('        specifier: workspace:*\n        version: link:../b\n')).toEqual([noTarget('packages/b')]);
+    expect(refusalsOf('        specifier: ^1.0.0\n        version: link:../b\n')).toEqual([noTarget('packages/b')]); // link-workspace-packages
+    expect(refusalsOf('        specifier: workspace:*\n        version: link:../../elsewhere\n')).toEqual([noTarget('elsewhere')]);
+    expect(refusalsOf('        specifier: workspace:*\n        version: link:../../../outside\n')).toEqual([noTarget('../outside')]); // leaves the tree: never an importer
+    expect(refusalsOf('        specifier: workspace:*\n        version: link:../..\n')).toEqual([]); // the root IS an importer
+    expect(refusalsOf('        specifier: link:../b\n        version: link:../b\n')).toEqual([]); // link: protocol — no importer by construction
+    // a workspace package never links to ITSELF: that is what a link path cut mid-line resolves to
+    const self = stackRefusalPnpmMalformed("importer packages/a dependency 'b' (workspace link target 'packages/a' is not another importer — the lockfile is cut short)");
+    for (const cut of ['link:', 'link:.', 'link:../a']) expect(refusalsOf(`        specifier: workspace:*\n        version: ${cut}\n`), cut).toEqual([self]);
+    // …in every bucket
+    for (const key of ['devDependencies', 'optionalDependencies']) {
+      expect(readPnpmLock(`${head.replace('dependencies:', `${key}:`)}        specifier: workspace:*\n        version: link:../b\n`, { name: 'r', version: '1.0.0' }).refusals, key).toEqual([noTarget('packages/b')]);
+    }
+  });
+
+  it('guard (c): every importer needs a readable package.json, and everything it declares — in all three fields — is recorded; what cannot be checked is refused, never skipped', () => {
+    const lock = "lockfileVersion: '9.0'\nimporters:\n  .: {}\n  packages/a: {}\n";
+    const ws = "packages:\n  - 'packages/*'\n";
+    const tree = (files: Record<string, string | null>): string[] => extractStackManifest(treeWith('guard-c', lock, { name: 'r', version: '1.0.0' }, { 'pnpm-workspace.yaml': ws, ...files }), REVISION).refusals;
+    expect(tree({})).toEqual([]);
+    const A = 'packages/a/package.json';
+    expect(tree({ [A]: null })).toEqual([lost(`importer 'packages/a' has no '${A}' in this tree, so what it declares cannot be checked`), STACK_REFUSAL_NO_LOCKFILE]);
+    for (const bad of ['{not json', '[]', '"a string"', 'null', '{"dependencies": []}', '{"devDependencies": "x"}', '{"optionalDependencies": null}']) {
+      expect(tree({ [A]: bad }), bad).toEqual([lost(`importer 'packages/a': '${A}' is not a readable package manifest, so what it declares cannot be checked`), STACK_REFUSAL_NO_LOCKFILE]);
+    }
+    for (const field of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+      expect(tree({ [A]: JSON.stringify({ name: 'a', [field]: { zod: '^4.0.0', ajv: '^8.0.0' } }) }), field).toEqual([
+        lost(`importer 'packages/a': '${A}' declares ${field} 'ajv' but the lockfile's importer entry does not record it`),
+        lost(`importer 'packages/a': '${A}' declares ${field} 'zod' but the lockfile's importer entry does not record it`),
+        STACK_REFUSAL_NO_LOCKFILE,
+      ]);
+    }
+    // peerDependencies are not installed from the importer entry: never required; an empty field declares nothing
+    expect(tree({ [A]: JSON.stringify({ name: 'a', peerDependencies: { react: '*' }, dependencies: {} }) })).toEqual([]);
+    // the ROOT importer is checked the same way, and a root without a package.json cannot be checked
+    expect(tree({ 'package.json': JSON.stringify({ name: 'r', version: '1.0.0', devDependencies: { vitest: '^5.0.0' } }) })).toEqual([
+      lost("importer '.': 'package.json' declares devDependencies 'vitest' but the lockfile's importer entry does not record it"),
+      STACK_REFUSAL_NO_LOCKFILE,
+    ]);
+    expect(tree({ 'package.json': null })).toContain(lost("importer '.' has no 'package.json' in this tree, so what it declares cannot be checked"));
+    // a name recorded in ANY bucket satisfies the declaration (pnpm files a dependency declared twice under one bucket)
+    const recorded = `lockfileVersion: '9.0'\nimporters:\n  .:\n    optionalDependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}\npackages:\n  a@1.0.0:\n    resolution: {integrity: sha512-${'A'.repeat(86)}==}\nsnapshots:\n  a@1.0.0: {}\n`;
+    expect(extractStackManifest(treeWith('guard-c-any', recorded, { name: 'r', version: '1.0.0', dependencies: { a: '^1.0.0' }, optionalDependencies: { a: '^1.0.0' } }), REVISION).refusals).toEqual([]);
+    // an importer key that leaves the tree is never read
+    const escaping = "lockfileVersion: '9.0'\nimporters:\n  .: {}\n  ../sibling: {}\n";
+    expect(extractStackManifest(treeWith('guard-c-escape', escaping, { name: 'r', version: '1.0.0' }, { 'pnpm-workspace.yaml': ws }), REVISION).refusals).toEqual([
+      lost("importer '../sibling': '../sibling/package.json' is a symbolic link or leaves the tree, so what it declares cannot be checked"),
+      STACK_REFUSAL_NO_LOCKFILE,
+    ]);
+  });
+
+  it.skipIf(process.platform === 'win32')('guard (c): an importer directory that is a SYMBOLIC LINK is never followed — what it declares cannot be checked', () => {
+    const lock = "lockfileVersion: '9.0'\nimporters:\n  .: {}\n  packages/a: {}\n";
+    const d = treeWith('guard-c-symlink', lock, { name: 'r', version: '1.0.0' }, { 'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n" });
+    const outside = tmp('guard-c-symlink-target');
+    fs.writeFileSync(path.join(outside, 'package.json'), JSON.stringify({ name: 'a', version: '1.0.0' }));
+    fs.rmSync(path.join(d, 'packages', 'a'), { recursive: true });
+    fs.symlinkSync(outside, path.join(d, 'packages', 'a'));
+    const refused = lost("importer 'packages/a': 'packages/a/package.json' is a symbolic link or leaves the tree, so what it declares cannot be checked");
+    expect(extractStackManifest(d, REVISION).refusals).toContain(refused);
+    // …even when the link stays INSIDE the tree (the real path never leaves it): the directory itself is the link
+    const inside = treeWith('guard-c-symlink-inside', lock, { name: 'r', version: '1.0.0' }, { 'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n", 'real/a/package.json': JSON.stringify({ name: 'a', version: '1.0.0' }) });
+    fs.rmSync(path.join(inside, 'packages', 'a'), { recursive: true });
+    fs.symlinkSync(path.join('..', 'real', 'a'), path.join(inside, 'packages', 'a'));
+    expect(JSON.parse(fs.readFileSync(path.join(inside, 'packages', 'a', 'package.json'), 'utf8')).name).toBe('a'); // the link resolves
+    expect(extractStackManifest(inside, REVISION).refusals).toEqual([refused, STACK_REFUSAL_NO_LOCKFILE]);
+  });
+
+  it('guard (d): the workspace globs — `*`, `**`, `?`, `.`, negation, dot-led and node_modules directories — and every form that cannot be evaluated refuses', () => {
+    const match = (glob: string, dir: string): boolean | null => pnpmWorkspaceGlobToRegExp(glob)?.test(dir) ?? null;
+    const cases: Array<[string, string, boolean | null]> = [
+      ['packages/*', 'packages/a', true], ['packages/*', 'packages/a/b', false], ['packages/*', 'packages', false], ['packages/*', 'packages/.hidden', false],
+      ['apps/**', 'apps', true], ['apps/**', 'apps/x/web', true], ['apps/**', 'appsx', false], ['apps/**', 'apps/.x/web', false],
+      ['**', 'a/b/c', true], ['**/web', 'web', true], ['**/web', 'apps/x/web', true], ['a/**/b', 'a/b', true], ['a/**/b', 'a/x/y/b', true], ['a/**/b', 'ab', false],
+      ['tests', 'tests', true], ['tests', 'tests/e2e', false], ['@scope/*', '@scope/cli', true], ['./packages/*/', 'packages/a', true], ['packages/a?', 'packages/ab', true], ['packages/a?', 'packages/a', false],
+      ['a.b/*', 'aXb/c', false], ['a.b/*', 'a.b/c', true], ['.', '', true],
+      ['packages/{a,b}', 'packages/a', null], ['packages/[ab]', 'packages/a', null], ['packages/@(a|b)', 'packages/a', null], ['/abs', 'abs', null], ['a/../b', 'b', null], ['a/b**', 'a/bc', null], ['', '', null], ['a\\b', 'a', null],
+    ];
+    for (const [glob, dir, want] of cases) expect(match(glob, dir), `${glob} ~ ${dir}`).toBe(want);
+    const patterns = readPnpmWorkspacePatterns("packages:\n  - 'packages/*'\n  - apps/**\n  - '!packages/skip'\n  - '!**/fixtures/**'\ncatalog:\n  zod: ^4.0.0\n");
+    if (typeof patterns === 'string') throw new Error(patterns);
+    expect(patterns.maxDepth).toBe(Infinity);
+    expect(['', 'packages/a', 'apps/x/web', 'packages/skip', 'apps/fixtures/x', 'other/a', 'packages/node_modules', 'apps/x/node_modules/dep', 'apps/bower_components/y'].map((dir) => isPnpmWorkspaceDir(patterns, dir))).toEqual([
+      true, true, true, false, false, false, false, false, false,
+    ]);
+    const bounded = readPnpmWorkspacePatterns("packages:\n  - 'packages/*'\n  - 'tools/cli/plugins/*'\n");
+    expect(typeof bounded === 'string' ? bounded : bounded.maxDepth).toBe(4);
+    // no `packages:` key (pnpm >= 10 keeps settings in this file): the root alone
+    const settingsOnly = readPnpmWorkspacePatterns('onlyBuiltDependencies:\n  - esbuild\n');
+    expect(typeof settingsOnly === 'string' ? settingsOnly : [settingsOnly.include.length, settingsOnly.maxDepth]).toEqual([0, 0]);
+    // cannot be evaluated ⇒ a reason, never a guess
+    expect(readPnpmWorkspacePatterns('packages: &anchor\n  - a\n')).toMatch(/^pnpm-workspace\.yaml line 1: .* cannot be read, so the workspace packages cannot be checked$/);
+    expect(readPnpmWorkspacePatterns('packages: all\n')).toBe("pnpm-workspace.yaml 'packages' is not a list of strings, so the workspace packages cannot be checked");
+    expect(readPnpmWorkspacePatterns("packages:\n  - 'packages/*'\n  - [nested]\n")).toBe("pnpm-workspace.yaml 'packages' is not a list of strings, so the workspace packages cannot be checked");
+    expect(readPnpmWorkspacePatterns("packages:\n  - 'packages/{a,b}'\n")).toBe("pnpm-workspace.yaml package pattern 'packages/{a,b}' uses glob syntax this reader does not evaluate, so the workspace packages cannot be checked");
+  });
+
+  it('the TAIL of a real lockfile: a cut right after the final snapshot key or a bucket key is refused; a cut BETWEEN two dependencies of the final snapshot is the stated residual (SPEC §16.1) — the format has no terminator', () => {
+    const H = `sha512-${'A'.repeat(86)}==`;
+    const full =
+      `lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}\n      b: {specifier: ^1.0.0, version: 1.0.0}\n      z: {specifier: ^1.0.0, version: 1.0.0}\n` +
+      `packages:\n  a@1.0.0:\n    resolution: {integrity: ${H}}\n  b@1.0.0:\n    resolution: {integrity: ${H}}\n  z@1.0.0:\n    resolution: {integrity: ${H}}\n` +
+      `snapshots:\n  a@1.0.0: {}\n  b@1.0.0: {}\n  z@1.0.0:\n    dependencies:\n      a: 1.0.0\n      b: 1.0.0\n`;
+    const lines = full.split(/(?<=\n)/);
+    const pkg = { name: 'r', version: '1.0.0', dependencies: { a: '^1.0.0', b: '^1.0.0', z: '^1.0.0' } };
+    const accepted: number[] = [];
+    for (let n = 1; n <= lines.length; n++) if (extractStackManifest(treeWith('tail', lines.slice(0, n).join(''), pkg), REVISION).refusals.length === 0) accepted.push(n);
+    // the whole file, and ONE cut: after `a: 1.0.0`, before `b: 1.0.0` — every node is still there, one edge is not
+    expect(accepted).toEqual([lines.length - 1, lines.length]);
+    const cutManifest = extractStackManifest(treeWith('tail-residual', lines.slice(0, -1).join(''), pkg), REVISION).manifest;
+    const fullManifest = extractStackManifest(treeWith('tail-full', full, pkg), REVISION).manifest;
+    expect(cutManifest.nodes.map((n) => n.id)).toEqual(fullManifest.nodes.map((n) => n.id));
+    expect(cutManifest.edges.length).toBe(fullManifest.edges.length - 1);
+    // edges are not part of the hashed identity view: with every node (and its flags) intact the stackDigest is the
+    // whole file's — what the cut loses is the edge, which the manifest body and its manifestDigest do record
+    expect(cutManifest.stackDigest).toBe(fullManifest.stackDigest);
+    expect(cutManifest.manifestDigest).not.toBe(fullManifest.manifestDigest);
+    // the two tail cuts that ARE decidable
+    const refusalsAt = (n: number): string[] => readPnpmLock(lines.slice(0, n).join(''), { name: 'r', version: '1.0.0' }).refusals;
+    expect(refusalsAt(lines.length - 3)).toEqual([stackRefusalPnpmMalformed("snapshots entry 'z@1.0.0' (an entry with no value: pnpm writes '{}' — the lockfile is cut short)")]);
+    expect(refusalsAt(lines.length - 2)).toEqual([stackRefusalPnpmMalformed("snapshot z@1.0.0 'dependencies' (a bucket with no entries: pnpm never writes one — the lockfile is cut short)")]);
+  });
+
+  it('guard (d) through the tree: a named package with no importer refuses; node_modules, dot-led, symlinked and package.json-less directories are not packages; no workspace file with workspace importers cannot be checked', () => {
+    const lock = "lockfileVersion: '9.0'\nimporters:\n  .: {}\n  packages/a: {}\n";
+    const ws = "packages:\n  - 'packages/*'\n";
+    const pj = (name: string): string => JSON.stringify({ name, version: '1.0.0' });
+    const tree = (files: Record<string, string | null>): string => treeWith('guard-d', lock, { name: 'r', version: '1.0.0' }, { 'pnpm-workspace.yaml': ws, ...files });
+    const refusals = (files: Record<string, string | null>): string[] => extractStackManifest(tree(files), REVISION).refusals;
+    expect(refusals({})).toEqual([]);
+    expect(refusals({ 'packages/b/package.json': pj('b') })).toEqual([lost("pnpm-workspace.yaml names package 'packages/b' but the lockfile has no importer for it"), STACK_REFUSAL_NO_LOCKFILE]);
+    expect(refusals({ 'packages/node_modules/package.json': pj('x'), 'packages/a/node_modules/dep/package.json': pj('dep'), 'packages/.cache/package.json': pj('c'), 'packages/empty/README.md': 'no manifest\n', 'other/b/package.json': pj('b') })).toEqual([]);
+    expect(findPackageJsonDirs(tree({ 'packages/b/package.json': pj('b'), 'packages/b/deep/package.json': pj('deep'), 'packages/node_modules/x/package.json': pj('x') }), 2)).toEqual(['packages/a', 'packages/b']);
+    expect(findPackageJsonDirs(tree({ 'packages/b/deep/package.json': pj('deep'), 'node_modules/dep/package.json': pj('dep'), 'packages/a/bower_components/w/package.json': pj('w'), '.git/package.json': pj('g') }), Infinity)).toEqual(['packages/a', 'packages/b/deep']);
+    // another repository's tree under the glob is not this workspace (the `.git` marker, without git knowledge) …
+    const withClone = tree({ 'packages/clone/package.json': pj('clone'), 'packages/clone/.git/HEAD': 'ref: refs/heads/main\n' });
+    expect(extractStackManifest(withClone, REVISION).refusals).toEqual([]);
+    // … and WITH git knowledge the marker decides only where git tracks nothing: tracked files under it are this repository's
+    expect(extractStackManifest(withClone, REVISION, 'npm-lockfile', { tracked: new Set(['packages/clone/package.json']), gitlinks: [] }).refusals).toEqual([
+      lost("pnpm-workspace.yaml names package 'packages/clone' but the lockfile has no importer for it"),
+      STACK_REFUSAL_NO_LOCKFILE,
+    ]);
+    expect(extractStackManifest(withClone, REVISION, 'npm-lockfile', { tracked: new Set(['packages/clone2/x']), gitlinks: [] }).refusals).toEqual([]);
+    expect(extractStackManifest(tree({ 'packages/sub/package.json': pj('sub') }), REVISION, 'npm-lockfile', { tracked: new Set(), gitlinks: ['packages/sub'] }).refusals).toEqual([]);
+    // the file that defines the workspace is missing, unreadable, or written in a glob syntax this reader does not evaluate
+    expect(refusals({ 'pnpm-workspace.yaml': null })).toEqual([lost("the lockfile has workspace importers but this tree has no readable 'pnpm-workspace.yaml', so the workspace packages cannot be checked"), STACK_REFUSAL_NO_LOCKFILE]);
+    expect(refusals({ 'pnpm-workspace.yaml': "packages:\n  - 'packages/{a,b}'\n" })).toEqual([
+      lost("pnpm-workspace.yaml package pattern 'packages/{a,b}' uses glob syntax this reader does not evaluate, so the workspace packages cannot be checked"),
+      STACK_REFUSAL_NO_LOCKFILE,
+    ]);
+    // no `packages:` key yet the lockfile has workspace importers (pnpm <= 9 took every directory): every package.json below the root is named
+    expect(refusals({ 'pnpm-workspace.yaml': 'onlyBuiltDependencies:\n  - esbuild\n' })).toEqual([]);
+    expect(refusals({ 'pnpm-workspace.yaml': 'onlyBuiltDependencies:\n  - esbuild\n', 'tools/x/package.json': pj('x') })).toEqual([lost("pnpm-workspace.yaml names package 'tools/x' but the lockfile has no importer for it"), STACK_REFUSAL_NO_LOCKFILE]);
+    // a root-only lockfile needs no workspace file; with one, the root is always a package
+    const rootOnly = "lockfileVersion: '9.0'\nimporters:\n  .: {}\n";
+    expect(extractStackManifest(treeWith('guard-d-root', rootOnly, { name: 'r', version: '1.0.0' }), REVISION).refusals).toEqual([]);
+    expect(checkPnpmLockCoversTree(tree({}), { importers: [{ path: 'packages/a', names: [] }], excludeLinksFromLockfile: false }, (rel) => (fs.existsSync(path.join(tree({}), rel)) ? fs.readFileSync(path.join(tree({}), rel)) : null))).toEqual([
+      "pnpm-workspace.yaml: the root package is always a workspace package but the lockfile has no importer '.'",
+    ]);
   });
 });

@@ -1,0 +1,22 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      lib:
+        specifier: link:./vendor/lib
+        version: link:vendor/lib
+      out:
+        specifier: link:../outside
+        version: link:../outside
+
+  packages/a:
+    dependencies:
+      lib:
+        specifier: link:../../vendor/lib
+        version: link:../../vendor/lib

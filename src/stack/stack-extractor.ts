@@ -42,7 +42,14 @@ import {
   type StackSource,
   type StackUnmodeled,
 } from './stack-manifest.js';
-import { readPnpmLock } from './pnpm-lock-reader.js';
+import {
+  isPnpmWorkspaceDir,
+  readPnpmLock,
+  readPnpmWorkspacePatterns,
+  stackRefusalPnpmLostClosure,
+  type PnpmDerived,
+  type PnpmWorkspacePatterns,
+} from './pnpm-lock-reader.js';
 
 /* -------------------------------------------------------------------------- */
 /* Fixed refusal / coverage strings (verbatim contract — tests pin these)       */
@@ -168,6 +175,149 @@ function readSource(root: string, rel: string): Buffer | null {
   const real = fs.realpathSync(abs);
   if (real !== path.join(realRoot, rel) && !real.startsWith(`${realRoot}${path.sep}`)) throw new StackSourceEscapeError(rel);
   return fs.readFileSync(abs);
+}
+
+/**
+ * `readSource` for a path BELOW the root: no directory on the way may be a symbolic link either
+ * (lstat only — the link is never followed), so an importer's `package.json` is read from this tree
+ * or not at all. A path that leaves the tree (`..`, absolute, a backslash) is an escape.
+ */
+function readNestedSource(root: string, rel: string): Buffer | null {
+  const segs = rel.split('/');
+  if (rel.startsWith('/') || rel.includes('\\') || segs.some((sg) => sg === '' || sg === '..')) throw new StackSourceEscapeError(rel);
+  let dir = root;
+  for (const sg of segs.slice(0, -1)) {
+    if (sg === '.') continue;
+    dir = path.join(dir, sg);
+    let st: fs.Stats;
+    try {
+      st = fs.lstatSync(dir);
+    } catch {
+      return null;
+    }
+    if (st.isSymbolicLink()) throw new StackSourceEscapeError(rel);
+    if (!st.isDirectory()) return null;
+  }
+  return readSource(root, rel);
+}
+
+const PACKAGE_JSON_DEP_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies'] as const;
+/** directories pnpm never takes workspace packages from, plus the repository's own metadata */
+const WORKSPACE_WALK_EXCLUDE = new Set(['node_modules', 'bower_components', '.git']);
+
+/**
+ * Every directory below the root (never the root itself) that holds a regular-file `package.json`,
+ * down to `maxDepth`. Symbolic links are never followed; another repository's tree (a gitlink, or a
+ * `.git` marker by the same rule the image walk uses) is not this repository's workspace.
+ */
+export function findPackageJsonDirs(root: string, maxDepth: number, knowledge?: StackTreeKnowledge): string[] {
+  const out: string[] = [];
+  const gitlinkSet = new Set(knowledge?.gitlinks ?? []);
+  const trackedUnder = (rel: string): boolean => {
+    if (!knowledge) return false;
+    const prefix = `${rel}/`;
+    for (const t of knowledge.tracked) if (t.startsWith(prefix)) return true;
+    return false;
+  };
+  const walk = (dir: string, rel: string, depth: number): void => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    if (depth > 0) {
+      const marker = entries.some((e) => e.name === '.git');
+      if (gitlinkSet.has(rel) || (marker && (knowledge ? !trackedUnder(rel) : true))) return;
+      if (entries.some((e) => e.name === 'package.json' && e.isFile())) out.push(rel);
+    }
+    if (depth >= maxDepth) return;
+    for (const e of entries) {
+      if (!e.isDirectory() || WORKSPACE_WALK_EXCLUDE.has(e.name)) continue;
+      walk(path.join(dir, e.name), rel ? `${rel}/${e.name}` : e.name, depth + 1);
+    }
+  };
+  walk(root, '', 0);
+  return out.sort();
+}
+
+/**
+ * TRUNCATION GUARDS (c) + (d). A pnpm lockfile cut at an importer boundary is byte-identical to a
+ * smaller legitimate lockfile, so the lockfile alone cannot tell — the tree can:
+ *   (c) every dependency an importer's own `package.json` declares (dependencies, devDependencies,
+ *       optionalDependencies) is recorded in that importer's entry; an importer whose `package.json`
+ *       is missing or unreadable cannot be checked, which is a refusal, never a skip;
+ *   (d) every directory `pnpm-workspace.yaml` names as a package, holding a `package.json`, is an importer.
+ * Both read the SAME view as everything else here (`read` is the extractor's symlink-safe reader).
+ * Returns the reasons (already sorted); empty = the lockfile covers this tree.
+ */
+export function checkPnpmLockCoversTree(
+  repoDir: string,
+  derived: Pick<PnpmDerived, 'importers' | 'excludeLinksFromLockfile'>,
+  read: (rel: string) => Buffer | null,
+  knowledge?: StackTreeKnowledge,
+): string[] {
+  const lost: string[] = [];
+  const importerPaths = new Set(derived.importers.map((i) => i.path));
+  for (const imp of derived.importers) {
+    const rel = imp.path === '.' ? 'package.json' : `${imp.path}/package.json`;
+    let bytes: Buffer | null;
+    try {
+      bytes = imp.path === '.' ? read(rel) : readNestedSource(repoDir, rel);
+    } catch (e) {
+      if (!(e instanceof StackSourceEscapeError)) throw e;
+      lost.push(`importer '${imp.path}': '${rel}' is a symbolic link or leaves the tree, so what it declares cannot be checked`);
+      continue;
+    }
+    if (bytes === null) {
+      lost.push(`importer '${imp.path}' has no '${rel}' in this tree, so what it declares cannot be checked`);
+      continue;
+    }
+    let manifest: unknown;
+    try {
+      manifest = JSON.parse(bytes.toString('utf8'));
+    } catch {
+      manifest = undefined;
+    }
+    if (!isRecord(manifest) || PACKAGE_JSON_DEP_FIELDS.some((f) => manifest[f] !== undefined && !isRecord(manifest[f]))) {
+      lost.push(`importer '${imp.path}': '${rel}' is not a readable package manifest, so what it declares cannot be checked`);
+      continue;
+    }
+    const recorded = new Set(imp.names);
+    for (const field of PACKAGE_JSON_DEP_FIELDS) {
+      const deps = manifest[field];
+      if (!isRecord(deps)) continue;
+      for (const name of Object.keys(deps).sort()) {
+        if (recorded.has(name)) continue;
+        // measured on pnpm 10.11.1: with settings.excludeLinksFromLockfile a `link:`-protocol
+        // dependency is left out of the importer entry by pnpm itself
+        if (derived.excludeLinksFromLockfile && typeof deps[name] === 'string' && (deps[name] as string).startsWith('link:')) continue;
+        lost.push(`importer '${imp.path}': '${rel}' declares ${field} '${name}' but the lockfile's importer entry does not record it`);
+      }
+    }
+  }
+  const wsBytes = read('pnpm-workspace.yaml');
+  if (wsBytes === null) {
+    // pnpm writes importers other than '.' only for a workspace, and a workspace IS its pnpm-workspace.yaml:
+    // without the file guard (d) cannot be evaluated, and a guard that cannot be evaluated refuses
+    if (derived.importers.some((i) => i.path !== '.')) lost.push("the lockfile has workspace importers but this tree has no readable 'pnpm-workspace.yaml', so the workspace packages cannot be checked");
+  } else {
+    let patterns: PnpmWorkspacePatterns | string = readPnpmWorkspacePatterns(wsBytes.toString('utf8'));
+    if (typeof patterns !== 'string' && patterns.include.length === 0 && derived.importers.some((i) => i.path !== '.')) {
+      // no `packages:` yet the lockfile has workspace importers: pnpm <= 9 then took every directory
+      const all = readPnpmWorkspacePatterns('packages:\n  - "**"\n');
+      if (typeof all !== 'string') patterns = all;
+    }
+    if (typeof patterns === 'string') {
+      lost.push(patterns);
+    } else {
+      if (!importerPaths.has('.') && read('package.json') !== null) lost.push("pnpm-workspace.yaml: the root package is always a workspace package but the lockfile has no importer '.'");
+      for (const dir of findPackageJsonDirs(repoDir, patterns.maxDepth, knowledge)) {
+        if (isPnpmWorkspaceDir(patterns, dir) && !importerPaths.has(dir)) lost.push(`pnpm-workspace.yaml names package '${dir}' but the lockfile has no importer for it`);
+      }
+    }
+  }
+  return lost.sort();
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -836,8 +986,12 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
         filesScanned++;
         sources.push({ path: 'pnpm-lock.yaml', sha256: sha256(pnpmBytes), parser: 'pnpm-lockfile-v9' });
         const pnpm = readPnpmLock(pnpmBytes.toString('utf8'), { name: asString(pkg?.name), version: asString(pkg?.version) });
+        // the lockfile reads cleanly — now the TREE has its say (truncation guards c + d)
+        const lost = pnpm.refusals.length === 0 && pnpm.derived !== null ? checkPnpmLockCoversTree(repoDir, pnpm.derived, read, knowledge) : [];
         if (pnpm.refusals.length > 0 || pnpm.derived === null) {
           for (const msg of pnpm.refusals) refuse(msg);
+        } else if (lost.length > 0) {
+          for (const what of lost) refuse(stackRefusalPnpmLostClosure(what));
         } else {
           // loops, never spread: a very large lockfile must not overflow the call stack
           for (const n of pnpm.derived.nodes) nodes.push(n);
