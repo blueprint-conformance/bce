@@ -36,9 +36,10 @@
  *   D empty: a version JOINED — below a version the root reached: unknown; above: no root row.
  *   D non-empty, rootB non-empty: every rootB version below max(D) = certain downgrade -> one
  *     backward row max(D) -> max(rootB) (even when both versions are retained and the digests are
- *     equal); no rootB version below any D version = no assignment is a downgrade -> forward rows
- *     (equal sizes pair from the top) or none; otherwise -> unknown, blocks ("edges carry no
- *     importer identity; at least one assignment of importers to versions is a downgrade").
+ *     equal); no rootB version below any rootA version — dropped OR retained, since a retained
+ *     higher version is one some importer may have left — = no assignment is a downgrade ->
+ *     forward rows (equal sizes pair from the top) or none; otherwise -> unknown, blocks ("edges
+ *     carry no importer identity; at least one assignment of importers to versions is a downgrade").
  *   D non-empty, rootB empty: the root stopped reaching the name -> no root row.
  *   Non-semver or precedence-equal root versions -> unknown.
  * ACCEPTED COST: the legitimate control — one importer drops its dependency while a sibling stays on
@@ -281,6 +282,14 @@ export interface StackDiffReport {
   digestEqual: boolean;
   /** the max rank present; `unknown` is spelled `unknown-potential-backward` */
   classification: StackDiffClassification;
+  /**
+   * Present ONLY when the classification is `identical` and the two manifests' `manifestDigest`s
+   * differ: nothing modeled moved, but the manifest bytes did (a lockfile edit the edges cannot see —
+   * an importer moving between two versions the root still reaches — or another revision / source
+   * set). A reader of an `identical` report can then see that the lockfile changed. Absent on every
+   * other report, so no existing report byte moves.
+   */
+  manifestDigest?: { from: string; to: string };
   /** any blocking row (`unknown`, `rewritten`, install-script gain), or a hashed change no row explains */
   approvalBlocked: boolean;
   /** any `backward` or `unknown` move: a later reconcile must carry an explicit acknowledged rationale */
@@ -728,7 +737,8 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
     //   D = dropped-by-root = rootA - rootB.  D empty: a version can only have JOINED — unknown when it
     //   joined below a version the root reached, else no root row.  D non-empty and the head root set
     //   R_B non-empty: every version in R_B below max(D) = certain downgrade -> `backward` max(D) -> max(R_B);
-    //   no version in R_B below any version in D = no assignment is a downgrade -> forward rows (equal
+    //   no version in R_B below any version in R_A (dropped OR retained — a retained higher version is
+    //   a version some importer may have LEFT) = no assignment is a downgrade -> forward rows (equal
     //   sizes pair from the top) or none; otherwise some assignment is a downgrade and some is not ->
     //   `unknown`, blocks.  R_B empty: the root stopped reaching the name — no root row.
     const rootA = rootResolvedA.get(key) ?? [];
@@ -764,13 +774,14 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
         const maxD = sortVersionsDesc(droppedByRoot)[0] as string;
         const maxB = sortVersionsDesc(rootB)[0] as string;
         const certain = rootB.every((v) => below(v, maxD));
-        const clean = !rootB.some((v) => droppedByRoot.some((d) => below(v, d)));
+        const clean = !rootB.some((v) => rootA.some((a) => below(v, a)));
         if (certain) {
           // every version the root still reaches is below a version it dropped: whoever was on max(D) went down
           pairRow(maxD, maxB, `the version the root itself resolved to on the base side (${maxD}); every version the root reaches on the head side is below it`);
           consumeAll();
         } else if (clean) {
-          // no assignment of importers to versions is a downgrade: equal-size sets pair from the top
+          // no head root version below ANY base root version: no assignment of importers to versions is a
+          // downgrade — equal-size sets pair from the top
           if (droppedByRoot.length === newToRoot.length) {
             const d = sortVersionsDesc(droppedByRoot);
             const n = sortVersionsDesc(newToRoot);
@@ -1193,6 +1204,7 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
     to: { stackDigest: digestB, stackId: stackIdFor(digestB), ctRepoRevision: b.ctRepoRevision, nodeCount: b.nodes.length },
     digestEqual,
     classification,
+    ...(classification === 'identical' && a.manifestDigest !== b.manifestDigest ? { manifestDigest: { from: a.manifestDigest, to: b.manifestDigest } } : {}),
     approvalBlocked: unexplainedDigestChange || moves.some((m) => m.approvalBlocked),
     downgradeAckRequired: unexplainedDigestChange || summary.backward > 0 || summary.unknown > 0,
     unexplainedDigestChange,

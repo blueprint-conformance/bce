@@ -876,20 +876,32 @@ classified by what **every assignment of importers to versions** implies. With
 - *D* non-empty and `rootB` non-empty: **every** version in `rootB` below `max(D)` is a certain
   downgrade — one `backward` row `max(D) -> max(rootB)`, exit **2**, even when both versions stay in
   the closure and the two `stackDigest`s are equal. **No** version in `rootB` below **any** version
-  in *D* means no assignment is a downgrade — equal-size sets pair from the top as `forward` rows,
+  in `rootA` — dropped **or retained**, since a retained higher version is one some importer may have
+  left — means no assignment is a downgrade — equal-size sets pair from the top as `forward` rows,
   unequal sets write no root row. Otherwise some assignment is a downgrade and some is not — one
   `unknown` row, blocks, exit **2**: *edges carry no importer identity; at least one assignment of
-  importers to versions is a downgrade*.
+  importers to versions is a downgrade*. (Comparing against *D* alone would pass `{2,9} → {5,9}` as
+  `forward` while the assignment `{2 → 9, 9 → 5}` is a downgrade.)
 - *D* non-empty and `rootB` empty: the root stopped reaching the name — no root row.
 - A root set that contains a non-semver or precedence-equal version: `unknown`.
 
 Versions consumed by a root row leave the pool; everything else set-matches as below. **The accepted
 cost, stated plainly:** the legitimate control — one importer drops its dependency while a sibling
 stays on an older version — produces the same manifest pair as an importer moving down onto the
-sibling's version (same nodes, edges, `rootDeclared` and `stackDigest`), so it blocks too. The
-manifest cannot tell the two apart; importer identity in the manifest is the real fix and is a
-follow-on (WO-BSTACK-09, extractor work). For an npm manifest the root's edges are exactly its
-declarations, so the sets have one version each and this reduces to a plain root pair.
+sibling's version (same nodes, edges, `rootDeclared` and `stackDigest`), so it blocks too; likewise
+an importer moving **up** onto a version below a sibling's retained version (`{2,9} → {5,9}` from
+`2 → 5`) is the same pair as the sibling moving **down** (`9 → 5` while the other goes `2 → 9`), so
+it blocks too. The manifest cannot tell the two apart; importer identity in the manifest is the real
+fix and is a follow-on (WO-BSTACK-09, extractor work). **The false-pass half of the same limitation,
+stated just as plainly:** an importer moving between two versions the root still reaches from other
+importers (`app 9 / lib 9 / svc 2` → `app 9 / lib 2 / svc 2`) changes no root set, no node and no
+edge — edges collapse duplicates — so the diff is `identical`, exit **0**, until importer identity
+lands (WO-BSTACK-09). It is not made `unknown`: that would block every lockfile-only touch with zero
+modeled difference. Instead, an `identical` report whose two manifests differ carries both
+`manifestDigest`s as `manifestDigest: {from, to}` (absent on every other report), so a reader can
+see that the lockfile changed even though nothing modeled moved. For an npm manifest the root's
+edges are exactly its declarations, so the sets have one version each and this reduces to a plain
+root pair.
 The remaining versions present on one side only are sorted by (SemVer 2.0.0 §11
 precedence, full version string) and **paired from the top**: highest dropped with highest new, and so
 on. Each pair is `forward` or `backward`.

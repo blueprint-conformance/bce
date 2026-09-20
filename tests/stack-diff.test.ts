@@ -230,6 +230,7 @@ describe('stack diff — B: an identical closure is an empty diff (SC-1)', () =>
     const r = diffStackManifests(extract(FIXTURE_TREE), extract(FIXTURE_TREE));
     expect(r.moves).toEqual([]);
     expect(r.classification).toBe('identical');
+    expect('manifestDigest' in r).toBe(false); // the same manifest bytes: nothing to point at
     expect(r.digestEqual).toBe(true);
     expect(r.approvalBlocked).toBe(false);
     expect(r.downgradeAckRequired).toBe(false);
@@ -370,6 +371,8 @@ describe('stack diff — D: same closure at two revisions, same digest (memo gro
       expect(r.digestEqual).toBe(true);
       expect(stackDiffExitCode(r)).toBe(0);
     }
+    // identical, but the manifests are not the same bytes (the revision is in the file): both manifestDigests ride on the report
+    expect(diffStackManifests(merge, head).manifestDigest).toEqual({ from: merge.manifestDigest, to: head.manifestDigest });
   });
 
   // One VISIBLE leg per committed manifest: a leg whose commit is not in the local object store is
@@ -1266,6 +1269,104 @@ describe('stack diff — M: the versions the root reaches are compared as SETS, 
     const g = diffStackManifests(c6a, gone);
     expect(sig(g)).toEqual([]);
     expect(stackDiffExitCode(g)).toBe(0);
+  });
+
+  it('CX1: a new-to-root version BELOW a RETAINED root version — app 2 -> 9 while lib 9 -> 5, root {2,9} -> {5,9} — is unknown, exit 2 (never forward): the retained 9.0.0 is a version an importer may have LEFT; the innocent twin (app 2 -> 5, lib stays 9) is the SAME manifest pair and blocks too', () => {
+    const A = pnpmRepo('cx0-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^9.0.0', '9.0.0'] } }, X('2.0.0', '9.0.0'));
+    const B = pnpmRepo('cx1-b', { '.': {}, 'packages/app': { x: ['^9.0.0', '9.0.0'] }, 'packages/lib': { x: ['^5.0.0', '5.0.0'] } }, X('5.0.0', '9.0.0'));
+    const r = diffStackManifests(A, B);
+    expect(sig(r)).toEqual(['unknown 2.0.0 -> 5.0.0']);
+    expect(r.moves).toHaveLength(1);
+    expect(r.moves[0]?.reasons[0]).toContain('at least one assignment of importers to versions is a downgrade');
+    expect(r.summary.forward).toBe(0);
+    expect(r.classification).toBe('unknown-potential-backward');
+    expect(stackDiffExitCode(r)).toBe(2);
+    // the innocent twin: app moves UP 2 -> 5 and lib stays on 9 — same nodes, edges, rootDeclared and
+    // stackDigest, so the manifest cannot tell it from the downgrade above: it blocks too (the accepted cost)
+    const I = pnpmRepo('cx1i-b', { '.': {}, 'packages/app': { x: ['^5.0.0', '5.0.0'] }, 'packages/lib': { x: ['^9.0.0', '9.0.0'] } }, X('5.0.0', '9.0.0'));
+    expect(I.stackDigest).toBe(B.stackDigest);
+    expect(stableStringify({ ...I, sources: [], manifestDigest: '' })).toBe(stableStringify({ ...B, sources: [], manifestDigest: '' }));
+    const ri = diffStackManifests(A, I);
+    expect(stableStringify(ri.moves)).toBe(stableStringify(r.moves));
+    expect(stackDiffExitCode(ri)).toBe(2);
+    const shuffle = (m: StackManifest): StackManifest => ({ ...m, nodes: permute(m.nodes), edges: permute(m.edges) });
+    expect(stableStringify(diffStackManifests(shuffle(A), shuffle(B)))).toBe(stableStringify(r));
+  });
+
+  it('CX2 / CX3 / CX4: the same shape with a lower new version, with three importers, and with unequal set sizes — unknown, exit 2, never forward and never an added copy', () => {
+    const A = pnpmRepo('cx2-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^9.0.0', '9.0.0'] } }, X('2.0.0', '9.0.0'));
+    // CX2: app 2 -> 9, lib 9 -> 3: root {2,9} -> {3,9}
+    const cx2 = diffStackManifests(A, pnpmRepo('cx2-b', { '.': {}, 'packages/app': { x: ['^9.0.0', '9.0.0'] }, 'packages/lib': { x: ['^3.0.0', '3.0.0'] } }, X('3.0.0', '9.0.0')));
+    expect(sig(cx2)).toEqual(['unknown 2.0.0 -> 3.0.0']);
+    expect(stackDiffExitCode(cx2)).toBe(2);
+    // CX3: three importers — app 2 -> 9, lib 9 -> 5, svc stays 9: root {2,9} -> {5,9} (edges collapse the two 9s)
+    const cx3a = pnpmRepo('cx3-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^9.0.0', '9.0.0'] }, 'packages/svc': { x: ['^9.0.0', '9.0.0'] } }, X('2.0.0', '9.0.0'));
+    const cx3b = pnpmRepo('cx3-b', { '.': {}, 'packages/app': { x: ['^9.0.0', '9.0.0'] }, 'packages/lib': { x: ['^5.0.0', '5.0.0'] }, 'packages/svc': { x: ['^9.0.0', '9.0.0'] } }, X('5.0.0', '9.0.0'));
+    const cx3 = diffStackManifests(cx3a, cx3b);
+    expect(sig(cx3)).toEqual(['unknown 2.0.0 -> 5.0.0']);
+    expect(stackDiffExitCode(cx3)).toBe(2);
+    // CX4: app 2 -> 4, lib 9 -> 6, svc joins at 9: root {2,9} -> {4,6,9} — unequal sizes, both new versions below the retained 9
+    const cx4 = diffStackManifests(A, pnpmRepo('cx4-b', { '.': {}, 'packages/app': { x: ['^4.0.0', '4.0.0'] }, 'packages/lib': { x: ['^6.0.0', '6.0.0'] }, 'packages/svc': { x: ['^9.0.0', '9.0.0'] } }, X('4.0.0', '6.0.0', '9.0.0')));
+    expect(sig(cx4)).toEqual(['unknown 2.0.0 -> 4.0.0, 6.0.0']);
+    expect(cx4.summary.added).toBe(0);
+    expect(cx4.summary.forward).toBe(0);
+    expect(stackDiffExitCode(cx4)).toBe(2);
+    // the D-empty sibling is unchanged: nobody moved, svc JOINS at 5 below the retained 9 — unknown
+    const cx6 = diffStackManifests(A, pnpmRepo('cx6-b', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^9.0.0', '9.0.0'] }, 'packages/svc': { x: ['^5.0.0', '5.0.0'] } }, X('2.0.0', '5.0.0', '9.0.0')));
+    expect(sig(cx6)).toEqual(['unknown - -> 5.0.0']);
+    expect(stackDiffExitCode(cx6)).toBe(2);
+  });
+
+  it('CX controls: a RETAINED lower version beside a dropped higher one is unknown (the 9 -> 2 assignment exists); every head root version at or above every base root version is forward, exit 0', () => {
+    const A = pnpmRepo('cxc-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^9.0.0', '9.0.0'] } }, X('2.0.0', '9.0.0'));
+    // app stays 2, lib 9 -> 10: root {2,9} -> {2,10}. The retained 2 is below the dropped 9, so
+    // {2 -> 10, 9 -> 2} is an assignment — unknown (the retained versions are compared, not only the new ones)
+    const kept = diffStackManifests(A, pnpmRepo('cxc-b', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^10.0.0', '10.0.0'] } }, X('2.0.0', '10.0.0')));
+    expect(sig(kept)).toEqual(['unknown 9.0.0 -> 10.0.0']);
+    expect(stackDiffExitCode(kept)).toBe(2);
+    // app 2 -> 9 (onto lib's version), lib 9 -> 10: root {2,9} -> {9,10}. No head root version is below
+    // any base root version, so no assignment is a downgrade: one forward row 2 -> 10, exit 0
+    const up = diffStackManifests(A, pnpmRepo('cxc-c', { '.': {}, 'packages/app': { x: ['^9.0.0', '9.0.0'] }, 'packages/lib': { x: ['^10.0.0', '10.0.0'] } }, X('9.0.0', '10.0.0')));
+    expect(sig(up)).toEqual(['forward 2.0.0 -> 10.0.0']);
+    expect(stackDiffExitCode(up)).toBe(0);
+    // both importers converge UP onto 10: root {2,9} -> {10}. Clean, but two dropped versions against one
+    // new: no root row — plain set matching pairs 9 -> 10 forward and drops 2 as a removed copy (never a
+    // root pairing that swallows the 2)
+    const conv = diffStackManifests(A, pnpmRepo('cxc-d', { '.': {}, 'packages/app': { x: ['^10.0.0', '10.0.0'] }, 'packages/lib': { x: ['^10.0.0', '10.0.0'] } }, X('10.0.0')));
+    expect(sig(conv)).toEqual(['removed 2.0.0 -> - (copy)', 'forward 9.0.0 -> 10.0.0']);
+    expect(stackDiffExitCode(conv)).toBe(0);
+    // the `maxD -> max(rootA)` mutant is EQUIVALENT (a retained max(rootA) makes `certain` false either
+    // way; when `certain` holds, max(rootA) was dropped and IS max(D)) — no test can or needs to kill it
+  });
+
+  it('CX8 (the FALSE-PASS half of the importer-identity limitation): an importer moving between two versions the root STILL reaches from other importers is identical, exit 0 — and the report carries both manifestDigests so a reader can see the lockfile changed', () => {
+    // three importers: app 9 / lib 9 / svc 2 -> app 9 / lib 2 (DOWN) / svc 2. Root {2,9} -> {2,9}; edges collapse
+    // duplicates, so nodes, edges, rootDeclared and stackDigest are equal — only sources[].sha256 differs
+    const A = pnpmRepo('cx8-a', { '.': {}, 'packages/app': { x: ['^9.0.0', '9.0.0'] }, 'packages/lib': { x: ['^9.0.0', '9.0.0'] }, 'packages/svc': { x: ['^2.0.0', '2.0.0'] } }, X('2.0.0', '9.0.0'));
+    const B = pnpmRepo('cx8-b', { '.': {}, 'packages/app': { x: ['^9.0.0', '9.0.0'] }, 'packages/lib': { x: ['^2.0.0', '2.0.0'] }, 'packages/svc': { x: ['^2.0.0', '2.0.0'] } }, X('2.0.0', '9.0.0'));
+    expect(A.stackDigest).toBe(B.stackDigest);
+    expect(A.manifestDigest).not.toBe(B.manifestDigest);
+    const r = diffStackManifests(A, B);
+    expect(r.moves).toEqual([]);
+    expect(r.classification).toBe('identical');
+    expect(stackDiffExitCode(r)).toBe(0);
+    expect(r.manifestDigest).toEqual({ from: A.manifestDigest, to: B.manifestDigest });
+    // the field is absent when the manifests are the same bytes, and absent on every non-identical report
+    expect('manifestDigest' in diffStackManifests(A, A)).toBe(false);
+    // (svc 2 -> 10, above every base root version: root {2,9} -> {9,10}, a plain forward — not the CX2 shape)
+    const moved = diffStackManifests(A, pnpmRepo('cx8-c', { '.': {}, 'packages/app': { x: ['^9.0.0', '9.0.0'] }, 'packages/lib': { x: ['^9.0.0', '9.0.0'] }, 'packages/svc': { x: ['^10.0.0', '10.0.0'] } }, X('10.0.0', '9.0.0')));
+    expect(sig(moved)).toEqual(['forward 2.0.0 -> 10.0.0']);
+    expect('manifestDigest' in moved).toBe(false);
+    // the CLI writes it too
+    const dir = tmp('cx8-cli');
+    const fa = path.join(dir, 'a.json');
+    const fb = path.join(dir, 'b.json');
+    const out = path.join(dir, 'diff.json');
+    fs.writeFileSync(fa, stableStringify(A));
+    fs.writeFileSync(fb, stableStringify(B));
+    const cli = runCli(['stack', 'diff', '--from', fa, '--to', fb, '--out', out], ROOT);
+    expect(cli.status, cli.stderr).toBe(0);
+    expect(JSON.parse(fs.readFileSync(out, 'utf8')).manifestDigest).toEqual({ from: A.manifestDigest, to: B.manifestDigest });
   });
 
   it('a root pair that cannot be ordered is unknown; shuffled nodes[] / edges[] cannot move a report byte', () => {
