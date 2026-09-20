@@ -744,10 +744,15 @@ compose). **Symlinks are `lstat`-only**: the image walk never follows one and ne
 its target — what a link points at is host state, not part of the revision — so every other symlink
 it meets (to a file, a directory, or nothing) is one coverage line (`symlink '<rel>' is not
 followed`) and neither the exit code nor coverage can differ between a pinned tree, a working tree
-and another host. Nothing under a symlink is ever read into `images[]`. An unpinned (`--no-pin`)
-walk does not descend into a **nested git checkout** — a directory below the root that carries its
-own `.git` directory or gitlink file (a worktree, a clone, a submodule): it is another repository's
-tree, declared in coverage; a pinned tree never contains one. `FROM ${ARG}` bases and
+and another host. Nothing under a symlink is ever read into `images[]`. The walk does not descend
+into a **nested git checkout** — another repository's tree (a submodule, a worktree, a clone),
+declared in coverage. The verb decides that from what git knows at the revision being read (the
+tracked paths and the gitlink entries, `git ls-tree` for a pinned ref, the index for `--no-pin`),
+never from the working tree alone: a gitlink is declared in the pinned view (where `git archive`
+holds no submodule contents) and in the working-tree view alike, and a stray `.git` beside files
+this repository tracks is ignored, so both views agree on digest AND coverage. A library caller
+that supplies no git knowledge gets the fallback: a directory below the root carrying a `.git`
+entry is skipped on that marker alone. `FROM ${ARG}` bases and
 `${VAR}` compose refs are coverage lines, never fabricated nodes. `images[].resolved` is always
 `false` in this slice: tag→digest resolution is a separate verb that writes a proposal, never a
 manifest field.
@@ -772,9 +777,12 @@ round-trip; every other value — `9`, `9.1`, `10.0`, a boolean, a list — is a
 A block scalar (`|`, `>`) is a distinct non-string value: this reader neither folds nor clips, so it
 is inert where pnpm really writes one (a multi-line `deprecated:` notice) and a `malformed` refusal in
 every identity position (`integrity`, `tarball`, `version`, a dependency reference, `os` / `cpu`).
-Inside a block-scalar body a `#`-led line and a line whose content starts with a TAB are ordinary
-text (a tab is a refusal only where the line is STRUCTURE); every line is right-trimmed once and
-blank body lines are not kept — the body is opaque and never an identity.
+Inside a block-scalar body a `#`-led line, a line whose content starts with a TAB and a blank line
+are ordinary text (a tab is a refusal only where the line is STRUCTURE — indentation counts spaces
+only, so a tab-led line with fewer spaces than the body ends the scalar and is refused). The body
+keeps every line's indentation relative to its first line and every interior blank line — two
+notices that differ in either never hash alike inside an opaque whole-entry hash; trailing blank
+lines are dropped and every line is right-trimmed once. The body is opaque and never an identity.
 
 **Precedence**: when `package.json` `packageManager` starts with `pnpm@` and a `pnpm-lock.yaml`
 exists, it IS the declared closure and any npm lockfile beside it is a recorded ignore (no fallback
@@ -842,12 +850,16 @@ is hashed — hashing the inputs as well would move the digest for two lockfiles
 the same thing. Any OTHER top-level section is unknown to this reader and is hashed whole as an
 opaque entry (`pnpm-unread-section`).
 
-**A dependency-free project is not hollow**: pnpm writes `importers: {.: {}}` and nothing else for
-a project with no dependencies. It is accepted — root-only closure, one coverage line — ONLY when
-every importer declares zero dependencies (`dependencies`, `devDependencies` and
-`optionalDependencies` all absent or empty) and `packages` / `snapshots` are absent or empty; a
-single declared dependency with no `packages` is still a hollow lockfile. The npm family is
-unchanged (a root-only `package-lock.json` still names its root entry and stays a refusal).
+**A dependency-free or link-only project is not hollow**: pnpm writes `importers: {.: {}}` and
+nothing else for a project with no dependencies, and a workspace whose only dependencies are
+`workspace:` links to each other is written with importers alone — a `link:` dependency has no
+`packages` entry by construction, so its presence is not evidence of a lost closure (it is already
+a hashed opaque entry). Such a lockfile is accepted — root-only closure plus the hashed links, one
+coverage line — ONLY when no importer declares a NON-link dependency (`dependencies`,
+`devDependencies`, `optionalDependencies`: every entry absent, or resolved to `link:` / ranged
+`workspace:`) and `packages` / `snapshots` are absent or empty; a single declared registry, `file:`
+or git dependency with no `packages` is still a hollow lockfile. The npm family is unchanged (a
+root-only `package-lock.json` still names its root entry and stays a refusal).
 
 **Fail-closed**: a HOLLOW lockfile (no or empty `importers`, `packages` or `snapshots`) and a lockfile with an entry the reader cannot trust (a dependency naming no
 snapshot, a snapshot no package names, a key that is not `name@version`, a package with neither
