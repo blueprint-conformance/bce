@@ -779,10 +779,18 @@ is inert where pnpm really writes one (a multi-line `deprecated:` notice) and a 
 every identity position (`integrity`, `tarball`, `version`, a dependency reference, `os` / `cpu`).
 Inside a block-scalar body a `#`-led line, a line whose content starts with a TAB and a blank line
 are ordinary text (a tab is a refusal only where the line is STRUCTURE — indentation counts spaces
-only, so a tab-led line with fewer spaces than the body ends the scalar and is refused). The body
-keeps every line's indentation relative to its first line and every interior blank line — two
-notices that differ in either never hash alike inside an opaque whole-entry hash; trailing blank
-lines are dropped and every line is right-trimmed once. The body is opaque and never an identity.
+only, so a tab-led line with fewer spaces than the body ends the scalar and is refused). Because the
+reader neither folds nor clips it cannot say what STRING a block scalar is; what it guarantees is
+that two scalars a YAML parser would read differently never hash alike inside an opaque
+whole-entry hash. The hash therefore covers the HEADER token exactly as written (`|` vs `>`, `-` /
+`+` chomping, an indentation indicator `1`-`9`; `0` is a malformed header) and the body LOSSLESSLY:
+each line's indentation relative to the body (the indicator's, else the first non-blank line's —
+negative when a line is indented less), its trailing whitespace, every interior blank line, and
+what a whitespace-only line carries beyond the body indentation. What is only the file's layout
+moves nothing: trailing blank lines (counted only under `+`, where YAML keeps them), a
+whitespace-only line no longer than the body indentation (an empty line in YAML), and the depth of
+the key itself. Structure is still right-trimmed once (a padded document marker is a marker, a
+padded plain scalar is its trimmed text). The body is opaque and never an identity.
 
 **Precedence**: when `package.json` `packageManager` starts with `pnpm@` and a `pnpm-lock.yaml`
 exists, it IS the declared closure and any npm lockfile beside it is a recorded ignore (no fallback
@@ -850,18 +858,74 @@ is hashed — hashing the inputs as well would move the digest for two lockfiles
 the same thing. Any OTHER top-level section is unknown to this reader and is hashed whole as an
 opaque entry (`pnpm-unread-section`).
 
-**A dependency-free or link-only project is not hollow**: pnpm writes `importers: {.: {}}` and
-nothing else for a project with no dependencies, and a workspace whose only dependencies are
-`workspace:` links to each other is written with importers alone — a `link:` dependency has no
-`packages` entry by construction, so its presence is not evidence of a lost closure (it is already
-a hashed opaque entry). Such a lockfile is accepted — root-only closure plus the hashed links, one
-coverage line — ONLY when no importer declares a NON-link dependency (`dependencies`,
-`devDependencies`, `optionalDependencies`: every entry absent, or resolved to `link:` / ranged
-`workspace:`) and `packages` / `snapshots` are absent or empty; a single declared registry, `file:`
-or git dependency with no `packages` is still a hollow lockfile. The npm family is unchanged (a
-root-only `package-lock.json` still names its root entry and stays a refusal).
+**A dependency-free or link-only project is not hollow** (rulings D4-1 and D4-1a, the latter
+founder-confirmed 2026-09-20): pnpm writes `importers: {.: {}}` and nothing else for a project with
+no dependencies (D4-1), and a workspace whose only dependencies are links to each other is written
+with importers alone — a `link:` dependency has no `packages` entry by construction, so its
+presence is not evidence of a lost closure; it is already a hashed opaque entry (D4-1a). Such a
+lockfile is accepted — root-only closure plus the hashed links, one coverage line — ONLY when no
+importer declares a NON-link dependency (`dependencies`, `devDependencies`,
+`optionalDependencies`: every entry resolved to `link:` or ranged `workspace:`) and `packages` /
+`snapshots` are absent or empty; a single declared registry, `file:` or git dependency with no
+`packages` is still a hollow lockfile. The npm family is unchanged (a root-only
+`package-lock.json` still names its root entry and stays a refusal).
 
-**Fail-closed**: a HOLLOW lockfile (no or empty `importers`, `packages` or `snapshots`) and a lockfile with an entry the reader cannot trust (a dependency naming no
+**A truncated lockfile is never a smaller legitimate one.** D4-1 and D4-1a accept lockfiles that
+are importers alone, and a pnpm lockfile cut inside `importers:` looks exactly like one — a real
+three-package workspace cut after its second importer is BYTE-IDENTICAL to a real two-package
+link-only lockfile. The lockfile alone cannot decide that case; the tree it sits in can. Four
+guards, every one a refusal (exit 2, nothing written), none of them a skip:
+
+- **(a) no empty bucket, no bare entry.** pnpm never writes a dependency bucket with nothing in it
+  nor a snapshot entry with no value (it writes `{}`): an importer or snapshot bucket that is YAML
+  null or an empty mapping, and a snapshot entry that is null, are what a cut right after a key
+  leaves behind.
+- **(b) a workspace link lands on another importer.** A `link:` resolved from a `workspace:` range
+  — or from a plain range under `link-workspace-packages` — names a workspace package, and pnpm
+  writes every workspace package as an importer; the target (resolved from the importer's own
+  path) must be an importer key, and never the importer itself. A `link:`-PROTOCOL dependency
+  (`specifier: link:…`) names a directory by path: pnpm writes no importer for it and it may sit
+  outside the tree, so it is exempt.
+- **(c) every importer's `package.json` is covered.** For each importer the `package.json` of the
+  SAME view the rest of the verb reads (the pinned tree, or the working tree under `--no-pin`) is
+  read without following any symbolic link on the way, and every name it declares under
+  `dependencies`, `devDependencies` or `optionalDependencies` must be recorded somewhere in that
+  importer's entry. The one exemption is what pnpm itself leaves out: a `link:`-protocol
+  dependency when the lockfile's `settings.excludeLinksFromLockfile` is `true`. An importer whose
+  `package.json` is missing, is not a JSON object, carries a dependency field that is not an
+  object, or whose path leaves the tree cannot be checked — a refusal.
+- **(d) every workspace package is an importer.** When `pnpm-workspace.yaml` exists, every
+  directory its `packages:` globs name (literals, `*`, `**`, `?`, `.`, `!` negation; wildcards
+  never match a dot-led name; `node_modules` and `bower_components` never hold a package) that
+  holds a `package.json` must be an importer, and so must the root. Another repository's tree under
+  a glob (a gitlink, or a `.git` marker by the same rule the image walk uses) is not this
+  workspace. A workspace file outside the YAML subset, a `packages` value that is not a list of
+  strings, a glob syntax this reader does not evaluate (braces, character classes, extglobs), and
+  a lockfile with workspace importers in a tree with NO workspace file cannot be checked — each a
+  refusal. With no `packages:` key the workspace is the root alone (pnpm >= 10, measured on
+  10.11.1); if the lockfile nonetheless has workspace importers (pnpm <= 9 took every directory),
+  every directory holding a `package.json` is named.
+
+Every line prefix — and, for the committed real shapes, every byte prefix — of the real
+pnpm-written lockfiles in `fixtures/stack/pnpm-v9-real-shapes` and of the synthetic golden is
+refused; only the whole file (or the whole file without its final newline: the same document) is
+read.
+
+**What the guards cost, and what they do not reach.** (c) and (d) make a snapshot a claim about
+the lockfile AND its tree: a lockfile out of step with its `package.json` files (what `pnpm install
+--frozen-lockfile` rejects), a workspace whose importers' `package.json` files are not in the view
+(untracked nested checkouts, a partial tree), a manifest kept as `package.yaml` / `package.json5`,
+and a declared dependency that a `.pnpmfile.cjs` hook or a removing override keeps out of the
+lockfile are all refused, by design. Residual, stated plainly: the format has no terminator and no
+checksum, so a cut that falls BETWEEN two dependency lines of the FINAL snapshot entry (or drops
+that entry's last bucket whole) leaves a well-formed lockfile in which every package and snapshot
+is still present. It is accepted; the manifest lacks the lost edges (its `manifestDigest` differs),
+and the `stackDigest` — nodes and their flags, not edges — is the whole file's unless a lost edge
+was the only path that made a package non-dev or non-peer. Likewise a pnpm <= 9 workspace with no
+`packages:` key, cut back to a root importer that declares no registry dependency, reads as the
+root alone.
+
+**Fail-closed**: a HOLLOW lockfile (no or empty `importers`, `packages` or `snapshots`), a lockfile that does not cover its tree (the four guards above) and a lockfile with an entry the reader cannot trust (a dependency naming no
 snapshot, a snapshot no package names, a key that is not `name@version`, a package with neither
 integrity nor tarball, an integrity that is not a hash, a package carrying the root's own identity,
 a patch without a hash, an importer / snapshot / dependency bucket / dependency entry of the wrong
