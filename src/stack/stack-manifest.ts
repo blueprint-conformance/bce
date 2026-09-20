@@ -339,6 +339,9 @@ export function stackHashedView(body: StackManifestBody | StackManifest): StackH
     })
     .map((h) => ({ h, k: stableStringify(h) }))
     .sort((a, b) => cmp(a.k, b.k))
+    // the hashed view holds the SET of image identities: the same ref declared by a second Dockerfile
+    // or compose service is the same closure (the manifest keeps every declaration, with its evidenceRef)
+    .filter((x, i, all) => i === 0 || all[i - 1]!.k !== x.k)
     .map((x) => x.h);
   const unmodeled = [...body.unmodeled].sort(compareStackUnmodeled);
   return { schemaVersion: '1', kind: 'StackManifest', nodes, runtime: body.runtime, images, unmodeled };
