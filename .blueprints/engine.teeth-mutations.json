@@ -193,7 +193,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/index.ts",
-        "preconditionSha256": "121d608174409df917c0dcc9a3a7c7d273771ffeaa83c221dd83c1025542de35",
+        "preconditionSha256": "33daed52d6b1ed3a5d474ada9ba35d5495009ae4581b6b178bfeb113e42a9cf4",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/index.ts",
@@ -517,7 +517,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "98bfd0879f72a05722f960ef6f023249fa152f82d1f0808ddd2736e43b994c4a",
+        "preconditionSha256": "d958b51e9beb1d9a0a5a43659cdd5401824f81eaf87f9b1079b5f4d6643849a8",
         "content": "\nimport { Project as __BceMutationProject } from 'ts-morph';\n"
       },
       "expectedEvidencePath": "src/cli.ts",
@@ -529,7 +529,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "98bfd0879f72a05722f960ef6f023249fa152f82d1f0808ddd2736e43b994c4a",
+        "preconditionSha256": "d958b51e9beb1d9a0a5a43659cdd5401824f81eaf87f9b1079b5f4d6643849a8",
         "content": "\nimport { parser as __BceMutationParser } from '@lezer/python';\n"
       },
       "expectedEvidencePath": "src/cli.ts",
@@ -553,7 +553,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "98bfd0879f72a05722f960ef6f023249fa152f82d1f0808ddd2736e43b994c4a",
+        "preconditionSha256": "d958b51e9beb1d9a0a5a43659cdd5401824f81eaf87f9b1079b5f4d6643849a8",
         "content": "\nimport __bceMutationRuntimeDependency from 'ajv';\n"
       },
       "expectedEvidencePath": "src/cli.ts",

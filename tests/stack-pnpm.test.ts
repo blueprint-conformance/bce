@@ -55,6 +55,7 @@ import {
   STACK_COVERAGE_PNPM_NO_INSTALL_SCRIPTS,
   STACK_COVERAGE_PNPM_NO_TRANSITIVE_SPECS,
   STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS,
+  STACK_COVERAGE_PNPM_DEPENDENCY_FREE,
   stackRefusalPnpmHollow,
   stackRefusalPnpmMalformed,
   canonicalPnpmValue,
@@ -418,12 +419,14 @@ describe('stack pnpm — group 5: the YAML-subset reader', () => {
         'packages:',
         '',
         "  '@scope/pkg@1.0.0':",
-        '    resolution: {integrity: sha512-AAAA==, tarball: https://registry.example/pkg.tgz}',
+        '    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==, tarball: https://registry.example/pkg.tgz}',
         "    engines: {node: '>=18', npm: ^8.16.0 || >=10}",
         '    cpu: [x64, arm64]',
         '    os: []',
         '    deprecated: |-',
-        '      first line: with a colon',
+        '      # a hash-led FIRST body line',
+        '      first line: with a colon   ',
+        '      \ttab-led body line',
         '      # second line',
         '    bundledDependencies:',
         '      - one',
@@ -442,15 +445,16 @@ describe('stack pnpm — group 5: the YAML-subset reader', () => {
     expect([...pkgs.keys()]).toEqual(['@scope/pkg@1.0.0', '__proto__@1.0.0', 'dq@1.0.0']);
     const p = pkgs.get('@scope/pkg@1.0.0') as PnpmYamlMap;
     expect([...(p.get('resolution') as PnpmYamlMap).entries()]).toEqual([
-      ['integrity', 'sha512-AAAA=='],
+      ['integrity', 'sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=='],
       ['tarball', 'https://registry.example/pkg.tgz'],
     ]);
     expect((p.get('engines') as PnpmYamlMap).get('npm')).toBe('^8.16.0 || >=10');
     expect(p.get('cpu')).toEqual(['x64', 'arm64']);
     expect(p.get('os')).toEqual([]);
-    // a block scalar is NOT a string (no identity position can read it); comment-looking body lines are dropped
+    // a block scalar is NOT a string (no identity position can read it). Inside the body a `#`-led line and
+    // a TAB-led line are ordinary text; every line is right-trimmed once
     expect(p.get('deprecated')).toBeInstanceOf(PnpmBlockScalar);
-    expect((p.get('deprecated') as PnpmBlockScalar).text).toBe('first line: with a colon');
+    expect((p.get('deprecated') as PnpmBlockScalar).text).toBe('# a hash-led FIRST body line\nfirst line: with a colon\n\ttab-led body line\n# second line');
     expect(p.get('bundledDependencies')).toEqual(['one', 'two']);
     expect(p.get('sameIndentList')).toEqual(['a']);
     expect(p.get('hasBin')).toBe(true); // a PLAIN true is a boolean, exactly as a YAML parser types it
@@ -519,7 +523,7 @@ describe('stack pnpm — group 5: the YAML-subset reader', () => {
     '      local: {specifier: file:../local, version: file:../local}',
     'packages:',
     '  kept@1.0.0:',
-    '    resolution: {integrity: sha512-KEPT==}',
+    '    resolution: {integrity: sha512-KEPTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}',
     '    libc: [glibc]',
     '    os: [linux]',
     '  local@file:../local:',
@@ -529,9 +533,9 @@ describe('stack pnpm — group 5: the YAML-subset reader', () => {
     '  nointegrity@2.0.0:',
     '    resolution: {tarball: https://registry.example/n.tgz}',
     '  orphan@3.0.0:',
-    '    resolution: {integrity: sha512-ORPHAN==}',
+    '    resolution: {integrity: sha512-ORPHANAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}',
     '  nosnap@5.0.0:',
-    '    resolution: {integrity: sha512-NOSNAP==}',
+    '    resolution: {integrity: sha512-NOSNAPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}',
     'snapshots:',
     '  kept@1.0.0:',
     '    dependencies:',
@@ -550,10 +554,10 @@ describe('stack pnpm — group 5: the YAML-subset reader', () => {
     expect(d.hollow).toBeNull();
     expect(d.nodes.map((n) => `${n.id}|${n.integrity}|${n.resolvedWhenUnpinned}`)).toEqual([
       'npm:root@0.0.0|null|null',
-      'npm:kept@1.0.0|sha512-KEPT==|null',
+      'npm:kept@1.0.0|sha512-KEPTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==|null',
       'npm:nointegrity@2.0.0|null|https://registry.example/n.tgz',
-      'npm:nosnap@5.0.0|sha512-NOSNAP==|null',
-      'npm:orphan@3.0.0|sha512-ORPHAN==|null',
+      'npm:nosnap@5.0.0|sha512-NOSNAPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==|null',
+      'npm:orphan@3.0.0|sha512-ORPHANAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==|null',
     ]);
     expect(d.nodes.find((n) => n.name === 'kept')!.platformConditional).toEqual({ os: ['linux'], cpu: [] });
     expect(d.unmodeled.map((u) => `${u.key}|${u.reason}|${u.spec.resolved}`)).toEqual([
@@ -617,10 +621,10 @@ describe('stack pnpm — group 5: the YAML-subset reader', () => {
         'importers:',
         ...importers,
         'packages:',
-        '  a@1.0.0: {resolution: {integrity: sha512-A1==}}',
-        '  a@2.0.0: {resolution: {integrity: sha512-A2==}}',
+        '  a@1.0.0: {resolution: {integrity: sha512-A1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}}',
+        '  a@2.0.0: {resolution: {integrity: sha512-A2AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}}',
         '  p@1.0.0:',
-        '    resolution: {integrity: sha512-P==}',
+        '    resolution: {integrity: sha512-PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}',
         '    peerDependencies: {a: "*"}',
         'snapshots:',
         '  a@1.0.0: {}',
@@ -703,12 +707,14 @@ describe('stack pnpm — group 6: refusals and lockfile precedence', () => {
   it('a HOLLOW v9 lockfile (no importers / no packages / no snapshots) is refused: exit 2, nothing written', () => {
     const head = "lockfileVersion: '9.0'\n";
     const imp = 'importers:\n  .:\n    dependencies:\n      a: {specifier: 1.0.0, version: 1.0.0}\n';
-    const pkgs = 'packages:\n  a@1.0.0: {resolution: {integrity: sha512-A==}}\n';
+    const pkgs = 'packages:\n  a@1.0.0: {resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}}\n';
     const cases: Array<[string, string]> = [
       [head, "no 'importers' mapping"],
       [`${head}importers: {}\n${pkgs}snapshots:\n  a@1.0.0: {}\n`, "no 'importers' mapping"],
-      [`${head}importers:\n  .: {}\n`, "no 'packages' mapping"],
-      [`${head}importers:\n  .: {}\npackages: {}\nsnapshots: {}\n`, "no 'packages' mapping"],
+      // an importer DECLARES a dependency and the closure is missing: a lost closure, never a green root
+      [`${head}${imp}`, "no 'packages' mapping"],
+      [`${head}${imp}packages: {}\nsnapshots: {}\n`, "no 'packages' mapping"],
+      [`${head}${imp}packages:\nsnapshots:\n`, "no 'packages' mapping"],
       [`${head}importers:\n  .: {}\n${pkgs}`, "no 'snapshots' mapping"],
     ];
     for (const [text, why] of cases) {
@@ -725,7 +731,7 @@ describe('stack pnpm — group 6: refusals and lockfile precedence', () => {
     expect(onlyOpaque.manifest.unmodeled.map((u) => u.key)).toEqual(['packages/g@file:../g']);
     // the positive control: the same skeleton WITH a closure is accepted
     expect(extractStackManifest(treeWith('not-hollow', `${head}${imp}${pkgs}snapshots:\n  a@1.0.0: {}\n`, pkg), 'unpinned').refusals).toEqual([]);
-    const d = treeWith('hollow-cli', `${head}importers:\n  .: {}\n`, pkg);
+    const d = treeWith('hollow-cli', `${head}${imp}`, pkg);
     const out = path.join(d, 'never-written.json');
     const cli = runCli(['stack', 'snapshot', '--ct-repo', d, '--no-pin', '--out', out], ROOT);
     expect(cli.status).toBe(2);
@@ -855,7 +861,7 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
       extra.imp ?? '    dependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}',
       'packages:',
       '  a@1.0.0:',
-      '    resolution: {integrity: sha512-AAAA==}',
+      '    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}',
       ...(extra.pkgs ? [extra.pkgs] : []),
       'snapshots:',
       '  a@1.0.0: {}',
@@ -903,9 +909,30 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
 
   it('integrity must be ONE sha1-/sha256-/sha384-/sha512- hash: anything else present is the fixed malformed refusal', () => {
     const bad = (value: string): string[] => refusalsOf(mini({ pkgs: `  b@1.0.0:\n    resolution: {integrity: ${value}, tarball: https://registry.example/b.tgz}`, snaps: '  b@1.0.0: {}' }));
-    const expected = [stackRefusalPnpmMalformed("packages entry 'b@1.0.0' (integrity is not a sha1-/sha256-/sha384-/sha512- hash)")];
-    for (const v of ["'null'", 'md5-AAAA==', 'sha512-', 'sha512-AA AA', 'true', "''", '[sha512-AAAA==]']) expect(bad(v), v).toEqual(expected);
-    for (const v of ['sha1-AAAA', 'sha256-AAAA=', 'sha384-AA+/', 'sha512-AAAA==']) expect(bad(v), v).toEqual([]);
+    const expected = [stackRefusalPnpmMalformed("packages entry 'b@1.0.0' (integrity is not ONE sha1-/sha256-/sha384-/sha512- hash of its exact length)")];
+    const b64 = (n: number, pad: string): string => `${'Ab+/'.repeat(n).slice(0, n)}${pad}`;
+    const good = { sha1: `sha1-${b64(27, '=')}`, sha256: `sha256-${b64(43, '=')}`, sha384: `sha384-${b64(64, '')}`, sha512: `sha512-${b64(86, '==')}` };
+    for (const v of ["'null'", 'md5-AAAA==', 'sha512-', 'sha512-AA AA', 'true', "''", `[${good.sha512}]`]) expect(bad(v), v).toEqual(expected);
+    for (const v of Object.values(good)) expect(bad(v), v).toEqual([]);
+    // the EXACT padded length of each digest: a truncated, over-long or unpadded value names no bytes
+    const wrongLength = [
+      'sha512-x',
+      'sha1-AAAA',
+      'sha256-AAAA=',
+      'sha384-AA+/',
+      `sha1-${b64(27, '')}`, // padding dropped
+      `sha1-${b64(28, '=')}`,
+      `sha256-${b64(43, '==')}`,
+      `sha384-${b64(64, '=')}`,
+      `sha512-${b64(86, '=')}`,
+      `sha512-${b64(85, '==')}`,
+      `sha512-${b64(87, '==')}`,
+      `sha512-${b64(88, '')}`,
+      `sha256-${b64(86, '==')}`, // a sha512-sized value under another algorithm's name
+    ];
+    for (const v of wrongLength) expect(bad(v), v).toEqual(expected);
+    // a multi-hash SRI string is refused: pnpm writes the registry's single `dist.integrity` (or ONE sha1 from `shasum`)
+    for (const v of [`${good.sha512} ${good.sha1}`, `'${good.sha512} ${good.sha1}'`, `${good.sha1} ${good.sha1}`]) expect(bad(v), v).toEqual(expected);
     // a non-string tarball / commit is a refusal too — never silently "absent"
     expect(refusalsOf(mini({ pkgs: '  b@1.0.0:\n    resolution: {tarball: true}', snaps: '  b@1.0.0: {}' }))).toEqual([
       stackRefusalPnpmMalformed("packages entry 'b@1.0.0' (resolution.tarball is not a string)"),
@@ -935,7 +962,7 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
 
   /* ---- MAJOR-3: the eleven safety lines ---- */
   it("R07: a packages entry carrying the ROOT's own identity is refused", () => {
-    expect(refusalsOf(mini({ pkgs: '  r@1.0.0:\n    resolution: {integrity: sha512-RRRR==}', snaps: '  r@1.0.0: {}' }))).toEqual([
+    expect(refusalsOf(mini({ pkgs: '  r@1.0.0:\n    resolution: {integrity: sha512-RRRRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}', snaps: '  r@1.0.0: {}' }))).toEqual([
       stackRefusalPnpmMalformed("packages entry 'r@1.0.0' (it carries the root package's own identity)"),
     ]);
   });
@@ -948,11 +975,11 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
   });
 
   it('R10: a non-ASCII package name is a HASHED opaque entry, never a node', () => {
-    const text = mini({ pkgs: '  naïve@2.0.0:\n    resolution: {integrity: sha512-NNNN==}', snaps: '  naïve@2.0.0: {}' });
+    const text = mini({ pkgs: '  naïve@2.0.0:\n    resolution: {integrity: sha512-NNNNAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}', snaps: '  naïve@2.0.0: {}' });
     const d = deriveFromPnpmLockV9(parsePnpmLockSubset(text), ROOT_ID);
     expect(d.malformed).toEqual([]);
     expect(d.nodes.map((n) => n.id)).toEqual(['npm:r@1.0.0', 'npm:a@1.0.0']);
-    expect(d.unmodeled.map((u) => `${u.key}|${u.reason}|${u.spec.integrity}`)).toEqual(['packages/naïve@2.0.0|non-ascii-name|sha512-NNNN==']);
+    expect(d.unmodeled.map((u) => `${u.key}|${u.reason}|${u.spec.integrity}`)).toEqual(['packages/naïve@2.0.0|non-ascii-name|sha512-NNNNAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==']);
     expect(d.unsupported).toContain('non-ASCII package name at naïve@2.0.0: hashed as an opaque entry, no node (npm registry names are ASCII)');
   });
 
@@ -981,7 +1008,7 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
   it('R19 + R20: a SNAPSHOT-level link: dependency and a snapshot-level npm: alias are HASHED opaque entries that move with their target', () => {
     const doc = (link: string, alias: string): string =>
       mini({
-        pkgs: '  b@2.0.0:\n    resolution: {integrity: sha512-BBBB==}\n  c@3.0.0:\n    resolution: {integrity: sha512-CCCC==}',
+        pkgs: '  b@2.0.0:\n    resolution: {integrity: sha512-BBBBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}\n  c@3.0.0:\n    resolution: {integrity: sha512-CCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}',
         imp: '    dependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0(x@1)}',
         snaps: `  b@2.0.0: {}\n  c@3.0.0: {}\n  a@1.0.0(x@1):\n    dependencies:\n      local-lib: link:${link}\n      b-cjs: ${alias}`,
       }).replace('  a@1.0.0: {}\n', '');
@@ -1022,7 +1049,7 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
     expect(a.manifest.stackDigest).toBe(b.manifest.stackDigest);
     expect(a.manifest.stackDigest).not.toBe(golden.stackDigest);
     // a non-list os is a refusal, never an ignored condition on a HASHED field
-    expect(refusalsOf(mini({ pkgs: '  b@1.0.0:\n    resolution: {integrity: sha512-BBBB==}\n    os: linux', snaps: '  b@1.0.0: {}' }))).toEqual([
+    expect(refusalsOf(mini({ pkgs: '  b@1.0.0:\n    resolution: {integrity: sha512-BBBBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}\n    os: linux', snaps: '  b@1.0.0: {}' }))).toEqual([
       stackRefusalPnpmMalformed("packages entry 'b@1.0.0' ('os' is not a list of strings)"),
     ]);
   });
@@ -1083,14 +1110,14 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
     const v6 = mini().replace(/a@1\.0\.0/g, '/a@1.0.0').replace('      /a@1.0.0', '      a');
     expect(refusalsOf(v6)).toContain(stackRefusalPnpmMalformed("packages entry '/a@1.0.0' (not a 'name@version' mapping)"));
     for (const key of ['a/b@1.0.0', '@s/a/b@1.0.0', '@/a@1.0.0']) {
-      expect(refusalsOf(mini({ pkgs: `  '${key}':\n    resolution: {integrity: sha512-BBBB==}` })), key).toContain(stackRefusalPnpmMalformed(`packages entry '${key}' (not a 'name@version' mapping)`));
+      expect(refusalsOf(mini({ pkgs: `  '${key}':\n    resolution: {integrity: sha512-BBBBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}` })), key).toContain(stackRefusalPnpmMalformed(`packages entry '${key}' (not a 'name@version' mapping)`));
     }
-    expect(refusalsOf(mini({ pkgs: "  '@s/b@1.0.0':\n    resolution: {integrity: sha512-BBBB==}", snaps: "  '@s/b@1.0.0': {}" }))).toEqual([]);
+    expect(refusalsOf(mini({ pkgs: "  '@s/b@1.0.0':\n    resolution: {integrity: sha512-BBBBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}", snaps: "  '@s/b@1.0.0': {}" }))).toEqual([]);
   });
 
   it('MINOR-8: a block scalar is never an identity value — refused as integrity / version / dependency ref, inert as a deprecated message', () => {
-    expect(refusalsOf(mini({ pkgs: '  b@1.0.0:\n    resolution:\n      integrity: |-\n        sha512-BBBB==', snaps: '  b@1.0.0: {}' }))).toEqual([
-      stackRefusalPnpmMalformed("packages entry 'b@1.0.0' (integrity is not a sha1-/sha256-/sha384-/sha512- hash)"),
+    expect(refusalsOf(mini({ pkgs: '  b@1.0.0:\n    resolution:\n      integrity: |-\n        sha512-BBBBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==', snaps: '  b@1.0.0: {}' }))).toEqual([
+      stackRefusalPnpmMalformed("packages entry 'b@1.0.0' (integrity is not ONE sha1-/sha256-/sha384-/sha512- hash of its exact length)"),
     ]);
     expect(refusalsOf(mini({ pkgs: '  b@1.0.0:\n    resolution:\n      tarball: >-\n        https://registry.example/b.tgz', snaps: '  b@1.0.0: {}' }))).toEqual([
       stackRefusalPnpmMalformed("packages entry 'b@1.0.0' (resolution.tarball is not a string)"),
@@ -1101,7 +1128,7 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
     expect(refusalsOf(mini().replace('  a@1.0.0: {}', '  a@1.0.0:\n    dependencies:\n      a: |-\n        1.0.0'))).toEqual([stackRefusalPnpmMalformed("snapshot a@1.0.0 dependency 'a' (no version string)")]);
     // a multi-line deprecation notice is what pnpm really writes as a block scalar: read past, same closure
     const digest = (t: string): string => extractStackManifest(treeWith('deprecated', t, ROOT_ID), REVISION).manifest.stackDigest;
-    const noticed = mini().replace('    resolution: {integrity: sha512-AAAA==}', '    resolution: {integrity: sha512-AAAA==}\n    deprecated: |-\n      no longer maintained\n      use something else');
+    const noticed = mini().replace('    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}', '    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}\n    deprecated: |-\n      no longer maintained\n      use something else');
     expect(refusalsOf(noticed)).toEqual([]);
     expect(digest(noticed)).toBe(digest(mini()));
   });
@@ -1181,5 +1208,142 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
       expect(coverage(d).filter((l) => l.includes('packageManager declares') && l.includes('but the lockfile read'))).toEqual([]);
     }
     expect(golden.coverage.unsupported.filter((l) => l.includes('but the lockfile read'))).toEqual([]);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* 9. release carry-ins                                                         */
+/* -------------------------------------------------------------------------- */
+
+describe('stack pnpm — group 9: block-scalar bodies, the dependency-free project, the single right-trim', () => {
+  const ROOT_ID = { name: 'r', version: '1.0.0' };
+  const H = `sha512-${'A'.repeat(86)}==`;
+  const doc = (pkgExtra: string): string =>
+    [
+      "lockfileVersion: '9.0'",
+      'importers:',
+      '  .:',
+      '    dependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}',
+      'packages:',
+      '  a@1.0.0:',
+      `    resolution: {integrity: ${H}}`,
+      pkgExtra,
+      'snapshots:',
+      '  a@1.0.0: {}',
+    ]
+      .filter((l) => l !== '')
+      .join('\n') + '\n';
+  const digest = (text: string): string => {
+    const r = extractStackManifest(treeWith('g9', text, ROOT_ID), REVISION);
+    expect(r.refusals).toEqual([]);
+    return r.manifest.stackDigest;
+  };
+
+  it('a TAB-led (or #-led) line INSIDE a block-scalar body is inert text: the lockfile is read, same closure, same stackDigest', () => {
+    const plain = doc('');
+    const notice = doc('    deprecated: |-\n      \tno longer maintained\n      # see the successor\n      plain line');
+    expect(readPnpmLock(notice, ROOT_ID).refusals).toEqual([]);
+    expect(digest(notice)).toBe(digest(plain));
+    // …as the FIRST body line too, and at the very end of the document
+    expect(readPnpmLock(`${plain}time:\n  note: >-\n    \ttabbed\n`, ROOT_ID).refusals).toEqual([]);
+  });
+
+  it('a TAB is still a refusal wherever the line is STRUCTURE, and a tabbed block scalar is still refused in an identity position', () => {
+    expect(readPnpmLock(doc('').replace('  a@1.0.0: {}', '  a@1.0.0:\n\toptional: true'), ROOT_ID).refusals).toEqual([stackRefusalPnpmSubset(11, 'tab indentation')]);
+    // a tab-led line that is NOT inside a block-scalar body (it follows a plain value) is structure
+    expect(readPnpmLock("lockfileVersion: '9.0'\nimporters:\n  .: {}\n  \tx: 1\n", ROOT_ID).refusals).toEqual([stackRefusalPnpmSubset(4, 'tab indentation')]);
+    // a tab-led comment is not a comment: refused
+    expect(readPnpmLock("lockfileVersion: '9.0'\n\t# note\nimporters:\n  .: {}\n", ROOT_ID).refusals).toEqual([stackRefusalPnpmSubset(2, 'tab indentation')]);
+    const identity = doc('').replace(`    resolution: {integrity: ${H}}`, `    resolution:\n      integrity: |-\n        \t${H}`);
+    expect(readPnpmLock(identity, ROOT_ID).refusals).toEqual([
+      stackRefusalPnpmMalformed("packages entry 'a@1.0.0' (integrity is not ONE sha1-/sha256-/sha384-/sha512- hash of its exact length)"),
+    ]);
+  });
+
+  it('every line is right-trimmed ONCE, before anything reads it: a padded document marker is still a marker, a body line keeps no trailing blanks', () => {
+    expect(readPnpmLock("lockfileVersion: '9.0'   \n---   \nimporters:\n  .: {}\n", ROOT_ID).refusals).toEqual([
+      stackRefusalPnpmSubset(2, 'document marker or directive (multi-document stream)'),
+    ]);
+    const parsed = parsePnpmLockSubset('a: |-\n  body   \t \nb: plain   \n');
+    expect((parsed.get('a') as PnpmBlockScalar).text).toBe('body');
+    expect(parsed.get('b')).toBe('plain');
+  });
+
+  describe('a dependency-free project (what pnpm writes as `importers: {.: {}}` and nothing else)', () => {
+    const head = "lockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: false\n\n";
+    const free = [
+      `${head}importers:\n\n  .: {}\n`,
+      `${head}importers:\n  .: {}\n  packages/lib: {}\n`,
+      `${head}importers:\n  .:\n    dependencies: {}\n    devDependencies:\n    optionalDependencies: {}\npackages: {}\nsnapshots:\n`,
+    ];
+
+    it('is ACCEPTED when EVERY importer declares zero dependencies: root-only closure, a coverage line, no refusal', () => {
+      const digests = free.map((text) => {
+        const r = extractStackManifest(treeWith('dep-free', text, ROOT_ID), REVISION);
+        expect(r.refusals).toEqual([]);
+        expect(r.manifest.nodes.filter((n) => n.kind === 'npm').map((n) => n.id)).toEqual(['npm:r@1.0.0']);
+        expect(r.manifest.unmodeled).toEqual([]);
+        expect(r.manifest.edges).toEqual([]);
+        expect(r.manifest.coverage.unsupported).toContain(STACK_COVERAGE_PNPM_DEPENDENCY_FREE);
+        expect(r.manifest.sources.map((s) => s.parser)).toContain('pnpm-lockfile-v9');
+        return r.manifest.stackDigest;
+      });
+      expect(new Set(digests).size).toBe(1);
+    });
+
+    it('is still REFUSED as hollow when ANY importer declares a dependency and `packages` is absent', () => {
+      const declared = [
+        `${head}importers:\n  .:\n    dependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}\n`,
+        `${head}importers:\n  .: {}\n  packages/lib:\n    devDependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}\n`,
+        `${head}importers:\n  .:\n    optionalDependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}\npackages: {}\n`,
+      ];
+      for (const text of declared) {
+        expect(extractStackManifest(treeWith('dep-lost', text, ROOT_ID), REVISION).refusals, text).toEqual([stackRefusalPnpmHollow("no 'packages' mapping"), STACK_REFUSAL_NO_LOCKFILE]);
+      }
+      // packages present but snapshots lost: still hollow; a scalar `packages` is not "absent"
+      expect(readPnpmLock(`${head}importers:\n  .: {}\npackages:\n  a@1.0.0:\n    resolution: {integrity: ${H}}\n`, ROOT_ID).refusals).toEqual([stackRefusalPnpmHollow("no 'snapshots' mapping")]);
+      expect(readPnpmLock(`${head}importers:\n  .: {}\npackages: garbage\n`, ROOT_ID).refusals).toEqual([stackRefusalPnpmHollow("no 'packages' mapping")]);
+      // a snapshot with no package is a LOST closure, not a dependency-free project: the hollow refusal, not a later one
+      expect(readPnpmLock(`${head}importers:\n  .: {}\nsnapshots:\n  a@1.0.0: {}\n`, ROOT_ID).refusals).toEqual([stackRefusalPnpmHollow("no 'packages' mapping")]);
+      // no importers at all is never dependency-free
+      expect(readPnpmLock(`${head}importers: {}\n`, ROOT_ID).refusals).toEqual([stackRefusalPnpmHollow("no 'importers' mapping")]);
+    });
+
+    it('a Dockerfile-only pnpm project gets a snapshot through the real CLI: exit 0, the image is in the closure', () => {
+      const d = treeWith('dockerfile-only', free[0]!, { ...ROOT_ID, packageManager: 'pnpm@10.11.1' });
+      fs.writeFileSync(path.join(d, 'Dockerfile'), 'FROM node:22-alpine\n');
+      const out = path.join(tmp('dockerfile-only-out'), 'm.json');
+      const cli = runCli(['stack', 'snapshot', '--ct-repo', d, '--no-pin', '--out', out], ROOT);
+      expect(cli.status).toBe(0);
+      const m = parseStackManifest(JSON.parse(fs.readFileSync(out, 'utf8')));
+      expect(verifyStackManifest(m).valid).toBe(true);
+      expect(m.images.map((i) => i.ref)).toEqual(['node:22-alpine']);
+      expect(m.nodes.filter((n) => n.kind === 'npm').map((n) => n.id)).toEqual(['npm:r@1.0.0']);
+      // the npm family is unchanged: a root-only package-lock.json is still hollow
+      const npmDir = tmp('npm-root-only');
+      fs.writeFileSync(path.join(npmDir, 'package.json'), JSON.stringify(ROOT_ID));
+      fs.writeFileSync(path.join(npmDir, 'package-lock.json'), JSON.stringify({ name: 'r', version: '1.0.0', lockfileVersion: 3, packages: { '': { name: 'r', version: '1.0.0' } } }));
+      fs.writeFileSync(path.join(npmDir, 'Dockerfile'), 'FROM node:22-alpine\n');
+      expect(extractStackManifest(npmDir, REVISION).refusals.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('`bce stack snapshot --help` names BOTH lockfile families, the packageManager rule and the full identity view', () => {
+    const help = runCli(['stack', 'snapshot', '--help'], ROOT);
+    expect(help.status).toBe(0);
+    const text = help.stdout.replace(/\s+/g, ' ');
+    expect(text).toContain('npm lockfile v3 / shrinkwrap or pnpm-lock v9');
+    expect(text).toContain('packageManager starts with pnpm@ and a pnpm-lock.yaml exists, it IS the closure');
+    expect(text).toContain('pnpm-lock.yaml is read only when no npm lockfile is present');
+    expect(text).toContain('(nodes/runtime/images/unmodeled)');
+    expect(text).toContain('npm-shrinkwrap.json wins over package-lock.json');
+  });
+
+  it('an importer dependency with an EMPTY name is a line-numbered refusal (block and flow), never a schema crash', () => {
+    const cases: Array<[string, number, string]> = [
+      ["lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      '': {specifier: ^1.0.0, version: 1.0.0}\n", 5, 'empty mapping key'],
+      ["lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies: {'': {specifier: ^1.0.0, version: 1.0.0}}\n", 4, 'empty flow mapping key'],
+    ];
+    for (const [text, line, reason] of cases) expect(readPnpmLock(text, ROOT_ID).refusals).toEqual([stackRefusalPnpmSubset(line, reason)]);
   });
 });
