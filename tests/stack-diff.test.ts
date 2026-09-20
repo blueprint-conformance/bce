@@ -24,6 +24,8 @@
  *     of its sub-view explains (alone AND masked), re-derived digests, OPAQUE nodes, rank and ties.
  *  L. ROOT PAIR — the version the root itself resolves to pairs first (backward on a root downgrade
  *     even when a nested copy rises); other copies set-match afterwards.
+ *  M. ROOT SETS — the versions the root reaches are compared as sets before the retained split: a
+ *     root move between two retained versions, and unpairable importer moves (real extractor).
  *  I. IMAGES + RUNTIME — real-extractor repros: a tag / digest / runtime move alone and masked by an
  *     unrelated bump; strict-version tags order; entering / leaving images; array permutation.
  *  J. ROOT DECLARATIONS — declare / un-declare / group move with nodes unchanged is informational.
@@ -38,6 +40,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { stableStringify } from '../src/report.js';
 import { materializeAtRevision } from '../src/pin.js';
 import {
@@ -464,7 +467,8 @@ describe('stack diff — E: lockfile mutants through the real extractor (memo gr
     const mutant = extract(dir);
     const r = diffStackManifests(clean, mutant);
     const zod = r.moves.filter((m) => m.name === 'zod');
-    expect(zod.map((m) => `${m.class} ${m.from ?? '-'} -> ${m.to ?? '-'}`).sort()).toEqual(['unknown - -> main', 'unknown 4.6.5 -> -']);
+    // zod is a ROOT dependency: the root's own edge moved 4.6.5 -> main, one unorderable root pair
+    expect(zod.map((m) => `${m.class} ${m.from ?? '-'} -> ${m.to ?? '-'}`).sort()).toEqual(['unknown 4.6.5 -> main']);
     expect(zod.every((m) => m.approvalBlocked)).toBe(true);
     expect(r.moves.filter((m) => m.class !== 'unknown' && m.class !== 'spec-changed')).toEqual([]);
     expect(r.classification).toBe(STACK_DIFF_UNKNOWN_CLASSIFICATION);
@@ -1062,6 +1066,156 @@ describe('stack diff — L: the version the ROOT resolves to pairs first; other 
 });
 
 /* -------------------------------------------------------------------------- */
+/* M. root-edge version SETS are compared before the retained split            */
+/* -------------------------------------------------------------------------- */
+
+describe('stack diff — M: the versions the root reaches are compared as SETS, before the retained / one-sided split', () => {
+  const integ = (n: string, v: string): string => `sha512-${createHash('sha512').update(`${n}@${v}`).digest('base64')}`;
+  /** npm lockfile v3 through the REAL extractor. pkgs: lockfile path -> [name, version, deps?] */
+  function npmRepo(label: string, rootDeps: Record<string, string>, pkgs: Record<string, [string, string, Record<string, string>?]>): StackManifest {
+    const dir = tmp(label);
+    const pkg = { name: 'demo', version: '1.0.0', dependencies: rootDeps };
+    const packages: Record<string, unknown> = { '': pkg };
+    for (const [p, [name, version, deps]] of Object.entries(pkgs)) {
+      packages[p] = { version, resolved: `https://registry.example/${name}/-/${name}-${version}.tgz`, integrity: integ(name, version), ...(deps ? { dependencies: deps } : {}) };
+    }
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(pkg));
+    fs.writeFileSync(path.join(dir, 'package-lock.json'), JSON.stringify({ name: 'demo', version: '1.0.0', lockfileVersion: 3, requires: true, packages }));
+    return extract(dir);
+  }
+  /** pnpm-lock v9 workspace through the REAL extractor. importers: path -> dep -> [specifier, version]; pkgs: 'name@version' -> deps */
+  function pnpmRepo(label: string, importers: Record<string, Record<string, [string, string]>>, pkgs: Record<string, Record<string, string>>): StackManifest {
+    const dir = tmp(label);
+    fs.writeFileSync(path.join(dir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
+    const L: string[] = ["lockfileVersion: '9.0'", '', 'settings:', '  autoInstallPeers: true', '  excludeLinksFromLockfile: false', '', 'importers:', ''];
+    for (const [imp, deps] of Object.entries(importers)) {
+      const pd = imp === '.' ? dir : path.join(dir, imp);
+      fs.mkdirSync(pd, { recursive: true });
+      fs.writeFileSync(path.join(pd, 'package.json'), JSON.stringify({ name: imp === '.' ? 'ws-root' : path.basename(imp), version: '1.0.0', private: true, dependencies: Object.fromEntries(Object.entries(deps).map(([k, v]) => [k, v[0]])) }));
+      if (Object.keys(deps).length > 0) {
+        L.push(`  ${imp}:`, '    dependencies:');
+        for (const k of Object.keys(deps).sort()) L.push(`      ${k}:`, `        specifier: ${(deps[k] as [string, string])[0]}`, `        version: ${(deps[k] as [string, string])[1]}`);
+      } else L.push(`  ${imp}: {}`);
+      L.push('');
+    }
+    L.push('packages:', '');
+    for (const id of Object.keys(pkgs).sort()) L.push(`  '${id}':`, `    resolution: {integrity: ${integ(id, 'x')}}`, '');
+    L.push('snapshots:', '');
+    for (const id of Object.keys(pkgs).sort()) {
+      const deps = pkgs[id] as Record<string, string>;
+      if (Object.keys(deps).length > 0) L.push(`  '${id}':`, '    dependencies:', ...Object.keys(deps).sort().map((k) => `      ${k}: ${deps[k] as string}`));
+      else L.push(`  '${id}': {}`);
+      L.push('');
+    }
+    fs.writeFileSync(path.join(dir, 'pnpm-lock.yaml'), L.join('\n'));
+    return extract(dir);
+  }
+  const sig = (r: ReturnType<typeof diffStackManifests>): string[] =>
+    r.moves.filter((m) => m.name === 'x').map((m) => `${m.class} ${m.from ?? '-'} -> ${m.to ?? '-'}${m.copy ? ' (copy)' : ''}`);
+
+  it('T1 (npm): the root moves x 2.0.0 -> 1.0.0 while BOTH versions stay in the closure — backward, exit 2, alone and in company', () => {
+    const A = npmRepo('t1-a', { x: '^2.0.0', v: '^1.0.0', w: '^1.0.0' }, {
+      'node_modules/x': ['x', '2.0.0'],
+      'node_modules/v': ['v', '1.0.0', { x: '^2.0.0' }],
+      'node_modules/w': ['w', '1.0.0', { x: '^1.0.0' }],
+      'node_modules/w/node_modules/x': ['x', '1.0.0'],
+    });
+    const B = npmRepo('t1-b', { x: '^1.0.0', v: '^1.0.0', w: '^1.0.0' }, {
+      'node_modules/x': ['x', '1.0.0'],
+      'node_modules/v': ['v', '1.0.0', { x: '^2.0.0' }],
+      'node_modules/w': ['w', '1.0.0', { x: '^1.0.0' }],
+      'node_modules/v/node_modules/x': ['x', '2.0.0'],
+    });
+    expect(A.stackDigest).toBe(B.stackDigest); // the closure is identical: only the root's EDGE moved
+    const r = diffStackManifests(A, B);
+    expect(sig(r)).toEqual(['backward 2.0.0 -> 1.0.0']);
+    expect(r.moves).toHaveLength(1);
+    expect(r.moves[0]?.retained).toEqual(['1.0.0', '2.0.0']);
+    expect(r.moves[0]?.rootSpec).toEqual({ from: '^2.0.0', to: '^1.0.0' });
+    expect(r.classification).toBe('backward');
+    expect(stackDiffExitCode(r)).toBe(2);
+    // the mirror is forward, exit 0
+    const m = diffStackManifests(B, A);
+    expect(sig(m)).toEqual(['forward 1.0.0 -> 2.0.0']);
+    expect(stackDiffExitCode(m)).toBe(0);
+    // in company of an unrelated new copy x@3.0.0 the root row is the same
+    const C = npmRepo('t1-c', { x: '^1.0.0', v: '^1.0.0', w: '^1.0.0', u: '^1.0.0' }, {
+      'node_modules/x': ['x', '1.0.0'],
+      'node_modules/v': ['v', '1.0.0', { x: '^2.0.0' }],
+      'node_modules/w': ['w', '1.0.0', { x: '^1.0.0' }],
+      'node_modules/v/node_modules/x': ['x', '2.0.0'],
+      'node_modules/u': ['u', '1.0.0', { x: '^3.0.0' }],
+      'node_modules/u/node_modules/x': ['x', '3.0.0'],
+    });
+    expect(sig(diffStackManifests(A, C))).toEqual(['backward 2.0.0 -> 1.0.0', 'added - -> 3.0.0 (copy)']);
+  });
+
+  it('T2 (pnpm): two importers on x@2.0.0, one goes DOWN to 1.0.0 and one UP to 3.0.0 — unpairable, unknown, exit 2', () => {
+    const A = pnpmRepo('t2-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^2.0.0', '2.0.0'] } }, { 'x@2.0.0': {} });
+    const B = pnpmRepo('t2-b', { '.': {}, 'packages/app': { x: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^3.0.0', '3.0.0'] } }, { 'x@1.0.0': {}, 'x@3.0.0': {} });
+    const r = diffStackManifests(A, B);
+    expect(sig(r)).toEqual(['unknown 2.0.0 -> 1.0.0, 3.0.0']);
+    expect(r.moves.find((m) => m.name === 'x')?.reasons[0]).toContain('no importer identity');
+    expect(r.moves.find((m) => m.name === 'x')?.approvalBlocked).toBe(true);
+    expect(r.classification).toBe('unknown-potential-backward');
+    expect(stackDiffExitCode(r)).toBe(2);
+    // the mirror (two importers converge UP and DOWN onto one version) is unpairable too
+    expect(stackDiffExitCode(diffStackManifests(B, A))).toBe(2);
+  });
+
+  it('T6 (pnpm): an importer goes 2.0.0 -> 1.0.0 while another importer JOINS at 2.0.0 (so 2.0.0 is retained) — unknown, exit 2', () => {
+    const A = pnpmRepo('t6-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': {} }, { 'x@2.0.0': {} });
+    const B = pnpmRepo('t6-b', { '.': {}, 'packages/app': { x: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^2.0.0', '2.0.0'] } }, { 'x@1.0.0': {}, 'x@2.0.0': {} });
+    const r = diffStackManifests(A, B);
+    expect(sig(r)).toEqual(['unknown - -> 1.0.0']);
+    expect(r.moves.find((m) => m.name === 'x')?.reasons[0]).toContain('lower than the base root version 2.0.0');
+    expect(stackDiffExitCode(r)).toBe(2);
+  });
+
+  it('T3 / T4 / T5 controls: pairable root sets give direction rows; an importer that joins ABOVE every base root version is a plain added copy', () => {
+    const app2lib5 = pnpmRepo('t3-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^5.0.0', '5.0.0'] } }, { 'x@2.0.0': {}, 'x@5.0.0': {} });
+    const app1lib5 = pnpmRepo('t3-b', { '.': {}, 'packages/app': { x: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^5.0.0', '5.0.0'] } }, { 'x@1.0.0': {}, 'x@5.0.0': {} });
+    const t3 = diffStackManifests(app2lib5, app1lib5);
+    expect(sig(t3)).toEqual(['backward 2.0.0 -> 1.0.0']);
+    expect(stackDiffExitCode(t3)).toBe(2);
+    const app1lib6 = pnpmRepo('t5-b', { '.': {}, 'packages/app': { x: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^6.0.0', '6.0.0'] } }, { 'x@1.0.0': {}, 'x@6.0.0': {} });
+    const t5 = diffStackManifests(app2lib5, app1lib6);
+    expect(sig(t5)).toEqual(['backward 2.0.0 -> 1.0.0', 'forward 5.0.0 -> 6.0.0']);
+    expect(stackDiffExitCode(t5)).toBe(2);
+    const t4a = pnpmRepo('t4-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] } }, { 'x@2.0.0': {} });
+    const t4b = pnpmRepo('t4-b', { '.': {}, 'packages/app': { x: ['^1.0.0', '1.0.0'], w: ['^1.0.0', '1.0.0'] } }, { 'x@1.0.0': {}, 'x@3.0.0': {}, 'w@1.0.0': { x: '3.0.0' } });
+    const t4 = diffStackManifests(t4a, t4b);
+    expect(sig(t4)).toEqual(['backward 2.0.0 -> 1.0.0', 'added - -> 3.0.0 (copy)']);
+    expect(stackDiffExitCode(t4)).toBe(2);
+    // joins ABOVE: app stays on 2.0.0, lib newly depends on 3.0.0 — nothing the root had went down
+    const joinsUp = pnpmRepo('up-b', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^3.0.0', '3.0.0'] } }, { 'x@2.0.0': {}, 'x@3.0.0': {} });
+    const up = diffStackManifests(t4a, joinsUp);
+    expect(sig(up)).toEqual(['added - -> 3.0.0 (copy)']);
+    expect(stackDiffExitCode(up)).toBe(0);
+  });
+
+  it('a root pair that cannot be ordered is unknown; shuffled nodes[] / edges[] cannot move a report byte', () => {
+    const p = node('p', '1.0.0');
+    const xa = node('x', '1.0.0+a');
+    const xb = node('x', '1.0.0+b');
+    const A = manifest([p, xa, xb], [edge(APP, xa, '1.0.0'), edge(p, xb, '1.0.0')]);
+    const B = manifest([p, xa, xb], [edge(APP, xb, '1.0.0'), edge(p, xa, '1.0.0')]);
+    const r = diffStackManifests(A, B);
+    expect(r.moves.map((m) => `${m.class} ${m.from} -> ${m.to}`)).toEqual(['unknown 1.0.0+a -> 1.0.0+b']);
+    expect(stackDiffExitCode(r)).toBe(2);
+    const git = node('x', 'main');
+    const x1 = node('x', '1.0.0');
+    const G = diffStackManifests(manifest([p, git, x1], [edge(APP, git, 'main'), edge(p, x1, '^1.0.0')]), manifest([p, git, x1], [edge(APP, x1, '^1.0.0'), edge(p, git, 'main')]));
+    expect(G.moves.map((m) => `${m.class} ${m.from} -> ${m.to}`)).toEqual(['unknown main -> 1.0.0']);
+    expect(stackDiffExitCode(G)).toBe(2);
+    const t2a = pnpmRepo('sh-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^5.0.0', '5.0.0'] } }, { 'x@2.0.0': {}, 'x@5.0.0': {} });
+    const t2b = pnpmRepo('sh-b', { '.': {}, 'packages/app': { x: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^6.0.0', '6.0.0'] } }, { 'x@1.0.0': {}, 'x@6.0.0': {} });
+    const shuffle = (m: StackManifest): StackManifest => ({ ...m, nodes: permute(m.nodes), edges: permute(m.edges) });
+    expect(stableStringify(diffStackManifests(shuffle(t2a), shuffle(t2b)))).toBe(stableStringify(diffStackManifests(t2a, t2b)));
+  });
+});
+
+/* -------------------------------------------------------------------------- */
 /* I. images[] and runtime: real rows, never masked                            */
 /* -------------------------------------------------------------------------- */
 
@@ -1507,5 +1661,23 @@ describe('stack diff — H: the CLI takes manifests, refuses everything else, an
     const ok = run(FILE.base, FILE.head);
     expect(ok.code).toBe('0');
     expect(ok.stderr).not.toContain('EPIPE');
+  });
+  it.skipIf(process.platform === 'win32')('a LARGE fail-closed report reaches a SLOW consumer complete: the summary line and the exit code both survive (no process.exit before the pipe drains)', () => {
+    const cli = fs.existsSync(DIST_CLI) ? `${JSON.stringify(process.execPath)} ${JSON.stringify(DIST_CLI)}` : `${JSON.stringify(path.join(ROOT, 'node_modules', '.bin', 'tsx'))} ${JSON.stringify(SRC_CLI)}`;
+    const dir = tmp('drain');
+    const many = Array.from({ length: 4000 }, (_, i) => node(`pkg-with-a-deliberately-long-name-${String(i).padStart(5, '0')}`, '1.0.0'));
+    const fa = path.join(dir, 'a.json');
+    const fb = path.join(dir, 'b.json');
+    fs.writeFileSync(fa, stableStringify(manifest([node('x', '2.0.0')])));
+    fs.writeFileSync(fb, stableStringify(manifest([node('x', '1.0.0'), ...many])));
+    const captured = path.join(dir, 'stdout.txt');
+    const res = spawnSync('bash', ['-c', `${cli} stack diff --from ${JSON.stringify(fa)} --to ${JSON.stringify(fb)} --out ${JSON.stringify(path.join(dir, 'o.json'))} 2>/dev/null | (sleep 1; cat) > ${JSON.stringify(captured)}; echo "\${PIPESTATUS[0]}"`], { cwd: ROOT, encoding: 'utf8' });
+    expect(res.stdout.trim()).toBe('2');
+    const text = fs.readFileSync(captured, 'utf8');
+    expect(Buffer.byteLength(text)).toBeGreaterThan(256 * 1024); // far beyond any pipe buffer
+    const lines = text.trimEnd().split('\n');
+    expect(lines).toHaveLength(4001 + 2);
+    expect(lines[lines.length - 2]).toContain('classification backward');
+    expect(lines[lines.length - 1]).toMatch(/^wrote /);
   });
 });

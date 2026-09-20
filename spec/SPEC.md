@@ -864,12 +864,19 @@ re-derivation is a consistency check, not an authenticity check: the digests are
 **Join key and set matching.** npm rows join on `(kind, name)` — never on the node id
 `name@version`. A lockfile routinely holds several copies of one name. Per name, the versions present
 on both sides are **retained** and produce no row unless their identity differs. **The root's own
-resolution pairs first**: for a name the root node has an edge to on both sides (its own declared
-dependencies and, in a pnpm workspace, those of its importers — which `rootDeclared[]` does not
-list), the single version that edge resolves to on A and on B is one pair when they differ (a root that moves from `x@2.0.0` to `x@1.0.0`
-is `backward`, even while a new dependency nests `x@3.0.0` — that copy is then `added`); an unchanged
-root resolution produces no row of its own; a name the root has an edge to on one side only, or
-resolves to several versions of, falls back to plain set matching. The remaining versions present on one side only are sorted by (SemVer 2.0.0 §11
+resolution comes first, as a comparison of SETS, before the retained / one-sided split.** Per name,
+`rootA` and `rootB` are the sets of versions the root node's edges resolve to on each side (its own
+declared dependencies and, in a pnpm workspace, those of its importers — which `rootDeclared[]` does
+not list). *dropped-by-root* = `rootA − rootB`, *new-to-root* = `rootB − rootA`. Both empty: no root
+row. Equal in number: they pair from the top and each pair is one `forward` / `backward` row **even
+when both versions are retained in the closure** — a root that moves from `x@2.0.0` to `x@1.0.0`
+while another dependent keeps `2.0.0` alive changes no node at all and is still `backward`, exit
+**2**. Not equal in number (an importer joined, left, or two importers on one version diverged): the
+edges carry no importer identity, so which importer moved cannot be read; when some new-to-root
+version is lower than some version the root reached on the base side the row is `unknown` and
+blocks, otherwise no root row is written. A root pair that is non-semver or precedence-equal is
+`unknown`. Versions consumed by a root row leave the pool; everything else set-matches as below.
+The remaining versions present on one side only are sorted by (SemVer 2.0.0 §11
 precedence, full version string) and **paired from the top**: highest dropped with highest new, and so
 on. Each pair is `forward` or `backward`.
 Leftover dropped versions are `removed` copies and leftover new versions are `added` copies; such a
@@ -903,7 +910,10 @@ the two views must be named by a digest-bearing row **of the same sub-view**. An
 listed in `unexplained` (`<view>:<key>`), `unexplainedDigestChange` is `true`, the classification is
 `unknown-potential-backward` and the exit code is **2**. A node row never explains an image, runtime
 or unmodeled change, and a `spec-changed` row explains nothing. The digests in the report are
-re-derived from the hashed view; the recorded `stackDigest` field is never read.
+re-derived from the hashed view; the recorded `stackDigest` field is never read. The root rows above
+read `edges[]`, which is quarantined out of `stackDigest`: two manifests with one digest can
+therefore get different verdicts. `manifestDigest` covers `edges[]`, and both digests are unkeyed
+consistency checks — the extractor is what vouches for the edges that decide a root direction.
 
 **The root.** The root node is compared apart from the closure and joined on its name. Its OWN
 version is quarantined out of the digest, so two manifests that differ only in the root version are
