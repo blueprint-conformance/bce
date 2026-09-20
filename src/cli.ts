@@ -59,7 +59,7 @@ import { evaluate, routeGuardEvidenceLimit, stableStringify, type ComplianceRepo
 import { assessTeeth, type TeethReport } from './teeth.js';
 import { assessExtractorTeethCorpus, buildSourceReviewProof } from './extractor-teeth.js';
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
-import { resolveRevision, materializeAtRevision } from './pin.js';
+import { resolveRevision, materializeAtRevision, listTreeKnowledge } from './pin.js';
 import { extractStackManifest } from './stack/stack-extractor.js';
 import { discoverBlueprints, runGate, assembleGateReportDoc } from './gate.js';
 import {
@@ -2245,19 +2245,25 @@ async function main(): Promise<void> {
     let tree: string;
     let revision: string;
     let cleanup: (() => void) | null = null;
+    // what git tracks (and which directories are gitlinks) at the revision being read, so the image
+    // walk's nested-checkout rule is the same for a pinned tree and a working tree; null when
+    // --ct-repo is not a git repository (the walk then falls back to the `.git` marker alone)
+    let knowledge: ReturnType<typeof listTreeKnowledge> = null;
     if (noPin) {
       tree = ctRepo;
       revision = ref || 'unpinned';
+      knowledge = listTreeKnowledge(ctRepo);
     } else {
       // same pin discipline as scan/run: an explicit 40-hex sha passes through; otherwise the ref
       // resolves worktree-scoped (HEAD default), never origin/main implicitly.
       const sha = /^[0-9a-f]{40}$/.test(ref ?? '') ? (ref as string) : resolveRevision(ctRepo, ref ?? 'HEAD');
       tree = materializeAtRevision(ctRepo, sha);
       revision = sha;
+      knowledge = listTreeKnowledge(ctRepo, sha);
       cleanup = () => fs.rmSync(tree, { recursive: true, force: true });
     }
     try {
-      const { manifest, refusals } = extractStackManifest(tree, revision);
+      const { manifest, refusals } = extractStackManifest(tree, revision, 'npm-lockfile', knowledge ?? undefined);
       if (refusals.length > 0) {
         for (const r of refusals) process.stderr.write(`::error::${r}\n`);
         die(`stack snapshot REFUSED: ${refusals.length} refusal(s) — no manifest written (revision ${revision})`, 2);

@@ -105,3 +105,29 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
   }
   return dest;
 }
+
+/**
+ * What git knows about a tree — the caller-side half of the stack extractor's nested-checkout rule.
+ * `sha` given: the entries of that commit (`git ls-tree -r`); absent: the index of the working tree
+ * (`git ls-files --stage`). Gitlinks (mode 160000, submodules) are listed apart from tracked files.
+ * Returns null when `repoDir` is not a git repository, so a plain directory is still readable.
+ */
+export function listTreeKnowledge(repoDir: string, sha?: string): { tracked: Set<string>; gitlinks: string[] } | null {
+  const args = sha ? ['ls-tree', '-r', '-z', sha] : ['ls-files', '--stage', '-z'];
+  const res = spawnSync('git', ['-C', repoDir, ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+  if (res.error || res.status !== 0) return null;
+  const tracked = new Set<string>();
+  const gitlinks: string[] = [];
+  for (const rec of res.stdout.split('\0')) {
+    if (rec === '') continue;
+    // ls-tree: `<mode> <type> <sha>\t<path>`   ls-files --stage: `<mode> <sha> <stage>\t<path>`
+    const tabAt = rec.indexOf('\t');
+    if (tabAt === -1) continue;
+    const mode = rec.slice(0, 6);
+    const rel = rec.slice(tabAt + 1);
+    if (mode === '160000') gitlinks.push(rel);
+    else tracked.add(rel);
+  }
+  gitlinks.sort();
+  return { tracked, gitlinks };
+}

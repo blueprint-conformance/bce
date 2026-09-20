@@ -1347,3 +1347,84 @@ describe('stack pnpm — group 9: block-scalar bodies, the dependency-free proje
     for (const [text, line, reason] of cases) expect(readPnpmLock(text, ROOT_ID).refusals).toEqual([stackRefusalPnpmSubset(line, reason)]);
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/* 10. review round 2 — link-only workspaces, block-scalar bodies in opaque hashes */
+/* -------------------------------------------------------------------------- */
+
+describe('stack pnpm — group 10: a link-only workspace is not hollow; block-scalar bodies keep their shape', () => {
+  const REAL = path.join(ROOT, 'fixtures', 'stack', 'pnpm-v9-real-shapes');
+  const readFixture = (name: string) => extractStackManifest(path.join(REAL, name), REVISION);
+
+  it('D4-1a: a REAL pnpm-written workspace whose only dependencies are workspace: links (no packages, no snapshots by construction) is ACCEPTED', () => {
+    for (const name of ['link-only', 'injected']) {
+      const r = readFixture(name);
+      expect(r.refusals, name).toEqual([]);
+      expect(r.manifest.nodes.filter((n) => n.kind === 'npm').map((n) => n.id)).toEqual([`npm:synth-${name}@1.0.0`]);
+      expect(r.manifest.coverage.unsupported).toContain(STACK_COVERAGE_PNPM_DEPENDENCY_FREE);
+      expect(r.manifest.coverage.unsupported).toContain(STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS);
+    }
+    const linkOnly = readFixture('link-only').manifest;
+    // the links are HASHED opaque entries: nothing was lost, and a different link target is a different closure
+    expect(linkOnly.unmodeled.map((u) => `${u.reason}:${u.key}`)).toEqual(['link:importers/packages/a/dependencies/b', 'link:importers/packages/b/dependencies/a']);
+    expect(readFixture('injected').manifest.unmodeled.map((u) => u.key)).toEqual(['importers/packages/a/dependencies/b']);
+    expect(linkOnly.stackDigest).not.toBe(readFixture('injected').manifest.stackDigest);
+    const moved = fs.readFileSync(path.join(REAL, 'link-only', 'pnpm-lock.yaml'), 'utf8').replace('version: link:../a', 'version: link:../other');
+    const r2 = extractStackManifest(treeWith('link-moved', moved, { name: 'synth-link-only', version: '1.0.0' }), REVISION);
+    expect(r2.refusals).toEqual([]);
+    expect(r2.manifest.stackDigest).not.toBe(linkOnly.stackDigest);
+  });
+
+  it('D4-1a negative control: ONE registry dependency declared with no packages is still a LOST closure — hollow, exit 2, nothing written', () => {
+    const r = readFixture('link-plus-registry');
+    expect(r.refusals).toEqual([stackRefusalPnpmHollow("no 'packages' mapping"), STACK_REFUSAL_NO_LOCKFILE]);
+    const out = path.join(tmp('link-plus-out'), 'm.json');
+    const cli = runCli(['stack', 'snapshot', '--ct-repo', path.join(REAL, 'link-plus-registry'), '--no-pin', '--out', out], ROOT);
+    expect(cli.status).toBe(2);
+    expect(cli.stderr).toContain(stackRefusalPnpmHollow("no 'packages' mapping"));
+    expect(fs.existsSync(out)).toBe(false);
+    // a link-shaped specifier with a NON-link resolved value, or the reverse, is what decides: the RESOLVED value or a workspace: range
+    const head = "lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n";
+    expect(readPnpmLock(`${head}      a:\n        specifier: workspace:*\n        version: link:../a\n`, { name: 'r', version: '1.0.0' }).refusals).toEqual([]);
+    expect(readPnpmLock(`${head}      a:\n        specifier: ^1.0.0\n        version: 1.0.0\n`, { name: 'r', version: '1.0.0' }).refusals).toEqual([stackRefusalPnpmHollow("no 'packages' mapping")]);
+    expect(readPnpmLock(`${head}      a:\n        specifier: file:../a\n        version: file:../a\n`, { name: 'r', version: '1.0.0' }).refusals).toEqual([stackRefusalPnpmHollow("no 'packages' mapping")]);
+    // the real CLI accepts the link-only workspace: exit 0, root-only closure plus the two hashed links
+    const ok = runCli(['stack', 'snapshot', '--ct-repo', path.join(REAL, 'link-only'), '--no-pin', '--out', path.join(tmp('link-only-out'), 'm.json')], ROOT);
+    expect(ok.status).toBe(0);
+  });
+
+  describe('a block-scalar body in a HASHED opaque position keeps interior blank lines and relative indentation', () => {
+    const digest = (text: string): string => {
+      const r = extractStackManifest(treeWith('blk', text, { name: 'r', version: '1.0.0' }), REVISION);
+      expect(r.refusals).toEqual([]);
+      return r.manifest.stackDigest;
+    };
+    const H = `sha512-${'A'.repeat(86)}==`;
+    const base = (extra: string, tail = ''): string =>
+      `lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}\npackages:\n  a@1.0.0:\n    resolution: {integrity: ${H}}\n${extra}snapshots:\n  a@1.0.0: {}\n${tail}`;
+    const three = (mk: (body: string) => string): void => {
+      const a = digest(mk('alpha\n\n      beta'));
+      const b = digest(mk('alpha\n      beta'));
+      const c = digest(mk('alpha\n        beta'));
+      expect(new Set([a, b, c]).size).toBe(3);
+    };
+    it('a git / non-registry package entry', () => three((body) => base(`  g@https://host/g/tar.gz/abc:\n    resolution: {tarball: https://host/g/tar.gz/abc}\n    version: 1.0.0\n    deprecated: |-\n      ${body}\n`, '  g@https://host/g/tar.gz/abc: {}\n')));
+    it('a patchedDependencies entry', () => three((body) => base('', `patchedDependencies:\n  a@1.0.0:\n    hash: abc123\n    path: |-\n      ${body}\n`)));
+    it('an unread top-level section', () => three((body) => base('', `futureSection:\n  note: |-\n    ${body.replace(/\n {6}/g, '\n    ').replace(/\n {8}/g, '\n      ')}\n`)));
+    it('the raw shape is what the reader keeps: relative indentation, interior blank lines, no trailing blank lines, right-trimmed', () => {
+      const doc = parsePnpmLockSubset('a: |-\n    first  \n\n      indented\n    last\n\n\nb: 1\n');
+      expect((doc.get('a') as PnpmBlockScalar).text).toBe('first\n\n  indented\nlast');
+      expect(doc.get('b')).toBe('1');
+      // a body line LESS indented than the first body line (but still inside the scalar) keeps no negative indent
+      expect((parsePnpmLockSubset('a: |-\n      deep\n    shallow\n').get('a') as PnpmBlockScalar).text).toBe('deep\nshallow');
+    });
+  });
+
+  it('indentation counts SPACES only: a tab-led line with fewer spaces than the body is structure (a refusal), not body text', () => {
+    const H = `sha512-${'A'.repeat(86)}==`;
+    const text = `lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n      a: {specifier: ^1.0.0, version: 1.0.0}\npackages:\n  a@1.0.0:\n    resolution: {integrity: ${H}}\n    deprecated: |-\n      body line\n    \tnot body: fewer spaces than the body\nsnapshots:\n  a@1.0.0: {}\n`;
+    expect(readPnpmLock(text, { name: 'r', version: '1.0.0' }).refusals).toEqual([stackRefusalPnpmSubset(11, 'tab indentation')]);
+    // …while the same tab-led line WITH the body's spaces is body text
+    expect(readPnpmLock(text.replace('    \tnot body', '      \tis body'), { name: 'r', version: '1.0.0' }).refusals).toEqual([]);
+  });
+});

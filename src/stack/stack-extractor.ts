@@ -106,9 +106,21 @@ export function stackRefusalLockfileVersion(version: unknown): string {
   return `lockfileVersion ${typeof version === 'number' ? String(version) : JSON.stringify(version) ?? 'undefined'} is not 3: npm v1/v2 lockfiles are refused (their 'dependencies' tree is not a closure map); regenerate with npm >= 7`;
 }
 
+/**
+ * What the CALLER knows about the tree from git (this module never runs git). With it, the
+ * nested-checkout decision is a property of the REVISION and identical for a pinned tree and a
+ * working tree; without it, the walk falls back to the `.git` marker alone (host state).
+ */
+export interface StackTreeKnowledge {
+  /** every path git tracks at this revision (blob and symlink entries), relative, `/`-separated */
+  tracked: ReadonlySet<string>;
+  /** every gitlink (submodule) entry at this revision — a directory that is another repository's tree */
+  gitlinks: readonly string[];
+}
+
 export interface StackFactsExtractor {
   readonly source: 'npm-lockfile';
-  extract(repoDir: string, revision: string): StackExtractionResult;
+  extract(repoDir: string, revision: string, knowledge?: StackTreeKnowledge): StackExtractionResult;
 }
 
 export interface StackExtractionResult {
@@ -613,7 +625,7 @@ function isComposeName(base: string): boolean {
 }
 
 /** Bounded, sorted walk for Dockerfiles + compose files (depth ≤ 3, build/dep dirs excluded). */
-export function findImageFiles(root: string): {
+export function findImageFiles(root: string, knowledge?: StackTreeKnowledge): {
   dockerfiles: string[];
   composeFiles: string[];
   /** symlinks NAMED like an image file — a refusal */
@@ -630,6 +642,19 @@ export function findImageFiles(root: string): {
   const symlinksNotFollowed: string[] = [];
   const nestedCheckouts: string[] = [];
   let depthCut = false;
+  const trackedUnder = (rel: string): boolean => {
+    if (!knowledge) return false;
+    const prefix = `${rel}/`;
+    for (const t of knowledge.tracked) if (t.startsWith(prefix)) return true;
+    return false;
+  };
+  const gitlinkSet = new Set(knowledge?.gitlinks ?? []);
+  // A gitlink names another repository's tree whether or not it is present on disk (a pinned tree
+  // from `git archive` has no submodule contents at all): declare it from the revision, not the walk
+  for (const rel of gitlinkSet) {
+    const segs = rel.split('/');
+    if (segs.length <= MAX_IMAGE_FILE_DEPTH && !segs.some((sg) => IMAGE_FILE_EXCLUDE.has(sg))) nestedCheckouts.push(rel);
+  }
   const walk = (dir: string, rel: string, depth: number): void => {
     let entries: fs.Dirent[];
     try {
@@ -639,10 +664,17 @@ export function findImageFiles(root: string): {
     }
     // a directory below the root carrying its own `.git` (dir or gitlink file) is ANOTHER repository's
     // tree — a worktree, a clone, a submodule. A pinned tree (git archive) never contains one; an
-    // unpinned working tree must not count its images into this repository's closure.
-    if (depth > 0 && entries.some((e) => e.name === '.git')) {
-      nestedCheckouts.push(rel);
-      return;
+    // unpinned working tree must not count its images into this repository's closure. When the caller
+    // knows what git tracks, the marker alone decides NOTHING that the pinned view would not also see:
+    // a gitlink is skipped in both views, and a stray `.git` beside files this repository tracks is
+    // ignored (those files ARE this repository's tree). Without that knowledge the marker decides.
+    if (depth > 0) {
+      const marker = entries.some((e) => e.name === '.git');
+      const nested = gitlinkSet.has(rel) || (marker && (knowledge ? !trackedUnder(rel) : true));
+      if (nested) {
+        if (!gitlinkSet.has(rel)) nestedCheckouts.push(rel);
+        return;
+      }
     }
     for (const e of [...entries].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
       const r = rel ? `${rel}/${e.name}` : e.name;
@@ -696,7 +728,7 @@ function normalizeRuntime(raw: string): string {
 export class NpmLockfileStackExtractor implements StackFactsExtractor {
   readonly source = 'npm-lockfile' as const;
 
-  extract(repoDir: string, revision: string): StackExtractionResult {
+  extract(repoDir: string, revision: string, knowledge?: StackTreeKnowledge): StackExtractionResult {
     const sources: StackSource[] = [];
     const nodes: StackNode[] = [];
     const edges: StackEdge[] = [];
@@ -896,7 +928,7 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
     }
 
     // ---- images: Dockerfile FROM + compose image: ----
-    const { dockerfiles, composeFiles, symlinks, symlinksNotFollowed, nestedCheckouts, depthCut } = findImageFiles(repoDir);
+    const { dockerfiles, composeFiles, symlinks, symlinksNotFollowed, nestedCheckouts, depthCut } = findImageFiles(repoDir, knowledge);
     for (const rel of symlinksNotFollowed) unsupported.add(stackCoverageSymlinkNotFollowed(rel));
     for (const rel of nestedCheckouts) unsupported.add(stackCoverageNestedCheckout(rel));
     for (const rel of symlinks) refuse(stackRefusalSymlink(rel));
@@ -957,10 +989,15 @@ export const STACK_EXTRACTOR_PROVIDERS: readonly { source: StackFactsExtractor['
   ]);
 
 /** Front door: extract the stack manifest of a materialized tree. LOUD on an unregistered source. */
-export function extractStackManifest(repoDir: string, revision: string, source: StackFactsExtractor['source'] = 'npm-lockfile'): StackExtractionResult {
+export function extractStackManifest(
+  repoDir: string,
+  revision: string,
+  source: StackFactsExtractor['source'] = 'npm-lockfile',
+  knowledge?: StackTreeKnowledge,
+): StackExtractionResult {
   const provider = STACK_EXTRACTOR_PROVIDERS.find((p) => p.source === source);
   if (!provider) {
     throw new Error(`no stack extractor provider registered for source '${source}' — STACK_EXTRACTOR_PROVIDERS (stack-extractor.ts) is widen-only`);
   }
-  return provider.make().extract(repoDir, revision);
+  return provider.make().extract(repoDir, revision, knowledge);
 }

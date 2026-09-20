@@ -40,7 +40,7 @@ export const STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS =
   "pnpm workspace importers other than '.' have no locked identity: they are not nodes and their direct-dependency edges are attributed to the root node";
 
 export const STACK_COVERAGE_PNPM_DEPENDENCY_FREE =
-  'pnpm-lock declares no dependency on any importer and carries no packages: the declared closure is the root package alone';
+  'pnpm-lock declares no registry dependency on any importer and carries no packages: the declared closure is the root package (plus any workspace link entries) alone';
 
 /** A v9 lockfile that describes no closure: exit 2, nothing written — never a green root-only manifest. */
 export function stackRefusalPnpmHollow(why: string): string {
@@ -108,6 +108,8 @@ interface Line {
   tab: boolean;
   /** `#`-led: skipped as structure, kept as content inside a block-scalar body */
   comment: boolean;
+  /** an empty / whitespace-only line: skipped as structure, kept (as an empty line) inside a block-scalar body */
+  blank: boolean;
 }
 
 function toLines(source: string): Line[] {
@@ -116,7 +118,10 @@ function toLines(source: string): Line[] {
   for (let i = 0; i < raw.length; i++) {
     const full = raw[i] ?? '';
     const no = i + 1;
-    if (full.trim() === '') continue;
+    if (full.trim() === '') {
+      out.push({ no, indent: 0, text: '', tab: false, comment: false, blank: true });
+      continue;
+    }
     const spaces = /^ */.exec(full)?.[0].length ?? 0;
     const lead = /^[ \t]*/.exec(full)?.[0] ?? '';
     const tab = lead.includes('\t');
@@ -126,7 +131,7 @@ function toLines(source: string): Line[] {
     if (lead.length === 0 && (text === '---' || text.startsWith('--- ') || text === '...' || text.startsWith('%'))) {
       throw new PnpmLockSubsetError(no, 'document marker or directive (multi-document stream)');
     }
-    out.push({ no, indent: spaces, text, tab, comment: !tab && text.startsWith('#') });
+    out.push({ no, indent: spaces, text, tab, comment: !tab && text.startsWith('#'), blank: false });
   }
   return out;
 }
@@ -289,7 +294,7 @@ class SubsetParser {
 
   /** The next STRUCTURAL line: comments are skipped, a tab-led line is the fixed refusal. */
   private peek(): Line | undefined {
-    while (this.lines[this.i]?.comment) this.i++;
+    while (this.lines[this.i]?.comment || this.lines[this.i]?.blank) this.i++;
     const line = this.lines[this.i];
     if (line?.tab) throw new PnpmLockSubsetError(line.no, 'tab indentation');
     return line;
@@ -343,16 +348,25 @@ class SubsetParser {
     const head = rest[0] ?? '';
     if (head === '|' || head === '>') {
       if (!/^[|>][+-]?\d?$/.test(rest)) throw new PnpmLockSubsetError(line.no, 'malformed block scalar header');
-      const body: string[] = [];
+      // RAW lines, not peek(): inside a block scalar a `#`-led line, a line whose content starts with a
+      // TAB and a blank line are ordinary text. The body keeps every line's indentation RELATIVE to its
+      // first line and every interior blank line, so two different notices never hash alike inside an
+      // opaque whole-entry hash; trailing blank lines are dropped (they belong to the file's layout,
+      // not to the scalar). Never folded, never clipped otherwise — and never read as an identity.
+      const body: Line[] = [];
       for (;;) {
-        // RAW lines, not peek(): inside a block scalar a `#`-led line and a line whose content starts
-        // with a TAB are ordinary text (blank lines are not kept — the body is opaque, never an identity)
         const l = this.lines[this.i];
-        if (!l || l.indent <= line.indent) break;
-        body.push(l.text);
+        if (!l) break;
+        if (!l.blank && l.indent <= line.indent) break;
+        body.push(l);
         this.i++;
       }
-      return new PnpmBlockScalar(body.join('\n')); // never a string: no identity position reads it
+      while (body.length > 0 && body[body.length - 1]!.blank) {
+        body.pop();
+        this.i--;
+      }
+      const bodyIndent = body.find((l) => !l.blank)?.indent ?? 0;
+      return new PnpmBlockScalar(body.map((l) => (l.blank ? '' : `${' '.repeat(Math.max(0, l.indent - bodyIndent))}${l.text}`)).join('\n'));
     }
     let value: PnpmYamlValue;
     if (head === '{' || head === '[' || head === "'" || head === '"') {
@@ -856,10 +870,22 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
   // and `packages` / `snapshots` are absent or empty: the closure then IS the root alone. One declared
   // dependency anywhere with no `packages` is still a hollow lockfile — a closure that was lost.
   const absentOrEmpty = (v: PnpmYamlValue | undefined): boolean => v === undefined || v === null || (isMap(v) && v.size === 0);
+  // D4-1a: a `link:` / `workspace:` dependency has NO packages entry by construction (pnpm writes a
+  // link-only workspace with importers alone), so its presence is not evidence of a lost closure —
+  // it is already a HASHED opaque entry above. Only a declared dependency that WOULD need a packages
+  // entry (anything else) makes an absent `packages` a hollow lockfile.
+  const isLinkDep = (d: PnpmYamlValue | undefined): boolean =>
+    isMap(d) && ((isStr(d.get('version')) && (d.get('version') as string).startsWith('link:')) || (isStr(d.get('specifier')) && (d.get('specifier') as string).startsWith('workspace:')));
+  const declaresNonLink = (imp: PnpmYamlValue | undefined): boolean =>
+    isMap(imp) &&
+    IMPORTER_BUCKETS.some((b) => {
+      const deps = imp.get(b.key);
+      return isMap(deps) && [...deps.values()].some((d) => !isLinkDep(d));
+    });
   const dependencyFree =
     isMap(importersRaw) &&
     importers.size > 0 &&
-    [...importers.values()].every((imp) => isMap(imp) && IMPORTER_BUCKETS.every((b) => absentOrEmpty(imp.get(b.key)))) &&
+    [...importers.values()].every((imp) => isMap(imp) && !declaresNonLink(imp)) &&
     absentOrEmpty(packagesRaw) &&
     absentOrEmpty(snapshotsRaw);
   if (dependencyFree) unsupported.add(STACK_COVERAGE_PNPM_DEPENDENCY_FREE);

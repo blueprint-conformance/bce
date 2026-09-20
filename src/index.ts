@@ -98,7 +98,7 @@ export type { TeethMutationManifest, ExtractorTeethReport, ExtractorTeethCaseRes
 export { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 export type { TeethWaiver } from './teeth-waiver.js';
 
-export { resolveRevision, materializeAtRevision } from './pin.js';
+export { resolveRevision, materializeAtRevision, listTreeKnowledge } from './pin.js';
 
 // The stack plane (slice 1): the declared dependency closure as a content-addressed StackManifest.
 // A SEPARATE seam from RepositoryFactsExtractor — a lockfile is not an ArchitectureGraph.
@@ -165,7 +165,7 @@ export {
   STACK_COVERAGE_DECLARED_NOT_INSTALLED,
   STACK_COVERAGE_NO_IMAGES,
 } from './stack/stack-extractor.js';
-export type { StackFactsExtractor, StackExtractionResult, ParsedImageRef } from './stack/stack-extractor.js';
+export type { StackFactsExtractor, StackExtractionResult, ParsedImageRef, StackTreeKnowledge } from './stack/stack-extractor.js';
 // pnpm-lock.yaml v9 — a second SOURCE of the same node shape, read by a hand-rolled YAML-subset reader (no YAML library).
 export {
   readPnpmLock,

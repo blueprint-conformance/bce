@@ -57,6 +57,7 @@ import {
   findImageFiles,
   deriveFromLockfileV3,
 } from '../src/stack/stack-extractor.js';
+import { listTreeKnowledge } from '../src/pin.js';
 import { stackRefusalPnpmLockfileVersion, stackRefusalPnpmHollow } from '../src/stack/pnpm-lock-reader.js';
 
 const ROOT = path.join(__dirname, '..');
@@ -970,17 +971,72 @@ describe('stack slice 1 — images and runtime hygiene', () => {
         'vendor/clone/.git/HEAD': 'ref: refs/heads/main\n',
         'vendor/clone/Dockerfile': 'FROM other:3\n',
         'services/api/Dockerfile': 'FROM node:22-slim\n', // an ordinary nested directory IS walked
+        'tools/.git': 'gitdir: /elsewhere\n', // a checkout DIRECTLY under the root (depth 1)
+        'tools/Dockerfile': 'FROM other:4\n',
       },
     });
     const m = extractStackManifest(d, 'unpinned').manifest;
     expect(m.images.map((i) => i.ref).sort()).toEqual(['node:22', 'node:22-slim']);
-    expect(m.coverage.unsupported).toEqual(expect.arrayContaining([stackCoverageNestedCheckout('.worktrees/a'), stackCoverageNestedCheckout('vendor/clone')]));
-    expect(findImageFiles(d).nestedCheckouts).toEqual(['.worktrees/a', 'vendor/clone']);
+    expect(m.coverage.unsupported).toEqual(
+      expect.arrayContaining([stackCoverageNestedCheckout('.worktrees/a'), stackCoverageNestedCheckout('vendor/clone'), stackCoverageNestedCheckout('tools')]),
+    );
+    expect(findImageFiles(d).nestedCheckouts).toEqual(['.worktrees/a', 'tools', 'vendor/clone']);
     // the repository's OWN .git at the root is not a nested checkout
     fs.mkdirSync(path.join(plain, '.git'));
     const p = extractStackManifest(plain, 'unpinned').manifest;
     expect(p.images.map((i) => i.ref)).toEqual(['node:22']);
     expect(p.coverage.unsupported.filter((l) => l.startsWith('nested git checkout'))).toEqual([]);
+  });
+
+  it('the nested-checkout rule is a property of the REVISION when git is consulted: a pinned tree and a working tree agree on digest AND coverage', () => {
+    const git = (repo: string, ...a: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.email=t@example.com', '-c', 'user.name=t', ...a], { encoding: 'utf8' }).trim();
+    const mkRepo = (label: string): string => {
+      const repo = synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n', 'services/api/Dockerfile': 'FROM node:22-slim\n' } });
+      git(repo, 'init', '-q', '-b', 'main');
+      git(repo, 'add', '-A');
+      git(repo, 'commit', '-q', '-m', label);
+      return repo;
+    };
+    const both = (repo: string) => {
+      const run = (extra: string[]) => {
+        const out = path.join(tmp('views-out'), 'm.json');
+        const cli = runCli(['stack', 'snapshot', '--ct-repo', repo, ...extra, '--out', out], ROOT);
+        expect(cli.stderr).toBe('');
+        const m = parseStackManifest(JSON.parse(fs.readFileSync(out, 'utf8')));
+        return { digest: m.stackDigest, refs: m.images.map((i) => i.ref).sort(), nested: m.coverage.unsupported.filter((l) => l.startsWith('nested git checkout')) };
+      };
+      const pinned = run([]);
+      const unpinned = run(['--no-pin']);
+      expect(unpinned).toEqual(pinned);
+      return pinned;
+    };
+    // (a) an UNTRACKED empty `.git` directory and (b) an UNTRACKED garbage `.git` file beside a TRACKED Dockerfile: the
+    // tracked files are this repository's tree, so both views read them and neither declares a nested checkout
+    const a = mkRepo('tracked-under-stray-marker');
+    fs.mkdirSync(path.join(a, 'services', 'api', '.git'));
+    fs.writeFileSync(path.join(a, 'services', '.git'), 'not a gitlink\n');
+    expect(both(a)).toEqual({ digest: expect.any(String), refs: ['node:22', 'node:22-slim'], nested: [] });
+    // (c) a real gitlink (submodule entry) whose working-tree contents are NOT this repository's: git archive has no
+    // submodule tree, so the pinned walk cannot see it — the coverage line comes from the gitlink itself
+    const c = mkRepo('with-submodule');
+    git(c, 'update-index', '--add', '--cacheinfo', `160000,${'0'.repeat(39)}1,deps/sub`);
+    git(c, 'commit', '-q', '-m', 'add gitlink');
+    fs.mkdirSync(path.join(c, 'deps', 'sub'), { recursive: true });
+    fs.writeFileSync(path.join(c, 'deps', 'sub', '.git'), 'gitdir: ../../.git/modules/sub\n');
+    fs.writeFileSync(path.join(c, 'deps', 'sub', 'Dockerfile'), 'FROM submodule/base:1\n');
+    const r = both(c);
+    expect(r.refs).toEqual(['node:22', 'node:22-slim']);
+    expect(r.nested).toEqual([stackCoverageNestedCheckout('deps/sub')]);
+    // (d) the library sees the same rule through the knowledge object the CLI derives from git
+    const k = listTreeKnowledge(c)!;
+    expect(k.gitlinks).toEqual(['deps/sub']);
+    expect(k.tracked.has('services/api/Dockerfile')).toBe(true);
+    const lib = extractStackManifest(c, 'unpinned', 'npm-lockfile', k).manifest;
+    expect(lib.stackDigest).toBe(r.digest);
+    expect(listTreeKnowledge(c, git(c, 'rev-parse', 'HEAD'))!.gitlinks).toEqual(['deps/sub']);
+    expect(listTreeKnowledge(tmp('not-a-repo'))).toBeNull();
+    // without knowledge the marker alone decides (a plain directory, no git): the stray marker in (a) hides the image
+    expect(extractStackManifest(a, 'unpinned').manifest.images.map((i) => i.ref)).toEqual(['node:22']);
   });
 
   it('hashed images are a SET: the same ref declared again (second Dockerfile, second compose service) keeps the digest; the manifest keeps every declaration', () => {
