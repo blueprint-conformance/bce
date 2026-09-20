@@ -46,6 +46,8 @@ import { materializeAtRevision } from '../src/pin.js';
 import {
   finalizeStackManifest,
   parseStackManifest,
+  computeManifestDigest,
+  computeCanonicalManifestDigest,
   stackNodeId,
   verifyStackManifest,
   type StackEdge,
@@ -1391,6 +1393,147 @@ describe('stack diff — M: the versions the root reaches are compared as SETS, 
     const cli = runCli(['stack', 'diff', '--from', fa, '--to', fb, '--out', out], ROOT);
     expect(cli.status, cli.stderr).toBe(0);
     expect(JSON.parse(fs.readFileSync(out, 'utf8')).manifestDigest).toEqual({ from: A.manifestDigest, to: B.manifestDigest });
+  });
+
+  it('P6-m1: an identical-with-field report is byte-stable under EVERY input array order, and a manifest against a re-ordered copy of itself shows no field (CX8 shape and C7 reversed)', () => {
+    const X = (...vs: string[]): Record<string, Record<string, string>> => Object.fromEntries(vs.map((v) => [`x@${v}`, {}]));
+    /** every array of the manifest re-ordered; the recorded digests RE-DERIVED for the new byte order, as any honest writer would */
+    const reorder = (m: StackManifest): StackManifest => {
+      const { manifestDigest, ...rest } = m;
+      void manifestDigest;
+      const body = {
+        ...rest,
+        sources: permute(m.sources),
+        nodes: permute(m.nodes).map((n) => ({ ...n, layout: permute(n.layout) })),
+        edges: permute(m.edges),
+        images: permute(m.images),
+        rootDeclared: permute(m.rootDeclared),
+        unmodeled: permute(m.unmodeled),
+        // a coverage line written twice says nothing new: the canonical form holds each line once
+        coverage: { ...m.coverage, unsupported: permute([...m.coverage.unsupported, m.coverage.unsupported[0] as string]) },
+      };
+      return parseStackManifest({ ...body, manifestDigest: computeManifestDigest(body) });
+    };
+    /**
+     * The CX8 shape, with EVERY array the canonical order covers holding at least two entries: the root
+     * declares two dependencies (`rootDeclared`), two workspace links are opaque entries (`unmodeled`) —
+     * all through the real extractor — plus two images and a node installed at two paths (`layout`).
+     */
+    const rich = (label: string, lib: string): StackManifest => {
+      const m = pnpmRepo(
+        label,
+        {
+          '.': { y: ['^1.0.0', '1.0.0'], z: ['^1.0.0', '1.0.0'] },
+          'packages/app': { x: ['^9.0.0', '9.0.0'], lib: ['workspace:*', 'link:../lib'] },
+          'packages/lib': { x: [`^${lib}`, lib], svc: ['workspace:*', 'link:../svc'] },
+          'packages/svc': { x: ['^2.0.0', '2.0.0'] },
+        },
+        { ...X('2.0.0', '9.0.0'), 'y@1.0.0': {}, 'z@1.0.0': {} },
+      );
+      const { stackDigest, stackId, manifestDigest, ...body } = m;
+      void stackDigest;
+      void stackId;
+      void manifestDigest;
+      const image = (name: string, line: number): StackManifest['images'][number] => ({ ref: `${name}:1`, name, tag: '1', tagImplicit: false, digest: null, pin: false, resolved: false, resolvedFrom: 'dockerfile', evidenceRef: `Dockerfile#L${line}` });
+      return finalizeStackManifest({
+        ...body,
+        images: [image('node', 1), image('alpine', 2)],
+        nodes: body.nodes.map((n) => (n.name === 'y' ? { ...n, layout: [...n.layout, 'a-second-path'] } : n)),
+      });
+    };
+    const cx8a = rich('p6m1-cx8-a', '9.0.0');
+    const cx8b = rich('p6m1-cx8-b', '2.0.0');
+    for (const m of [cx8a, cx8b]) {
+      expect(verifyStackManifest(m).valid).toBe(true);
+      for (const len of [m.sources.length, m.nodes.length, m.edges.length, m.images.length, m.rootDeclared.length, m.unmodeled.length, m.coverage.unsupported.length, m.nodes.find((n) => n.name === 'y')!.layout.length]) expect(len).toBeGreaterThanOrEqual(2);
+    }
+    const c7a = pnpmRepo('p6m1-c7-a', { '.': {}, 'packages/app': { x: ['^5.0.0', '5.0.0'], w: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^2.0.0', '2.0.0'] } }, { ...X('2.0.0', '5.0.0'), 'w@1.0.0': { x: '5.0.0' } });
+    const c7b = pnpmRepo('p6m1-c7-b', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'], w: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^2.0.0', '2.0.0'] } }, { ...X('2.0.0', '5.0.0'), 'w@1.0.0': { x: '5.0.0' } });
+    for (const [label, from, to] of [['cx8', cx8a, cx8b], ['c7 reversed', c7b, c7a]] as const) {
+      const r = diffStackManifests(from, to);
+      expect(r.classification, label).toBe('identical');
+      expect(r.manifestDigest, label).toEqual({ from: from.manifestDigest, to: to.manifestDigest });
+      const rf = reorder(from);
+      const rt = reorder(to);
+      // the re-ordered copies are honest manifests whose BYTES (and so whose recorded manifestDigest) really differ
+      expect(verifyStackManifest(rf).valid && verifyStackManifest(rt).valid, label).toBe(true);
+      expect(rf.stackDigest, label).toBe(from.stackDigest);
+      expect(rf.manifestDigest, label).not.toBe(from.manifestDigest);
+      expect(rt.manifestDigest, label).not.toBe(to.manifestDigest);
+      for (const [x, y] of [[rf, rt], [from, rt], [rf, to]] as const) expect(stableStringify(diffStackManifests(x, y)), label).toBe(stableStringify(r));
+      // a manifest against a re-ordered copy of itself: nothing changed, so nothing is claimed
+      for (const [x, y] of [[from, rf], [rf, from], [to, rt]] as const) {
+        const self = diffStackManifests(x, y);
+        expect(self.classification, label).toBe('identical');
+        expect('manifestDigest' in self, label).toBe(false);
+      }
+    }
+    // …through the real CLI too: the re-ordered copy is accepted (its digests re-derive) and the report names no change
+    const dir = tmp('p6m1-cli');
+    const fa = path.join(dir, 'a.json');
+    const fs2 = path.join(dir, 'a-reordered.json');
+    const out = path.join(dir, 'diff.json');
+    fs.writeFileSync(fa, stableStringify(cx8a));
+    fs.writeFileSync(fs2, stableStringify(reorder(cx8a)));
+    const cli = runCli(['stack', 'diff', '--from', fa, '--to', fs2, '--out', out], ROOT);
+    expect(cli.status, cli.stderr).toBe(0);
+    const written = JSON.parse(fs.readFileSync(out, 'utf8'));
+    expect(written.classification).toBe('identical');
+    expect('manifestDigest' in written).toBe(false);
+  });
+
+  it('P6-m3: the field is RE-DERIVED, never the recorded manifestDigest — a forged-zero digest is not echoed and a forged-equal one cannot suppress the field (library path; the CLI refuses both)', () => {
+    const X = (...vs: string[]): Record<string, Record<string, string>> => Object.fromEntries(vs.map((v) => [`x@${v}`, {}]));
+    const A = pnpmRepo('p6m3-a', { '.': {}, 'packages/app': { x: ['^9.0.0', '9.0.0'] }, 'packages/lib': { x: ['^9.0.0', '9.0.0'] }, 'packages/svc': { x: ['^2.0.0', '2.0.0'] } }, X('2.0.0', '9.0.0'));
+    const B = pnpmRepo('p6m3-b', { '.': {}, 'packages/app': { x: ['^9.0.0', '9.0.0'] }, 'packages/lib': { x: ['^2.0.0', '2.0.0'] }, 'packages/svc': { x: ['^2.0.0', '2.0.0'] } }, X('2.0.0', '9.0.0'));
+    const honest = { from: A.manifestDigest, to: B.manifestDigest };
+    expect(computeCanonicalManifestDigest(A)).toBe(A.manifestDigest); // what `stack snapshot` wrote IS canonical
+    expect(computeCanonicalManifestDigest(B)).toBe(B.manifestDigest);
+    expect(diffStackManifests(A, B).manifestDigest).toEqual(honest);
+    const zero = '0'.repeat(64);
+    expect(diffStackManifests(A, { ...B, manifestDigest: zero }).manifestDigest).toEqual(honest); // forged-zero: not echoed
+    expect(diffStackManifests({ ...A, manifestDigest: zero }, B).manifestDigest).toEqual(honest);
+    expect(diffStackManifests(A, { ...B, manifestDigest: A.manifestDigest }).manifestDigest).toEqual(honest); // forged-equal: still shown
+    // a forged digest on the SAME manifest invents no change either
+    expect('manifestDigest' in diffStackManifests(A, { ...A, manifestDigest: zero })).toBe(false);
+    // a forged recorded stackDigest / stackId cannot move the field: they are re-derived before the manifest is hashed
+    expect(diffStackManifests(A, { ...B, stackDigest: zero, stackId: 'stack:000000000000' }).manifestDigest).toEqual(honest);
+    // the CLI never gets this far with a forged manifest
+    const dir = tmp('p6m3-cli');
+    fs.writeFileSync(path.join(dir, 'a.json'), stableStringify(A));
+    fs.writeFileSync(path.join(dir, 'b.json'), stableStringify({ ...B, manifestDigest: zero }));
+    const cli = runCli(['stack', 'diff', '--from', path.join(dir, 'a.json'), '--to', path.join(dir, 'b.json'), '--out', path.join(dir, 'diff.json')], ROOT);
+    expect(cli.status).toBe(2);
+    expect(cli.stderr).toContain('manifestDigest MISMATCH');
+    expect(fs.existsSync(path.join(dir, 'diff.json'))).toBe(false);
+  });
+
+  it('P6-m2 (CX9, documented cost — SPEC §16.2): with TWO retained root versions ANY drop of the name blocks, even a pure upgrade above everything — {2,5,9} -> {5,9,12} is unknown, exit 2; its nothing-dropped sibling passes', () => {
+    const X = (...vs: string[]): Record<string, Record<string, string>> => Object.fromEntries(vs.map((v) => [`x@${v}`, {}]));
+    const ws = (app: string | null, lib: string, svc: string): Record<string, Record<string, [string, string]>> => ({
+      '.': {},
+      ...(app === null ? {} : { 'packages/app': { x: [`^${app}`, app] as [string, string] } }),
+      'packages/lib': { x: [`^${lib}`, lib] },
+      'packages/svc': { x: [`^${svc}`, svc] },
+    });
+    const A = pnpmRepo('cx9-a', ws('2.0.0', '5.0.0', '9.0.0'), X('2.0.0', '5.0.0', '9.0.0'));
+    const B = pnpmRepo('cx9-b', ws('12.0.0', '5.0.0', '9.0.0'), X('12.0.0', '5.0.0', '9.0.0'));
+    const r = diffStackManifests(A, B);
+    expect(sig(r)).toEqual(['unknown 2.0.0 -> 12.0.0']);
+    expect(r.classification).toBe(STACK_DIFF_UNKNOWN_CLASSIFICATION);
+    expect(r.approvalBlocked).toBe(true);
+    expect(stackDiffExitCode(r)).toBe(2);
+    // CX9j — nothing dropped: a new importer JOINS at 12 beside the same two retained versions — an added copy, exit 0
+    const J0 = pnpmRepo('cx9j-a', ws(null, '5.0.0', '9.0.0'), X('5.0.0', '9.0.0'));
+    const j = diffStackManifests(J0, B);
+    expect(sig(j)).toEqual(['added - -> 12.0.0 (copy)']);
+    expect(stackDiffExitCode(j)).toBe(0);
+    // …and the unchanged two-version set is identical: the 5-below-9 pair blocks only when the name also drops a version
+    expect(diffStackManifests(J0, pnpmRepo('cx9j-same', ws(null, '5.0.0', '9.0.0'), X('5.0.0', '9.0.0'))).classification).toBe('identical');
+    // with ONE retained version the same upgrade is a plain forward move
+    const one = diffStackManifests(pnpmRepo('cx9-one-a', ws('2.0.0', '9.0.0', '9.0.0'), X('2.0.0', '9.0.0')), pnpmRepo('cx9-one-b', ws('12.0.0', '9.0.0', '9.0.0'), X('12.0.0', '9.0.0')));
+    expect(sig(one)).toEqual(['forward 2.0.0 -> 12.0.0']);
+    expect(stackDiffExitCode(one)).toBe(0);
   });
 
   it('a root pair that cannot be ordered is unknown; shuffled nodes[] / edges[] cannot move a report byte', () => {

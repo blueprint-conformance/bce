@@ -87,6 +87,7 @@
  */
 import { stableStringify } from '../report.js';
 import {
+  computeCanonicalManifestDigest,
   computeStackDigest,
   stackHashedView,
   stackIdFor,
@@ -283,11 +284,14 @@ export interface StackDiffReport {
   /** the max rank present; `unknown` is spelled `unknown-potential-backward` */
   classification: StackDiffClassification;
   /**
-   * Present ONLY when the classification is `identical` and the two manifests' `manifestDigest`s
-   * differ: nothing modeled moved, but the manifest bytes did (a lockfile edit the edges cannot see —
-   * an importer moving between two versions the root still reaches — or another revision / source
-   * set). A reader of an `identical` report can then see that the lockfile changed. Absent on every
-   * other report, so no existing report byte moves.
+   * Present ONLY when the classification is `identical` and the two manifests differ in CONTENT:
+   * nothing modeled moved, but the manifest did (a lockfile edit the edges cannot see — an importer
+   * moving between two versions the root still reaches — or another revision / source set). A reader
+   * of an `identical` report can then see that the lockfile changed. Both values are re-derived from
+   * the canonically ordered manifest (`computeCanonicalManifestDigest`): for a manifest `stack
+   * snapshot` wrote that IS its recorded `manifestDigest`; a forged recorded digest is never echoed,
+   * and a manifest against a re-ordered copy of itself shows no field. Absent on every other report,
+   * so no existing report byte moves.
    */
   manifestDigest?: { from: string; to: string };
   /** any blocking row (`unknown`, `rewritten`, install-script gain), or a hashed change no row explains */
@@ -1197,6 +1201,17 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
   const classification: StackDiffClassification =
     top === null ? 'identical' : top === 'unknown' ? STACK_DIFF_UNKNOWN_CLASSIFICATION : top;
 
+  // `identical` only: did the manifests change although nothing modeled moved? Answered from the
+  // CANONICALLY ordered manifests with every digest RE-DERIVED — never from the recorded field (it is
+  // untrusted, like the recorded stackDigest) and never from the input's array order (a manifest against
+  // a re-ordered copy of itself changed nothing, and the byte-stability promise above covers this key too)
+  let manifestDigestField: { manifestDigest?: { from: string; to: string } } = {};
+  if (classification === 'identical') {
+    const canonA = computeCanonicalManifestDigest(a);
+    const canonB = computeCanonicalManifestDigest(b);
+    if (canonA !== canonB) manifestDigestField = { manifestDigest: { from: canonA, to: canonB } };
+  }
+
   return {
     schemaVersion: '1',
     kind: 'StackDiffReport',
@@ -1204,7 +1219,7 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
     to: { stackDigest: digestB, stackId: stackIdFor(digestB), ctRepoRevision: b.ctRepoRevision, nodeCount: b.nodes.length },
     digestEqual,
     classification,
-    ...(classification === 'identical' && a.manifestDigest !== b.manifestDigest ? { manifestDigest: { from: a.manifestDigest, to: b.manifestDigest } } : {}),
+    ...manifestDigestField,
     approvalBlocked: unexplainedDigestChange || moves.some((m) => m.approvalBlocked),
     downgradeAckRequired: unexplainedDigestChange || summary.backward > 0 || summary.unknown > 0,
     unexplainedDigestChange,

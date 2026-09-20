@@ -992,7 +992,14 @@ stays on an older version — produces the same manifest pair as an importer mov
 sibling's version (same nodes, edges, `rootDeclared` and `stackDigest`), so it blocks too; likewise
 an importer moving **up** onto a version below a sibling's retained version (`{2,9} → {5,9}` from
 `2 → 5`) is the same pair as the sibling moving **down** (`9 → 5` while the other goes `2 → 9`), so
-it blocks too. The manifest cannot tell the two apart; importer identity in the manifest is the real
+it blocks too. The rule compares retained versions with each other as well, so with TWO retained
+root versions of a name ANY drop of that name blocks — even a pure upgrade above everything:
+`{2,5,9} → {5,9,12}` (one importer `2 → 12`, the others untouched) is `unknown`, exit **2**,
+because `5` sits below the retained `9`, while its sibling with nothing dropped (`{5,9} → {5,9,12}`,
+a new importer joining at `12`) is an `added` copy, exit **0**. In a workspace that keeps one name
+at two versions, every bump of a third importer therefore blocks until acknowledged: an accepted
+fail-closed cost, never a wrong pass, and the comparison is deliberately not narrowed. The manifest
+cannot tell the two apart; importer identity in the manifest is the real
 fix and is a follow-on (WO-BSTACK-09, extractor work). **The false-pass half of the same limitation,
 stated just as plainly:** an importer moving between two versions the root still reaches from other
 importers (`app 9 / lib 9 / svc 2` → `app 9 / lib 2 / svc 2`) changes no root set, no node and no
@@ -1000,7 +1007,11 @@ edge — edges collapse duplicates — so the diff is `identical`, exit **0**, u
 lands (WO-BSTACK-09). It is not made `unknown`: that would block every lockfile-only touch with zero
 modeled difference. Instead, an `identical` report whose two manifests differ carries both
 `manifestDigest`s as `manifestDigest: {from, to}` (absent on every other report), so a reader can
-see that the lockfile changed even though nothing modeled moved. For an npm manifest the root's
+see that the lockfile changed even though nothing modeled moved. Both values are RE-DERIVED from
+the manifest in canonical array order — never the recorded field, never the input's order: for a
+manifest `stack snapshot` wrote that is exactly its recorded `manifestDigest`, a forged recorded
+digest is never echoed, and a manifest diffed against a re-ordered copy of itself shows no field, so
+an `identical` report is as byte-stable under input array order as every other report. For an npm manifest the root's
 edges are exactly its declarations, so the sets have one version each and this reduces to a plain
 root pair.
 The remaining versions present on one side only are sorted by (SemVer 2.0.0 §11
