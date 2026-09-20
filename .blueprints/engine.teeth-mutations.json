@@ -253,7 +253,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/pin.ts",
-        "preconditionSha256": "c1437de9f4724894f92a1a16bea83e36c1c3a8827e5c1e3ba46d880e0346fefd",
+        "preconditionSha256": "ebfc822f4a89f077cb5979015a24080e90beb5be3399036229be19521ce723ff",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/pin.ts",
