@@ -2232,7 +2232,7 @@ async function main(): Promise<void> {
 
   if (cmd === 'stack') {
     // bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]
-    //   Extract the DECLARED dependency closure (npm lockfile v3 / shrinkwrap, Dockerfile FROM,
+    //   Extract the DECLARED dependency closure (npm lockfile v3 / shrinkwrap or pnpm-lock v9, Dockerfile FROM,
     //   compose image:, node runtime) of a pinned tree into a content-addressed StackManifest.
     //   No network, node_modules never read. Refusal (no supported lockfile, malformed or
     //   wrong-version lockfile) is exit 2 and writes NOTHING — never a silent empty manifest.
@@ -2432,9 +2432,11 @@ async function main(): Promise<void> {
       `  bce portfolio compile --portfolio <file> [--out-dir <dir>]\n` +
       `  bce portfolio collect --registry <file> --reports-dir <dir>\n` +
       `  bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]\n` +
-      `       Content-addressed StackManifest of the DECLARED closure (npm lockfile v3 / shrinkwrap, Dockerfile FROM,\n` +
-      `       compose image:, node runtime). No network; node_modules never read. stackDigest hashes ONLY the\n` +
-      `       identity view (nodes/runtime/images) — a re-serialized lockfile or a spec-only range change keeps\n` +
+      `       Content-addressed StackManifest of the DECLARED closure (npm lockfile v3 / shrinkwrap or pnpm-lock v9,\n` +
+      `       Dockerfile FROM, compose image:, node runtime). No network; node_modules never read. When package.json\n` +
+      `       packageManager starts with pnpm@ and a pnpm-lock.yaml exists, it IS the closure (an npm lockfile beside it\n` +
+      `       is a recorded ignore); otherwise pnpm-lock.yaml is read only when no npm lockfile is present. stackDigest\n` +
+      `       hashes ONLY the identity view (nodes/runtime/images/unmodeled) — a re-serialized lockfile or a spec-only range change keeps\n` +
       `       the digest; a version/integrity move changes it. npm-shrinkwrap.json wins over package-lock.json.\n` +
       `       No supported lockfile, a hollow/malformed one, or a symlinked source = exit 2, nothing written.\n`;
   const topicWords = (args._[0] === 'help' ? args._.slice(1) : args._).filter(word => word !== '-h');

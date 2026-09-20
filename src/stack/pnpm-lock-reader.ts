@@ -39,6 +39,9 @@ export const STACK_COVERAGE_PNPM_NO_TRANSITIVE_SPECS =
 export const STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS =
   "pnpm workspace importers other than '.' have no locked identity: they are not nodes and their direct-dependency edges are attributed to the root node";
 
+export const STACK_COVERAGE_PNPM_DEPENDENCY_FREE =
+  'pnpm-lock declares no dependency on any importer and carries no packages: the declared closure is the root package alone';
+
 /** A v9 lockfile that describes no closure: exit 2, nothing written — never a green root-only manifest. */
 export function stackRefusalPnpmHollow(why: string): string {
   return `lockfile 'pnpm-lock.yaml' is hollow (${why}): a manifest with only the root node is never a green stack; no stack facts extracted`;
@@ -98,8 +101,13 @@ export class PnpmLockSubsetError extends Error {
 
 interface Line {
   no: number;
+  /** leading SPACES only — a tab is never indentation */
   indent: number;
   text: string; // content after the indentation, right-trimmed
+  /** a TAB sits in the leading whitespace: a refusal wherever the line is STRUCTURE, plain content inside a block-scalar body */
+  tab: boolean;
+  /** `#`-led: skipped as structure, kept as content inside a block-scalar body */
+  comment: boolean;
 }
 
 function toLines(source: string): Line[] {
@@ -109,14 +117,16 @@ function toLines(source: string): Line[] {
     const full = raw[i] ?? '';
     const no = i + 1;
     if (full.trim() === '') continue;
+    const spaces = /^ */.exec(full)?.[0].length ?? 0;
     const lead = /^[ \t]*/.exec(full)?.[0] ?? '';
-    if (lead.includes('\t')) throw new PnpmLockSubsetError(no, 'tab indentation');
-    const text = full.slice(lead.length).trimEnd(); // linear — a /\s+$/ replace is quadratic on interior whitespace
-    if (text.startsWith('#')) continue;
+    const tab = lead.includes('\t');
+    // right-trimmed ONCE, here (linear — a /\s+$/ replace is quadratic on interior whitespace): the
+    // document-marker test below and a block-scalar body both see the trimmed text
+    const text = (tab ? full.slice(spaces) : full.slice(lead.length)).trimEnd();
     if (lead.length === 0 && (text === '---' || text.startsWith('--- ') || text === '...' || text.startsWith('%'))) {
       throw new PnpmLockSubsetError(no, 'document marker or directive (multi-document stream)');
     }
-    out.push({ no, indent: lead.length, text });
+    out.push({ no, indent: spaces, text, tab, comment: !tab && text.startsWith('#') });
   }
   return out;
 }
@@ -267,18 +277,22 @@ class SubsetParser {
   constructor(private readonly lines: Line[]) {}
 
   parseDocument(): PnpmYamlMap {
-    if (this.lines.length === 0) return new Map();
-    const first = this.lines[0]!;
+    const first = this.peek();
+    if (!first) return new Map();
     if (first.indent !== 0) throw new PnpmLockSubsetError(first.no, 'document does not start at column 0');
     if (first.text.startsWith('- ') || first.text === '-') throw new PnpmLockSubsetError(first.no, 'top-level sequence (a lockfile is a mapping)');
     const doc = this.parseMap(0, 0);
-    const rest = this.lines[this.i];
+    const rest = this.peek();
     if (rest) throw new PnpmLockSubsetError(rest.no, 'inconsistent indentation');
     return doc;
   }
 
+  /** The next STRUCTURAL line: comments are skipped, a tab-led line is the fixed refusal. */
   private peek(): Line | undefined {
-    return this.lines[this.i];
+    while (this.lines[this.i]?.comment) this.i++;
+    const line = this.lines[this.i];
+    if (line?.tab) throw new PnpmLockSubsetError(line.no, 'tab indentation');
+    return line;
   }
 
   private parseMap(indent: number, depth: number): PnpmYamlMap {
@@ -315,7 +329,9 @@ class SubsetParser {
   }
 
   private parseValue(rest: string, line: Line, depth: number): PnpmYamlValue {
-    const next = this.peek();
+    // a block-scalar header is decided BEFORE the next line is looked at as structure: its body may
+    // legitimately start with a `#`-led or TAB-led line
+    const next = rest[0] === '|' || rest[0] === '>' ? undefined : this.peek();
     if (rest === '') {
       if (next && next.indent > line.indent) {
         return next.text.startsWith('- ') || next.text === '-' ? this.parseSeq(next.indent) : this.parseMap(next.indent, depth + 1);
@@ -329,7 +345,9 @@ class SubsetParser {
       if (!/^[|>][+-]?\d?$/.test(rest)) throw new PnpmLockSubsetError(line.no, 'malformed block scalar header');
       const body: string[] = [];
       for (;;) {
-        const l = this.peek();
+        // RAW lines, not peek(): inside a block scalar a `#`-led line and a line whose content starts
+        // with a TAB are ordinary text (blank lines are not kept — the body is opaque, never an identity)
+        const l = this.lines[this.i];
         if (!l || l.indent <= line.indent) break;
         body.push(l.text);
         this.i++;
@@ -432,7 +450,12 @@ const ASCII = /^[\x21-\x7e]+$/;
 /** The shape of a package NAME in a v9 key: `name` or `@scope/name`. A v6-style `/name@1.0.0` path key is not one. */
 const PACKAGE_NAME_SHAPE = /^(?:@[^\s/@]+\/)?[^\s/@]+$/;
 /** One SRI-style hash, the only form pnpm writes. Anything else in `resolution.integrity` names no bytes. */
-const INTEGRITY = /^(?:sha1|sha256|sha384|sha512)-[A-Za-z0-9+/]+={0,2}$/;
+/**
+ * …with the EXACT padded base64 length of its digest (20 / 32 / 48 / 64 bytes). A multi-hash SRI string
+ * (`sha512-… sha1-…`) is refused: pnpm writes the registry's `dist.integrity` verbatim, or ONE `sha1-`
+ * derived from `dist.shasum`, and no registry output carrying several hashes has been observed.
+ */
+const INTEGRITY = /^(?:sha1-[A-Za-z0-9+/]{27}=|sha256-[A-Za-z0-9+/]{43}=|sha384-[A-Za-z0-9+/]{64}|sha512-[A-Za-z0-9+/]{86}==)$/;
 /** A registry version. Anything else after `name@` (URL, `file:`, `link:`, git) has no locked registry identity. */
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
 
@@ -546,7 +569,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     // present-but-unusable is a refusal; YAML null (or no key at all) is ABSENT and falls to the tarball rule below
     const integrityRaw = res.get('integrity');
     if (integrityRaw !== undefined && integrityRaw !== null && (integrity === null || !INTEGRITY.test(integrity))) {
-      malformed.push(`packages entry '${key}' (integrity is not a sha1-/sha256-/sha384-/sha512- hash)`);
+      malformed.push(`packages entry '${key}' (integrity is not ONE sha1-/sha256-/sha384-/sha512- hash of its exact length)`);
       refusedPkgKeys.add(key);
       continue;
     }
@@ -828,14 +851,28 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     node.peer = !keys.some((k) => reachNonPeer.has(k));
   }
 
+  // A DEPENDENCY-FREE project is what pnpm really writes as `importers: {.: {}}` and nothing else. It is
+  // accepted ONLY when EVERY importer declares zero dependencies (all three buckets absent or empty)
+  // and `packages` / `snapshots` are absent or empty: the closure then IS the root alone. One declared
+  // dependency anywhere with no `packages` is still a hollow lockfile — a closure that was lost.
+  const absentOrEmpty = (v: PnpmYamlValue | undefined): boolean => v === undefined || v === null || (isMap(v) && v.size === 0);
+  const dependencyFree =
+    isMap(importersRaw) &&
+    importers.size > 0 &&
+    [...importers.values()].every((imp) => isMap(imp) && IMPORTER_BUCKETS.every((b) => absentOrEmpty(imp.get(b.key)))) &&
+    absentOrEmpty(packagesRaw) &&
+    absentOrEmpty(snapshotsRaw);
+  if (dependencyFree) unsupported.add(STACK_COVERAGE_PNPM_DEPENDENCY_FREE);
   const hollow =
     !isMap(importersRaw) || importers.size === 0
       ? "no 'importers' mapping"
-      : !isMap(packagesRaw) || packages.size === 0
-        ? "no 'packages' mapping"
-        : !isMap(snapshotsRaw) || snapshots.size === 0
-          ? "no 'snapshots' mapping"
-          : null; // a non-empty `packages` always yields a node, a HASHED opaque entry, or a malformed refusal
+      : dependencyFree
+        ? null
+        : !isMap(packagesRaw) || packages.size === 0
+          ? "no 'packages' mapping"
+          : !isMap(snapshotsRaw) || snapshots.size === 0
+            ? "no 'snapshots' mapping"
+            : null; // a non-empty `packages` always yields a node, a HASHED opaque entry, or a malformed refusal
   unmodeled.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   return { nodes: [rootNode, ...nodeByPkgKey.values()], edges, unmodeled, rootDeclared, unsupported: [...unsupported], malformed: malformed.sort(), hollow };
 }
