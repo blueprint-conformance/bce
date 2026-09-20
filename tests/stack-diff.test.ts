@@ -744,6 +744,30 @@ describe('stack diff — G: classifier edges on synthetic manifests', () => {
     expect(stackDiffExitCode(r)).toBe(0);
   });
 
+  it("a root edge whose TARGET is a root node (a self-reference, or a second importer-style root) never enters the root's version set — the root's own version is quarantined, so a root bump beside a same-named dependency stays an empty diff", () => {
+    // the root depends on itself (workspace self-link) AND on a dependency that shares its name
+    const dep = node('app', '2.0.0');
+    const APP2 = node('app', '1.5.0', { root: true, integrity: null, layout: [''] });
+    const a1 = manifest([dep], [edge(APP, APP, 'workspace:*'), edge(APP, dep, '^2.0.0')]);
+    const a2 = manifest([dep], [edge(APP2, APP2, 'workspace:*'), edge(APP2, dep, '^2.0.0')], false, [], APP2);
+    for (const r of [diffStackManifests(a1, a2), diffStackManifests(a2, a1)]) {
+      expect(r.moves).toEqual([]); // counting the root's 1.0.0 / 1.5.0 as a root-reached version would make this unknown
+      expect(r.classification).toBe('identical');
+      expect(stackDiffExitCode(r)).toBe(0);
+    }
+    // a SECOND root node (an importer) the root has an edge to, sharing the dependency's name at a high version:
+    // the dependency's own move 0.1.0 -> 0.2.0 is a plain forward — the importer's 9.0.0 is not a version the root reaches
+    const imp = node('app', '9.0.0', { root: true, integrity: null, layout: ['packages/app'] });
+    const twin1 = node('app', '0.1.0');
+    const twin2 = node('app', '0.2.0');
+    const b1 = manifest([twin1, imp], [edge(APP, imp, 'workspace:*'), edge(APP, twin1, '^0.1.0')]);
+    const b2 = manifest([twin2, imp], [edge(APP, imp, 'workspace:*'), edge(APP, twin2, '^0.2.0')]);
+    const r = diffStackManifests(b1, b2);
+    expect(sig(r)).toEqual(['forward/version app 0.1.0 -> 0.2.0']);
+    expect(stackDiffExitCode(r)).toBe(0);
+    expect(stackDiffExitCode(diffStackManifests(b2, b1))).toBe(2);
+  });
+
   it('two manifests differing ONLY in the root version: zero rows, equal digests, exit 0', () => {
     const x = node('x', '1.2.3');
     const APP2 = node('app', '2.0.0', { root: true, integrity: null, layout: [''] });
