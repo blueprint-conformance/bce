@@ -55,6 +55,7 @@ import {
   stackCoverageSymlinkNotFollowed,
   stackCoverageNestedCheckout,
   findImageFiles,
+  deriveFromLockfileV3,
 } from '../src/stack/stack-extractor.js';
 import { stackRefusalPnpmLockfileVersion, stackRefusalPnpmHollow } from '../src/stack/pnpm-lock-reader.js';
 
@@ -793,6 +794,11 @@ describe('stack slice 1 — the root package: its OWN version is quarantined; de
     expect(extractSynth(devCase).refusals).toEqual([stackRefusalEmptyDependencyName('package-lock.json', '<root>'), STACK_REFUSAL_NO_LOCKFILE]);
     const nested = mutated((p) => { p['node_modules/a']!.peerDependencies = { '': '*' }; });
     expect(extractSynth(nested).refusals).toEqual([stackRefusalEmptyDependencyName('package-lock.json', 'node_modules/a'), STACK_REFUSAL_NO_LOCKFILE]);
+    // the PUBLIC derive function is safe on its own: the empty name never reaches rootDeclared (a strict-schema crash for a library caller)
+    const derived = deriveFromLockfileV3(rootCase as unknown as Record<string, unknown>);
+    expect(derived.emptyDependencyNames).toEqual(['<root>']);
+    expect(derived.rootDeclared.map((d) => d.name)).toEqual(['a', 'b']);
+    expect(derived.edges.every((e) => e.to !== '' && e.from !== '')).toBe(true);
     const out = path.join(tmp('empty-dep-out'), 'm.json');
     const cli = runCli(['stack', 'snapshot', '--ct-repo', synth(rootCase), '--no-pin', '--out', out], ROOT);
     expect(cli.status).toBe(2);

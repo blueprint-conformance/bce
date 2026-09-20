@@ -1303,6 +1303,8 @@ describe('stack pnpm — group 9: block-scalar bodies, the dependency-free proje
       // packages present but snapshots lost: still hollow; a scalar `packages` is not "absent"
       expect(readPnpmLock(`${head}importers:\n  .: {}\npackages:\n  a@1.0.0:\n    resolution: {integrity: ${H}}\n`, ROOT_ID).refusals).toEqual([stackRefusalPnpmHollow("no 'snapshots' mapping")]);
       expect(readPnpmLock(`${head}importers:\n  .: {}\npackages: garbage\n`, ROOT_ID).refusals).toEqual([stackRefusalPnpmHollow("no 'packages' mapping")]);
+      // a snapshot with no package is a LOST closure, not a dependency-free project: the hollow refusal, not a later one
+      expect(readPnpmLock(`${head}importers:\n  .: {}\nsnapshots:\n  a@1.0.0: {}\n`, ROOT_ID).refusals).toEqual([stackRefusalPnpmHollow("no 'packages' mapping")]);
       // no importers at all is never dependency-free
       expect(readPnpmLock(`${head}importers: {}\n`, ROOT_ID).refusals).toEqual([stackRefusalPnpmHollow("no 'importers' mapping")]);
     });
