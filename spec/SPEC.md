@@ -708,8 +708,10 @@ cannot verify.)
 
 **`stackDigest`** = SHA-256 over the canonical serialization (§11 rules) of the **HASHED VIEW**:
 `schemaVersion`, `kind`, `nodes[]` (every field except `layout`), `runtime`, `images[]` (every field
-except `evidenceRef`; the hashed images are ordered by their own serialized form AFTER that field
-is removed, so neither a comment line above a `FROM` nor moving a Dockerfile re-keys), `unmodeled[]`.
+except `evidenceRef`; the hashed images are the SET of image identities, ordered by their own
+serialized form AFTER that field is removed — so neither a comment line above a `FROM`, nor moving
+a Dockerfile, nor declaring the same ref again in a second Dockerfile or compose service re-keys;
+the manifest keeps every declaration with its `evidenceRef`), `unmodeled[]`.
 **Quarantined out** and present only in the manifest: `ctRepoRevision` (two revisions with the same
 closure share a digest — the join key), `sources[].sha256` (a re-serialized lockfile is the same
 closure), `edges` (a function of the node set plus the resolver walk), `rootDeclared` (declared
@@ -721,7 +723,9 @@ display), on every root-identity path — the lockfile root entry, the top-level
 defaulted identity. A release bump of the repository is not a change of its dependency closure:
 two revisions with the same closure share a digest whatever the package calls its version that
 day. The root `name` stays hashed (a renamed fork is a different stack subject). A non-root package
-that happens to share the root's name is an ordinary node with a hashed version. **Declared ranges
+that happens to share the root's name is an ordinary node with a hashed version; when it also shares
+the root's version, the ROOT's display `id` yields (`+root`, then `+root.2`, `+root.3`, … until no
+node owns it), so manifest ids are always unique. **Declared ranges
 never move the digest** — root or not: the digest names the RESOLVED closure, ranges live in the
 quarantined `edges` and, for the root package, in the quarantined manifest field
 `rootDeclared[] {name, spec, group}` — a range-only edit with identical resolved nodes leaves the
@@ -733,9 +737,17 @@ lockfile outside the reader's YAML subset (§16.1); a **hollow** lockfile (npm: 
 root entry, or NOTHING beyond the root; pnpm: no `importers`, `packages` or `snapshots` mapping — a
 closure with no node and no unmodeled entry beyond the root is never a green stack; a root plus only
 opaque entries IS accepted, because those entries are hashed); a **malformed entry** (not an
-object, or a missing / empty / non-string version; for pnpm see §16.1); any symbolic link among the
-sources, including a symlinked directory whose first level holds a Dockerfile or compose file
-(other symlinked directories are not walked and are declared in coverage). `FROM ${ARG}` bases and
+object, or a missing / empty / non-string version; for pnpm see §16.1); a dependency map carrying
+an EMPTY dependency name (fixed refusal, root or not); any symbolic link among the named sources
+(lockfile, `package.json`, runtime file) or NAMED like an image file (`Dockerfile*`, `*.Dockerfile`,
+compose). **Symlinks are `lstat`-only**: the image walk never follows one and never stats or lists
+its target — what a link points at is host state, not part of the revision — so every other symlink
+it meets (to a file, a directory, or nothing) is one coverage line (`symlink '<rel>' is not
+followed`) and neither the exit code nor coverage can differ between a pinned tree, a working tree
+and another host. Nothing under a symlink is ever read into `images[]`. An unpinned (`--no-pin`)
+walk does not descend into a **nested git checkout** — a directory below the root that carries its
+own `.git` directory or gitlink file (a worktree, a clone, a submodule): it is another repository's
+tree, declared in coverage; a pinned tree never contains one. `FROM ${ARG}` bases and
 `${VAR}` compose refs are coverage lines, never fabricated nodes. `images[].resolved` is always
 `false` in this slice: tag→digest resolution is a separate verb that writes a proposal, never a
 manifest field.
@@ -760,6 +772,9 @@ round-trip; every other value — `9`, `9.1`, `10.0`, a boolean, a list — is a
 A block scalar (`|`, `>`) is a distinct non-string value: this reader neither folds nor clips, so it
 is inert where pnpm really writes one (a multi-line `deprecated:` notice) and a `malformed` refusal in
 every identity position (`integrity`, `tarball`, `version`, a dependency reference, `os` / `cpu`).
+Inside a block-scalar body a `#`-led line and a line whose content starts with a TAB are ordinary
+text (a tab is a refusal only where the line is STRUCTURE); every line is right-trimmed once and
+blank body lines are not kept — the body is opaque and never an identity.
 
 **Precedence**: when `package.json` `packageManager` starts with `pnpm@` and a `pnpm-lock.yaml`
 exists, it IS the declared closure and any npm lockfile beside it is a recorded ignore (no fallback
@@ -774,8 +789,11 @@ the lockfile that exists is still the only declared closure in the tree.
 
 **Derivation**: a node per `packages` key `name@version` (or `@scope/name@version` — a v6-style
 `/name@version` path key is refused) with a registry (semver) version; `integrity` from
-`resolution.integrity`, which must be ONE `sha1-` / `sha256-` / `sha384-` / `sha512-` hash when
-present; `platformConditional` from `os`/`cpu` (sorted: list order is presentation). `snapshots` keys
+`resolution.integrity`, which must be ONE `sha1-` / `sha256-` / `sha384-` / `sha512-` hash of the
+exact padded base64 length of its digest (28 / 44 / 64 / 88 characters) when present — a multi-hash
+SRI string (`sha512-… sha1-…`) is refused: pnpm writes the registry's `dist.integrity` verbatim, or
+one `sha1-` derived from `dist.shasum`, and no registry output carrying several hashes has been
+observed; `platformConditional` from `os`/`cpu` (sorted: list order is presentation). `snapshots` keys
 (`name@version(peer@x)(patch_hash=…)`) are peer/patch VARIANTS of one identity: they collapse into
 one node and are listed in the non-hashed `layout`. `optional` is read (true only when EVERY variant
 carries a real YAML `true` — the quoted string `'true'` is not one). pnpm v9 records no `dev`/`peer` flags, so both are **derived by reachability
@@ -823,6 +841,13 @@ effect is the resolved closure already written to `packages` / `snapshots`, and 
 is hashed — hashing the inputs as well would move the digest for two lockfiles that install exactly
 the same thing. Any OTHER top-level section is unknown to this reader and is hashed whole as an
 opaque entry (`pnpm-unread-section`).
+
+**A dependency-free project is not hollow**: pnpm writes `importers: {.: {}}` and nothing else for
+a project with no dependencies. It is accepted — root-only closure, one coverage line — ONLY when
+every importer declares zero dependencies (`dependencies`, `devDependencies` and
+`optionalDependencies` all absent or empty) and `packages` / `snapshots` are absent or empty; a
+single declared dependency with no `packages` is still a hollow lockfile. The npm family is
+unchanged (a root-only `package-lock.json` still names its root entry and stays a refusal).
 
 **Fail-closed**: a HOLLOW lockfile (no or empty `importers`, `packages` or `snapshots`) and a lockfile with an entry the reader cannot trust (a dependency naming no
 snapshot, a snapshot no package names, a key that is not `name@version`, a package with neither
