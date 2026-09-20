@@ -2303,9 +2303,14 @@ async function main(): Promise<void> {
           }
         }
       };
+      // realpath catches symbolic aliases; device/inode identity also catches hardlinks.
+      const outStat = fs.statSync(out, { bigint: true, throwIfNoEntry: false });
       for (const flag of ['from', 'to'] as const) {
         const file = args[flag];
-        if (typeof file === 'string' && file && canonical(file) === canonical(out)) {
+        if (typeof file !== 'string' || !file) continue;
+        const inputStat = outStat ? fs.statSync(file, { bigint: true, throwIfNoEntry: false }) : undefined;
+        const sameInode = outStat && inputStat && outStat.dev === inputStat.dev && outStat.ino === inputStat.ino;
+        if (canonical(file) === canonical(out) || sameInode) {
           die(`--out ${out} REFUSED: it resolves to the --${flag} manifest; the report would overwrite its own input`, 2);
         }
       }

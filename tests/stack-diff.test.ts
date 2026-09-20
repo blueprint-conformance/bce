@@ -1596,6 +1596,37 @@ describe('stack diff — H: the CLI takes manifests, refuses everything else, an
     expect(fs.readFileSync(b, 'utf8')).toBe(bytesB);
   });
 
+  it.each(['from', 'to'] as const)('--out hardlinked to --%s refuses without changing either input', (flag) => {
+    const dir = tmp(`out-hardlink-${flag}`);
+    const a = path.join(dir, 'a.stack.json');
+    const b = path.join(dir, 'b.stack.json');
+    const out = path.join(dir, 'report.json');
+    fs.copyFileSync(FILE.base, a);
+    fs.copyFileSync(FILE.head, b);
+    const bytesA = fs.readFileSync(a);
+    const bytesB = fs.readFileSync(b);
+    fs.linkSync(flag === 'from' ? a : b, out);
+    const r = runCli(['stack', 'diff', '--from', a, '--to', b, '--out', out], ROOT);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain(`it resolves to the --${flag} manifest`);
+    expect(fs.readFileSync(a)).toEqual(bytesA);
+    expect(fs.readFileSync(b)).toEqual(bytesB);
+    expect(fs.readFileSync(out)).toEqual(flag === 'from' ? bytesA : bytesB);
+  });
+
+  it.skipIf(process.platform === 'win32')('--out symlinked to an input refuses without changing the manifest', () => {
+    const dir = tmp('out-symlink');
+    const input = path.join(dir, 'input.stack.json');
+    const out = path.join(dir, 'report.json');
+    fs.copyFileSync(FILE.head, input);
+    const bytes = fs.readFileSync(input);
+    fs.symlinkSync(input, out);
+    const r = runCli(['stack', 'diff', '--from', FILE.base, '--to', input, '--out', out], ROOT);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('it resolves to the --to manifest');
+    expect(fs.readFileSync(input)).toEqual(bytes);
+  });
+
   it('a schema refusal names the FIRST failing path behind a fixed prefix', () => {
     const dir = tmp('schema-path');
     const bad = JSON.parse(fs.readFileSync(FILE.head, 'utf8')) as Record<string, unknown>;
