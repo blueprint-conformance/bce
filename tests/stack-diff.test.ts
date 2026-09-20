@@ -1168,19 +1168,22 @@ describe('stack diff — M: the versions the root reaches are compared as SETS, 
     const B = pnpmRepo('t6-b', { '.': {}, 'packages/app': { x: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^2.0.0', '2.0.0'] } }, { 'x@1.0.0': {}, 'x@2.0.0': {} });
     const r = diffStackManifests(A, B);
     expect(sig(r)).toEqual(['unknown - -> 1.0.0']);
-    expect(r.moves.find((m) => m.name === 'x')?.reasons[0]).toContain('lower than the base root version 2.0.0');
+    expect(r.moves.find((m) => m.name === 'x')?.reasons[0]).toContain('joined below the base root version 2.0.0');
     expect(stackDiffExitCode(r)).toBe(2);
   });
 
   it('T3 / T4 / T5 controls: pairable root sets give direction rows; an importer that joins ABOVE every base root version is a plain added copy', () => {
     const app2lib5 = pnpmRepo('t3-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^5.0.0', '5.0.0'] } }, { 'x@2.0.0': {}, 'x@5.0.0': {} });
     const app1lib5 = pnpmRepo('t3-b', { '.': {}, 'packages/app': { x: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^5.0.0', '5.0.0'] } }, { 'x@1.0.0': {}, 'x@5.0.0': {} });
+    // T3: root {2,5} -> {1,5}: 5 is retained so not every head root version is below max(D)=2, and 1 is
+    // below the dropped 2 — some importer assignment is a downgrade, some is not: unknown, blocks
     const t3 = diffStackManifests(app2lib5, app1lib5);
-    expect(sig(t3)).toEqual(['backward 2.0.0 -> 1.0.0']);
+    expect(sig(t3)).toEqual(['unknown 2.0.0 -> 1.0.0']);
     expect(stackDiffExitCode(t3)).toBe(2);
     const app1lib6 = pnpmRepo('t5-b', { '.': {}, 'packages/app': { x: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^6.0.0', '6.0.0'] } }, { 'x@1.0.0': {}, 'x@6.0.0': {} });
+    // T5: root {2,5} -> {1,6}: 6 is not below max(D)=5 and 1 is below a dropped version — mixed, unknown
     const t5 = diffStackManifests(app2lib5, app1lib6);
-    expect(sig(t5)).toEqual(['backward 2.0.0 -> 1.0.0', 'forward 5.0.0 -> 6.0.0']);
+    expect(sig(t5)).toEqual(['unknown 2.0.0, 5.0.0 -> 1.0.0, 6.0.0']);
     expect(stackDiffExitCode(t5)).toBe(2);
     const t4a = pnpmRepo('t4-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] } }, { 'x@2.0.0': {} });
     const t4b = pnpmRepo('t4-b', { '.': {}, 'packages/app': { x: ['^1.0.0', '1.0.0'], w: ['^1.0.0', '1.0.0'] } }, { 'x@1.0.0': {}, 'x@3.0.0': {}, 'w@1.0.0': { x: '3.0.0' } });
@@ -1192,6 +1195,77 @@ describe('stack diff — M: the versions the root reaches are compared as SETS, 
     const up = diffStackManifests(t4a, joinsUp);
     expect(sig(up)).toEqual(['added - -> 3.0.0 (copy)']);
     expect(stackDiffExitCode(up)).toBe(0);
+  });
+
+  const X = (...vs: string[]): Record<string, Record<string, string>> => Object.fromEntries(vs.map((v) => [`x@${v}`, {}]));
+
+  it('C7: an importer goes 5.0.0 -> 2.0.0 onto a sibling version while 5.0.0 stays in the closure — root {2,5} -> {2}, equal digests — backward, exit 2', () => {
+    const A = pnpmRepo('c7-a', { '.': {}, 'packages/app': { x: ['^5.0.0', '5.0.0'], w: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^2.0.0', '2.0.0'] } }, { ...X('2.0.0', '5.0.0'), 'w@1.0.0': { x: '5.0.0' } });
+    const B = pnpmRepo('c7-b', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'], w: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^2.0.0', '2.0.0'] } }, { ...X('2.0.0', '5.0.0'), 'w@1.0.0': { x: '5.0.0' } });
+    expect(A.stackDigest).toBe(B.stackDigest);
+    const r = diffStackManifests(A, B);
+    expect(sig(r)).toEqual(['backward 5.0.0 -> 2.0.0']);
+    expect(r.moves).toHaveLength(1);
+    expect(r.digestEqual).toBe(true);
+    expect(r.classification).toBe('backward');
+    expect(stackDiffExitCode(r)).toBe(2);
+    const shuffle = (m: StackManifest): StackManifest => ({ ...m, nodes: permute(m.nodes), edges: permute(m.edges) });
+    expect(stableStringify(diffStackManifests(shuffle(A), shuffle(B)))).toBe(stableStringify(r));
+  });
+
+  it('C1: an importer goes 5.0.0 -> 1.0.0 onto a sibling version and 5.0.0 leaves — root {1,5} -> {1}: every head root version is below the dropped 5.0.0, backward, exit 2 — and the control where the importer merely DROPS the dependency blocks identically (the accepted cost)', () => {
+    const A = pnpmRepo('c1-a', { '.': {}, 'packages/app': { x: ['^5.0.0', '5.0.0'] }, 'packages/lib': { x: ['^1.0.0', '1.0.0'] } }, X('1.0.0', '5.0.0'));
+    const B = pnpmRepo('c1-b', { '.': {}, 'packages/app': { x: ['^1.0.0', '1.0.0'] }, 'packages/lib': { x: ['^1.0.0', '1.0.0'] } }, X('1.0.0'));
+    const r = diffStackManifests(A, B);
+    expect(sig(r)).toEqual(['backward 5.0.0 -> 1.0.0']);
+    expect(r.moves).toHaveLength(1);
+    expect(stackDiffExitCode(r)).toBe(2);
+    // the control: app simply REMOVES its dependency on x while lib stays on 1.0.0 — the SAME manifest pair, so it blocks too
+    const R = pnpmRepo('c1-r', { '.': {}, 'packages/app': {}, 'packages/lib': { x: ['^1.0.0', '1.0.0'] } }, X('1.0.0'));
+    expect(R.stackDigest).toBe(B.stackDigest);
+    expect(stableStringify({ ...R, sources: [], manifestDigest: '' })).toBe(stableStringify({ ...B, sources: [], manifestDigest: '' }));
+    expect(stableStringify(diffStackManifests(A, R).moves)).toBe(stableStringify(r.moves));
+    expect(stackDiffExitCode(diffStackManifests(A, R))).toBe(2);
+    const shuffle = (m: StackManifest): StackManifest => ({ ...m, nodes: permute(m.nodes), edges: permute(m.edges) });
+    expect(stableStringify(diffStackManifests(shuffle(A), shuffle(B)))).toBe(stableStringify(r));
+  });
+
+  it('C2: two importers CROSS (5 -> 4 down, 1 -> 6 up), equal-size root sets — unknown, exit 2, never two forwards', () => {
+    const A = pnpmRepo('c2-a', { '.': {}, 'packages/app': { x: ['^5.0.0', '5.0.0'] }, 'packages/lib': { x: ['^1.0.0', '1.0.0'] } }, X('1.0.0', '5.0.0'));
+    const B = pnpmRepo('c2-b', { '.': {}, 'packages/app': { x: ['^4.0.0', '4.0.0'] }, 'packages/lib': { x: ['^6.0.0', '6.0.0'] } }, X('4.0.0', '6.0.0'));
+    const r = diffStackManifests(A, B);
+    expect(sig(r)).toEqual(['unknown 1.0.0, 5.0.0 -> 4.0.0, 6.0.0']);
+    expect(r.summary.forward).toBe(0);
+    expect(stackDiffExitCode(r)).toBe(2);
+    const shuffle = (m: StackManifest): StackManifest => ({ ...m, nodes: permute(m.nodes), edges: permute(m.edges) });
+    expect(stableStringify(diffStackManifests(shuffle(A), shuffle(B)))).toBe(stableStringify(r));
+  });
+
+  it('C3 / C4 / C5 / C6: certain downgrade is one backward row; every head root version above every dropped one is forward; a join above is an added copy; a join below is unknown', () => {
+    const c3a = pnpmRepo('c3-a', { '.': {}, 'packages/app': { x: ['^5.0.0', '5.0.0'] }, 'packages/lib': { x: ['^1.0.0', '1.0.0'] } }, X('1.0.0', '5.0.0'));
+    const c3b = pnpmRepo('c3-b', { '.': {}, 'packages/app': { x: ['^3.0.0', '3.0.0'] }, 'packages/lib': { x: ['^2.0.0', '2.0.0'] } }, X('2.0.0', '3.0.0'));
+    const c3 = diffStackManifests(c3a, c3b);
+    expect(sig(c3)).toEqual(['backward 5.0.0 -> 3.0.0']);
+    expect(stackDiffExitCode(c3)).toBe(2);
+    const c4a = pnpmRepo('c4-a', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': {} }, X('2.0.0'));
+    const c4b = pnpmRepo('c4-b', { '.': {}, 'packages/app': { x: ['^3.0.0', '3.0.0'] }, 'packages/lib': { x: ['^4.0.0', '4.0.0'] } }, X('3.0.0', '4.0.0'));
+    const c4 = diffStackManifests(c4a, c4b);
+    expect(sig(c4)).toEqual(['added - -> 3.0.0 (copy)', 'forward 2.0.0 -> 4.0.0']);
+    expect(stackDiffExitCode(c4)).toBe(0);
+    const c5b = pnpmRepo('c5-b', { '.': {}, 'packages/app': { x: ['^2.0.0', '2.0.0'] }, 'packages/lib': { x: ['^9.0.0', '9.0.0'] } }, X('2.0.0', '9.0.0'));
+    const c5 = diffStackManifests(c4a, c5b);
+    expect(sig(c5)).toEqual(['added - -> 9.0.0 (copy)']);
+    expect(stackDiffExitCode(c5)).toBe(0);
+    const c6a = pnpmRepo('c6-a', { '.': {}, 'packages/app': { x: ['^5.0.0', '5.0.0'] }, 'packages/lib': {} }, X('5.0.0'));
+    const c6b = pnpmRepo('c6-b', { '.': {}, 'packages/app': { x: ['^5.0.0', '5.0.0'] }, 'packages/lib': { x: ['^1.0.0', '1.0.0'] } }, X('1.0.0', '5.0.0'));
+    const c6 = diffStackManifests(c6a, c6b);
+    expect(sig(c6)).toEqual(['unknown - -> 1.0.0']);
+    expect(stackDiffExitCode(c6)).toBe(2);
+    // the root stops reaching the name altogether (every importer drops it) while it stays transitively: no root row
+    const gone = pnpmRepo('gone-b', { '.': {}, 'packages/app': { w: ['^1.0.0', '1.0.0'] }, 'packages/lib': {} }, { ...X('5.0.0'), 'w@1.0.0': { x: '5.0.0' } });
+    const g = diffStackManifests(c6a, gone);
+    expect(sig(g)).toEqual([]);
+    expect(stackDiffExitCode(g)).toBe(0);
   });
 
   it('a root pair that cannot be ordered is unknown; shuffled nodes[] / edges[] cannot move a report byte', () => {

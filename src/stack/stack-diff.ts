@@ -31,13 +31,22 @@
  * sides are RETAINED (no row unless their identity differs). THE ROOT COMES FIRST, AS SETS, BEFORE
  * THE RETAINED / ONE-SIDED SPLIT: rootA / rootB are the versions the root node's edges resolve to
  * (its own declarations, and in a pnpm workspace its importers', which rootDeclared[] does not
- * list). dropped-by-root = rootA - rootB, new-to-root = rootB - rootA. Both empty: no root row.
- * Equal in number: paired from the top, one forward / backward row per pair EVEN WHEN BOTH VERSIONS
- * ARE RETAINED (root 2.0.0 -> 1.0.0 while another dependent keeps 2.0.0 is backward, exit 2). Not
- * equal in number and some new-to-root version is lower than a base root version: `unknown` —
- * edges carry no importer identity, so which importer moved cannot be read. A non-semver or
- * precedence-equal root pair is `unknown`. Versions consumed by a root row leave the pool. The
- * root rows read the quarantined, unhashed `edges[]` (covered by manifestDigest only).
+ * list). The edges carry NO importer identity and collapse duplicates, so a root-set change is
+ * classified by what EVERY assignment of importers to versions implies. D = rootA - rootB:
+ *   D empty: a version JOINED — below a version the root reached: unknown; above: no root row.
+ *   D non-empty, rootB non-empty: every rootB version below max(D) = certain downgrade -> one
+ *     backward row max(D) -> max(rootB) (even when both versions are retained and the digests are
+ *     equal); no rootB version below any D version = no assignment is a downgrade -> forward rows
+ *     (equal sizes pair from the top) or none; otherwise -> unknown, blocks ("edges carry no
+ *     importer identity; at least one assignment of importers to versions is a downgrade").
+ *   D non-empty, rootB empty: the root stopped reaching the name -> no root row.
+ *   Non-semver or precedence-equal root versions -> unknown.
+ * ACCEPTED COST: the legitimate control — one importer drops its dependency while a sibling stays on
+ * an older version — is the SAME manifest pair as an importer moving down onto the sibling's
+ * version (same nodes, edges, rootDeclared, stackDigest), so it blocks too. Importer identity in
+ * the manifest is the real fix (WO-BSTACK-09, extractor work). For npm manifests root edges equal
+ * declarations, so this reduces to a plain root pair. Versions consumed by a root row leave the
+ * pool. The root rows read the quarantined, unhashed `edges[]` (covered by manifestDigest only).
  * The remaining one-sided versions are sorted by
  * (precedence, full version string) and paired FROM THE TOP — highest dropped with highest new; each
  * pair is `forward` or `backward`. Leftover dropped versions are `removed` copies, leftover new
@@ -713,40 +722,63 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
     };
 
     // ---- FIRST: the versions the ROOT reaches, compared as SETS — before the retained / one-sided split ----
-    // The root's own edges name what the repository gets. A root that moves between two versions
-    // that BOTH stay in the closure changes no node at all, so this cannot wait for a one-sided version.
+    // The root's own edges name what the repository (and, in a pnpm workspace, each importer) gets.
+    // Edges carry NO importer identity and collapse duplicates, so a root-set change is classified by
+    // what EVERY assignment of importers to versions implies (see the module header):
+    //   D = dropped-by-root = rootA - rootB.  D empty: a version can only have JOINED — unknown when it
+    //   joined below a version the root reached, else no root row.  D non-empty and the head root set
+    //   R_B non-empty: every version in R_B below max(D) = certain downgrade -> `backward` max(D) -> max(R_B);
+    //   no version in R_B below any version in D = no assignment is a downgrade -> forward rows (equal
+    //   sizes pair from the top) or none; otherwise some assignment is a downgrade and some is not ->
+    //   `unknown`, blocks.  R_B empty: the root stopped reaching the name — no root row.
     const rootA = rootResolvedA.get(key) ?? [];
     const rootB = rootResolvedB.get(key) ?? [];
     const droppedByRoot = rootA.filter((v) => !rootB.includes(v));
     const newToRoot = rootB.filter((v) => !rootA.includes(v));
     const consumed = new Set<string>();
     if (droppedByRoot.length > 0 || newToRoot.length > 0) {
-      const involved = [...new Set([...rootA, ...newToRoot])];
+      const involved = [...new Set([...rootA, ...rootB])];
       const orderable = involved.every((v) => parseSemverLite(v) !== null) && precedenceTies(involved).length === 0;
       const show = (vs: readonly string[]): string | null => (vs.length === 0 ? null : [...vs].sort().join(', '));
-      if (droppedByRoot.length === newToRoot.length && orderable) {
-        // one-to-one: pair from the top, classed by direction — even when both versions are retained
-        const d = sortVersionsDesc(droppedByRoot);
-        const n = sortVersionsDesc(newToRoot);
-        for (let i = 0; i < d.length; i++) {
-          pairRow(d[i] as string, n[i] as string, `the version the root itself resolved to on the base side (${d[i] as string})`);
-          consumed.add(d[i] as string);
-          consumed.add(n[i] as string);
+      const sem = (v: string): SemverLite => parseSemverLite(v) as SemverLite;
+      const below = (v: string, w: string): boolean => compareSemverLite(sem(v), sem(w)) < 0;
+      const consumeAll = (): void => {
+        for (const v of [...droppedByRoot, ...newToRoot]) consumed.add(v);
+      };
+      const unknownRow = (why: string): void => {
+        pushNode(gb, key, 'unknown', show(droppedByRoot), show(newToRoot), 'version', [why], { retained: sortedRetained });
+        consumeAll();
+      };
+      if (!orderable) {
+        unknownRow(`the versions the root reaches (${show(involved) as string}) include a non-semver or precedence-equal version: direction cannot be proven`);
+      } else if (droppedByRoot.length === 0) {
+        // nothing dropped: a version JOINED the root. Below a version the root already reached, the
+        // joining importer may have moved down onto it — unprovable either way
+        const joinedBelow = sortVersionsDesc(newToRoot)
+          .map((v) => ({ v, above: sortVersionsDesc(rootA).find((w) => below(v, w)) }))
+          .find((x) => x.above !== undefined);
+        if (joinedBelow) {
+          unknownRow(`the root reaches ${show(rootA) as string} on the base side and ${show(rootB) as string} on the head side; ${joinedBelow.v} joined below the base root version ${joinedBelow.above as string}: edges carry no importer identity, so which importer moved cannot be read`);
         }
-      } else if (newToRoot.length > 0 && rootA.length > 0) {
-        // not one-to-one (or not orderable): fail closed when a version new to the root is lower than
-        // a version the root reached on the base side, or when that cannot be decided
-        const lower = orderable
-          ? sortVersionsDesc(newToRoot)
-              .map((v) => ({ v, above: sortVersionsDesc(rootA).find((w) => compareSemverLite(parseSemverLite(v) as SemverLite, parseSemverLite(w) as SemverLite) < 0) }))
-              .find((x) => x.above !== undefined)
-          : undefined;
-        if (!orderable || lower) {
-          const why = !orderable
-            ? `the versions the root reaches (${show(involved) as string}) include a non-semver or precedence-equal version: direction cannot be proven`
-            : `the root reaches ${show(rootA) as string} on the base side and ${show(rootB) as string} on the head side; the dropped and new versions cannot be paired one-to-one and ${(lower as { v: string }).v} is lower than the base root version ${(lower as { above: string }).above}: edges carry no importer identity, so which importer moved cannot be read`;
-          pushNode(gb, key, 'unknown', show(droppedByRoot), show(newToRoot), 'version', [why], { retained: sortedRetained });
-          for (const v of [...droppedByRoot, ...newToRoot]) consumed.add(v);
+      } else if (rootB.length > 0) {
+        const maxD = sortVersionsDesc(droppedByRoot)[0] as string;
+        const maxB = sortVersionsDesc(rootB)[0] as string;
+        const certain = rootB.every((v) => below(v, maxD));
+        const clean = !rootB.some((v) => droppedByRoot.some((d) => below(v, d)));
+        if (certain) {
+          // every version the root still reaches is below a version it dropped: whoever was on max(D) went down
+          pairRow(maxD, maxB, `the version the root itself resolved to on the base side (${maxD}); every version the root reaches on the head side is below it`);
+          consumeAll();
+        } else if (clean) {
+          // no assignment of importers to versions is a downgrade: equal-size sets pair from the top
+          if (droppedByRoot.length === newToRoot.length) {
+            const d = sortVersionsDesc(droppedByRoot);
+            const n = sortVersionsDesc(newToRoot);
+            for (let i = 0; i < d.length; i++) pairRow(d[i] as string, n[i] as string, `the version the root itself resolved to on the base side (${d[i] as string})`);
+            consumeAll();
+          }
+        } else {
+          unknownRow(`the root reaches ${show(rootA) as string} on the base side and ${show(rootB) as string} on the head side: edges carry no importer identity; at least one assignment of importers to versions is a downgrade`);
         }
       }
     }

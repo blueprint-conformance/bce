@@ -867,15 +867,29 @@ on both sides are **retained** and produce no row unless their identity differs.
 resolution comes first, as a comparison of SETS, before the retained / one-sided split.** Per name,
 `rootA` and `rootB` are the sets of versions the root node's edges resolve to on each side (its own
 declared dependencies and, in a pnpm workspace, those of its importers — which `rootDeclared[]` does
-not list). *dropped-by-root* = `rootA − rootB`, *new-to-root* = `rootB − rootA`. Both empty: no root
-row. Equal in number: they pair from the top and each pair is one `forward` / `backward` row **even
-when both versions are retained in the closure** — a root that moves from `x@2.0.0` to `x@1.0.0`
-while another dependent keeps `2.0.0` alive changes no node at all and is still `backward`, exit
-**2**. Not equal in number (an importer joined, left, or two importers on one version diverged): the
-edges carry no importer identity, so which importer moved cannot be read; when some new-to-root
-version is lower than some version the root reached on the base side the row is `unknown` and
-blocks, otherwise no root row is written. A root pair that is non-semver or precedence-equal is
-`unknown`. Versions consumed by a root row leave the pool; everything else set-matches as below.
+not list). The edges carry no importer identity and collapse duplicates, so a root-set change is
+classified by what **every assignment of importers to versions** implies. With
+*D* = dropped-by-root = `rootA − rootB`:
+
+- *D* empty: a version can only have joined the root. Joined **below** a version the root already
+  reached: `unknown` (the joining importer may have moved down onto it). Joined above: no root row.
+- *D* non-empty and `rootB` non-empty: **every** version in `rootB` below `max(D)` is a certain
+  downgrade — one `backward` row `max(D) -> max(rootB)`, exit **2**, even when both versions stay in
+  the closure and the two `stackDigest`s are equal. **No** version in `rootB` below **any** version
+  in *D* means no assignment is a downgrade — equal-size sets pair from the top as `forward` rows,
+  unequal sets write no root row. Otherwise some assignment is a downgrade and some is not — one
+  `unknown` row, blocks, exit **2**: *edges carry no importer identity; at least one assignment of
+  importers to versions is a downgrade*.
+- *D* non-empty and `rootB` empty: the root stopped reaching the name — no root row.
+- A root set that contains a non-semver or precedence-equal version: `unknown`.
+
+Versions consumed by a root row leave the pool; everything else set-matches as below. **The accepted
+cost, stated plainly:** the legitimate control — one importer drops its dependency while a sibling
+stays on an older version — produces the same manifest pair as an importer moving down onto the
+sibling's version (same nodes, edges, `rootDeclared` and `stackDigest`), so it blocks too. The
+manifest cannot tell the two apart; importer identity in the manifest is the real fix and is a
+follow-on (WO-BSTACK-09, extractor work). For an npm manifest the root's edges are exactly its
+declarations, so the sets have one version each and this reduces to a plain root pair.
 The remaining versions present on one side only are sorted by (SemVer 2.0.0 §11
 precedence, full version string) and **paired from the top**: highest dropped with highest new, and so
 on. Each pair is `forward` or `backward`.
