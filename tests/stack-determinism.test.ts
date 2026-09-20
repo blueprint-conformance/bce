@@ -157,8 +157,10 @@ describe('stack slice 1 — group 1: byte identity against the committed golden'
     }
   });
 
-  // A shallow checkout cannot reach the seed commit: the leg is then SKIPPED VISIBLY in the report
-  // (never a silent early return). ci.yml fetches full history, so it runs there.
+  // The seed commit is the bump's BRANCH commit: it is reachable from no branch, so neither a shallow
+  // nor a full-history checkout carries it (ci.yml's fetch-depth 0 does NOT bring it in). The leg is
+  // then SKIPPED VISIBLY in the report (never a silent early return); it runs only where the commit
+  // was fetched by its full sha. The fixture-tree legs above pin the same golden everywhere.
   it.skipIf(!SEED_COMMIT_AVAILABLE)('the fixture tree is the real seed commit (lockfile bytes match git; git-archive materialization reproduces the golden)', () => {
     const fromGit = execFileSync('git', ['-C', ROOT, 'show', `${SEED_COMMIT}:npm-shrinkwrap.json`]);
     expect(fromGit.equals(fs.readFileSync(path.join(FIXTURE_TREE, 'npm-shrinkwrap.json')))).toBe(true);
