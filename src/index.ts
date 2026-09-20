@@ -163,6 +163,27 @@ export {
   STACK_COVERAGE_NO_IMAGES,
 } from './stack/stack-extractor.js';
 export type { StackFactsExtractor, StackExtractionResult, ParsedImageRef } from './stack/stack-extractor.js';
+export {
+  diffStackManifests,
+  stackDiffExitCode,
+  compareStackMoves,
+  parseSemverLite,
+  compareSemverLite,
+  STACK_MOVE_RANK,
+  STACK_FLAG_FIELDS,
+  stackLockfileFamilies,
+  STACK_DIFF_UNKNOWN_CLASSIFICATION,
+} from './stack/stack-diff.js';
+export type {
+  StackDiffReport,
+  StackDiffSide,
+  StackDiffClassification,
+  StackMove,
+  StackMoveClass,
+  StackMoveView,
+  StackFlagChange,
+  SemverLite,
+} from './stack/stack-diff.js';
 // pnpm-lock.yaml v9 — a second SOURCE of the same node shape, read by a hand-rolled YAML-subset reader (no YAML library).
 export {
   readPnpmLock,

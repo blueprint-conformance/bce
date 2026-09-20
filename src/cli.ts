@@ -61,6 +61,8 @@ import { assessExtractorTeethCorpus, buildSourceReviewProof } from './extractor-
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 import { resolveRevision, materializeAtRevision } from './pin.js';
 import { extractStackManifest } from './stack/stack-extractor.js';
+import { StackManifestSchema, verifyStackManifest, type StackManifest } from './stack/stack-manifest.js';
+import { diffStackManifests, stackDiffExitCode } from './stack/stack-diff.js';
 import { discoverBlueprints, runGate, assembleGateReportDoc } from './gate.js';
 import {
   resolveMode,
@@ -159,6 +161,13 @@ function parseArgs(argv: string[]): Args {
   }
   return args;
 }
+
+// A consumer that closes the pipe early (`| head -1`) must not turn a 0/2 verdict into an EPIPE crash
+// (exit 1 + stack trace): swallow EPIPE on stdout and keep the exit code the verb decided.
+process.stdout.on('error', (e: NodeJS.ErrnoException) => {
+  if (e.code === 'EPIPE') return;
+  throw e;
+});
 
 function die(msg: string, code = 1): never {
   process.stderr.write(`::error::${msg}\n`);
@@ -926,7 +935,7 @@ async function main(): Promise<void> {
     baseline: ['repo', 'ct-repo', 'blueprint-dir', 'changed', 'extractor', 'repo-name', 'dry-run', 'check', 'out', 'patch-out'],
     graduate: ['repo', 'ct-repo', 'downgrade', 'rationale'],
     portfolio: args._[1] === 'compile' ? ['portfolio', 'out-dir'] : ['registry', 'reports-dir'],
-    stack: ['ct-repo', 'ref', 'no-pin', 'out'],
+    stack: args._[1] === 'diff' ? ['from', 'to', 'out'] : ['ct-repo', 'ref', 'no-pin', 'out'],
   };
   if (cmd && allowedByCommand[cmd]) {
     const allowed = new Set([...allowedByCommand[cmd], 'help', 'version']);
@@ -994,7 +1003,8 @@ async function main(): Promise<void> {
       process.stdout.write(`  ${check.status === 'pass' ? '✓' : check.status === 'warning' ? '!' : '✗'} ${check.id}: ${check.detail}\n`);
     }
     process.stdout.write(`bce doctor: ${report.outcome} (exit ${report.exitCode})\n`);
-    process.exit(report.exitCode);
+    process.exitCode = report.exitCode;
+    return;
   }
 
   if (cmd === 'verify-bundle') {
@@ -1005,7 +1015,8 @@ async function main(): Promise<void> {
     catch (e) { die(`bundle is not valid JSON: ${(e as Error).message}`, 2); }
     const result = verifyEvidenceBundle(bundle);
     process.stdout.write(stableStringify(result));
-    process.exit(result.valid ? 0 : 2);
+    process.exitCode = result.valid ? 0 : 2;
+    return;
   }
 
   if (cmd === 'upgrade' && (args.check === true || args.check === 'true')) {
@@ -1015,7 +1026,8 @@ async function main(): Promise<void> {
     const result = checkEngineUpgrade(blueprintDir, candidateVersion);
     if (typeof args.out === 'string') fs.writeFileSync(args.out, stableStringify(result));
     process.stdout.write(stableStringify(result));
-    process.exit(result.exitCode);
+    process.exitCode = result.exitCode;
+    return;
   }
 
   if (cmd === 'adopt' || cmd === 'onboard') {
@@ -1791,7 +1803,8 @@ async function main(): Promise<void> {
       );
     }
     // exit 1 on a failing verdict so CI can gate on it (a real conformance gate).
-    process.exit(report.verdict === 'pass' ? 0 : 1);
+    process.exitCode = report.verdict === 'pass' ? 0 : 1;
+    return;
   }
 
   if (cmd === 'teeth') {
@@ -1835,7 +1848,8 @@ async function main(): Promise<void> {
         for (const entry of report.cases.filter((item) => item.status !== 'killed')) {
           process.stderr.write(`::error::  [${entry.constraintId}/${entry.id}] ${entry.status}: ${entry.detail}\n`);
         }
-        process.exit(2);
+        process.exitCode = 2;
+        return;
       }
       process.stdout.write(
         `ExtractorTeethReport: ${report.blueprintRef} -> extractor-real-proven — ` +
@@ -1896,7 +1910,8 @@ async function main(): Promise<void> {
           `${teeth.toothed}/${teeth.witnesses.length} proven. Evaluator-only, trivial, or indeterminate witnesses are insufficient\n`,
       );
     }
-    process.exit(teeth.verdict === 'toothless' || readinessRefused ? 2 : 0);
+    process.exitCode = teeth.verdict === 'toothless' || readinessRefused ? 2 : 0;
+    return;
   }
 
   if (cmd === 'gate') {
@@ -2071,7 +2086,8 @@ async function main(): Promise<void> {
         die(`--report-json: could not write machine report to ${reportJsonPath}: ${(e as Error).message}`, 1);
       }
     }
-    process.exit(doc.exitCode);
+    process.exitCode = doc.exitCode;
+    return;
   }
 
   if (cmd === 'baseline') {
@@ -2125,7 +2141,8 @@ async function main(): Promise<void> {
         `BaselineCheck: ${checked.state} — ${checked.currentViolations} current, ${checked.removable} removable, ` +
           `${checked.unacceptedNew} unaccepted-new (exit ${checked.exitCode})\n`,
       );
-      process.exit(checked.exitCode);
+      process.exitCode = checked.exitCode;
+      return;
     }
 
     if (plan.hadExisting) {
@@ -2237,7 +2254,90 @@ async function main(): Promise<void> {
     //   No network, node_modules never read. Refusal (no supported lockfile, malformed or
     //   wrong-version lockfile) is exit 2 and writes NOTHING — never a silent empty manifest.
     const sub = args._[1];
-    if (sub !== 'snapshot') die(`unknown stack subcommand: ${String(sub)} (expected snapshot)`, 1);
+    if (sub === 'diff') {
+      // bce stack diff --from <A.stack.json> --to <B.stack.json> [--out <path>]
+      //   Classify every move between two StackManifests (added / removed / forward / backward /
+      //   rewritten / flags-changed / spec-changed / unknown). Inputs are MANIFESTS, never raw
+      //   repositories: a file that is not a strict StackManifest, is a symlink, or whose digests do
+      //   not re-derive, is refused (exit 2, nothing written); so is an --out that resolves to an input.
+      //   `backward`, `unknown`, `rewritten` or an install-script gain exits 2 — no approve-anyway.
+      const usage = 'usage: bce stack diff --from <A.stack.json> --to <B.stack.json> [--out <path>]';
+      if (args._.length !== 2) die(`unexpected stack diff argument '${args._[2]}'; ${usage}`, 1);
+      const loadManifest = (flag: 'from' | 'to'): StackManifest => {
+        const file = args[flag];
+        if (typeof file !== 'string' || !file) die(`--${flag} <manifest.json> is required; ${usage}`, 1);
+        // lstat, never stat: a symlinked manifest is refused, the same stance `stack snapshot` takes on its sources
+        const st = fs.lstatSync(file, { throwIfNoEntry: false });
+        if (st?.isSymbolicLink()) die(`--${flag} ${file} REFUSED: the manifest path is a symbolic link (pass the file itself)`, 2);
+        if (!st || !st.isFile()) die(`--${flag} is not a StackManifest file: ${file} (pass a manifest written by 'bce stack snapshot', not a repository)`, 2);
+        let raw: unknown;
+        try {
+          raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+        } catch (e) {
+          die(`--${flag} ${file} is not a valid StackManifest: not JSON (${(e as Error).message.split('\n')[0]})`, 2);
+        }
+        const parsed = StackManifestSchema.safeParse(raw);
+        if (!parsed.success) {
+          const issue = parsed.error.issues[0];
+          const where = issue && issue.path.length > 0 ? issue.path.map(String).join('.') : '(document root)';
+          die(`--${flag} ${file} is not a valid StackManifest: at '${where}': ${issue?.message ?? 'schema violation'} (${parsed.error.issues.length} issue(s))`, 2);
+        }
+        const manifest: StackManifest = parsed.data;
+        const check = verifyStackManifest(manifest);
+        if (!check.valid) {
+          die(`--${flag} ${file} REFUSED: recorded digests do not re-derive (stackDigest ${check.stackDigestOk ? 'ok' : 'MISMATCH'}, stackId ${check.stackIdOk ? 'ok' : 'MISMATCH'}, manifestDigest ${check.manifestDigestOk ? 'ok' : 'MISMATCH'}) — the manifest was edited after extraction`, 2);
+        }
+        return manifest;
+      };
+      // refuse BEFORE reading or writing anything: the report must never overwrite one of its own inputs
+      const out = (typeof args.out === 'string' && args.out) || 'stack-diff.json';
+      const canonical = (p: string): string => {
+        const abs = path.resolve(p);
+        try {
+          return fs.realpathSync(abs);
+        } catch {
+          try {
+            return path.join(fs.realpathSync(path.dirname(abs)), path.basename(abs));
+          } catch {
+            return abs;
+          }
+        }
+      };
+      for (const flag of ['from', 'to'] as const) {
+        const file = args[flag];
+        if (typeof file === 'string' && file && canonical(file) === canonical(out)) {
+          die(`--out ${out} REFUSED: it resolves to the --${flag} manifest; the report would overwrite its own input`, 2);
+        }
+      }
+      const report = diffStackManifests(loadManifest('from'), loadManifest('to'));
+      fs.writeFileSync(out, stableStringify(report));
+      for (const m of report.moves) {
+        const notes: string[] = [];
+        if (m.rootDeclared) notes.push(`[root-declared ${m.rootSpec.from ?? '-'} -> ${m.rootSpec.to ?? '-'}]`);
+        if (m.copy) notes.push(`(copy; retained ${m.retained.join(', ') || '-'})`);
+        if (m.class === 'rewritten' && m.integrity) notes.push(`[integrity ${m.integrity.from ?? '-'} -> ${m.integrity.to ?? '-'}]`);
+        if (m.class === 'rewritten' && m.fields.length > 0) notes.push(`[fields ${m.fields.join(', ')}]`);
+        if (m.flagsChanged.length > 0) notes.push(`[flags ${m.flagsChanged.map((f) => `${f.flag} ${String(f.from)} -> ${String(f.to)}`).join(', ')}]`);
+        if (m.declaredBy) notes.push(`(declared by ${m.declaredBy})`);
+        if (m.approvalBlocked) notes.push('BLOCKS');
+        process.stdout.write(`  ${m.class.padEnd(13)} ${m.name}  ${m.from ?? '-'} -> ${m.to ?? '-'}${notes.length > 0 ? `  ${notes.join('  ')}` : ''}\n`);
+      }
+      const counts = (Object.keys(report.summary) as (keyof typeof report.summary)[]).sort().map((k) => `${k} ${report.summary[k]}`).join(', ');
+      process.stdout.write(
+        `bce stack diff: ${report.from.stackId} -> ${report.to.stackId}  classification ${report.classification}  (${counts})\n` +
+          (report.unexplainedDigestChange ? `hashed content changed with no row of its own sub-view explaining it (${report.unexplained.join(', ')}) — fail closed\n` : '') +
+          `wrote ${out}\n`,
+      );
+      const code = stackDiffExitCode(report);
+      if (code !== 0) {
+        // Not die(): a large report leaves stdout still draining on a pipe, and process.exit() would
+        // drop the summary line. Set the exit code and let the event loop flush.
+        process.stderr.write(`::error::stack diff FAILS CLOSED: classification ${report.classification}${report.approvalBlocked ? ', approval blocked' : ''}${report.downgradeAckRequired ? ', downgrade acknowledgement required' : ''} — a backward, rewritten or unproven move needs an explicit acknowledged rationale\n`);
+        process.exitCode = code;
+      }
+      return;
+    }
+    if (sub !== 'snapshot') die(`unknown stack subcommand: ${String(sub)} (expected snapshot | diff)`, 1);
     if (args._.length !== 2) die(`unexpected stack argument '${args._[2]}'; usage: bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]`, 1);
     const ctRepo = args['ct-repo'] as string;
     if (!ctRepo || typeof ctRepo !== 'string' || !fs.existsSync(ctRepo)) die(`--ct-repo not found: ${String(ctRepo)}`);
@@ -2436,7 +2536,15 @@ async function main(): Promise<void> {
       `       compose image:, node runtime). No network; node_modules never read. stackDigest hashes ONLY the\n` +
       `       identity view (nodes/runtime/images) — a re-serialized lockfile or a spec-only range change keeps\n` +
       `       the digest; a version/integrity move changes it. npm-shrinkwrap.json wins over package-lock.json.\n` +
-      `       No supported lockfile, a hollow/malformed one, or a symlinked source = exit 2, nothing written.\n`;
+      `       No supported lockfile, a hollow/malformed one, or a symlinked source = exit 2, nothing written.\n` +
+      `  bce stack diff --from <A.stack.json> --to <B.stack.json> [--out <path>]\n` +
+      `       Move classes between two StackManifests, joined on (kind, name) — never on name@version — with\n` +
+      `       per-name set matching: added | removed | forward | backward | rewritten | flags-changed |\n` +
+      `       spec-changed | unknown. Image and runtime moves get their own rows. Exit 2 (FAILS CLOSED, report\n` +
+      `       still written) on: unknown (non-semver / unorderable / unexplained hashed change), backward,\n` +
+      `       rewritten (same name@version, different integrity — both values shown), or a same-version\n` +
+      `       install-script gain, or two manifests read from DIFFERENT lockfile families. Inputs are manifests, not repositories; a symlinked input, an input whose\n` +
+      `       recorded digests do not re-derive, or an --out that resolves to an input is refused (nothing written).\n`;
   const topicWords = (args._[0] === 'help' ? args._.slice(1) : args._).filter(word => word !== '-h');
   const topic = helpRequested ? topicWords.join(' ') : '';
   if (topic) {
