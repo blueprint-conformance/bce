@@ -882,12 +882,17 @@ guards, every one a refusal (exit 2, nothing written), none of them a skip:
   nor a snapshot entry with no value (it writes `{}`): an importer or snapshot bucket that is YAML
   null or an empty mapping, and a snapshot entry that is null, are what a cut right after a key
   leaves behind.
-- **(b) a workspace link lands on another importer.** A `link:` resolved from a `workspace:` range
-  — or from a plain range under `link-workspace-packages` — names a workspace package, and pnpm
+- **(b) a workspace link lands on an importer.** A `link:` resolved from a `workspace:` range —
+  or from a plain range under `link-workspace-packages` — names a workspace package, and pnpm
   writes every workspace package as an importer; the target (resolved from the importer's own
-  path) must be an importer key, and never the importer itself. A `link:`-PROTOCOL dependency
+  path) must be an importer key. A link onto the importer ITSELF is what pnpm writes
+  (`version: 'link:'`) for a package that depends on itself through `workspace:*`, and also what a
+  link path cut mid-line (`link:.`) resolves to: it is read only when the dependency name is that
+  importer's own package name — decided by the tree under (c). A `link:`-PROTOCOL dependency
   (`specifier: link:…`) names a directory by path: pnpm writes no importer for it and it may sit
-  outside the tree, so it is exempt.
+  outside the tree, so no importer is required — but its value is a pure function of the
+  specifier, `link:` + pnpm's normalised path (`./vendor/lib` → `vendor/lib`, a trailing `/`
+  dropped, `..` kept), and any other value (a bare `link:`, a path cut short) is refused.
 - **(c) every importer's `package.json` is covered.** For each importer the `package.json` of the
   SAME view the rest of the verb reads (the pinned tree, or the working tree under `--no-pin`) is
   read without following any symbolic link on the way, and every name it declares under
@@ -899,33 +904,48 @@ guards, every one a refusal (exit 2, nothing written), none of them a skip:
 - **(d) every workspace package is an importer.** When `pnpm-workspace.yaml` exists, every
   directory its `packages:` globs name (literals, `*`, `**`, `?`, `.`, `!` negation; wildcards
   never match a dot-led name; `node_modules` and `bower_components` never hold a package) that
-  holds a `package.json` must be an importer, and so must the root. Another repository's tree under
-  a glob (a gitlink, or a `.git` marker by the same rule the image walk uses) is not this
-  workspace. A workspace file outside the YAML subset, a `packages` value that is not a list of
-  strings, a glob syntax this reader does not evaluate (braces, character classes, extglobs), and
-  a lockfile with workspace importers in a tree with NO workspace file cannot be checked — each a
-  refusal. With no `packages:` key the workspace is the root alone (pnpm >= 10, measured on
-  10.11.1); if the lockfile nonetheless has workspace importers (pnpm <= 9 took every directory),
-  every directory holding a `package.json` is named.
+  holds a `package.json` must be an importer, and so must the root. pnpm never looks at `.git`, so
+  a package inside a nested clone or a checked-out submodule counts like any other — this walk
+  does NOT stop at another repository's tree (the image walk's nested-checkout rule is a separate
+  concern and unchanged). A gitlink the revision declares under a workspace glob (matching it, or
+  a glob that could name a directory below it) whose contents this view does not hold — a pinned
+  tree never holds a submodule's tree, and an uninitialised submodule is an empty directory —
+  cannot be checked and is refused. A workspace file outside the YAML subset, a `packages` value
+  that is not a list of strings, a glob syntax this reader does not evaluate (braces, character
+  classes, extglobs), and a lockfile with workspace importers in a tree with NO workspace file
+  cannot be checked — each a refusal. With NO `packages:` key the reading is decided by the
+  manager the root `package.json` declares, never by the lockfile's own importer list (that list
+  is exactly what a cut removes). MEASURED 2026-09-20: pnpm 10.11.1 with such a file writes the
+  root importer alone; pnpm 8.15.9, 9.0.0 and 9.15.4 refuse to run at all
+  (`ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION packages field missing or empty`). So
+  `packageManager: pnpm@10` or later reads the root alone; a declared pnpm before 10, no
+  declaration, or one that cannot be read is taken fail-closed as pnpm's own default — every
+  directory holding a `package.json` must be an importer.
 
-Every line prefix — and, for the committed real shapes, every byte prefix — of the real
-pnpm-written lockfiles in `fixtures/stack/pnpm-v9-real-shapes` and of the synthetic golden is
-refused; only the whole file (or the whole file without its final newline: the same document) is
-read.
+Every line prefix of the real pnpm-written lockfiles in `fixtures/stack/pnpm-v9-real-shapes`
+and of the synthetic golden, and every BYTE prefix of every committed real shape, is refused; only
+the whole file (or the whole file without its final newline: the same document) is read — a
+committed test sweeps all of them.
 
 **What the guards cost, and what they do not reach.** (c) and (d) make a snapshot a claim about
 the lockfile AND its tree: a lockfile out of step with its `package.json` files (what `pnpm install
 --frozen-lockfile` rejects), a workspace whose importers' `package.json` files are not in the view
-(untracked nested checkouts, a partial tree), a manifest kept as `package.yaml` / `package.json5`,
-and a declared dependency that a `.pnpmfile.cjs` hook or a removing override keeps out of the
-lockfile are all refused, by design. Residual, stated plainly: the format has no terminator and no
-checksum, so a cut that falls BETWEEN two dependency lines of the FINAL snapshot entry (or drops
-that entry's last bucket whole) leaves a well-formed lockfile in which every package and snapshot
-is still present. It is accepted; the manifest lacks the lost edges (its `manifestDigest` differs),
-and the `stackDigest` — nodes and their flags, not edges — is the whole file's unless a lost edge
-was the only path that made a package non-dev or non-peer. Likewise a pnpm <= 9 workspace with no
-`packages:` key, cut back to a root importer that declares no registry dependency, reads as the
-root alone.
+(a partial tree; a PINNED snapshot of a workspace whose package is a submodule or an ignored nested
+clone — the pinned tree never holds it, so both the honest and a cut lockfile refuse there; use
+`--no-pin` with the checkout in place, where (c) and (d) can be evaluated), a manifest kept as
+`package.yaml` / `package.json5`, and a declared dependency that a `.pnpmfile.cjs` hook or a
+removing override keeps out of the lockfile are all refused, by design. What the guards do NOT
+reach, stated plainly. (1) The format has no terminator and no checksum, so a cut on a line
+boundary INSIDE the FINAL snapshot entry — after one of its dependency lines, dropping the rest
+of that bucket, a following bucket, or its trailing `optional: true` line — leaves a well-formed
+lockfile in which every package and snapshot is still present; it is accepted. The manifest lacks
+the lost edges (its `manifestDigest` differs), and the `stackDigest` — nodes and their flags, not
+edges — is the whole file's UNLESS a lost line changed a hashed flag: a lost `optional: true` flips
+that node's `optional` flag, and a lost edge that was the only path making a package non-dev or
+non-peer flips those. A cut INSIDE any of those lines (a version, a name, `optional: tr`, a bare
+`optional:`) is refused. (2) An IGNORED nested clone leaves no trace in the revision — not a
+gitlink, not a tracked file — so the pinned view of a lockfile cut before its importer is
+indistinguishable from an honest smaller workspace and is read; the unpinned view refuses it.
 
 **Fail-closed**: a HOLLOW lockfile (no or empty `importers`, `packages` or `snapshots`), a lockfile that does not cover its tree (the four guards above) and a lockfile with an entry the reader cannot trust (a dependency naming no
 snapshot, a snapshot no package names, a key that is not `name@version`, a package with neither

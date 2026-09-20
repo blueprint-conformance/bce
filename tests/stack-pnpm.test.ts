@@ -65,6 +65,7 @@ import {
   pnpmWorkspaceGlobToRegExp,
   readPnpmWorkspacePatterns,
   isPnpmWorkspaceDir,
+  pnpmWorkspaceGlobMayMatchBelow,
   canonicalPnpmValue,
   type PnpmUnmodeled,
   type PnpmYamlMap,
@@ -1078,14 +1079,20 @@ describe('stack pnpm — group 8: typed scalars, the merge key, and the safety l
     expect(digest(doc('../other', 'b@2.0.0'))).not.toBe(digest(doc('../lib', 'b@2.0.0')));
   });
 
-  it("R30: optional is true only for a REAL YAML true — the quoted string 'true', yes, 1 and a mapping are not", () => {
+  it("R30: optional is a REAL YAML boolean or nothing — the quoted string 'true', yes, 1, a mapping, a bare key and a value cut mid-line are refused, never a flag that is quietly false", () => {
+    const derive = (value: string) => deriveFromPnpmLockV9(parsePnpmLockSubset(mini().replace('  a@1.0.0: {}', `  a@1.0.0:\n    optional:${value === '' ? '' : ` ${value}`}`)), ROOT_ID);
     const flagOf = (value: string): boolean => {
-      const d = deriveFromPnpmLockV9(parsePnpmLockSubset(mini().replace('  a@1.0.0: {}', `  a@1.0.0:\n    optional: ${value}`)), ROOT_ID);
+      const d = derive(value);
       expect(d.malformed).toEqual([]);
       return d.nodes.find((n) => n.name === 'a')!.optional;
     };
     for (const v of ['true', 'True', 'TRUE']) expect(flagOf(v), v).toBe(true);
-    for (const v of ["'true'", '"true"', 'yes', '1', 'false', '~', '{}', 'truthy']) expect(flagOf(v), v).toBe(false);
+    for (const v of ['false', 'False', 'FALSE']) expect(flagOf(v), v).toBe(false);
+    // pnpm writes `optional: true` and nothing else there: everything else is a value cut mid-line (`optional: tr`)
+    // or a hand edit — a refusal, not a false. (Pass 3: a cut inside that one line flipped a hashed flag silently.)
+    for (const v of ["'true'", '"true"', 'yes', '1', '~', 'null', '{}', 'truthy', 'tr', 't', '']) {
+      expect(derive(v).malformed, JSON.stringify(v)).toEqual(["snapshots entry 'a@1.0.0' ('optional' is not a boolean — the lockfile is cut short)"]);
+    }
   });
 
   it('R23: os / cpu list ORDER is presentation — sorted in the node, same stackDigest', () => {
@@ -1564,6 +1571,8 @@ describe('stack pnpm — group 10: a link-only workspace is not hollow; block-sc
 
 describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link target, (c) declared dependencies, (d) workspace packages', () => {
   const REAL = path.join(ROOT, 'fixtures', 'stack', 'pnpm-v9-real-shapes');
+  /** every committed pnpm-written shape that is a stack (link-plus-registry is the hollow negative control) */
+  const REAL_SHAPES = ['link-only', 'injected', 'mixed', 'link-workspace-packages', 'link-protocol', 'exclude-links', 'negated-globs', 'self-link'];
   const lost = (what: string): string => stackRefusalPnpmLostClosure(what);
   const bucket = (imp: string, key: string): string => stackRefusalPnpmMalformed(`importer ${imp} '${key}' (a bucket with no entries: pnpm never writes one — the lockfile is cut short)`);
   /** A temp copy of a committed fixture tree whose lockfile is cut to its first `n` lines (all of it when `n` is undefined). */
@@ -1577,7 +1586,7 @@ describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link 
   const lineCount = (fixtureDir: string): number => fs.readFileSync(path.join(fixtureDir, 'pnpm-lock.yaml'), 'utf8').split(/(?<=\n)/).length;
 
   it('THE SWEEP: every line prefix of every real pnpm-written lockfile is REFUSED — only the whole file is a stack', () => {
-    const trees = [...['mixed', 'link-only', 'injected', 'link-workspace-packages', 'link-protocol', 'exclude-links', 'negated-globs'].map((n) => path.join(REAL, n)), FIXTURE_TREE];
+    const trees = [...REAL_SHAPES.map((n) => path.join(REAL, n)), FIXTURE_TREE];
     for (const tree of trees) {
       const total = lineCount(tree);
       expect(total, tree).toBeGreaterThan(10);
@@ -1587,9 +1596,9 @@ describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link 
       }
       expect(accepted, path.basename(tree)).toEqual([total]);
     }
-    // …and BYTE by byte (a cut inside a line): only the whole file, and the whole file without its final newline —
-    // which is the same document
-    for (const name of ['mixed', 'link-only', 'link-workspace-packages']) {
+    // …and BYTE by byte (a cut inside a line), for EVERY committed real shape: only the whole file, and the whole file
+    // without its final newline — which is the same document
+    for (const name of REAL_SHAPES) {
       const lock = fs.readFileSync(path.join(REAL, name, 'pnpm-lock.yaml'), 'utf8');
       const d = cutCopy(path.join(REAL, name));
       const accepted: number[] = [];
@@ -1659,7 +1668,7 @@ describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link 
 
   it('the legitimate shapes pnpm 10.11.1 really writes are all still read: link-only, injected, link-workspace-packages (survivor R01), link: protocol, excludeLinksFromLockfile, negated globs, registry + links', () => {
     const read = (name: string) => extractStackManifest(path.join(REAL, name), REVISION);
-    for (const name of ['link-only', 'injected', 'link-workspace-packages', 'link-protocol', 'exclude-links', 'negated-globs', 'mixed']) expect(read(name).refusals, name).toEqual([]);
+    for (const name of REAL_SHAPES) expect(read(name).refusals, name).toEqual([]);
     // R01 — `link-workspace-packages=true`: a PLAIN range resolved to a workspace link. No `workspace:` specifier anywhere, so
     // only the RESOLVED `link:` value says this dependency needs no packages entry — and the closure is still the root alone
     const lwpLock = fs.readFileSync(path.join(REAL, 'link-workspace-packages', 'pnpm-lock.yaml'), 'utf8');
@@ -1712,9 +1721,25 @@ describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link 
     expect(refusalsOf('        specifier: workspace:*\n        version: link:../../../outside\n')).toEqual([noTarget('../outside')]); // leaves the tree: never an importer
     expect(refusalsOf('        specifier: workspace:*\n        version: link:../..\n')).toEqual([]); // the root IS an importer
     expect(refusalsOf('        specifier: link:../b\n        version: link:../b\n')).toEqual([]); // link: protocol — no importer by construction
-    // a workspace package never links to ITSELF: that is what a link path cut mid-line resolves to
-    const self = stackRefusalPnpmMalformed("importer packages/a dependency 'b' (workspace link target 'packages/a' is not another importer — the lockfile is cut short)");
-    for (const cut of ['link:', 'link:.', 'link:../a']) expect(refusalsOf(`        specifier: workspace:*\n        version: ${cut}\n`), cut).toEqual([self]);
+    // a workspace link onto the importer ITSELF is what pnpm writes for a package depending on itself (`version: 'link:'`)
+    // AND what a link path cut mid-line (`link:.`) resolves to: the reader records it as a self link and the TREE decides
+    // (guard c: the dependency name must be the importer's own package name) — see 'MINOR-1 (pass 3)' below
+    for (const cut of ['link:', "'link:'", 'link:.', 'link:../a']) {
+      const r = readPnpmLock(`${head}        specifier: workspace:*\n        version: ${cut}\n`, { name: 'r', version: '1.0.0' });
+      expect(r.refusals, cut).toEqual([]);
+      expect(r.derived!.importers.find((i) => i.path === 'packages/a')!.selfLinks, cut).toEqual(['b']);
+    }
+    // MAJOR-2 (pass 3): a link:-PROTOCOL value is a pure function of its specifier — `link:` + pnpm's normalised path —
+    // so a value cut mid-line (what 16 byte prefixes of the committed link-protocol fixture were) never matches
+    const proto = (spec: string, version: string): string[] => readPnpmLock(`${head}        specifier: ${spec}\n        version: ${version}\n`, { name: 'r', version: '1.0.0' }).refusals;
+    const mismatch = (version: string, normalized: string): string => stackRefusalPnpmMalformed(`importer packages/a dependency 'b' (link: protocol value '${version}' is not 'link:${normalized}', the normalised specifier — the lockfile is cut short)`);
+    expect(proto('link:./vendor/lib', 'link:vendor/lib')).toEqual([]);
+    expect(proto('link:../../vendor/lib', 'link:../../vendor/lib')).toEqual([]);
+    expect(proto('link:vendor/lib/', 'link:vendor/lib')).toEqual([]);
+    expect(proto('link:./a/../vendor/lib', 'link:vendor/lib')).toEqual([]);
+    for (const cut of ['link:vendor/li', 'link:vendor', 'link:', 'link:./vendor/lib', 'link:vendor/lib/', 'link:../vendor/lib']) expect(proto('link:./vendor/lib', cut), cut).toEqual([mismatch(cut, 'vendor/lib')]);
+    expect(proto('link:.', 'link:.')).toEqual([mismatch('link:.', '')]);
+    expect(proto('link:', 'link:')).toEqual([mismatch('link:', '')]);
     // …in every bucket
     for (const key of ['devDependencies', 'optionalDependencies']) {
       expect(readPnpmLock(`${head.replace('dependencies:', `${key}:`)}        specifier: workspace:*\n        version: link:../b\n`, { name: 'r', version: '1.0.0' }).refusals, key).toEqual([noTarget('packages/b')]);
@@ -1829,6 +1854,136 @@ describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link 
     expect(refusalsAt(lines.length - 2)).toEqual([stackRefusalPnpmMalformed("snapshot z@1.0.0 'dependencies' (a bucket with no entries: pnpm never writes one — the lockfile is cut short)")]);
   });
 
+  it('MAJOR-1 (pass 3): a workspace package that is a nested clone or a submodule is never skipped — through git, both views, full and cut lockfiles', () => {
+    const H = 'sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==';
+    const full =
+      "lockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: false\n\nimporters:\n\n  .: {}\n\n  packages/a: {}\n\n  packages/zsub:\n    dependencies:\n      is-number:\n        specifier: 7.0.0\n        version: 7.0.0\n\n" +
+      `packages:\n\n  is-number@7.0.0:\n    resolution: {integrity: ${H}}\n    engines: {node: '>=0.12.0'}\n\nsnapshots:\n\n  is-number@7.0.0: {}\n`;
+    const cut = full.slice(0, full.indexOf('  packages/zsub:'));
+    expect(readPnpmLock(cut, { name: 'r', version: '1.0.0' }).refusals).toEqual([]); // the lockfile alone cannot tell
+    const git = (repo: string, ...a: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.email=t@example.com', '-c', 'user.name=t', ...a], { encoding: 'utf8' }).trim();
+    const mk = (label: string, variant: 'clone' | 'submodule'): string => {
+      const repo = tmp(label);
+      fs.mkdirSync(path.join(repo, 'packages', 'a'), { recursive: true });
+      fs.writeFileSync(path.join(repo, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n');
+      fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ name: 'nest-root', version: '1.0.0', private: true }));
+      fs.writeFileSync(path.join(repo, 'packages', 'a', 'package.json'), JSON.stringify({ name: 'a', version: '1.0.0' }));
+      git(repo, 'init', '-q', '-b', 'main');
+      // packages/zsub: its own repository, holding a package.json that declares the registry dependency
+      const zsub = path.join(repo, 'packages', 'zsub');
+      fs.mkdirSync(zsub, { recursive: true });
+      fs.writeFileSync(path.join(zsub, 'package.json'), JSON.stringify({ name: 'zsub', version: '1.0.0', dependencies: { 'is-number': '7.0.0' } }));
+      if (variant === 'clone') {
+        fs.mkdirSync(path.join(zsub, '.git'));
+        fs.writeFileSync(path.join(repo, '.gitignore'), 'packages/zsub/\n');
+      } else {
+        // a real repository inside: the parent's `git add -A` records it as a gitlink (mode 160000)
+        git(zsub, 'init', '-q', '-b', 'main');
+        git(zsub, 'add', '-A');
+        git(zsub, 'commit', '-q', '-m', 'zsub');
+      }
+      return repo;
+    };
+    const snap = (repo: string, extra: string[]): { status: number; nodes: number | null; stderr: string } => {
+      const out = path.join(tmp('nest-out'), 'm.json');
+      const cli = runCli(['stack', 'snapshot', '--ct-repo', repo, ...extra, '--out', out], ROOT);
+      return { status: cli.status, nodes: fs.existsSync(out) ? (JSON.parse(fs.readFileSync(out, 'utf8')) as StackManifest).nodes.length : null, stderr: cli.stderr };
+    };
+    for (const variant of ['clone', 'submodule'] as const) {
+      const repo = mk(`nest-${variant}`, variant);
+      for (const lock of ['full', 'cut'] as const) {
+        fs.writeFileSync(path.join(repo, 'pnpm-lock.yaml'), lock === 'full' ? full : cut);
+        git(repo, 'add', '-A');
+        git(repo, 'commit', '-q', '-m', lock);
+        if (variant === 'submodule') expect(git(repo, 'ls-files', '--stage', 'packages/zsub')).toMatch(/^160000 /);
+        else expect(git(repo, 'ls-files', '--stage', 'packages/zsub')).toBe('');
+        const unpinned = snap(repo, ['--no-pin']);
+        const pinned = snap(repo, []);
+        if (lock === 'full') {
+          // the working tree holds zsub's package.json: read, 2 nodes. The pinned tree never holds it (an ignored clone is not in
+          // the revision; a submodule's tree is not in git archive): importer 'packages/zsub' cannot be checked — the accepted cost
+          expect(unpinned, variant).toMatchObject({ status: 0, nodes: 2 });
+          expect(pinned.status, variant).toBe(2);
+          expect(pinned.stderr, variant).toContain("importer 'packages/zsub' has no 'packages/zsub/package.json' in this tree");
+        } else {
+          expect(unpinned.status, variant).toBe(2);
+          expect(unpinned.nodes, variant).toBeNull();
+          expect(unpinned.stderr, variant).toContain("pnpm-workspace.yaml names package 'packages/zsub' but the lockfile has no importer for it");
+          if (variant === 'submodule') {
+            // the revision DECLARES a gitlink under `packages/*` and cannot show what is inside it: unevaluable → refused
+            expect(pinned.status).toBe(2);
+            expect(pinned.stderr).toContain("pnpm-workspace.yaml may name a package under the submodule 'packages/zsub', whose contents are not in this view");
+          } else {
+            // KNOWN LIMIT, stated plainly: an IGNORED clone leaves no trace in the revision at all — not a gitlink, not a tracked
+            // file — so the pinned view of the cut lockfile is indistinguishable from an honest one-package workspace and is read
+            expect(pinned).toMatchObject({ status: 0, nodes: 1 });
+          }
+        }
+      }
+    }
+  });
+
+  it('MAJOR-3 (pass 3): a workspace file with NO packages: key is read by the DECLARED packageManager, never by the lockfile — pnpm >= 10 takes the root alone (measured), anything else is every directory (fail-closed)', () => {
+    // MEASURED 2026-09-20: pnpm 10.11.1 with such a file writes `importers: {.: {}}` alone; pnpm 8.15.9, 9.0.0 and 9.15.4 refuse
+    // to run at all (`ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION packages field missing or empty`). So a lockfile beside such a
+    // file was written by pnpm >= 10 — or the tree is not what its declaration says, which is read as pnpm's own default.
+    const lock = "lockfileVersion: '9.0'\nimporters:\n  .: {}\n";
+    const ws = 'onlyBuiltDependencies:\n  - esbuild\n';
+    const pj = (name: string): string => JSON.stringify({ name, version: '1.0.0' });
+    const refusals = (packageManager: string | undefined, files: Record<string, string | null> = {}): string[] =>
+      extractStackManifest(treeWith('no-packages-key', lock, { name: 'r', version: '1.0.0', ...(packageManager === undefined ? {} : { packageManager }) }, { 'pnpm-workspace.yaml': ws, 'tools/x/package.json': pj('x'), ...files }), REVISION).refusals;
+    const named = lost("pnpm-workspace.yaml names package 'tools/x' but the lockfile has no importer for it");
+    for (const pm of ['pnpm@10.11.1', 'pnpm@10.0.0', 'pnpm@11.2.0', 'pnpm@10.11.1+sha512.abc']) expect(refusals(pm), pm).toEqual([]);
+    for (const pm of ['pnpm@9.15.4', 'pnpm@9.0.0', 'pnpm@8.15.9', undefined, 'pnpm', 'pnpm@x', 'npm@10.0.0', 'yarn@4.1.0']) expect(refusals(pm), String(pm)).toEqual([named, STACK_REFUSAL_NO_LOCKFILE]);
+    // decided WITHOUT the lockfile's importer list: the same declarations judge the same tree whether or not the lockfile names tools/x
+    const withImporter = "lockfileVersion: '9.0'\nimporters:\n  .: {}\n  tools/x: {}\n";
+    for (const pm of ['pnpm@10.11.1', 'pnpm@9.15.4', undefined]) {
+      expect(extractStackManifest(treeWith('no-packages-key-imp', withImporter, { name: 'r', version: '1.0.0', ...(pm === undefined ? {} : { packageManager: pm }) }, { 'pnpm-workspace.yaml': ws, 'tools/x/package.json': pj('x') }), REVISION).refusals, String(pm)).toEqual([]);
+    }
+    // the pass-3 reproducer (t_p9): packageManager pnpm@9.15.4, packages/a declares is-number, lockfile cut back to the root importer
+    const H = 'sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==';
+    const p9full = `lockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: false\n\nimporters:\n\n  .: {}\n\n  packages/a:\n    dependencies:\n      is-number:\n        specifier: 7.0.0\n        version: 7.0.0\n\npackages:\n\n  is-number@7.0.0:\n    resolution: {integrity: ${H}}\n    engines: {node: '>=0.12.0'}\n\nsnapshots:\n\n  is-number@7.0.0: {}\n`;
+    const p9 = (text: string) => extractStackManifest(treeWith('t_p9', text, { name: 'p9-root', version: '1.0.0', private: true, packageManager: 'pnpm@9.15.4' }, { 'pnpm-workspace.yaml': 'catalog:\n  is-number: 7.0.0\n', 'packages/a/package.json': JSON.stringify({ name: 'a', version: '1.0.0', dependencies: { 'is-number': '7.0.0' } }) }), REVISION);
+    expect(p9(p9full).refusals).toEqual([]);
+    expect(p9(p9full.split(/(?<=\n)/).slice(0, 9).join('')).refusals).toEqual([lost("pnpm-workspace.yaml names package 'packages/a' but the lockfile has no importer for it"), STACK_REFUSAL_NO_LOCKFILE]);
+  });
+
+  it("MINOR-1 (pass 3): a package depending on ITSELF through workspace:* (pnpm writes `version: 'link:'`) is read when the name is the importer's own — the self-link fixture — and any other self target refuses", () => {
+    const self = path.join(REAL, 'self-link');
+    expect(fs.readFileSync(path.join(self, 'pnpm-lock.yaml'), 'utf8')).toContain("version: 'link:'");
+    const r = extractStackManifest(self, REVISION);
+    expect(r.refusals).toEqual([]);
+    expect(r.manifest.unmodeled.map((u) => `${u.reason}:${u.key}:${u.spec.version}`)).toEqual(['link:importers/packages/a/dependencies/a:link:']);
+    const cli = runCli(['stack', 'snapshot', '--ct-repo', self, '--no-pin', '--out', path.join(tmp('self-out'), 'm.json')], ROOT);
+    expect(cli.status, cli.stderr).toBe(0);
+    // the same lockfile bytes in a tree whose packages/a is named otherwise: the self link names a package that is not there
+    const renamed = cutCopy(self);
+    fs.writeFileSync(path.join(renamed, 'packages', 'a', 'package.json'), JSON.stringify({ name: 'not-a', version: '1.0.0', dependencies: { a: 'workspace:*' } }));
+    expect(extractStackManifest(renamed, REVISION).refusals).toEqual([
+      lost("importer 'packages/a': dependency 'a' links to the importer itself, whose 'packages/a/package.json' is named 'not-a' — the lockfile is cut short"),
+      STACK_REFUSAL_NO_LOCKFILE,
+    ]);
+    // …and a link path cut mid-line onto the importer itself (`link:.` from `link:../b`) is a self link under a foreign name
+    const lock = "lockfileVersion: '9.0'\nimporters:\n  .: {}\n  packages/a:\n    dependencies:\n      b:\n        specifier: workspace:*\n        version: link:.\n  packages/b: {}\n";
+    expect(extractStackManifest(treeWith('self-cut', lock, { name: 'r', version: '1.0.0' }, { 'packages/a/package.json': JSON.stringify({ name: 'a', version: '1.0.0', dependencies: { b: 'workspace:*' } }) }), REVISION).refusals).toEqual([
+      lost("importer 'packages/a': dependency 'b' links to the importer itself, whose 'packages/a/package.json' is named 'a' — the lockfile is cut short"),
+      STACK_REFUSAL_NO_LOCKFILE,
+    ]);
+  });
+
+  it('MINOR-3 (pass 3): excludeLinksFromLockfile exempts ONLY a link:-protocol dependency — an unrecorded registry dependency beside it still refuses', () => {
+    const lock = "lockfileVersion: '9.0'\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: true\nimporters:\n  .: {}\n";
+    const ok = extractStackManifest(treeWith('excl-ok', lock, { name: 'r', version: '1.0.0', dependencies: { lib: 'link:./vendor/lib' } }, { 'vendor/lib/package.json': JSON.stringify({ name: 'lib', version: '1.0.0' }) }), REVISION);
+    expect(ok.refusals).toEqual([]);
+    const registry = extractStackManifest(treeWith('excl-registry', lock, { name: 'r', version: '1.0.0', dependencies: { lib: 'link:./vendor/lib', zod: '^4.0.0' } }, { 'vendor/lib/package.json': JSON.stringify({ name: 'lib', version: '1.0.0' }) }), REVISION);
+    expect(registry.refusals).toEqual([lost("importer '.': 'package.json' declares dependencies 'zod' but the lockfile's importer entry does not record it"), STACK_REFUSAL_NO_LOCKFILE]);
+    // a workspace: dependency is not a link:-protocol one either
+    expect(extractStackManifest(treeWith('excl-ws', lock, { name: 'r', version: '1.0.0', dependencies: { lib: 'workspace:*' } }), REVISION).refusals).toEqual([
+      lost("importer '.': 'package.json' declares dependencies 'lib' but the lockfile's importer entry does not record it"),
+      STACK_REFUSAL_NO_LOCKFILE,
+    ]);
+  });
+
   it('guard (d) through the tree: a named package with no importer refuses; node_modules, dot-led, symlinked and package.json-less directories are not packages; no workspace file with workspace importers cannot be checked', () => {
     const lock = "lockfileVersion: '9.0'\nimporters:\n  .: {}\n  packages/a: {}\n";
     const ws = "packages:\n  - 'packages/*'\n";
@@ -1839,30 +1994,57 @@ describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link 
     expect(refusals({ 'packages/b/package.json': pj('b') })).toEqual([lost("pnpm-workspace.yaml names package 'packages/b' but the lockfile has no importer for it"), STACK_REFUSAL_NO_LOCKFILE]);
     expect(refusals({ 'packages/node_modules/package.json': pj('x'), 'packages/a/node_modules/dep/package.json': pj('dep'), 'packages/.cache/package.json': pj('c'), 'packages/empty/README.md': 'no manifest\n', 'other/b/package.json': pj('b') })).toEqual([]);
     expect(findPackageJsonDirs(tree({ 'packages/b/package.json': pj('b'), 'packages/b/deep/package.json': pj('deep'), 'packages/node_modules/x/package.json': pj('x') }), 2)).toEqual(['packages/a', 'packages/b']);
+    expect(findPackageJsonDirs(tree({ 'packages/clone/package.json': pj('c'), 'packages/clone/.git/HEAD': 'x\n', 'packages/clone/sub/package.json': pj('s') }), Infinity)).toEqual(['packages/a', 'packages/clone', 'packages/clone/sub']);
     expect(findPackageJsonDirs(tree({ 'packages/b/deep/package.json': pj('deep'), 'node_modules/dep/package.json': pj('dep'), 'packages/a/bower_components/w/package.json': pj('w'), '.git/package.json': pj('g') }), Infinity)).toEqual(['packages/a', 'packages/b/deep']);
-    // another repository's tree under the glob is not this workspace (the `.git` marker, without git knowledge) …
+    // MAJOR-1 (pass 3) RULING — REVERSED from round 3: another repository's tree under a workspace glob IS a workspace package
+    // (pnpm never looks at `.git`), so guard (d) walks a nested clone or a checked-out submodule like any directory. The
+    // `.git` marker decides nothing here, with or without git knowledge — the image walk's nested-checkout rule is a
+    // separate concern and unchanged.
+    const named = lost("pnpm-workspace.yaml names package 'packages/clone' but the lockfile has no importer for it");
     const withClone = tree({ 'packages/clone/package.json': pj('clone'), 'packages/clone/.git/HEAD': 'ref: refs/heads/main\n' });
-    expect(extractStackManifest(withClone, REVISION).refusals).toEqual([]);
-    // … and WITH git knowledge the marker decides only where git tracks nothing: tracked files under it are this repository's
-    expect(extractStackManifest(withClone, REVISION, 'npm-lockfile', { tracked: new Set(['packages/clone/package.json']), gitlinks: [] }).refusals).toEqual([
-      lost("pnpm-workspace.yaml names package 'packages/clone' but the lockfile has no importer for it"),
-      STACK_REFUSAL_NO_LOCKFILE,
-    ]);
-    expect(extractStackManifest(withClone, REVISION, 'npm-lockfile', { tracked: new Set(['packages/clone2/x']), gitlinks: [] }).refusals).toEqual([]);
-    expect(extractStackManifest(tree({ 'packages/sub/package.json': pj('sub') }), REVISION, 'npm-lockfile', { tracked: new Set(), gitlinks: ['packages/sub'] }).refusals).toEqual([]);
+    expect(extractStackManifest(withClone, REVISION).refusals).toEqual([named, STACK_REFUSAL_NO_LOCKFILE]);
+    expect(extractStackManifest(withClone, REVISION, 'npm-lockfile', { tracked: new Set(['packages/clone/package.json']), gitlinks: [] }).refusals).toEqual([named, STACK_REFUSAL_NO_LOCKFILE]);
+    expect(extractStackManifest(withClone, REVISION, 'npm-lockfile', { tracked: new Set(['packages/clone2/x']), gitlinks: [] }).refusals).toEqual([named, STACK_REFUSAL_NO_LOCKFILE]);
+    // a submodule whose contents ARE in the view (checked out): its package.json must be an importer like any other
+    const subNamed = lost("pnpm-workspace.yaml names package 'packages/sub' but the lockfile has no importer for it");
+    expect(extractStackManifest(tree({ 'packages/sub/package.json': pj('sub') }), REVISION, 'npm-lockfile', { tracked: new Set(), gitlinks: ['packages/sub'] }).refusals).toEqual([subNamed, STACK_REFUSAL_NO_LOCKFILE]);
+    // a gitlink the revision declares under a workspace glob whose contents are NOT in the view (a pinned tree never holds a
+    // submodule's tree): the guard cannot be evaluated → refuse — for the honest lockfile as much as for a cut one
+    const absent = (g: string): string => lost(`pnpm-workspace.yaml may name a package under the submodule '${g}', whose contents are not in this view, so the workspace packages cannot be checked`);
+    expect(extractStackManifest(tree({}), REVISION, 'npm-lockfile', { tracked: new Set(), gitlinks: ['packages/sub'] }).refusals).toEqual([absent('packages/sub'), STACK_REFUSAL_NO_LOCKFILE]);
+    // …also when the glob reaches BELOW it (`packages/*/web` could name packages/sub/web), and not when no glob can reach it
+    expect(extractStackManifest(tree({ 'pnpm-workspace.yaml': "packages:\n  - 'packages/*/web'\n" }), REVISION, 'npm-lockfile', { tracked: new Set(), gitlinks: ['packages/sub'] }).refusals).toEqual([absent('packages/sub'), STACK_REFUSAL_NO_LOCKFILE]);
+    expect(extractStackManifest(tree({}), REVISION, 'npm-lockfile', { tracked: new Set(), gitlinks: ['vendor/tool', 'packages/a/node_modules/x'] }).refusals).toEqual([]);
+    expect(extractStackManifest(tree({ 'pnpm-workspace.yaml': "packages:\n  - '**'\n" }), REVISION, 'npm-lockfile', { tracked: new Set(), gitlinks: ['vendor/tool'] }).refusals).toEqual([absent('vendor/tool'), STACK_REFUSAL_NO_LOCKFILE]);
+    // a gitlink under node_modules / bower_components / .git can hold no workspace package, whatever the glob
+    expect(extractStackManifest(tree({ 'pnpm-workspace.yaml': "packages:\n  - '**'\n" }), REVISION, 'npm-lockfile', { tracked: new Set(), gitlinks: ['node_modules/x', 'packages/a/bower_components/y'] }).refusals).toEqual([]);
+    // `**` reaches ANY depth below a gitlink: `apps/**/web` could name apps/x/y/web
+    expect(extractStackManifest(tree({ 'pnpm-workspace.yaml': "packages:\n  - 'apps/**/web'\n" }), REVISION, 'npm-lockfile', { tracked: new Set(), gitlinks: ['apps/x/y'] }).refusals).toEqual([absent('apps/x/y'), STACK_REFUSAL_NO_LOCKFILE]);
+    // a gitlink the workspace file takes OUT by negation, with no glob able to reach below it, needs no look inside
+    expect(extractStackManifest(tree({ 'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n  - '!packages/sub'\n" }), REVISION, 'npm-lockfile', { tracked: new Set(), gitlinks: ['packages/sub'] }).refusals).toEqual([]);
+    // …and the matcher's own answers
+    const P = (yaml: string) => { const r = readPnpmWorkspacePatterns(yaml); if (typeof r === 'string') throw new Error(r); return r; };
+    expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'packages/*'\n"), 'packages/sub')).toBe(false); // exact is not below
+    expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'packages/*'\n"), 'packages')).toBe(true);
+    expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'apps/**/web'\n"), 'apps/x/y')).toBe(true);
+    expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'apps/**/web'\n"), 'other')).toBe(false);
+    expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - '**'\n"), 'a/b/c')).toBe(true);
+    expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'packages/*/web'\n"), 'packages/sub')).toBe(true);
+    // an EMPTY submodule directory on disk (never initialised) is the same absent-contents case
+    const emptySub = tree({});
+    fs.mkdirSync(path.join(emptySub, 'packages', 'sub'));
+    expect(extractStackManifest(emptySub, REVISION, 'npm-lockfile', { tracked: new Set(), gitlinks: ['packages/sub'] }).refusals).toEqual([absent('packages/sub'), STACK_REFUSAL_NO_LOCKFILE]);
     // the file that defines the workspace is missing, unreadable, or written in a glob syntax this reader does not evaluate
     expect(refusals({ 'pnpm-workspace.yaml': null })).toEqual([lost("the lockfile has workspace importers but this tree has no readable 'pnpm-workspace.yaml', so the workspace packages cannot be checked"), STACK_REFUSAL_NO_LOCKFILE]);
     expect(refusals({ 'pnpm-workspace.yaml': "packages:\n  - 'packages/{a,b}'\n" })).toEqual([
       lost("pnpm-workspace.yaml package pattern 'packages/{a,b}' uses glob syntax this reader does not evaluate, so the workspace packages cannot be checked"),
       STACK_REFUSAL_NO_LOCKFILE,
     ]);
-    // no `packages:` key yet the lockfile has workspace importers (pnpm <= 9 took every directory): every package.json below the root is named
-    expect(refusals({ 'pnpm-workspace.yaml': 'onlyBuiltDependencies:\n  - esbuild\n' })).toEqual([]);
-    expect(refusals({ 'pnpm-workspace.yaml': 'onlyBuiltDependencies:\n  - esbuild\n', 'tools/x/package.json': pj('x') })).toEqual([lost("pnpm-workspace.yaml names package 'tools/x' but the lockfile has no importer for it"), STACK_REFUSAL_NO_LOCKFILE]);
+    // no `packages:` key: see 'MAJOR-3 (pass 3)' below — the reading is decided by the declared packageManager, never the lockfile
     // a root-only lockfile needs no workspace file; with one, the root is always a package
     const rootOnly = "lockfileVersion: '9.0'\nimporters:\n  .: {}\n";
     expect(extractStackManifest(treeWith('guard-d-root', rootOnly, { name: 'r', version: '1.0.0' }), REVISION).refusals).toEqual([]);
-    expect(checkPnpmLockCoversTree(tree({}), { importers: [{ path: 'packages/a', names: [] }], excludeLinksFromLockfile: false }, (rel) => (fs.existsSync(path.join(tree({}), rel)) ? fs.readFileSync(path.join(tree({}), rel)) : null))).toEqual([
+    expect(checkPnpmLockCoversTree(tree({}), { importers: [{ path: 'packages/a', names: [], selfLinks: [] }], excludeLinksFromLockfile: false }, (rel) => (fs.existsSync(path.join(tree({}), rel)) ? fs.readFileSync(path.join(tree({}), rel)) : null))).toEqual([
       "pnpm-workspace.yaml: the root package is always a workspace package but the lockfile has no importer '.'",
     ]);
   });

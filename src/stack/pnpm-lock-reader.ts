@@ -492,6 +492,23 @@ export interface PnpmImporterFacts {
   path: string;
   /** sorted, unique */
   names: string[];
+  /**
+   * dependency names whose workspace link resolves to this importer ITSELF (pnpm writes `version: 'link:'`
+   * for a package that depends on itself through `workspace:*`). Legitimate only when the name IS the
+   * importer's own package name — which only the tree's `package.json` can say (guard c).
+   */
+  selfLinks: string[];
+}
+
+/** pnpm's normalised form of a `link:`-protocol specifier path: `./vendor/lib` → `vendor/lib`, a trailing `/` dropped, `..` kept. */
+export function pnpmNormalizeLinkPath(specPath: string): string {
+  const out: string[] = [];
+  for (const seg of specPath.split('/')) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..' && out.length > 0 && out[out.length - 1] !== '..') out.pop();
+    else out.push(seg);
+  }
+  return out.join('/');
 }
 
 /** `link:<relative>` seen from importer `imp`, as an importer key (`.` for the root). Never absolute. */
@@ -762,6 +779,12 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
       malformed.push(`snapshots entry '${key}' (not a mapping)`);
       continue;
     }
+    // `optional` is a YAML boolean or absent — pnpm writes `optional: true` and nothing else there; any
+    // other scalar (`optional: tr`, a string) is a value cut mid-line, never a flag that is quietly false
+    if (snapEntry.has('optional') && typeof snapEntry.get('optional') !== 'boolean') {
+      malformed.push(`snapshots entry '${key}' ('optional' is not a boolean — the lockfile is cut short)`);
+      continue;
+    }
     node.layout.push(key);
     const list = snapshotKeysByPkgKey.get(pkgKey) ?? [];
     list.push(key);
@@ -821,7 +844,8 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     }
     if (imp !== '.') unsupported.add(STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS);
     const names = new Set<string>();
-    importerFacts.push({ path: imp, names: [] });
+    const selfLinks: string[] = [];
+    importerFacts.push({ path: imp, names: [], selfLinks: [] });
     for (const bucket of IMPORTER_BUCKETS) {
       if (!impMap.has(bucket.key)) continue;
       const deps = impMap.get(bucket.key);
@@ -852,10 +876,22 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
           // an importer. A `link:`-PROTOCOL dependency (`specifier: link:…`) names a directory by path —
           // measured on pnpm 10.11.1, that directory is not an importer and may sit outside the tree.
           const target = pnpmLinkTarget(imp, version);
-          if (!specifier.startsWith('link:') && (!importers.has(target) || target === imp)) {
-            // …and never the importer ITSELF: that is what a link path cut mid-line (`link:.`) resolves to
-            malformed.push(`importer ${imp} dependency '${dep}' (workspace link target '${target}' is not ${target === imp ? 'another' : 'an'} importer — the lockfile is cut short)`);
+          if (specifier.startsWith('link:')) {
+            // a link:-PROTOCOL dependency: no importer to land on, but the resolved value is a pure function
+            // of the specifier — `link:` + pnpm's normalised path — so a value cut mid-line never matches
+            const normalized = pnpmNormalizeLinkPath(specifier.slice('link:'.length));
+            if (normalized === '' || version !== `link:${normalized}`) {
+              malformed.push(`importer ${imp} dependency '${dep}' (link: protocol value '${version}' is not 'link:${normalized}', the normalised specifier — the lockfile is cut short)`);
+              continue;
+            }
+          } else if (!importers.has(target)) {
+            malformed.push(`importer ${imp} dependency '${dep}' (workspace link target '${target}' is not an importer — the lockfile is cut short)`);
             continue;
+          } else if (target === imp) {
+            // the importer ITSELF: what pnpm writes (`version: 'link:'`) for a package depending on itself
+            // through `workspace:*` — and also what a link path cut mid-line (`link:.`) resolves to. Only
+            // the tree can tell them apart: the dependency name must be the importer's own package name.
+            selfLinks.push(dep);
           }
           unsupported.add(`workspace/link entry ${imp}:${dep} -> ${version}: local package not part of the declared closure in slice 1; hashed as an opaque entry, no node`);
           // the declared range (`specifier: workspace:*`) is quarantined like every other range: only the
@@ -883,6 +919,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
       }
     }
     importerFacts[importerFacts.length - 1]!.names = [...names].sort();
+    importerFacts[importerFacts.length - 1]!.selfLinks = selfLinks.sort();
   }
 
   // ---- snapshot → snapshot adjacency + package edges ----
@@ -1054,8 +1091,12 @@ export function readPnpmLock(source: string, root: PnpmRootIdentity): PnpmLockRe
 export interface PnpmWorkspacePatterns {
   include: RegExp[];
   exclude: RegExp[];
+  /** the include globs as written (cleaned of `./` and a trailing `/`), for prefix reasoning */
+  includeGlobs: string[];
   /** deepest directory a pattern can name; `Infinity` when any include pattern carries `**` */
   maxDepth: number;
+  /** the file carries a `packages:` key at all (absent: pnpm >= 10 takes the root alone; pnpm < 10 refuses to run) */
+  hasPackagesKey: boolean;
 }
 
 /** One workspace glob → an anchored RegExp over a `/`-separated directory path. `null` = syntax this reader does not evaluate. */
@@ -1105,7 +1146,7 @@ export function readPnpmWorkspacePatterns(source: string): PnpmWorkspacePatterns
     if (e instanceof PnpmLockSubsetError) return `pnpm-workspace.yaml line ${e.line}: ${e.reason} — cannot be read, so the workspace packages cannot be checked`;
     throw e;
   }
-  const out: PnpmWorkspacePatterns = { include: [], exclude: [], maxDepth: 0 };
+  const out: PnpmWorkspacePatterns = { include: [], exclude: [], includeGlobs: [], maxDepth: 0, hasPackagesKey: doc.has('packages') };
   const raw = doc.get('packages');
   if (raw === undefined || raw === null) return out;
   if (!Array.isArray(raw) || !raw.every((x) => typeof x === 'string' && x !== '')) return "pnpm-workspace.yaml 'packages' is not a list of strings, so the workspace packages cannot be checked";
@@ -1115,7 +1156,11 @@ export function readPnpmWorkspacePatterns(source: string): PnpmWorkspacePatterns
     const re = pnpmWorkspaceGlobToRegExp(glob);
     if (re === null) return `pnpm-workspace.yaml package pattern '${item}' uses glob syntax this reader does not evaluate, so the workspace packages cannot be checked`;
     (negated ? out.exclude : out.include).push(re);
-    if (!negated) out.maxDepth = glob.includes('**') ? Infinity : Math.max(out.maxDepth, glob.replace(/^(?:\.\/)+/, '').replace(/\/+$/, '').split('/').length);
+    if (!negated) {
+      const cleaned = glob.replace(/^(?:\.\/)+/, '').replace(/\/+$/, '');
+      out.includeGlobs.push(cleaned);
+      out.maxDepth = glob.includes('**') ? Infinity : Math.max(out.maxDepth, cleaned.split('/').length);
+    }
   }
   return out;
 }
@@ -1125,4 +1170,33 @@ export function isPnpmWorkspaceDir(patterns: PnpmWorkspacePatterns, rel: string)
   if (rel === '' || rel === '.') return true;
   if (rel.split('/').some((seg) => seg === 'node_modules' || seg === 'bower_components')) return false;
   return patterns.include.some((re) => re.test(rel)) && !patterns.exclude.some((re) => re.test(rel));
+}
+
+/** The `packages:` reading pnpm's own default gives: every directory below the root (`**`). */
+export function pnpmWorkspaceEveryDirectory(): PnpmWorkspacePatterns {
+  const all = readPnpmWorkspacePatterns('packages:\n  - "**"\n');
+  if (typeof all === 'string') throw new Error(all);
+  return all;
+}
+
+/**
+ * Could an include glob name a directory BELOW `dir` (not `dir` itself)? Decided from the glob's
+ * segments: the glob must be able to consume every segment of `dir` and still have something left to
+ * match. Used for a gitlink under a workspace glob whose contents the view cannot see.
+ */
+export function pnpmWorkspaceGlobMayMatchBelow(patterns: PnpmWorkspacePatterns, dir: string): boolean {
+  const dirSegs = dir === '' || dir === '.' ? [] : dir.split('/');
+  const segMatches = (glob: string, seg: string): boolean => {
+    if (glob === '**') return true;
+    const re = pnpmWorkspaceGlobToRegExp(glob);
+    return re !== null && re.test(seg);
+  };
+  const walk = (gs: string[], ds: string[]): boolean => {
+    if (ds.length === 0) return gs.length > 0; // dir consumed; anything left can name a deeper directory
+    if (gs.length === 0) return false;
+    const [g, ...gRest] = gs as [string, ...string[]];
+    if (g === '**') return walk(gRest, ds) || walk(gs, ds.slice(1)); // zero or more segments
+    return segMatches(g, ds[0]!) && walk(gRest, ds.slice(1));
+  };
+  return patterns.includeGlobs.some((glob) => walk(glob.split('/'), dirSegs));
 }

@@ -21,3 +21,5 @@ with the `package.json` / `pnpm-workspace.yaml` files its lockfile must cover:
   from the importer entries, by pnpm's own hand.
 - `negated-globs` — `packages/*`, `apps/**` and `!packages/skip`: a directory holding a
   `package.json` that the workspace file takes out again.
+- `self-link` — a package depending on ITSELF through `workspace:*`: pnpm writes `version: 'link:'`
+  (the lockfile's only self target that is legitimate — under the package's own name).

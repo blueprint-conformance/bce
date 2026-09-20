@@ -44,6 +44,8 @@ import {
 } from './stack-manifest.js';
 import {
   isPnpmWorkspaceDir,
+  pnpmWorkspaceEveryDirectory,
+  pnpmWorkspaceGlobMayMatchBelow,
   readPnpmLock,
   readPnpmWorkspacePatterns,
   stackRefusalPnpmLostClosure,
@@ -207,18 +209,14 @@ const WORKSPACE_WALK_EXCLUDE = new Set(['node_modules', 'bower_components', '.gi
 
 /**
  * Every directory below the root (never the root itself) that holds a regular-file `package.json`,
- * down to `maxDepth`. Symbolic links are never followed; another repository's tree (a gitlink, or a
- * `.git` marker by the same rule the image walk uses) is not this repository's workspace.
+ * down to `maxDepth`. Symbolic links are never followed. This walk serves GUARD (d) ONLY and, unlike
+ * the image walk, it does NOT stop at another repository's tree: pnpm takes a workspace package from a
+ * nested clone or a checked-out submodule exactly as from any directory (it never looks at `.git`), so a
+ * `package.json` found there is one the lockfile must name. (A gitlink whose contents are ABSENT from
+ * the view is `checkPnpmLockCoversTree`'s concern, from the revision, not this walk's.)
  */
-export function findPackageJsonDirs(root: string, maxDepth: number, knowledge?: StackTreeKnowledge): string[] {
+export function findPackageJsonDirs(root: string, maxDepth: number): string[] {
   const out: string[] = [];
-  const gitlinkSet = new Set(knowledge?.gitlinks ?? []);
-  const trackedUnder = (rel: string): boolean => {
-    if (!knowledge) return false;
-    const prefix = `${rel}/`;
-    for (const t of knowledge.tracked) if (t.startsWith(prefix)) return true;
-    return false;
-  };
   const walk = (dir: string, rel: string, depth: number): void => {
     let entries: fs.Dirent[];
     try {
@@ -226,11 +224,7 @@ export function findPackageJsonDirs(root: string, maxDepth: number, knowledge?: 
     } catch {
       return;
     }
-    if (depth > 0) {
-      const marker = entries.some((e) => e.name === '.git');
-      if (gitlinkSet.has(rel) || (marker && (knowledge ? !trackedUnder(rel) : true))) return;
-      if (entries.some((e) => e.name === 'package.json' && e.isFile())) out.push(rel);
-    }
+    if (depth > 0 && entries.some((e) => e.name === 'package.json' && e.isFile())) out.push(rel);
     if (depth >= maxDepth) return;
     for (const e of entries) {
       if (!e.isDirectory() || WORKSPACE_WALK_EXCLUDE.has(e.name)) continue;
@@ -283,6 +277,11 @@ export function checkPnpmLockCoversTree(
       lost.push(`importer '${imp.path}': '${rel}' is not a readable package manifest, so what it declares cannot be checked`);
       continue;
     }
+    // a workspace link onto the importer ITSELF is real only when the name is the importer's own package name
+    const ownName = typeof manifest['name'] === 'string' ? (manifest['name'] as string) : null;
+    for (const name of imp.selfLinks) {
+      if (name !== ownName) lost.push(`importer '${imp.path}': dependency '${name}' links to the importer itself, whose '${rel}' is named ${ownName === null ? 'nothing' : `'${ownName}'`} — the lockfile is cut short`);
+    }
     const recorded = new Set(imp.names);
     for (const field of PACKAGE_JSON_DEP_FIELDS) {
       const deps = manifest[field];
@@ -303,21 +302,51 @@ export function checkPnpmLockCoversTree(
     if (derived.importers.some((i) => i.path !== '.')) lost.push("the lockfile has workspace importers but this tree has no readable 'pnpm-workspace.yaml', so the workspace packages cannot be checked");
   } else {
     let patterns: PnpmWorkspacePatterns | string = readPnpmWorkspacePatterns(wsBytes.toString('utf8'));
-    if (typeof patterns !== 'string' && patterns.include.length === 0 && derived.importers.some((i) => i.path !== '.')) {
-      // no `packages:` yet the lockfile has workspace importers: pnpm <= 9 then took every directory
-      const all = readPnpmWorkspacePatterns('packages:\n  - "**"\n');
-      if (typeof all !== 'string') patterns = all;
+    if (typeof patterns !== 'string' && !patterns.hasPackagesKey) {
+      // No `packages:` key. Which directories pnpm took is decided by the manager `package.json` declares —
+      // NEVER by the lockfile's own importer list (that list is exactly what a cut removes). MEASURED:
+      // pnpm 10.11.1 takes the root alone; pnpm 8.15.9 / 9.0.0 / 9.15.4 refuse to run at all
+      // (`ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION packages field missing or empty`), so a lockfile beside
+      // such a file and a declared pnpm < 10 — or no declaration at all — is read fail-closed as pnpm's own
+      // default: every directory holding a package.json.
+      const declared = /^pnpm@(\d+)/.exec(readRootPackageManager(read))?.[1];
+      if (declared === undefined || Number(declared) < 10) patterns = pnpmWorkspaceEveryDirectory();
     }
     if (typeof patterns === 'string') {
       lost.push(patterns);
     } else {
       if (!importerPaths.has('.') && read('package.json') !== null) lost.push("pnpm-workspace.yaml: the root package is always a workspace package but the lockfile has no importer '.'");
-      for (const dir of findPackageJsonDirs(repoDir, patterns.maxDepth, knowledge)) {
+      for (const dir of findPackageJsonDirs(repoDir, patterns.maxDepth)) {
         if (isPnpmWorkspaceDir(patterns, dir) && !importerPaths.has(dir)) lost.push(`pnpm-workspace.yaml names package '${dir}' but the lockfile has no importer for it`);
+      }
+      // a gitlink (submodule entry) the revision declares under a workspace glob, whose contents this view
+      // does not hold (a pinned tree never holds a submodule's tree): the guard cannot be evaluated
+      for (const g of knowledge?.gitlinks ?? []) {
+        if (g.split('/').some((seg) => WORKSPACE_WALK_EXCLUDE.has(seg))) continue;
+        let present = false;
+        try {
+          present = readNestedSource(repoDir, `${g}/package.json`) !== null || fs.readdirSync(path.join(repoDir, g)).length > 0;
+        } catch {
+          present = false;
+        }
+        if (present) continue; // its contents are in this view: the walk above already judged them
+        if (isPnpmWorkspaceDir(patterns, g) || pnpmWorkspaceGlobMayMatchBelow(patterns, g)) {
+          lost.push(`pnpm-workspace.yaml may name a package under the submodule '${g}', whose contents are not in this view, so the workspace packages cannot be checked`);
+        }
       }
     }
   }
   return lost.sort();
+}
+
+/** `packageManager` of the root `package.json` as declared, `''` when there is none or it is unreadable. */
+function readRootPackageManager(read: (rel: string) => Buffer | null): string {
+  try {
+    const raw: unknown = JSON.parse((read('package.json') ?? Buffer.from('null')).toString('utf8'));
+    return isRecord(raw) && typeof raw['packageManager'] === 'string' ? (raw['packageManager'] as string) : '';
+  } catch {
+    return '';
+  }
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
