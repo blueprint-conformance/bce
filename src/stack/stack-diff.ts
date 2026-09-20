@@ -877,23 +877,22 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
   }
 
   // ---- images[]: joined on the image NAME. The `oci-image` nodes are projections of these entries ----
-  type HashedImage = Omit<StackManifest['images'][number], 'evidenceRef'>;
-  const hashedImage = (i: StackManifest['images'][number]): HashedImage => {
-    const { evidenceRef, ...h } = i;
-    void evidenceRef;
-    return h;
-  };
-  const imagesByName = (m: StackManifest): Map<string, HashedImage[]> => {
+  const viewA = stackHashedView(a);
+  const viewB = stackHashedView(b);
+  type HashedImage = (typeof viewA.images)[number];
+  // Compare the canonical identity set, not declaration multiplicity. Evidence locations
+  // may repeat one image without changing the closure; all other hashed fields still matter.
+  const imagesByName = (images: HashedImage[]): Map<string, HashedImage[]> => {
     const byName = new Map<string, HashedImage[]>();
-    for (const i of m.images) {
+    for (const i of images) {
       const list = byName.get(i.name);
-      if (list) list.push(hashedImage(i));
-      else byName.set(i.name, [hashedImage(i)]);
+      if (list) list.push(i);
+      else byName.set(i.name, [i]);
     }
     return byName;
   };
-  const imagesA = imagesByName(a);
-  const imagesB = imagesByName(b);
+  const imagesA = imagesByName(viewA.images);
+  const imagesB = imagesByName(viewB.images);
   for (const name of [...new Set([...imagesA.keys(), ...imagesB.keys()])].sort()) {
     const [goneRaw, cameRaw] = multisetDiff(imagesA.get(name) ?? [], imagesB.get(name) ?? [], (i) => stableStringify(i));
     const gone = [...goneRaw].sort((x, y) => cmp(stableStringify(x), stableStringify(y)));
@@ -1111,8 +1110,6 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
 
   // ---- COMPLETENESS: every hashed item that differs must be named by a row OF ITS OWN SUB-VIEW ----
   // The digests are RE-DERIVED here; the recorded `stackDigest` field is never read.
-  const viewA = stackHashedView(a);
-  const viewB = stackHashedView(b);
   const unexplainedSet = new Set<string>();
   const check = <T>(view: StackMoveView, xs: readonly T[], ys: readonly T[], keyOf: (x: T) => string): void => {
     const [goneItems, cameItems] = multisetDiff(xs, ys, (x) => stableStringify(x));

@@ -74,6 +74,29 @@ try {
     assert.deepEqual(readFileSync(updated), before[1]);
     assert.deepEqual(readFileSync(out), flag === 'from' ? before[0] : before[1]);
   }
+  for (const [label, ref] of [['moving', 'node:22'], ['pinned', `node:22@sha256:${'ab'.repeat(32)}`]]) {
+    const single = join(scratch, `image-${label}-single.json`);
+    const duplicate = join(scratch, `image-${label}-duplicate.json`);
+    const copy = join(tree, 'Dockerfile.copy');
+    rmSync(copy, { force: true });
+    writeFileSync(join(tree, 'Dockerfile'), `FROM ${ref}\n`);
+    snapshot(`image-${label}-single`, single);
+    writeFileSync(copy, `FROM ${ref}\n`);
+    snapshot(`image-${label}-duplicate`, duplicate);
+    const a = JSON.parse(readFileSync(single, 'utf8'));
+    const b = JSON.parse(readFileSync(duplicate, 'utf8'));
+    assert.equal(a.stackDigest, b.stackDigest);
+    assert.notEqual(a.manifestDigest, b.manifestDigest);
+    for (const [direction, from, to] of [['add', single, duplicate], ['remove', duplicate, single]]) {
+      const out = join(scratch, `image-${label}-${direction}.json`);
+      run(`image-${label}-${direction}`, ['stack', 'diff', '--from', from, '--to', to, '--out', out], 0);
+      const report = JSON.parse(readFileSync(out, 'utf8'));
+      assert.equal(report.classification, 'identical');
+      assert.deepEqual(report.moves, []);
+      assert.deepEqual(report.unexplained, []);
+      Object.assign(cases.at(-1), { classification: report.classification, digestEqual: true });
+    }
+  }
   writeFileSync(lockPath, "lockfileVersion: '9.0'\n");
   const hollow = join(scratch, 'hollow.json');
   const result = snapshot('hollow-pnpm', hollow, 2);

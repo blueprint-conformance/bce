@@ -1243,6 +1243,28 @@ describe('stack diff — I: image and runtime moves get rows of their OWN sub-vi
   }
   const line = (r: ReturnType<typeof diffStackManifests>): string[] => r.moves.map((m) => `${m.class}/${m.view} ${m.kind} ${m.name} ${m.from ?? '-'} -> ${m.to ?? '-'}`);
 
+  it.each(['node:22', `node:22@${DIGEST_A}`])('duplicate image declarations preserve identity in both directions: %s', (ref) => {
+    const base = repo('image-single', { x: '1.0.0', from: ref });
+    const duplicate = finalizeStackManifest({ ...base, images: [...base.images, { ...base.images[0]!, evidenceRef: 'Dockerfile.copy#L1' }] });
+    expect(duplicate.stackDigest).toBe(base.stackDigest);
+    expect(duplicate.manifestDigest).not.toBe(base.manifestDigest);
+    for (const [a, b] of [[base, duplicate], [duplicate, base]]) {
+      const report = diffStackManifests(a!, b!);
+      expect(report.classification).toBe('identical');
+      expect(report.moves).toEqual([]);
+      expect(report.unexplained).toEqual([]);
+      expect(stackDiffExitCode(report)).toBe(0);
+    }
+    // Deduplication must retain distinct hashed flags, even when the ref is unchanged.
+    const changed = finalizeStackManifest({ ...base, images: [{ ...base.images[0]!, tagImplicit: !base.images[0]!.tagImplicit }] });
+    expect(changed.stackDigest).not.toBe(base.stackDigest);
+    const report = diffStackManifests(duplicate, changed);
+    expect(report.classification).toBe('rewritten');
+    expect(report.moves).toHaveLength(1);
+    expect(report.moves[0]!.fields).toContain('tagImplicit');
+    expect(stackDiffExitCode(report)).toBe(2);
+  });
+
   it('an image TAG move is unknown ALONE and unknown IN COMPANY of an unrelated bump (the masked repro)', () => {
     const base0 = repo('img-base', { x: '1.0.0', from: `node:22-alpine@${DIGEST_A}` });
     const tagOnly = repo('img-tag', { x: '1.0.0', from: `node:18-alpine@${DIGEST_A}` });
