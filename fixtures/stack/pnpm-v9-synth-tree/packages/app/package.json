@@ -1,0 +1,17 @@
+{
+  "name": "synth-app",
+  "version": "0.1.0",
+  "dependencies": {
+    "synth-lib": "workspace:*",
+    "is-number": "catalog:",
+    "is-odd": "3.0.1",
+    "sw-cjs": "npm:string-width@^4.2.0",
+    "react": "18.2.0",
+    "ws": "8.17.0",
+    "is-positive": "github:kevva/is-positive#97edff6f525f192a3f83cea1944765f769ae2678"
+  },
+  "optionalDependencies": {
+    "fsevents": "2.3.3",
+    "use-sync-external-store": "1.2.0"
+  }
+}

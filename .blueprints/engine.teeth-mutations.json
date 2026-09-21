@@ -193,7 +193,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/index.ts",
-        "preconditionSha256": "006625b8c7db92afce94ece45056b2a0e5f521fca2a2630f3a4964960b62080c",
+        "preconditionSha256": "9fe1cdc36ef1a3d9c148659faeba3da5e5bed2ff4616dce90f41a09f5fe7d6f7",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/index.ts",
@@ -253,7 +253,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/pin.ts",
-        "preconditionSha256": "a9f18a9e7997fb72609ba6a468160e67d0d87e72dac622f683f391580e2d57f6",
+        "preconditionSha256": "ebfc822f4a89f077cb5979015a24080e90beb5be3399036229be19521ce723ff",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/pin.ts",
@@ -517,7 +517,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "bfaec600e688579e215d101ac97a402adddb7f586d7846a07042c3817f5503f0",
+        "preconditionSha256": "f4997d315ab25c6744748711dc1752b7e2e04a710437f1eab004d4038e111996",
         "content": "\nimport { Project as __BceMutationProject } from 'ts-morph';\n"
       },
       "expectedEvidencePath": "src/cli.ts",
@@ -529,7 +529,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "bfaec600e688579e215d101ac97a402adddb7f586d7846a07042c3817f5503f0",
+        "preconditionSha256": "f4997d315ab25c6744748711dc1752b7e2e04a710437f1eab004d4038e111996",
         "content": "\nimport { parser as __BceMutationParser } from '@lezer/python';\n"
       },
       "expectedEvidencePath": "src/cli.ts",
@@ -553,7 +553,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/cli.ts",
-        "preconditionSha256": "bfaec600e688579e215d101ac97a402adddb7f586d7846a07042c3817f5503f0",
+        "preconditionSha256": "f4997d315ab25c6744748711dc1752b7e2e04a710437f1eab004d4038e111996",
         "content": "\nimport __bceMutationRuntimeDependency from 'ajv';\n"
       },
       "expectedEvidencePath": "src/cli.ts",

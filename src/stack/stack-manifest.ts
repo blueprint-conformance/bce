@@ -103,7 +103,7 @@ export const StackSourceSchema = z
     path: z.string().min(1),
     /** sha256 of the file bytes as read — NOT in the digest (a re-serialized lockfile is the same closure) */
     sha256: z.string().regex(/^[0-9a-f]{64}$/),
-    parser: z.enum(['npm-lockfile-v3', 'package-json', 'dockerfile', 'compose', 'nvmrc', 'node-version']),
+    parser: z.enum(['npm-lockfile-v3', 'pnpm-lockfile-v9', 'package-json', 'dockerfile', 'compose', 'nvmrc', 'node-version']),
   })
   .strict();
 export type StackSource = z.infer<typeof StackSourceSchema>;
@@ -152,7 +152,7 @@ export const StackUnmodeledSchema = z
   .object({
     kind: z.literal('unsupported'),
     key: z.string().min(1),
-    reason: z.enum(['npm-alias', 'link', 'local-or-git', 'non-ascii-name', 'not-under-node-modules']),
+    reason: z.enum(['npm-alias', 'link', 'local-or-git', 'non-ascii-name', 'not-under-node-modules', 'pnpm-patched', 'pnpm-unread-section']),
     /** the raw distinguishing strings, as read */
     spec: z
       .object({
@@ -339,6 +339,9 @@ export function stackHashedView(body: StackManifestBody | StackManifest): StackH
     })
     .map((h) => ({ h, k: stableStringify(h) }))
     .sort((a, b) => cmp(a.k, b.k))
+    // the hashed view holds the SET of image identities: the same ref declared by a second Dockerfile
+    // or compose service is the same closure (the manifest keeps every declaration, with its evidenceRef)
+    .filter((x, i, all) => i === 0 || all[i - 1]!.k !== x.k)
     .map((x) => x.h);
   const unmodeled = [...body.unmodeled].sort(compareStackUnmodeled);
   return { schemaVersion: '1', kind: 'StackManifest', nodes, runtime: body.runtime, images, unmodeled };
@@ -359,13 +362,9 @@ export function computeManifestDigest(manifest: Omit<StackManifest, 'manifestDig
   return sha256(stableStringify(manifest));
 }
 
-/**
- * Sort every array with its canonical comparator and derive `stackDigest`, `stackId` and
- * `manifestDigest`. The result validates STRICTLY — an extractor that hands over an out-of-schema
- * body fails here, never in a consumer.
- */
-export function finalizeStackManifest(body: StackManifestBody): StackManifest {
-  const sorted: StackManifestBody = {
+/** Every array of a manifest body in its CANONICAL order — the one order `finalizeStackManifest` writes. */
+function canonicalStackManifestBody(body: StackManifestBody): StackManifestBody {
+  return {
     ...body,
     sources: [...body.sources].sort(compareStackSources),
     nodes: [...body.nodes].sort(compareStackNodes).map((n) => ({ ...n, layout: [...n.layout].sort() })),
@@ -375,6 +374,32 @@ export function finalizeStackManifest(body: StackManifestBody): StackManifest {
     unmodeled: [...body.unmodeled].sort(compareStackUnmodeled),
     coverage: { ...body.coverage, unsupported: [...new Set(body.coverage.unsupported)].sort() },
   };
+}
+
+/**
+ * The `manifestDigest` a manifest WOULD carry in canonical array order, with every recorded digest
+ * (`stackDigest`, `stackId`, `manifestDigest`) re-derived and none of them trusted. `manifestDigest`
+ * itself covers the file's bytes, so it moves when the same content is merely re-ordered; this one
+ * does not. For a manifest `finalizeStackManifest` wrote — everything `bce stack snapshot` emits — it
+ * EQUALS the recorded `manifestDigest`.
+ */
+export function computeCanonicalManifestDigest(manifest: StackManifest): string {
+  const { stackDigest, stackId, manifestDigest, ...body } = manifest;
+  void stackDigest;
+  void stackId;
+  void manifestDigest;
+  const sorted = canonicalStackManifestBody(body);
+  const derived = computeStackDigest(sorted);
+  return computeManifestDigest({ ...sorted, stackDigest: derived, stackId: stackIdFor(derived) });
+}
+
+/**
+ * Sort every array with its canonical comparator and derive `stackDigest`, `stackId` and
+ * `manifestDigest`. The result validates STRICTLY — an extractor that hands over an out-of-schema
+ * body fails here, never in a consumer.
+ */
+export function finalizeStackManifest(body: StackManifestBody): StackManifest {
+  const sorted = canonicalStackManifestBody(body);
   const stackDigest = computeStackDigest(sorted);
   const withoutManifestDigest = { ...sorted, stackDigest, stackId: stackIdFor(stackDigest) };
   const manifestDigest = computeManifestDigest(withoutManifestDigest);

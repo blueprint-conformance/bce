@@ -1,0 +1,19 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      l1:
+        specifier: link:../link-reenter/vendor/lib
+        version: link:vendor/lib
+      l2:
+        specifier: link:./vendor/lib/
+        version: link:vendor/lib
+      l3:
+        specifier: link:pkgs/../vendor/lib
+        version: link:vendor/lib

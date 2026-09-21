@@ -343,6 +343,7 @@
               "parser": {
                 "enum": [
                   "npm-lockfile-v3",
+                  "pnpm-lockfile-v9",
                   "package-json",
                   "dockerfile",
                   "compose",
@@ -399,7 +400,9 @@
                   "link",
                   "local-or-git",
                   "non-ascii-name",
-                  "not-under-node-modules"
+                  "not-under-node-modules",
+                  "pnpm-patched",
+                  "pnpm-unread-section"
                 ],
                 "type": "string"
               },

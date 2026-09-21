@@ -1,0 +1,1 @@
+{"name":"synth-exclude-links","version":"1.0.0","private":true,"dependencies":{"lib":"link:./vendor/lib"}}
