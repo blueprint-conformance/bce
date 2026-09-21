@@ -677,7 +677,7 @@
     }
   ],
   "extraction": {
-    "minFiles": 43,
+    "minFiles": 45,
     "paths": [
       "src/**/*.ts"
     ],
