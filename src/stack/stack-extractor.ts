@@ -44,7 +44,6 @@ import {
 } from './stack-manifest.js';
 import {
   isPnpmWorkspaceDir,
-  pnpmWorkspaceEveryDirectory,
   pnpmWorkspaceGlobMayMatchBelow,
   readPnpmLock,
   readPnpmWorkspacePatterns,
@@ -125,6 +124,12 @@ export interface StackTreeKnowledge {
   tracked: ReadonlySet<string>;
   /** every gitlink (submodule) entry at this revision — a directory that is another repository's tree */
   gitlinks: readonly string[];
+  /**
+   * absolute directory the tree lives at for whoever ran pnpm (the checkout `--ct-repo` names, never a
+   * materialization): the anchor `link:`-protocol values are re-relativised from. Absent: the tree's
+   * own directory is the anchor (an unpinned read of a non-repository).
+   */
+  linkAnchor?: string;
 }
 
 export interface StackFactsExtractor {
@@ -304,13 +309,17 @@ export function checkPnpmLockCoversTree(
     let patterns: PnpmWorkspacePatterns | string = readPnpmWorkspacePatterns(wsBytes.toString('utf8'));
     if (typeof patterns !== 'string' && !patterns.hasPackagesKey) {
       // No `packages:` key. Which directories pnpm took is decided by the manager `package.json` declares —
-      // NEVER by the lockfile's own importer list (that list is exactly what a cut removes). MEASURED:
-      // pnpm 10.11.1 takes the root alone; pnpm 8.15.9 / 9.0.0 / 9.15.4 refuse to run at all
-      // (`ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION packages field missing or empty`), so a lockfile beside
-      // such a file and a declared pnpm < 10 — or no declaration at all — is read fail-closed as pnpm's own
-      // default: every directory holding a package.json.
+      // NEVER by the lockfile's own importer list (that list is exactly what a cut removes). MEASURED
+      // 2026-09-20 (implementer AND refuter, independently): pnpm 10.11.1 takes the root alone; pnpm 8.15.9,
+      // 9.0.0 and 9.15.4 refuse to run at all (`ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION packages field
+      // missing or empty`) and write nothing. So a lockfile beside such a file was written by pnpm >= 10 and
+      // names the root alone — declared or not (only pnpm 10+ CAN have written it) — while a declared pnpm
+      // before 10 contradicts its own lockfile: an inconsistent tree, refused (pass 4 of #93: the earlier
+      // "every directory" reading for the undeclared arm refused legitimate real pnpm 10 trees).
       const declared = /^pnpm@(\d+)/.exec(readRootPackageManager(read))?.[1];
-      if (declared === undefined || Number(declared) < 10) patterns = pnpmWorkspaceEveryDirectory();
+      if (declared !== undefined && Number(declared) < 10) {
+        patterns = `package.json declares pnpm@${declared} but pnpm-workspace.yaml has no 'packages' key: pnpm before 10 refuses to run beside such a file and cannot have written this lockfile — an inconsistent tree, so the workspace packages cannot be checked`;
+      }
     }
     if (typeof patterns === 'string') {
       lost.push(patterns);
@@ -1014,7 +1023,7 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       } else {
         filesScanned++;
         sources.push({ path: 'pnpm-lock.yaml', sha256: sha256(pnpmBytes), parser: 'pnpm-lockfile-v9' });
-        const pnpm = readPnpmLock(pnpmBytes.toString('utf8'), { name: asString(pkg?.name), version: asString(pkg?.version) });
+        const pnpm = readPnpmLock(pnpmBytes.toString('utf8'), { name: asString(pkg?.name), version: asString(pkg?.version), linkAnchor: knowledge?.linkAnchor ?? path.resolve(repoDir).split(path.sep).join('/') });
         // the lockfile reads cleanly — now the TREE has its say (truncation guards c + d)
         const lost = pnpm.refusals.length === 0 && pnpm.derived !== null ? checkPnpmLockCoversTree(repoDir, pnpm.derived, read, knowledge) : [];
         if (pnpm.refusals.length > 0 || pnpm.derived === null) {

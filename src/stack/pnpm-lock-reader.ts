@@ -500,6 +500,38 @@ export interface PnpmImporterFacts {
   selfLinks: string[];
 }
 
+/**
+ * The value pnpm writes for a `link:`-protocol specifier: the specifier path RESOLVED against the
+ * importer's directory (an absolute path stays absolute) and re-relativised from that directory,
+ * `/`-separated — measured on pnpm 10.11.1 (`link:/abs/outside` → `link:../outside`;
+ * `link:../<repo>/vendor/lib` seen from the repo root → `link:vendor/lib`). Pure path algebra, so a
+ * value cut mid-line never matches. `anchorDir` is where the tree lives for whoever ran pnpm (the
+ * checkout, NOT a materialization — a pinned tree is read at the checkout's location). Returns `null`
+ * when the specifier resolves to the importer itself (pnpm never writes a link: onto itself).
+ */
+/** placeholder anchor for a reader given no linkAnchor: relative specifiers judge alone, everything anchor-dependent refuses */
+const PNPM_LINK_ANCHOR_UNKNOWN = '/.bce-link-anchor-unknown';
+
+export function pnpmLinkProtocolValue(anchorDir: string, imp: string, specPath: string): string | null {
+  // pure `/`-path algebra (this reader imports no node module): resolve = absolute + `.`/`..` folding
+  const fold = (abs: string): string[] => {
+    const out: string[] = [];
+    for (const seg of abs.split('/')) {
+      if (seg === '' || seg === '.') continue;
+      if (seg === '..') out.pop();
+      else out.push(seg);
+    }
+    return out;
+  };
+  const anchor = anchorDir.startsWith('/') ? anchorDir : `/${anchorDir}`;
+  const impSegs = fold(imp === '.' ? anchor : `${anchor}/${imp}`);
+  const targetSegs = fold(specPath.startsWith('/') ? specPath : `${impSegs.join('/') === '' ? '' : `/${impSegs.join('/')}`}/${specPath}`);
+  let common = 0;
+  while (common < impSegs.length && common < targetSegs.length && impSegs[common] === targetSegs[common]) common += 1;
+  const rel = [...impSegs.slice(common).map(() => '..'), ...targetSegs.slice(common)].join('/');
+  return rel === '' ? null : rel;
+}
+
 /** pnpm's normalised form of a `link:`-protocol specifier path: `./vendor/lib` → `vendor/lib`, a trailing `/` dropped, `..` kept. */
 export function pnpmNormalizeLinkPath(specPath: string): string {
   const out: string[] = [];
@@ -540,6 +572,12 @@ function entrySha(v: PnpmYamlValue | undefined): string {
 export interface PnpmRootIdentity {
   name: string | null;
   version: string | null;
+  /**
+   * absolute directory the tree lives at for whoever ran pnpm — the anchor every `link:`-protocol
+   * value is re-relativised from (see pnpmLinkProtocolValue). Absent: a link: specifier that needs
+   * the anchor to be judged (an absolute path, a path that leaves and re-enters the tree) is refused.
+   */
+  linkAnchor?: string;
 }
 
 const isMap = (v: PnpmYamlValue | undefined): v is PnpmYamlMap => v instanceof Map;
@@ -877,11 +915,14 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
           // measured on pnpm 10.11.1, that directory is not an importer and may sit outside the tree.
           const target = pnpmLinkTarget(imp, version);
           if (specifier.startsWith('link:')) {
-            // a link:-PROTOCOL dependency: no importer to land on, but the resolved value is a pure function
-            // of the specifier — `link:` + pnpm's normalised path — so a value cut mid-line never matches
-            const normalized = pnpmNormalizeLinkPath(specifier.slice('link:'.length));
-            if (normalized === '' || version !== `link:${normalized}`) {
-              malformed.push(`importer ${imp} dependency '${dep}' (link: protocol value '${version}' is not 'link:${normalized}', the normalised specifier — the lockfile is cut short)`);
+            // a link:-PROTOCOL dependency: no importer to land on, but the value pnpm writes is a pure
+            // function of the specifier and the importer's location (pnpmLinkProtocolValue), so a value
+            // cut mid-line never matches. Without an anchor the reader judges relative specifiers against a
+            // placeholder root — an absolute specifier, or one that leaves and re-enters the tree, then
+            // fails to match and is refused rather than guessed (fail-closed).
+            const expected = pnpmLinkProtocolValue(root.linkAnchor ?? PNPM_LINK_ANCHOR_UNKNOWN, imp, specifier.slice('link:'.length)) ?? '';
+            if (expected === '' || version !== `link:${expected}`) {
+              malformed.push(`importer ${imp} dependency '${dep}' (link: protocol value '${version}' is not 'link:${expected}', the specifier resolved from the importer's directory — the lockfile is cut short)`);
               continue;
             }
           } else if (!importers.has(target)) {
@@ -1093,6 +1134,8 @@ export interface PnpmWorkspacePatterns {
   exclude: RegExp[];
   /** the include globs as written (cleaned of `./` and a trailing `/`), for prefix reasoning */
   includeGlobs: string[];
+  /** the negated globs as written (cleaned the same way, without the `!`), for below-reasoning */
+  excludeGlobs: string[];
   /** deepest directory a pattern can name; `Infinity` when any include pattern carries `**` */
   maxDepth: number;
   /** the file carries a `packages:` key at all (absent: pnpm >= 10 takes the root alone; pnpm < 10 refuses to run) */
@@ -1146,7 +1189,7 @@ export function readPnpmWorkspacePatterns(source: string): PnpmWorkspacePatterns
     if (e instanceof PnpmLockSubsetError) return `pnpm-workspace.yaml line ${e.line}: ${e.reason} — cannot be read, so the workspace packages cannot be checked`;
     throw e;
   }
-  const out: PnpmWorkspacePatterns = { include: [], exclude: [], includeGlobs: [], maxDepth: 0, hasPackagesKey: doc.has('packages') };
+  const out: PnpmWorkspacePatterns = { include: [], exclude: [], includeGlobs: [], excludeGlobs: [], maxDepth: 0, hasPackagesKey: doc.has('packages') };
   const raw = doc.get('packages');
   if (raw === undefined || raw === null) return out;
   if (!Array.isArray(raw) || !raw.every((x) => typeof x === 'string' && x !== '')) return "pnpm-workspace.yaml 'packages' is not a list of strings, so the workspace packages cannot be checked";
@@ -1156,8 +1199,10 @@ export function readPnpmWorkspacePatterns(source: string): PnpmWorkspacePatterns
     const re = pnpmWorkspaceGlobToRegExp(glob);
     if (re === null) return `pnpm-workspace.yaml package pattern '${item}' uses glob syntax this reader does not evaluate, so the workspace packages cannot be checked`;
     (negated ? out.exclude : out.include).push(re);
-    if (!negated) {
-      const cleaned = glob.replace(/^(?:\.\/)+/, '').replace(/\/+$/, '');
+    const cleaned = glob.replace(/^(?:\.\/)+/, '').replace(/\/+$/, '');
+    if (negated) {
+      out.excludeGlobs.push(cleaned);
+    } else {
       out.includeGlobs.push(cleaned);
       out.maxDepth = glob.includes('**') ? Infinity : Math.max(out.maxDepth, cleaned.split('/').length);
     }
@@ -1180,9 +1225,12 @@ export function pnpmWorkspaceEveryDirectory(): PnpmWorkspacePatterns {
 }
 
 /**
- * Could an include glob name a directory BELOW `dir` (not `dir` itself)? Decided from the glob's
- * segments: the glob must be able to consume every segment of `dir` and still have something left to
- * match. Used for a gitlink under a workspace glob whose contents the view cannot see.
+ * Could an include glob name a directory BELOW `dir` (not `dir` itself) that no negated glob takes
+ * away again? Decided from the globs' segments: an include glob must be able to consume every segment
+ * of `dir` and still have something left to match, and no negated glob may consume every segment of
+ * `dir` with only `**` left (that negation excludes everything below `dir`, whatever it is called — a
+ * negation naming only `dir` itself, or a deeper pattern that could miss a subdirectory, does not).
+ * Used for a gitlink under a workspace glob whose contents the view cannot see.
  */
 export function pnpmWorkspaceGlobMayMatchBelow(patterns: PnpmWorkspacePatterns, dir: string): boolean {
   const dirSegs = dir === '' || dir === '.' ? [] : dir.split('/');
@@ -1191,12 +1239,14 @@ export function pnpmWorkspaceGlobMayMatchBelow(patterns: PnpmWorkspacePatterns, 
     const re = pnpmWorkspaceGlobToRegExp(glob);
     return re !== null && re.test(seg);
   };
-  const walk = (gs: string[], ds: string[]): boolean => {
-    if (ds.length === 0) return gs.length > 0; // dir consumed; anything left can name a deeper directory
+  const walk = (gs: string[], ds: string[], consumed: (rest: string[]) => boolean): boolean => {
+    if (ds.length === 0) return consumed(gs);
     if (gs.length === 0) return false;
     const [g, ...gRest] = gs as [string, ...string[]];
-    if (g === '**') return walk(gRest, ds) || walk(gs, ds.slice(1)); // zero or more segments
-    return segMatches(g, ds[0]!) && walk(gRest, ds.slice(1));
+    if (g === '**') return walk(gRest, ds, consumed) || walk(gs, ds.slice(1), consumed); // zero or more segments
+    return segMatches(g, ds[0]!) && walk(gRest, ds.slice(1), consumed);
   };
-  return patterns.includeGlobs.some((glob) => walk(glob.split('/'), dirSegs));
+  const reachesBelow = patterns.includeGlobs.some((glob) => walk(glob.split('/'), dirSegs, (rest) => rest.length > 0));
+  const excludesBelow = patterns.excludeGlobs.some((glob) => walk(glob.split('/'), dirSegs, (rest) => rest.length > 0 && rest.every((s) => s === '**')));
+  return reachesBelow && !excludesBelow;
 }

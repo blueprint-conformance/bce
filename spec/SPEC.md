@@ -891,8 +891,15 @@ guards, every one a refusal (exit 2, nothing written), none of them a skip:
   importer's own package name — decided by the tree under (c). A `link:`-PROTOCOL dependency
   (`specifier: link:…`) names a directory by path: pnpm writes no importer for it and it may sit
   outside the tree, so no importer is required — but its value is a pure function of the
-  specifier, `link:` + pnpm's normalised path (`./vendor/lib` → `vendor/lib`, a trailing `/`
-  dropped, `..` kept), and any other value (a bare `link:`, a path cut short) is refused.
+  specifier and of where the tree lives: the specifier path resolved from the importer's
+  directory (an absolute path stays absolute) and re-relativised from that directory, `/`-separated
+  — measured on pnpm 10.11.1: `./vendor/lib/` → `vendor/lib`, `pkgs/../vendor/lib` →
+  `vendor/lib`, `../<checkout>/vendor/lib` seen from the root → `vendor/lib`, `/abs/outside` →
+  `../outside`. The anchor is the checkout `--ct-repo` names (where pnpm ran), never a
+  materialization, so the pinned and unpinned views agree; a reader given no anchor refuses the
+  anchor-dependent forms rather than guessing. Any other value (a bare `link:`, a path cut short, a
+  value naming a different directory) is refused. A committed fixture cannot carry an absolute
+  specifier (its value depends on the machine); that form is pinned in the reader's own tests.
 - **(c) every importer's `package.json` is covered.** For each importer the `package.json` of the
   SAME view the rest of the verb reads (the pinned tree, or the working tree under `--no-pin`) is
   read without following any symbolic link on the way, and every name it declares under
@@ -918,9 +925,16 @@ guards, every one a refusal (exit 2, nothing written), none of them a skip:
   is exactly what a cut removes). MEASURED 2026-09-20: pnpm 10.11.1 with such a file writes the
   root importer alone; pnpm 8.15.9, 9.0.0 and 9.15.4 refuse to run at all
   (`ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION packages field missing or empty`). So
-  `packageManager: pnpm@10` or later reads the root alone; a declared pnpm before 10, no
-  declaration, or one that cannot be read is taken fail-closed as pnpm's own default — every
-  directory holding a `package.json` must be an importer.
+  a lockfile beside such a file was written by pnpm 10 or later, whether or not `package.json`
+  declares it, and names the root alone: no declaration, an unreadable one, or another manager's
+  name all read the root alone. A DECLARED pnpm before 10 contradicts the lockfile beside it (that
+  pnpm cannot have written it) and is refused as an inconsistent tree, with that reason. (An
+  earlier reading took the undeclared case as pnpm's `**` default; it refused legitimate pnpm 10
+  trees that keep a `package.json` under `docs/` or `examples/`, and was withdrawn.) A gitlink under
+  a workspace glob is refused as unseen only when an include glob can name a directory below it
+  that no negated glob takes away again: `!packages/zsub/**` (or `!packages/**`) clears the
+  submodule `packages/zsub`, while `!packages/zsub` alone, or `!packages/zsub/*`, does not, because
+  a deeper directory could still be named.
 
 Every line prefix of the real pnpm-written lockfiles in `fixtures/stack/pnpm-v9-real-shapes`
 and of the synthetic golden, and every BYTE prefix of every committed real shape, is refused; only

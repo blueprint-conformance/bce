@@ -1,0 +1,1 @@
+{"name":"link-reenter-root","version":"1.0.0","private":true,"dependencies":{"l1":"link:../link-reenter/vendor/lib","l2":"link:./vendor/lib/","l3":"link:pkgs/../vendor/lib"}}

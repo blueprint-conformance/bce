@@ -23,3 +23,9 @@ with the `package.json` / `pnpm-workspace.yaml` files its lockfile must cover:
   `package.json` that the workspace file takes out again.
 - `self-link` — a package depending on ITSELF through `workspace:*`: pnpm writes `version: 'link:'`
   (the lockfile's only self target that is legitimate — under the package's own name).
+- `link-reenter` — three `link:`-protocol specifiers for ONE directory: `../link-reenter/vendor/lib`
+  (leaves the tree and re-enters through the checkout's own name), `./vendor/lib/` (trailing slash)
+  and `pkgs/../vendor/lib`; pnpm resolves each from the importer's directory and writes
+  `link:vendor/lib` for all three. The directory this fixture sits in MUST stay named `link-reenter`:
+  the value is a function of where the tree lives (SPEC §16.1 (b)). Written by pnpm 10.11.1 on
+  2026-09-21 with `pnpm install --ignore-scripts --offline`.

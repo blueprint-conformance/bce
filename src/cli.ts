@@ -2363,7 +2363,8 @@ async function main(): Promise<void> {
       cleanup = () => fs.rmSync(tree, { recursive: true, force: true });
     }
     try {
-      const { manifest, refusals } = extractStackManifest(tree, revision, 'npm-lockfile', knowledge ?? undefined);
+      // link:-protocol values are re-relativised from the CHECKOUT (where pnpm ran), never from a materialization
+      const { manifest, refusals } = extractStackManifest(tree, revision, 'npm-lockfile', knowledge === null ? undefined : { ...knowledge, linkAnchor: path.resolve(ctRepo).split(path.sep).join('/') });
       if (refusals.length > 0) {
         for (const r of refusals) process.stderr.write(`::error::${r}\n`);
         die(`stack snapshot REFUSED: ${refusals.length} refusal(s) — no manifest written (revision ${revision})`, 2);
