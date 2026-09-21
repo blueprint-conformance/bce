@@ -1,0 +1,6 @@
+{
+  "sourceCommit": "a126e0905b8e2e300adccd2da1060c2f80780d47",
+  "artifactSha256": "efe31c1212eb7d47f9a78e96587b674f1b54143bb179df33c922d7b95b814a36",
+  "integrity": "sha512-pimMsAiCwFpujPa6tYMiRo58T+86tY2jqvrn55b4Ava2lUg3rT3bC8QBhku274MIKEMe08SDWRdIqJdzOeaGbg==",
+  "distribution": "source-built from the governed pull request head (npm ci && npm run build, then npm pack --ignore-scripts); distinct from any immutable npm bce-engine release"
+}

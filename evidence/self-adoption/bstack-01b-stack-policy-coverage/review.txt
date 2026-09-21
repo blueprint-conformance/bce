@@ -1,0 +1,1237 @@
+BCE Blueprint Review — bstack-01b-stack-policy-coverage
+Packet: sha256:283299a05e3ceec53263841eaa82b01dd13c83772bc06b13de1a9d2e3a703062
+Candidate: sha256:e82ef5439556df496643b68633f9d20371a47fc11d7e9c4c4ab08480c47cf7f1 (draft only)
+Repository: github.com/blueprint-conformance/bce @ a126e0905b8e2e300adccd2da1060c2f80780d47
+Engine: bce-engine@0.3.1 (0f0bbc7d81027c885dc58795282142589a355082330ac564c9d417b8ed941a85)
+Extractor: typescript-ts-morph/ast/plugin-surface
+
+Intent
+  - docs/self-hosting.md#the-architecture-this-blueprint-enforces
+
+Contract
+  bce engine self-conformance — the engine's own architecture, gated by the engine contains 50 draft architectural clause(s) over blueprint-conformance/bce.
+
+Scope — matched
+  - src/assistant-adapter.ts
+  - src/baseline.ts
+  - src/benchmark.ts
+  - src/cli.ts
+  - src/corpus.ts
+  - src/emit.ts
+  - src/evidence-bundle.ts
+  - src/evidence-store.ts
+  - src/extractor-registry.ts
+  - src/extractor-teeth.ts
+  - src/extractors.ts
+  - src/gate.ts
+  - src/graph.ts
+  - src/index.ts
+  - src/lifecycle.ts
+  - src/materializer.ts
+  - src/mcp-server.ts
+  - src/mode.ts
+  - src/observations.ts
+  - src/pin.ts
+  - src/policy-change.ts
+  - src/policy-history.ts
+  - src/portfolio-collect.ts
+  - src/portfolio-compile.ts
+  - src/proposal-io.ts
+  - src/python-extractor.ts
+  - src/python-module-graph.ts
+  - src/recall-gate.ts
+  - src/report.ts
+  - src/review-contracts.ts
+  - src/review-render.ts
+  - src/review.ts
+  - src/runtime-identity.ts
+  - src/safe-regex.ts
+  - src/schema.ts
+  - src/scm-review.ts
+  - src/score.ts
+  - src/stack/pnpm-lock-reader.ts
+  - src/stack/stack-diff.ts
+  - src/stack/stack-extractor.ts
+  - src/stack/stack-manifest.ts
+  - src/teeth-waiver.ts
+  - src/teeth.ts
+  - src/violation-format.ts
+  - src/violation-rollup.ts
+Scope — excluded
+  - (none)
+Scope — exclusion classes
+  - unselected-source-context
+
+Semantic change: tightening
+  - tightening: /constraints/only-cli-may-call-process-exit--stack — constraint added
+  - tightening: /constraints/only-extractors-may-import-ts-morph/scopePaths/src/stack/**/*.ts — added src/stack/**/*.ts
+  - tightening: /constraints/only-python-module-graph-may-import-lezer/scopePaths/src/stack/**/*.ts — added src/stack/**/*.ts
+  - tightening: /constraints/stack-plane-no-global-network-api — constraint added
+  - tightening: /constraints/stack-plane-no-network-no-subprocess — constraint added
+  - tightening: /extraction/minFiles — minimum scanned-file floor changed
+  - tightening: /semantic-change-gate — protected blueprint policy changed; enforcing constraint added: only-cli-may-call-process-exit--stack; enforcing constraint added: stack-plane-no-global-network-api; enforcing constraint added: stack-plane-no-network-no-subprocess; constraint scope only-extractors-may-import-ts-morph widened by adding: src/stack/**/*.ts; constraint scope only-python-module-graph-may-import-lezer widened by adding: src/stack/**/*.ts; extraction minFiles raised: 41 -> 45
+
+Current conformance: PASS / 100 / 0 violation(s)
+Teeth: evaluator-refutable — EVALUATOR-REFUTABLE: 0/50 constraint(s) have extractor-real teeth; 50 refutable by the evaluator alone (synthetic-evidence mutations — NOT evidence of real teeth; substance proof = a mutation corpus); 0 trivially-green, 0 indeterminate
+
+Clauses
+
+[only-extractors-may-import-ts-morph] forbiddenDependency / critical
+  Promise: Forbid * from importing ts-morph as an enforceable critical-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/assistant-adapter.ts, src/baseline.ts, src/benchmark.ts, src/cli.ts, src/corpus.ts, src/emit.ts, src/evidence-bundle.ts, src/evidence-store.ts, src/extractor-registry.ts, src/extractor-teeth.ts, src/gate.ts, src/graph.ts, src/index.ts, src/lifecycle.ts, src/materializer.ts, src/mcp-server.ts, src/mode.ts, src/observations.ts, src/pin.ts, src/policy-change.ts, src/policy-history.ts, src/portfolio-collect.ts, src/portfolio-compile.ts, src/proposal-io.ts, src/python-extractor.ts, src/python-module-graph.ts, src/recall-gate.ts, src/report.ts, src/review-contracts.ts, src/review-render.ts, src/review.ts, src/runtime-identity.ts, src/safe-regex.ts, src/schema.ts, src/scm-review.ts, src/score.ts, src/stack/pnpm-lock-reader.ts, src/stack/stack-diff.ts, src/stack/stack-extractor.ts, src/stack/stack-manifest.ts, src/teeth-waiver.ts, src/teeth.ts, src/violation-format.ts, src/violation-rollup.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a forbidden edge file:injected -> ts-morph — the exact drift a real bad PR introduces — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "from": "*",
+      "id": "only-extractors-may-import-ts-morph",
+      "policyRef": "policy/extraction-seam-isolation",
+      "scopePaths": [
+        "src/assistant-adapter.ts",
+        "src/baseline.ts",
+        "src/benchmark.ts",
+        "src/cli.ts",
+        "src/corpus.ts",
+        "src/emit.ts",
+        "src/evidence-bundle.ts",
+        "src/evidence-store.ts",
+        "src/extractor-teeth.ts",
+        "src/extractor-registry.ts",
+        "src/gate.ts",
+        "src/graph.ts",
+        "src/index.ts",
+        "src/lifecycle.ts",
+        "src/materializer.ts",
+        "src/mcp-server.ts",
+        "src/mode.ts",
+        "src/observations.ts",
+        "src/pin.ts",
+        "src/policy-change.ts",
+        "src/policy-history.ts",
+        "src/portfolio-collect.ts",
+        "src/portfolio-compile.ts",
+        "src/proposal-io.ts",
+        "src/python-extractor.ts",
+        "src/python-module-graph.ts",
+        "src/recall-gate.ts",
+        "src/report.ts",
+        "src/review-contracts.ts",
+        "src/review-render.ts",
+        "src/review.ts",
+        "src/runtime-identity.ts",
+        "src/safe-regex.ts",
+        "src/scm-review.ts",
+        "src/schema.ts",
+        "src/score.ts",
+        "src/teeth-waiver.ts",
+        "src/teeth.ts",
+        "src/violation-format.ts",
+        "src/violation-rollup.ts",
+        "src/stack/**/*.ts"
+      ],
+      "severity": "critical",
+      "to": "ts-morph",
+      "type": "forbiddenDependency"
+    }
+
+[only-python-module-graph-may-import-lezer] forbiddenDependency / critical
+  Promise: Forbid * from importing @lezer as an enforceable critical-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/assistant-adapter.ts, src/baseline.ts, src/benchmark.ts, src/cli.ts, src/corpus.ts, src/emit.ts, src/evidence-bundle.ts, src/evidence-store.ts, src/extractor-registry.ts, src/extractor-teeth.ts, src/extractors.ts, src/gate.ts, src/graph.ts, src/index.ts, src/lifecycle.ts, src/materializer.ts, src/mcp-server.ts, src/mode.ts, src/observations.ts, src/pin.ts, src/policy-change.ts, src/policy-history.ts, src/portfolio-collect.ts, src/portfolio-compile.ts, src/proposal-io.ts, src/python-extractor.ts, src/recall-gate.ts, src/report.ts, src/review-contracts.ts, src/review-render.ts, src/review.ts, src/runtime-identity.ts, src/safe-regex.ts, src/schema.ts, src/scm-review.ts, src/score.ts, src/stack/pnpm-lock-reader.ts, src/stack/stack-diff.ts, src/stack/stack-extractor.ts, src/stack/stack-manifest.ts, src/teeth-waiver.ts, src/teeth.ts, src/violation-format.ts, src/violation-rollup.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a forbidden edge file:injected -> @lezer — the exact drift a real bad PR introduces — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "from": "*",
+      "id": "only-python-module-graph-may-import-lezer",
+      "policyRef": "policy/extraction-seam-isolation",
+      "scopePaths": [
+        "src/assistant-adapter.ts",
+        "src/baseline.ts",
+        "src/benchmark.ts",
+        "src/cli.ts",
+        "src/corpus.ts",
+        "src/emit.ts",
+        "src/evidence-bundle.ts",
+        "src/evidence-store.ts",
+        "src/extractor-teeth.ts",
+        "src/extractor-registry.ts",
+        "src/extractors.ts",
+        "src/gate.ts",
+        "src/graph.ts",
+        "src/index.ts",
+        "src/lifecycle.ts",
+        "src/materializer.ts",
+        "src/mcp-server.ts",
+        "src/mode.ts",
+        "src/observations.ts",
+        "src/pin.ts",
+        "src/policy-change.ts",
+        "src/policy-history.ts",
+        "src/portfolio-collect.ts",
+        "src/portfolio-compile.ts",
+        "src/proposal-io.ts",
+        "src/python-extractor.ts",
+        "src/recall-gate.ts",
+        "src/report.ts",
+        "src/review-contracts.ts",
+        "src/review-render.ts",
+        "src/review.ts",
+        "src/runtime-identity.ts",
+        "src/safe-regex.ts",
+        "src/scm-review.ts",
+        "src/schema.ts",
+        "src/score.ts",
+        "src/teeth-waiver.ts",
+        "src/teeth.ts",
+        "src/violation-format.ts",
+        "src/violation-rollup.ts",
+        "src/stack/**/*.ts"
+      ],
+      "severity": "critical",
+      "to": "@lezer",
+      "type": "forbiddenDependency"
+    }
+
+[runtime-dep-allowlist-approved-parsers] forbiddenPattern / critical
+  Promise: Forbid content matching /^\s*(?:import|export|\})[^;]*from\s+['"](?!zod(?:/v3)?['"]|ts-morph['"]|@lezer/(?:common|python)['"]|node:|\.{1,2}/)/ under src/**/*.ts as an enforceable critical-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/assistant-adapter.ts, src/baseline.ts, src/benchmark.ts, src/cli.ts, src/corpus.ts, src/emit.ts, src/evidence-bundle.ts, src/evidence-store.ts, src/extractor-registry.ts, src/extractor-teeth.ts, src/extractors.ts, src/gate.ts, src/graph.ts, src/index.ts, src/lifecycle.ts, src/materializer.ts, src/mcp-server.ts, src/mode.ts, src/observations.ts, src/pin.ts, src/policy-change.ts, src/policy-history.ts, src/portfolio-collect.ts, src/portfolio-compile.ts, src/proposal-io.ts, src/python-extractor.ts, src/python-module-graph.ts, src/recall-gate.ts, src/report.ts, src/review-contracts.ts, src/review-render.ts, src/review.ts, src/runtime-identity.ts, src/safe-regex.ts, src/schema.ts, src/scm-review.ts, src/score.ts, src/stack/pnpm-lock-reader.ts, src/stack/stack-diff.ts, src/stack/stack-extractor.ts, src/stack/stack-manifest.ts, src/teeth-waiver.ts, src/teeth.ts, src/violation-format.ts, src/violation-rollup.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /^\s*(?:import|export|\})[^;]*from\s+['"](?!zod(?:/v3)?['"]|ts-morph['"]|@lezer/(?:common|python)['"]|node:|\.{1,2}/)/ at src/x/x.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "runtime-dep-allowlist-approved-parsers",
+      "path": "src/**/*.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod(?:/v3)?['\"]|ts-morph['\"]|@lezer/(?:common|python)['\"]|node:|\\.{1,2}/)",
+      "policyRef": "policy/runtime-dep-allowlist",
+      "severity": "critical",
+      "type": "forbiddenPattern"
+    }
+
+[schema-imports-only-zod-and-safe-regex] forbiddenPattern / high
+  Promise: Forbid content matching /^\s*(?:import|export|\})[^;]*from\s+['"](?!zod(?:/v3)?['"]|\./safe-regex\.js['"])/ under src/schema.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/schema.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /^\s*(?:import|export|\})[^;]*from\s+['"](?!zod(?:/v3)?['"]|\./safe-regex\.js['"])/ at src/schema.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "schema-imports-only-zod-and-safe-regex",
+      "path": "src/schema.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!zod(?:/v3)?['\"]|\\./safe-regex\\.js['\"])",
+      "policyRef": "policy/schema-single-source-of-truth",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[evaluator-pure--report-imports-only-crypto-and-relative] forbiddenPattern / high
+  Promise: Forbid content matching /^\s*(?:import|export|\})[^;]*from\s+['"](?!node:crypto['"]|\.{1,2}/)/ under src/report.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/report.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /^\s*(?:import|export|\})[^;]*from\s+['"](?!node:crypto['"]|\.{1,2}/)/ at src/report.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "evaluator-pure--report-imports-only-crypto-and-relative",
+      "path": "src/report.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!node:crypto['\"]|\\.{1,2}/)",
+      "policyRef": "policy/pure-evaluator",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[evaluator-pure--score-imports-relative-only] forbiddenPattern / high
+  Promise: Forbid content matching /^\s*(?:import|export|\})[^;]*from\s+['"](?!\.{1,2}/)/ under src/score.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/score.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /^\s*(?:import|export|\})[^;]*from\s+['"](?!\.{1,2}/)/ at src/score.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "evaluator-pure--score-imports-relative-only",
+      "path": "src/score.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!\\.{1,2}/)",
+      "policyRef": "policy/pure-evaluator",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[evaluator-pure--teeth-imports-relative-only] forbiddenPattern / high
+  Promise: Forbid content matching /^\s*(?:import|export|\})[^;]*from\s+['"](?!\.{1,2}/)/ under src/teeth.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/teeth.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /^\s*(?:import|export|\})[^;]*from\s+['"](?!\.{1,2}/)/ at src/teeth.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "evaluator-pure--teeth-imports-relative-only",
+      "path": "src/teeth.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"](?!\\.{1,2}/)",
+      "policyRef": "policy/pure-evaluator",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--benchmark] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/benchmark.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/benchmark.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/benchmark.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--benchmark",
+      "path": "src/benchmark.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--evidence-bundle] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/evidence-bundle.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/evidence-bundle.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/evidence-bundle.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--evidence-bundle",
+      "path": "src/evidence-bundle.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--lifecycle] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/lifecycle.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/lifecycle.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/lifecycle.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--lifecycle",
+      "path": "src/lifecycle.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--policy-change] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/policy-change.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/policy-change.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/policy-change.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--policy-change",
+      "path": "src/policy-change.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--policy-history] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/policy-history.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/policy-history.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/policy-history.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--policy-history",
+      "path": "src/policy-history.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--teeth-waiver] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/teeth-waiver.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/teeth-waiver.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/teeth-waiver.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--teeth-waiver",
+      "path": "src/teeth-waiver.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--baseline] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/baseline.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/baseline.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/baseline.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--baseline",
+      "path": "src/baseline.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--corpus] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/corpus.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/corpus.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/corpus.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--corpus",
+      "path": "src/corpus.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--emit] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/emit.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/emit.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/emit.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--emit",
+      "path": "src/emit.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--evidence-store] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/evidence-store.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/evidence-store.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/evidence-store.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--evidence-store",
+      "path": "src/evidence-store.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--extractor-teeth] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/extractor-teeth.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/extractor-teeth.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/extractor-teeth.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--extractor-teeth",
+      "path": "src/extractor-teeth.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--extractors] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/extractors.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/extractors.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/extractors.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--extractors",
+      "path": "src/extractors.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--gate] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/gate.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/gate.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/gate.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--gate",
+      "path": "src/gate.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--graph] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/graph.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/graph.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/graph.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--graph",
+      "path": "src/graph.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--index] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/index.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/index.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/index.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--index",
+      "path": "src/index.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--materializer] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/materializer.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/materializer.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/materializer.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--materializer",
+      "path": "src/materializer.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--mode] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/mode.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/mode.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/mode.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--mode",
+      "path": "src/mode.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--observations] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/observations.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/observations.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/observations.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--observations",
+      "path": "src/observations.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--pin] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/pin.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/pin.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/pin.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--pin",
+      "path": "src/pin.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--portfolio-collect] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/portfolio-collect.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/portfolio-collect.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/portfolio-collect.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--portfolio-collect",
+      "path": "src/portfolio-collect.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--portfolio-compile] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/portfolio-compile.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/portfolio-compile.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/portfolio-compile.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--portfolio-compile",
+      "path": "src/portfolio-compile.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--recall-gate] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/recall-gate.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/recall-gate.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/recall-gate.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--recall-gate",
+      "path": "src/recall-gate.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--report] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/report.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/report.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/report.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--report",
+      "path": "src/report.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[review-core-no-io-imports] forbiddenPattern / critical
+  Promise: Forbid content matching /^\s*(?:import|export|\})[^;]*from\s+['"]node:(?:fs|child_process|https?|net|tls|dns)['"]/ under src/review*.ts as an enforceable critical-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/review-contracts.ts, src/review-render.ts, src/review.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /^\s*(?:import|export|\})[^;]*from\s+['"]node:(?:fs|child_process|https?|net|tls|dns)['"]/ at src/reviewx.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "review-core-no-io-imports",
+      "path": "src/review*.ts",
+      "pattern": "^\\s*(?:import|export|\\})[^;]*from\\s+['\"]node:(?:fs|child_process|https?|net|tls|dns)['\"]",
+      "policyRef": "policy/deterministic-review-core",
+      "severity": "critical",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--safe-regex] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/safe-regex.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/safe-regex.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/safe-regex.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--safe-regex",
+      "path": "src/safe-regex.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--schema] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/schema.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/schema.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/schema.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--schema",
+      "path": "src/schema.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--score] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/score.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/score.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/score.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--score",
+      "path": "src/score.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--teeth] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/teeth.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/teeth.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/teeth.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--teeth",
+      "path": "src/teeth.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--violation-format] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/violation-format.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/violation-format.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/violation-format.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--violation-format",
+      "path": "src/violation-format.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--violation-rollup] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/violation-rollup.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/violation-rollup.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/violation-rollup.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--violation-rollup",
+      "path": "src/violation-rollup.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--python-extractor] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/python-extractor.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/python-extractor.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/python-extractor.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--python-extractor",
+      "path": "src/python-extractor.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--python-module-graph] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/python-module-graph.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/python-module-graph.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/python-module-graph.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--python-module-graph",
+      "path": "src/python-module-graph.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--runtime-identity] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/runtime-identity.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/runtime-identity.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/runtime-identity.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--runtime-identity",
+      "path": "src/runtime-identity.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--extractor-registry] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/extractor-registry.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/extractor-registry.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/extractor-registry.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--extractor-registry",
+      "path": "src/extractor-registry.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--assistant-adapter] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/assistant-adapter.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/assistant-adapter.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/assistant-adapter.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--assistant-adapter",
+      "path": "src/assistant-adapter.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--proposal-io] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/proposal-io.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/proposal-io.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/proposal-io.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--proposal-io",
+      "path": "src/proposal-io.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--review-contracts] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/review-contracts.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/review-contracts.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/review-contracts.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--review-contracts",
+      "path": "src/review-contracts.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--review-render] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/review-render.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/review-render.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/review-render.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--review-render",
+      "path": "src/review-render.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--review] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/review.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/review.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/review.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--review",
+      "path": "src/review.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--scm-review] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/scm-review.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/scm-review.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/scm-review.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--scm-review",
+      "path": "src/scm-review.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[only-cli-may-call-process-exit--stack] forbiddenPattern / high
+  Promise: Forbid content matching /process\.exit\s*\(/ under src/stack/**/*.ts as an enforceable high-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/stack/pnpm-lock-reader.ts, src/stack/stack-diff.ts, src/stack/stack-extractor.ts, src/stack/stack-manifest.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /process\.exit\s*\(/ at src/stack/x/x.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "only-cli-may-call-process-exit--stack",
+      "path": "src/stack/**/*.ts",
+      "pattern": "process\\.exit\\s*\\(",
+      "policyRef": "policy/library-modules-never-exit",
+      "severity": "high",
+      "type": "forbiddenPattern"
+    }
+
+[stack-plane-no-network-no-subprocess] forbiddenPattern / critical
+  Promise: Forbid content matching /(?:\bfrom\s+|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+)['"](?:node:)?(?:child_process|https?|http2|net|dgram|tls|dns)(?:/promises)?['"]/ under src/stack/**/*.ts as an enforceable critical-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/stack/pnpm-lock-reader.ts, src/stack/stack-diff.ts, src/stack/stack-extractor.ts, src/stack/stack-manifest.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /(?:\bfrom\s+|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+)['"](?:node:)?(?:child_process|https?|http2|net|dgram|tls|dns)(?:/promises)?['"]/ at src/stack/x/x.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "stack-plane-no-network-no-subprocess",
+      "path": "src/stack/**/*.ts",
+      "pattern": "(?:\\bfrom\\s+|\\bimport\\s*\\(\\s*|\\brequire\\s*\\(\\s*|^\\s*import\\s+)['\"](?:node:)?(?:child_process|https?|http2|net|dgram|tls|dns)(?:/promises)?['\"]",
+      "policyRef": "policy/stack-plane-no-network",
+      "severity": "critical",
+      "type": "forbiddenPattern"
+    }
+
+[stack-plane-no-global-network-api] forbiddenPattern / critical
+  Promise: Forbid content matching /\bfetch\s*\(|\bnew\s+(?:WebSocket|XMLHttpRequest|EventSource)\b/ under src/stack/**/*.ts as an enforceable critical-severity architectural promise.
+  Lens: The plugin-surface extractor observes src/**/*.ts.
+    Matched: src/stack/pnpm-lock-reader.ts, src/stack/stack-diff.ts, src/stack/stack-extractor.ts, src/stack/stack-manifest.ts
+  Proof: graded / EVALUATOR_REFUTABLE — add a content hit of /\bfetch\s*\(|\bnew\s+(?:WebSocket|XMLHttpRequest|EventSource)\b/ at src/stack/x/x.ts#L1 — the exact mock-literal a real bad PR introduces reddens this forbiddenPattern — evaluator-only: the injected evidence is synthetic (the extractor recorded none in this tree), so this proves the EVALUATOR can refute the constraint, not that it has real-world teeth
+  Limits:
+    - The mutation proves evaluator refutability only; it is not extractor-real evidence.
+    - The steward must check that this contract implements the cited intent.
+    - a re-exported forbidden module (barrel import) may be missed
+    - dynamic/reflective tool registration not detected
+    - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+  Canonical JSON:
+    {
+      "id": "stack-plane-no-global-network-api",
+      "path": "src/stack/**/*.ts",
+      "pattern": "\\bfetch\\s*\\(|\\bnew\\s+(?:WebSocket|XMLHttpRequest|EventSource)\\b",
+      "policyRef": "policy/stack-plane-no-network",
+      "severity": "critical",
+      "type": "forbiddenPattern"
+    }
+
+Approval: ELIGIBLE
+  - (none)
+Source proof: observed mutant graphs replay offline; authenticated landing re-executes source mutations.
+Approval requirements
+  - maintainer / ratify
+
+Human decision
+  (no DecisionRecord supplied; freshness and human authority remain unproven)
+
+Unsupported coverage
+  - Local authored preparation; no model generation or independent review is claimed.
+  - The steward must check that this contract implements the cited intent.
+  - a re-exported forbidden module (barrel import) may be missed
+  - dynamic/reflective tool registration not detected
+  - no cross-module symbol resolution (a tool registered via an imported helper is not followed)
+
+Provenance
+  Context: d3989f081dbe6a7c88f4eaf3d96d3a1c81b57f4d696dda9f389f20c5cc01715d
+  Plan: cfecb4099e53f26704883accbb060d7b2b30a52bb53cc02b7f41fe43608ab568
+  Generation: 83509ebebe5c1b785ec8ffd6b590a3ebf8eb31342b4d6ed8bd144c9420c8bfb2
+  Graph: 907aa84df4b31c1e9a2fea32cf91896082024ae5618b28055f758e96acfb6f70
+  Report: ab088e79bca7b8999d0696c34c24385c5e83263bca74d0755f5394c55dc9fa68
+  Teeth: 0276c548416bef305a835112bbe0eb0784abc9a54569f49cead70027d7894d28

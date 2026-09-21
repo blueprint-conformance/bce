@@ -1,0 +1,34 @@
+{
+  "binding": {
+    "candidateDigest": "e82ef5439556df496643b68633f9d20371a47fc11d7e9c4c4ab08480c47cf7f1",
+    "engineArtifactDigest": "0f0bbc7d81027c885dc58795282142589a355082330ac564c9d417b8ed941a85",
+    "extractorArtifactDigest": "0f0bbc7d81027c885dc58795282142589a355082330ac564c9d417b8ed941a85",
+    "packetDigest": "283299a05e3ceec53263841eaa82b01dd13c83772bc06b13de1a9d2e3a703062",
+    "repositoryRevision": "a126e0905b8e2e300adccd2da1060c2f80780d47",
+    "toolchainDigest": "ed6093aeccf5ae455f7bb89fdcbc70a0627222f03d795bef753eaeddf394cb31",
+    "worktreeDigest": "e6f5bce89d665a9a1572dc1ac155bb56d42fe84e384105a548998b9624acdef9"
+  },
+  "decidedAt": "2026-09-21T19:04:04Z",
+  "decision": "approve",
+  "decisionDigest": "8672a6382281bb48946483b57ce9770e2e992de1328fa3ca04270993e47bc923",
+  "kind": "BlueprintDecisionRecord",
+  "proposalId": "bstack-01b-stack-policy-coverage",
+  "rationale": "I accept this exact policy as its solo steward. The amendment to bce-engine-architecture@0.1.2 brings the src/stack/ plane under the engine's own contract. That plane was added by #89 and has since grown through #92 (pnpm lockfile reader), #91 (stack diff) and #93 (release carry-ins); all four of its files are on main at 996db96c. The amendment adds one glob never-exit row, widens both extraction-seam scopes to the plane, adds a no-network/no-subprocess import row and a row forbidding the global network APIs, and raises the scan floor to 45, the real recursive src/**/*.ts count on the merged tree. All seven semantic-diff rows are classified tightening; no constraint, severity, scope or approval requirement is removed or loosened.\n\nThis review supersedes steward review 5254884863, which was bound to head dd130a1 against an older base and is stale. The packet was re-prepared once, at head a126e0905b8e2e300adccd2da1060c2f80780d47, after #91 and #93 landed, so it describes the final base. Findings from the first review were fixed in dd130a1 and still hold: the no-network row matches every import form with or without the node: prefix, and the minFiles SYNC test is a range (above the flat count, at most the recursive count), so a future file in the plane inherits coverage without forcing an amendment.\n\nProof on a throwaway copy with the candidate installed as the engine blueprint: extractor-real teeth 50/50, clean run 100. A planted fetch(), `import 'net'`, import('node:dns/promises'), require('child_process') and process.exit each turn the run red, while a node:crypto import stays green. A planted fetch() and a planted process.exit are each caught in every one of the four src/stack files (stack-manifest, stack-extractor, stack-diff, pnpm-lock-reader), and the clean tree scores 100 before and after. The full suite is 1336 tests, equal to the badge, and the live .blueprints/engine.blueprint.json on this branch is byte-identical to main until the amend step runs.\n\nThis decision is self-ratified. It was reviewed, posted and executed by the coding agent under the steward's recorded delegation, quoted verbatim: \"Delegate: I (agent) run the amend ceremony as steward for these 3 PRs\". This PR is the policy-coverage half of the first of those three amendments, split out because an engine-code PR cannot carry a blueprint change. Independent review, independent replication and product efficacy are not claimed.",
+  "reviewer": {
+    "authentication": {
+      "assertionDigest": "1668d8365861cc755ba59ccb5ac3e2e60a447d2df0c522abe27559cbef31b2b7",
+      "issuer": "https://github.com",
+      "method": "scm",
+      "reference": "https://github.com/blueprint-conformance/bce/pull/90#pullrequestreview-5270683962",
+      "reviewMode": "self-ratified",
+      "subject": "github:user:243248197"
+    },
+    "id": "github:user:243248197"
+  },
+  "satisfiedRequirement": {
+    "role": "maintainer",
+    "stage": "ratify"
+  },
+  "schemaVersion": "1",
+  "weakeningAccepted": false
+}
