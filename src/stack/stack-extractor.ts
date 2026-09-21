@@ -42,7 +42,15 @@ import {
   type StackSource,
   type StackUnmodeled,
 } from './stack-manifest.js';
-import { readPnpmLock } from './pnpm-lock-reader.js';
+import {
+  isPnpmWorkspaceDir,
+  pnpmWorkspaceGlobMayMatchBelow,
+  readPnpmLock,
+  readPnpmWorkspacePatterns,
+  stackRefusalPnpmLostClosure,
+  type PnpmDerived,
+  type PnpmWorkspacePatterns,
+} from './pnpm-lock-reader.js';
 
 /* -------------------------------------------------------------------------- */
 /* Fixed refusal / coverage strings (verbatim contract — tests pin these)       */
@@ -71,6 +79,22 @@ export function stackRefusalHollowLockfile(rel: string, why: string): string {
 export function stackRefusalMalformedEntry(rel: string, key: string): string {
   return `lockfile '${rel}' entry '${key}' is malformed (not an object, or no string version): refused, never a partial manifest`;
 }
+/** A dependency map with an EMPTY name: no package can carry it — a refusal, never a schema crash. */
+export function stackRefusalEmptyDependencyName(rel: string, key: string): string {
+  return `lockfile '${rel}' entry '${key}' declares a dependency with an empty name: refused, never a partial manifest`;
+}
+/**
+ * A symbolic link met by the image-file walk that is not itself named like an image file. It is
+ * NEVER followed and its target is never stat-ed or listed: what it points at is host state, not
+ * part of the revision, so this line is a pure function of the tree.
+ */
+export function stackCoverageSymlinkNotFollowed(rel: string): string {
+  return `symlink '${rel}' is not followed: nothing under it is read for image files`;
+}
+/** A directory below the root that is its OWN git checkout (a worktree, a clone, a submodule): another repository's closure. */
+export function stackCoverageNestedCheckout(rel: string): string {
+  return `nested git checkout '${rel}' is not walked for image files: it is another repository's tree, not part of this one`;
+}
 /** A lockfile that lost the precedence decision — recorded, never silently skipped. */
 export function stackCoverageLockfileIgnored(ignored: string, reason: string): string {
   return `lockfile '${ignored}' ignored: ${reason}`;
@@ -90,9 +114,27 @@ export function stackRefusalLockfileVersion(version: unknown): string {
   return `lockfileVersion ${typeof version === 'number' ? String(version) : JSON.stringify(version) ?? 'undefined'} is not 3: npm v1/v2 lockfiles are refused (their 'dependencies' tree is not a closure map); regenerate with npm >= 7`;
 }
 
+/**
+ * What the CALLER knows about the tree from git (this module never runs git). With it, the
+ * nested-checkout decision is a property of the REVISION and identical for a pinned tree and a
+ * working tree; without it, the walk falls back to the `.git` marker alone (host state).
+ */
+export interface StackTreeKnowledge {
+  /** every path git tracks at this revision (blob and symlink entries), relative, `/`-separated */
+  tracked: ReadonlySet<string>;
+  /** every gitlink (submodule) entry at this revision — a directory that is another repository's tree */
+  gitlinks: readonly string[];
+  /**
+   * absolute directory the tree lives at for whoever ran pnpm (the checkout `--ct-repo` names, never a
+   * materialization): the anchor `link:`-protocol values are re-relativised from. Absent: the tree's
+   * own directory is the anchor (an unpinned read of a non-repository).
+   */
+  linkAnchor?: string;
+}
+
 export interface StackFactsExtractor {
   readonly source: 'npm-lockfile';
-  extract(repoDir: string, revision: string): StackExtractionResult;
+  extract(repoDir: string, revision: string, knowledge?: StackTreeKnowledge): StackExtractionResult;
 }
 
 export interface StackExtractionResult {
@@ -142,6 +184,180 @@ function readSource(root: string, rel: string): Buffer | null {
   return fs.readFileSync(abs);
 }
 
+/**
+ * `readSource` for a path BELOW the root: no directory on the way may be a symbolic link either
+ * (lstat only — the link is never followed), so an importer's `package.json` is read from this tree
+ * or not at all. A path that leaves the tree (`..`, absolute, a backslash) is an escape.
+ */
+function readNestedSource(root: string, rel: string): Buffer | null {
+  const segs = rel.split('/');
+  if (rel.startsWith('/') || rel.includes('\\') || segs.some((sg) => sg === '' || sg === '..')) throw new StackSourceEscapeError(rel);
+  let dir = root;
+  for (const sg of segs.slice(0, -1)) {
+    if (sg === '.') continue;
+    dir = path.join(dir, sg);
+    let st: fs.Stats;
+    try {
+      st = fs.lstatSync(dir);
+    } catch {
+      return null;
+    }
+    if (st.isSymbolicLink()) throw new StackSourceEscapeError(rel);
+    if (!st.isDirectory()) return null;
+  }
+  return readSource(root, rel);
+}
+
+const PACKAGE_JSON_DEP_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies'] as const;
+/** directories pnpm never takes workspace packages from, plus the repository's own metadata */
+const WORKSPACE_WALK_EXCLUDE = new Set(['node_modules', 'bower_components', '.git']);
+
+/**
+ * Every directory below the root (never the root itself) that holds a regular-file `package.json`,
+ * down to `maxDepth`. Symbolic links are never followed. This walk serves GUARD (d) ONLY and, unlike
+ * the image walk, it does NOT stop at another repository's tree: pnpm takes a workspace package from a
+ * nested clone or a checked-out submodule exactly as from any directory (it never looks at `.git`), so a
+ * `package.json` found there is one the lockfile must name. (A gitlink whose contents are ABSENT from
+ * the view is `checkPnpmLockCoversTree`'s concern, from the revision, not this walk's.)
+ */
+export function findPackageJsonDirs(root: string, maxDepth: number): string[] {
+  const out: string[] = [];
+  const walk = (dir: string, rel: string, depth: number): void => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    if (depth > 0 && entries.some((e) => e.name === 'package.json' && e.isFile())) out.push(rel);
+    if (depth >= maxDepth) return;
+    for (const e of entries) {
+      if (!e.isDirectory() || WORKSPACE_WALK_EXCLUDE.has(e.name)) continue;
+      walk(path.join(dir, e.name), rel ? `${rel}/${e.name}` : e.name, depth + 1);
+    }
+  };
+  walk(root, '', 0);
+  return out.sort();
+}
+
+/**
+ * TRUNCATION GUARDS (c) + (d). A pnpm lockfile cut at an importer boundary is byte-identical to a
+ * smaller legitimate lockfile, so the lockfile alone cannot tell — the tree can:
+ *   (c) every dependency an importer's own `package.json` declares (dependencies, devDependencies,
+ *       optionalDependencies) is recorded in that importer's entry; an importer whose `package.json`
+ *       is missing or unreadable cannot be checked, which is a refusal, never a skip;
+ *   (d) every directory `pnpm-workspace.yaml` names as a package, holding a `package.json`, is an importer.
+ * Both read the SAME view as everything else here (`read` is the extractor's symlink-safe reader).
+ * Returns the reasons (already sorted); empty = the lockfile covers this tree.
+ */
+export function checkPnpmLockCoversTree(
+  repoDir: string,
+  derived: Pick<PnpmDerived, 'importers' | 'excludeLinksFromLockfile'>,
+  read: (rel: string) => Buffer | null,
+  knowledge?: StackTreeKnowledge,
+): string[] {
+  const lost: string[] = [];
+  const importerPaths = new Set(derived.importers.map((i) => i.path));
+  for (const imp of derived.importers) {
+    const rel = imp.path === '.' ? 'package.json' : `${imp.path}/package.json`;
+    let bytes: Buffer | null;
+    try {
+      bytes = imp.path === '.' ? read(rel) : readNestedSource(repoDir, rel);
+    } catch (e) {
+      if (!(e instanceof StackSourceEscapeError)) throw e;
+      lost.push(`importer '${imp.path}': '${rel}' is a symbolic link or leaves the tree, so what it declares cannot be checked`);
+      continue;
+    }
+    if (bytes === null) {
+      lost.push(`importer '${imp.path}' has no '${rel}' in this tree, so what it declares cannot be checked`);
+      continue;
+    }
+    let manifest: unknown;
+    try {
+      manifest = JSON.parse(bytes.toString('utf8'));
+    } catch {
+      manifest = undefined;
+    }
+    if (!isRecord(manifest) || PACKAGE_JSON_DEP_FIELDS.some((f) => manifest[f] !== undefined && !isRecord(manifest[f]))) {
+      lost.push(`importer '${imp.path}': '${rel}' is not a readable package manifest, so what it declares cannot be checked`);
+      continue;
+    }
+    // a workspace link onto the importer ITSELF is real only when the name is the importer's own package name
+    const ownName = typeof manifest['name'] === 'string' ? (manifest['name'] as string) : null;
+    for (const name of imp.selfLinks) {
+      if (name !== ownName) lost.push(`importer '${imp.path}': dependency '${name}' links to the importer itself, whose '${rel}' is named ${ownName === null ? 'nothing' : `'${ownName}'`} — the lockfile is cut short`);
+    }
+    const recorded = new Set(imp.names);
+    for (const field of PACKAGE_JSON_DEP_FIELDS) {
+      const deps = manifest[field];
+      if (!isRecord(deps)) continue;
+      for (const name of Object.keys(deps).sort()) {
+        if (recorded.has(name)) continue;
+        // measured on pnpm 10.11.1: with settings.excludeLinksFromLockfile a `link:`-protocol
+        // dependency is left out of the importer entry by pnpm itself
+        if (derived.excludeLinksFromLockfile && typeof deps[name] === 'string' && (deps[name] as string).startsWith('link:')) continue;
+        lost.push(`importer '${imp.path}': '${rel}' declares ${field} '${name}' but the lockfile's importer entry does not record it`);
+      }
+    }
+  }
+  const wsBytes = read('pnpm-workspace.yaml');
+  if (wsBytes === null) {
+    // pnpm writes importers other than '.' only for a workspace, and a workspace IS its pnpm-workspace.yaml:
+    // without the file guard (d) cannot be evaluated, and a guard that cannot be evaluated refuses
+    if (derived.importers.some((i) => i.path !== '.')) lost.push("the lockfile has workspace importers but this tree has no readable 'pnpm-workspace.yaml', so the workspace packages cannot be checked");
+  } else {
+    let patterns: PnpmWorkspacePatterns | string = readPnpmWorkspacePatterns(wsBytes.toString('utf8'));
+    if (typeof patterns !== 'string' && !patterns.hasPackagesKey) {
+      // No `packages:` key. Which directories pnpm took is decided by the manager `package.json` declares —
+      // NEVER by the lockfile's own importer list (that list is exactly what a cut removes). MEASURED
+      // 2026-09-20 (implementer AND refuter, independently): pnpm 10.11.1 takes the root alone; pnpm 8.15.9,
+      // 9.0.0 and 9.15.4 refuse to run at all (`ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION packages field
+      // missing or empty`) and write nothing. So a lockfile beside such a file was written by pnpm >= 10 and
+      // names the root alone — declared or not (only pnpm 10+ CAN have written it) — while a declared pnpm
+      // before 10 contradicts its own lockfile: an inconsistent tree, refused (pass 4 of #93: the earlier
+      // "every directory" reading for the undeclared arm refused legitimate real pnpm 10 trees).
+      const declared = /^pnpm@(\d+)/.exec(readRootPackageManager(read))?.[1];
+      if (declared !== undefined && Number(declared) < 10) {
+        patterns = `package.json declares pnpm@${declared} but pnpm-workspace.yaml has no 'packages' key: pnpm before 10 refuses to run beside such a file and cannot have written this lockfile — an inconsistent tree, so the workspace packages cannot be checked`;
+      }
+    }
+    if (typeof patterns === 'string') {
+      lost.push(patterns);
+    } else {
+      if (!importerPaths.has('.') && read('package.json') !== null) lost.push("pnpm-workspace.yaml: the root package is always a workspace package but the lockfile has no importer '.'");
+      for (const dir of findPackageJsonDirs(repoDir, patterns.maxDepth)) {
+        if (isPnpmWorkspaceDir(patterns, dir) && !importerPaths.has(dir)) lost.push(`pnpm-workspace.yaml names package '${dir}' but the lockfile has no importer for it`);
+      }
+      // a gitlink (submodule entry) the revision declares under a workspace glob, whose contents this view
+      // does not hold (a pinned tree never holds a submodule's tree): the guard cannot be evaluated
+      for (const g of knowledge?.gitlinks ?? []) {
+        if (g.split('/').some((seg) => WORKSPACE_WALK_EXCLUDE.has(seg))) continue;
+        let present = false;
+        try {
+          present = readNestedSource(repoDir, `${g}/package.json`) !== null || fs.readdirSync(path.join(repoDir, g)).length > 0;
+        } catch {
+          present = false;
+        }
+        if (present) continue; // its contents are in this view: the walk above already judged them
+        if (isPnpmWorkspaceDir(patterns, g) || pnpmWorkspaceGlobMayMatchBelow(patterns, g)) {
+          lost.push(`pnpm-workspace.yaml may name a package under the submodule '${g}', whose contents are not in this view, so the workspace packages cannot be checked`);
+        }
+      }
+    }
+  }
+  return lost.sort();
+}
+
+/** `packageManager` of the root `package.json` as declared, `''` when there is none or it is unreadable. */
+function readRootPackageManager(read: (rel: string) => Buffer | null): string {
+  try {
+    const raw: unknown = JSON.parse((read('package.json') ?? Buffer.from('null')).toString('utf8'));
+    return isRecord(raw) && typeof raw['packageManager'] === 'string' ? (raw['packageManager'] as string) : '';
+  } catch {
+    return '';
+  }
+}
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -183,6 +399,8 @@ export interface ParsedLockfile {
   unsupported: string[];
   /** lockfile keys whose entry is not an object / has no string version — a REFUSAL, never a skip */
   malformed: string[];
+  /** entry keys ('<root>' for the root) that declare a dependency whose NAME is the empty string */
+  emptyDependencyNames: string[];
   /** why the lockfile is hollow (no `packages` record, no root entry, nothing beyond the root), else null */
   hollow: string | null;
 }
@@ -220,18 +438,19 @@ function mergeStringSets(a: string[], b: string[] | null): string[] {
 export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockfile {
   const unsupported = new Set<string>();
   const malformed: string[] = [];
+  const emptyDependencyNames: string[] = [];
   const unmodeled: StackUnmodeled[] = [];
   const rootDeclared: StackRootDeclared[] = [];
   if (!isRecord(lock.packages)) {
-    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, hollow: "no 'packages' map" };
+    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, emptyDependencyNames: [], hollow: "no 'packages' map" };
   }
   const packages = lock.packages;
   const keys = Object.keys(packages).sort();
   if (!keys.includes('')) {
-    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, hollow: "no root '' entry in 'packages'" };
+    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, emptyDependencyNames: [], hollow: "no root '' entry in 'packages'" };
   }
   if (keys.length === 1) {
-    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, hollow: 'no package beyond the root' };
+    return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, emptyDependencyNames: [], hollow: 'no package beyond the root' };
   }
   const entries: LockEntry[] = [];
   for (const k of keys) {
@@ -278,7 +497,10 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
       byIdentity.set('root', node);
       for (const group of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const) {
         const map = isRecord(raw[group]) ? (raw[group] as Record<string, unknown>) : {};
-        for (const dep of Object.keys(map).sort()) rootDeclared.push({ name: dep, spec: asString(map[dep]) ?? '', group });
+        for (const dep of Object.keys(map).sort()) {
+          if (dep === '') continue; // an empty name is refused whole (below) — it must never reach the strict schema
+          rootDeclared.push({ name: dep, spec: asString(map[dep]) ?? '', group });
+        }
       }
       // the root id is NOT reserved: a non-root node must never get a suffix that depends on the
       // root's (quarantined) version — a collision re-ids the ROOT instead, after the loop.
@@ -376,8 +598,22 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
     // a non-root package shares the root's name@version: the ROOT's display id yields (its hashed
     // id is `root:<name>` regardless), so the twin's hashed identity never depends on the root version
     unsupported.add(`id collision on ${rootNode.id} (a non-root package shares the root's name and version): root id suffixed`);
-    rootNode.id = `${rootNode.id}+root`;
+    // loop until FREE: `+root` is valid semver build metadata, so another package may already own it
+    const base = rootNode.id;
+    let candidate = `${base}+root`;
+    for (let n = 2; idsTaken.has(candidate); n++) candidate = `${base}+root.${n}`;
+    rootNode.id = candidate;
     idByPath.set('', rootNode.id);
+  }
+
+  // a dependency map with an EMPTY name names no package: refuse the lockfile, never crash a schema on it
+  for (const { path: p, raw } of entries) {
+    for (const key of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
+      if (isRecord(raw[key]) && Object.prototype.hasOwnProperty.call(raw[key], '')) {
+        emptyDependencyNames.push(p === '' ? '<root>' : p);
+        break;
+      }
+    }
   }
 
   // edges: nearest-ancestor node_modules walk, exactly npm's resolution
@@ -407,6 +643,7 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
     for (const g of groups) {
       const map = isRecord(raw[g.key]) ? (raw[g.key] as Record<string, unknown>) : {};
       for (const dep of Object.keys(map).sort()) {
+        if (dep === '') continue; // refused below — never an edge, never a coverage guess
         const spec = asString(map[dep]) ?? '';
         const toId = resolveDep(p, dep);
         if (!toId) {
@@ -425,7 +662,7 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
     }
   }
 
-  return { nodes: [...byIdentity.values()], edges, unmodeled, rootDeclared, unsupported: [...unsupported], malformed, hollow: null };
+  return { nodes: [...byIdentity.values()], edges, unmodeled, rootDeclared, unsupported: [...unsupported], malformed, emptyDependencyNames, hollow: null };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -576,18 +813,56 @@ function isComposeName(base: string): boolean {
 }
 
 /** Bounded, sorted walk for Dockerfiles + compose files (depth ≤ 3, build/dep dirs excluded). */
-export function findImageFiles(root: string): { dockerfiles: string[]; composeFiles: string[]; symlinks: string[]; symlinkedDirs: string[]; depthCut: boolean } {
+export function findImageFiles(root: string, knowledge?: StackTreeKnowledge): {
+  dockerfiles: string[];
+  composeFiles: string[];
+  /** symlinks NAMED like an image file — a refusal */
+  symlinks: string[];
+  /** every other symlink met by the walk — a coverage line; never followed, its target never stat-ed */
+  symlinksNotFollowed: string[];
+  /** directories below the root that are their own git checkout — a coverage line, not walked */
+  nestedCheckouts: string[];
+  depthCut: boolean;
+} {
   const dockerfiles: string[] = [];
   const composeFiles: string[] = [];
   const symlinks: string[] = [];
-  const symlinkedDirs: string[] = [];
+  const symlinksNotFollowed: string[] = [];
+  const nestedCheckouts: string[] = [];
   let depthCut = false;
+  const trackedUnder = (rel: string): boolean => {
+    if (!knowledge) return false;
+    const prefix = `${rel}/`;
+    for (const t of knowledge.tracked) if (t.startsWith(prefix)) return true;
+    return false;
+  };
+  const gitlinkSet = new Set(knowledge?.gitlinks ?? []);
+  // A gitlink names another repository's tree whether or not it is present on disk (a pinned tree
+  // from `git archive` has no submodule contents at all): declare it from the revision, not the walk
+  for (const rel of gitlinkSet) {
+    const segs = rel.split('/');
+    if (segs.length <= MAX_IMAGE_FILE_DEPTH && !segs.some((sg) => IMAGE_FILE_EXCLUDE.has(sg))) nestedCheckouts.push(rel);
+  }
   const walk = (dir: string, rel: string, depth: number): void => {
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch {
       return;
+    }
+    // a directory below the root carrying its own `.git` (dir or gitlink file) is ANOTHER repository's
+    // tree — a worktree, a clone, a submodule. A pinned tree (git archive) never contains one; an
+    // unpinned working tree must not count its images into this repository's closure. When the caller
+    // knows what git tracks, the marker alone decides NOTHING that the pinned view would not also see:
+    // a gitlink is skipped in both views, and a stray `.git` beside files this repository tracks is
+    // ignored (those files ARE this repository's tree). Without that knowledge the marker decides.
+    if (depth > 0) {
+      const marker = entries.some((e) => e.name === '.git');
+      const nested = gitlinkSet.has(rel) || (marker && (knowledge ? !trackedUnder(rel) : true));
+      if (nested) {
+        if (!gitlinkSet.has(rel)) nestedCheckouts.push(rel);
+        return;
+      }
     }
     for (const e of [...entries].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
       const r = rel ? `${rel}/${e.name}` : e.name;
@@ -599,23 +874,12 @@ export function findImageFiles(root: string): { dockerfiles: string[]; composeFi
         }
         walk(path.join(dir, e.name), r, depth + 1);
       } else if (e.isSymbolicLink()) {
-        // never followed. A symlinked image FILE is a refusal. A symlinked DIRECTORY is not walked:
-        // it is always declared in coverage, and refused when its first level (names only — no file
-        // is read) holds an image file, exactly like the file-level rule.
-        if (isDockerfileName(e.name) || isComposeName(e.name)) {
-          symlinks.push(r);
-        } else if (!IMAGE_FILE_EXCLUDE.has(e.name)) {
-          let names: string[] | null = null;
-          try {
-            if (fs.statSync(path.join(dir, e.name)).isDirectory()) names = fs.readdirSync(path.join(dir, e.name)).sort();
-          } catch {
-            names = null;
-          }
-          if (names !== null) {
-            symlinkedDirs.push(r);
-            for (const nm of names) if (isDockerfileName(nm) || isComposeName(nm)) symlinks.push(`${r}/${nm}`);
-          }
-        }
+        // LSTAT ONLY — the link is never followed and its TARGET is never stat-ed or listed: what it
+        // points at is host state outside the revision, so neither the exit code nor coverage may
+        // depend on it. A symlink NAMED like an image file is a refusal; every other symlink (to a
+        // file, a directory, or nothing at all) is one coverage line — a pure function of the tree.
+        if (isDockerfileName(e.name) || isComposeName(e.name)) symlinks.push(r);
+        else if (!IMAGE_FILE_EXCLUDE.has(e.name)) symlinksNotFollowed.push(r);
       } else if (e.isFile()) {
         if (isDockerfileName(e.name)) dockerfiles.push(r);
         else if (isComposeName(e.name)) composeFiles.push(r);
@@ -623,7 +887,14 @@ export function findImageFiles(root: string): { dockerfiles: string[]; composeFi
     }
   };
   walk(root, '', 0);
-  return { dockerfiles: dockerfiles.sort(), composeFiles: composeFiles.sort(), symlinks: symlinks.sort(), symlinkedDirs: symlinkedDirs.sort(), depthCut };
+  return {
+    dockerfiles: dockerfiles.sort(),
+    composeFiles: composeFiles.sort(),
+    symlinks: symlinks.sort(),
+    symlinksNotFollowed: symlinksNotFollowed.sort(),
+    nestedCheckouts: nestedCheckouts.sort(),
+    depthCut,
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -645,7 +916,7 @@ function normalizeRuntime(raw: string): string {
 export class NpmLockfileStackExtractor implements StackFactsExtractor {
   readonly source = 'npm-lockfile' as const;
 
-  extract(repoDir: string, revision: string): StackExtractionResult {
+  extract(repoDir: string, revision: string, knowledge?: StackTreeKnowledge): StackExtractionResult {
     const sources: StackSource[] = [];
     const nodes: StackNode[] = [];
     const edges: StackEdge[] = [];
@@ -732,8 +1003,9 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
         refuse(stackRefusalHollowLockfile(rel, derived.hollow));
         continue;
       }
-      if (derived.malformed.length > 0) {
+      if (derived.malformed.length > 0 || derived.emptyDependencyNames.length > 0) {
         for (const k of derived.malformed) refuse(stackRefusalMalformedEntry(rel, k));
+        for (const k of derived.emptyDependencyNames) refuse(stackRefusalEmptyDependencyName(rel, k));
         continue;
       }
       // loops, never spread: a very large lockfile must not overflow the call stack
@@ -751,9 +1023,13 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
       } else {
         filesScanned++;
         sources.push({ path: 'pnpm-lock.yaml', sha256: sha256(pnpmBytes), parser: 'pnpm-lockfile-v9' });
-        const pnpm = readPnpmLock(pnpmBytes.toString('utf8'), { name: asString(pkg?.name), version: asString(pkg?.version) });
+        const pnpm = readPnpmLock(pnpmBytes.toString('utf8'), { name: asString(pkg?.name), version: asString(pkg?.version), linkAnchor: knowledge?.linkAnchor ?? path.resolve(repoDir).split(path.sep).join('/') });
+        // the lockfile reads cleanly — now the TREE has its say (truncation guards c + d)
+        const lost = pnpm.refusals.length === 0 && pnpm.derived !== null ? checkPnpmLockCoversTree(repoDir, pnpm.derived, read, knowledge) : [];
         if (pnpm.refusals.length > 0 || pnpm.derived === null) {
           for (const msg of pnpm.refusals) refuse(msg);
+        } else if (lost.length > 0) {
+          for (const what of lost) refuse(stackRefusalPnpmLostClosure(what));
         } else {
           // loops, never spread: a very large lockfile must not overflow the call stack
           for (const n of pnpm.derived.nodes) nodes.push(n);
@@ -844,8 +1120,9 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
     }
 
     // ---- images: Dockerfile FROM + compose image: ----
-    const { dockerfiles, composeFiles, symlinks, symlinkedDirs, depthCut } = findImageFiles(repoDir);
-    for (const rel of symlinkedDirs) unsupported.add(`symlinked directory '${rel}' is not walked for image files`);
+    const { dockerfiles, composeFiles, symlinks, symlinksNotFollowed, nestedCheckouts, depthCut } = findImageFiles(repoDir, knowledge);
+    for (const rel of symlinksNotFollowed) unsupported.add(stackCoverageSymlinkNotFollowed(rel));
+    for (const rel of nestedCheckouts) unsupported.add(stackCoverageNestedCheckout(rel));
     for (const rel of symlinks) refuse(stackRefusalSymlink(rel));
     if (depthCut) unsupported.add(STACK_COVERAGE_IMAGE_WALK_DEPTH);
     const imageNodeIds = new Set<string>();
@@ -904,10 +1181,15 @@ export const STACK_EXTRACTOR_PROVIDERS: readonly { source: StackFactsExtractor['
   ]);
 
 /** Front door: extract the stack manifest of a materialized tree. LOUD on an unregistered source. */
-export function extractStackManifest(repoDir: string, revision: string, source: StackFactsExtractor['source'] = 'npm-lockfile'): StackExtractionResult {
+export function extractStackManifest(
+  repoDir: string,
+  revision: string,
+  source: StackFactsExtractor['source'] = 'npm-lockfile',
+  knowledge?: StackTreeKnowledge,
+): StackExtractionResult {
   const provider = STACK_EXTRACTOR_PROVIDERS.find((p) => p.source === source);
   if (!provider) {
     throw new Error(`no stack extractor provider registered for source '${source}' — STACK_EXTRACTOR_PROVIDERS (stack-extractor.ts) is widen-only`);
   }
-  return provider.make().extract(repoDir, revision);
+  return provider.make().extract(repoDir, revision, knowledge);
 }

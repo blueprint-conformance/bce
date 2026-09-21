@@ -105,3 +105,46 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
   }
   return dest;
 }
+
+/**
+ * What git knows about a tree — the caller-side half of the stack extractor's nested-checkout rule.
+ * `sha` given: the entries of that commit (`git ls-tree -r`); absent: the index of the working tree
+ * (`git ls-files --stage`). Gitlinks (mode 160000, submodules) are listed apart from tracked files.
+ * Returns null when `repoDir` is not a git repository, so a plain directory is still readable.
+ */
+export function listTreeKnowledge(repoDir: string, sha?: string): { tracked: Set<string>; gitlinks: string[] } | null {
+  const args = sha ? ['ls-tree', '-r', '-z', sha] : ['ls-files', '--stage', '-z'];
+  // STREAMED TO DISK, like materializeAtRevision: the listing of a large tree is written straight
+  // to a temp-file fd and read back from disk, so it never transits a bounded Node buffer (the
+  // ENOBUFS class — see the note above). Listing size is bounded by disk, not memory.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-tree-'));
+  const listPath = path.join(dir, 'entries.z');
+  let listing: string;
+  try {
+    const outFd = fs.openSync(listPath, 'w');
+    let res;
+    try {
+      res = spawnSync('git', ['-C', repoDir, ...args], { stdio: ['ignore', outFd, 'ignore'] });
+    } finally {
+      fs.closeSync(outFd);
+    }
+    if (res.error || res.status !== 0) return null;
+    listing = fs.readFileSync(listPath, 'utf8');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  const tracked = new Set<string>();
+  const gitlinks: string[] = [];
+  for (const rec of listing.split('\0')) {
+    if (rec === '') continue;
+    // ls-tree: `<mode> <type> <sha>\t<path>`   ls-files --stage: `<mode> <sha> <stage>\t<path>`
+    const tabAt = rec.indexOf('\t');
+    if (tabAt === -1) continue;
+    const mode = rec.slice(0, 6);
+    const rel = rec.slice(tabAt + 1);
+    if (mode === '160000') gitlinks.push(rel);
+    else tracked.add(rel);
+  }
+  gitlinks.sort();
+  return { tracked, gitlinks };
+}

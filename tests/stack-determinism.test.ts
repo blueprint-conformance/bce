@@ -51,7 +51,13 @@ import {
   stackRefusalLockfileVersion,
   stackRefusalMalformedEntry,
   stackRefusalSymlink,
+  stackRefusalEmptyDependencyName,
+  stackCoverageSymlinkNotFollowed,
+  stackCoverageNestedCheckout,
+  findImageFiles,
+  deriveFromLockfileV3,
 } from '../src/stack/stack-extractor.js';
+import { listTreeKnowledge } from '../src/pin.js';
 import { stackRefusalPnpmLockfileVersion, stackRefusalPnpmHollow } from '../src/stack/pnpm-lock-reader.js';
 
 const ROOT = path.join(__dirname, '..');
@@ -768,6 +774,41 @@ describe('stack slice 1 — the root package: its OWN version is quarantined; de
     };
     expect(at('1.0.0').stackDigest).toBe(at('2.0.0').stackDigest);
   });
+
+  it("the root's yielded display id is looped until FREE: a package already at `<version>+root` (valid semver build metadata) never shares an id with the root", () => {
+    const m = extractSynth(
+      mutated((p) => {
+        p['node_modules/r'] = { version: '1.0.0', integrity: 'sha512-RR' }; // the twin: takes npm:r@1.0.0
+        p['node_modules/a/node_modules/r'] = { version: '1.0.0+root', integrity: 'sha512-RR2' }; // owns npm:r@1.0.0+root
+        p['node_modules/b/node_modules/r'] = { version: '1.0.0+root.2', integrity: 'sha512-RR3' }; // …and the next candidate
+      }),
+    ).manifest;
+    const ids = m.nodes.map((n) => n.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(m.nodes.find((n) => n.root)!.id).toBe('npm:r@1.0.0+root.3');
+    expect(m.edges.filter((e) => e.from === 'npm:r@1.0.0+root.3').map((e) => e.to).sort()).toEqual(['npm:a@1.0.0', 'npm:b@1.0.0']); // edges name the ROOT unambiguously
+    expect(m.edges.some((e) => e.from === 'npm:r@1.0.0+root')).toBe(false);
+  });
+
+  it('a dependency whose NAME is the empty string is the fixed refusal (root or not) — never a schema crash, exit 2, nothing written', () => {
+    const rootCase = mutated((p) => { (p['']!.dependencies as Record<string, string>)[''] = '1'; });
+    expect(extractSynth(rootCase).refusals).toEqual([stackRefusalEmptyDependencyName('package-lock.json', '<root>'), STACK_REFUSAL_NO_LOCKFILE]);
+    const devCase = mutated((p) => { p['']!.devDependencies = { '': '^1.0.0' }; });
+    expect(extractSynth(devCase).refusals).toEqual([stackRefusalEmptyDependencyName('package-lock.json', '<root>'), STACK_REFUSAL_NO_LOCKFILE]);
+    const nested = mutated((p) => { p['node_modules/a']!.peerDependencies = { '': '*' }; });
+    expect(extractSynth(nested).refusals).toEqual([stackRefusalEmptyDependencyName('package-lock.json', 'node_modules/a'), STACK_REFUSAL_NO_LOCKFILE]);
+    // the PUBLIC derive function is safe on its own: the empty name never reaches rootDeclared (a strict-schema crash for a library caller)
+    const derived = deriveFromLockfileV3(rootCase as unknown as Record<string, unknown>);
+    expect(derived.emptyDependencyNames).toEqual(['<root>']);
+    expect(derived.rootDeclared.map((d) => d.name)).toEqual(['a', 'b']);
+    expect(derived.edges.every((e) => e.to !== '' && e.from !== '')).toBe(true);
+    const out = path.join(tmp('empty-dep-out'), 'm.json');
+    const cli = runCli(['stack', 'snapshot', '--ct-repo', synth(rootCase), '--no-pin', '--out', out], ROOT);
+    expect(cli.status).toBe(2);
+    expect(cli.stderr).toContain(stackRefusalEmptyDependencyName('package-lock.json', '<root>'));
+    expect(cli.stderr).not.toContain('unexpected CLI failure');
+    expect(fs.existsSync(out)).toBe(false);
+  });
 });
 
 describe('stack slice 1 — lockfile precedence and symlink refusal', () => {
@@ -859,20 +900,238 @@ describe('stack slice 1 — images and runtime hygiene', () => {
     expect(m2.stackDigest).toBe(m1.stackDigest);
   });
 
-  it.skipIf(process.platform === 'win32')('a symlinked DIRECTORY holding a Dockerfile is a refusal; an empty symlinked directory is a coverage line', () => {
-    const outside = tmp('outside-dir');
-    fs.writeFileSync(path.join(outside, 'Dockerfile'), 'FROM evil:1\n');
-    const d = synth(baseLock());
-    fs.symlinkSync(outside, path.join(d, 'docker'));
-    const r = extractStackManifest(d, 'unpinned');
-    expect(r.refusals).toEqual([stackRefusalSymlink('docker/Dockerfile')]);
-    expect(r.manifest.images).toEqual([]);
+  it.skipIf(process.platform === 'win32')('a symlink is LSTAT-ONLY: never followed, its target never stat-ed — the verdict is a pure function of the tree, whatever the host holds', () => {
+    const withDockerfile = tmp('outside-dir');
+    fs.writeFileSync(path.join(withDockerfile, 'Dockerfile'), 'FROM evil:1\n');
     const empty = tmp('outside-empty');
-    const d2 = synth(baseLock());
-    fs.symlinkSync(empty, path.join(d2, 'assets'));
-    const r2 = extractStackManifest(d2, 'unpinned');
-    expect(r2.refusals).toEqual([]);
-    expect(r2.manifest.coverage.unsupported).toContain("symlinked directory 'assets' is not walked for image files");
+    const aFile = path.join(tmp('outside-file'), 'notes.txt');
+    fs.writeFileSync(aFile, 'x');
+    // the SAME link name with four different targets: a dir holding a Dockerfile, an empty dir, a file, nothing at all
+    const results = [withDockerfile, empty, aFile, path.join(empty, 'dangling-target')].map((target) => {
+      const d = synth(baseLock());
+      fs.symlinkSync(target, path.join(d, 'docker'));
+      const r = extractStackManifest(d, 'unpinned');
+      return { refusals: r.refusals, images: r.manifest.images, coverage: r.manifest.coverage.unsupported, digest: r.manifest.stackDigest };
+    });
+    for (const r of results) {
+      expect(r.refusals).toEqual([]);
+      expect(r.images).toEqual([]);
+      expect(r.coverage).toContain(stackCoverageSymlinkNotFollowed('docker'));
+    }
+    expect(new Set(results.map((r) => JSON.stringify(r))).size).toBe(1); // host state behind the link changes NOTHING
+    expect(results[0]!.digest).toBe(BASE_DIGEST);
+    // a relative link, and a link to a directory INSIDE the tree: same rule, no refusal
+    const d = synth(baseLock(), { files: { 'real/Dockerfile': 'FROM node:22\n' } });
+    fs.symlinkSync('real', path.join(d, 'alias'));
+    fs.symlinkSync('../elsewhere', path.join(d, 'rel'));
+    const r = extractStackManifest(d, 'unpinned');
+    expect(r.refusals).toEqual([]);
+    expect(r.manifest.images.map((i) => i.evidenceRef)).toEqual(['real/Dockerfile#L1']); // read once, through the real directory
+    expect(r.manifest.coverage.unsupported).toEqual(expect.arrayContaining([stackCoverageSymlinkNotFollowed('alias'), stackCoverageSymlinkNotFollowed('rel')]));
+    // a symlink NAMED like an image file is still a refusal (dangling or not), and an excluded name stays silent
+    const d3 = synth(baseLock());
+    fs.symlinkSync(path.join(empty, 'nope'), path.join(d3, 'compose.yml'));
+    fs.symlinkSync(withDockerfile, path.join(d3, 'node_modules'));
+    const r3 = extractStackManifest(d3, 'unpinned');
+    expect(r3.refusals).toEqual([stackRefusalSymlink('compose.yml')]);
+    expect(r3.manifest.coverage.unsupported.filter((l) => l.startsWith('symlink '))).toEqual([]);
+  });
+
+  it.skipIf(process.platform === 'win32')('a COMMITTED directory symlink gives the SAME exit code and coverage pinned and unpinned (relative target that exists only beside the working tree)', () => {
+    const parent = tmp('pinned-symlink');
+    const repo = path.join(parent, 'repo');
+    fs.mkdirSync(path.join(parent, 'reltarget'), { recursive: true });
+    fs.writeFileSync(path.join(parent, 'reltarget', 'Dockerfile'), 'FROM evil:1\n');
+    fs.mkdirSync(repo);
+    fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ name: 'r', version: '1.0.0' }));
+    fs.writeFileSync(path.join(repo, 'package-lock.json'), JSON.stringify(baseLock()));
+    fs.symlinkSync('../reltarget', path.join(repo, 'docker'));
+    const git = (...a: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.email=t@example.com', '-c', 'user.name=t', ...a], { stdio: 'ignore' });
+    git('init', '-q', '-b', 'main');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'directory symlink');
+    const run = (extra: string[]) => {
+      const out = path.join(tmp('symlink-out'), 'm.json');
+      const cli = runCli(['stack', 'snapshot', '--ct-repo', repo, ...extra, '--out', out], ROOT);
+      const m = cli.status === 0 ? parseStackManifest(JSON.parse(fs.readFileSync(out, 'utf8'))) : null;
+      return { status: cli.status, symlinkLines: m?.coverage.unsupported.filter((l) => l.startsWith('symlink ')), digest: m?.stackDigest };
+    };
+    const pinned = run([]);
+    const unpinned = run(['--no-pin']);
+    expect(pinned).toEqual({ status: 0, symlinkLines: [stackCoverageSymlinkNotFollowed('docker')], digest: BASE_DIGEST });
+    expect(unpinned).toEqual(pinned);
+  });
+
+  it('--no-pin: a NESTED git checkout (worktree gitlink FILE, clone .git DIRECTORY) is not walked — its images are another repository\'s closure', () => {
+    const plain = synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n' } });
+    const d = synth(baseLock(), {
+      files: {
+        Dockerfile: 'FROM node:22\n',
+        '.worktrees/a/.git': 'gitdir: /somewhere/.git/worktrees/a\n',
+        '.worktrees/a/Dockerfile': 'FROM other:1\n',
+        '.worktrees/a/deploy/compose.yml': 'services:\n  x:\n    image: other:2\n',
+        'vendor/clone/.git/HEAD': 'ref: refs/heads/main\n',
+        'vendor/clone/Dockerfile': 'FROM other:3\n',
+        'services/api/Dockerfile': 'FROM node:22-slim\n', // an ordinary nested directory IS walked
+        'tools/.git': 'gitdir: /elsewhere\n', // a checkout DIRECTLY under the root (depth 1)
+        'tools/Dockerfile': 'FROM other:4\n',
+      },
+    });
+    const m = extractStackManifest(d, 'unpinned').manifest;
+    expect(m.images.map((i) => i.ref).sort()).toEqual(['node:22', 'node:22-slim']);
+    expect(m.coverage.unsupported).toEqual(
+      expect.arrayContaining([stackCoverageNestedCheckout('.worktrees/a'), stackCoverageNestedCheckout('vendor/clone'), stackCoverageNestedCheckout('tools')]),
+    );
+    expect(findImageFiles(d).nestedCheckouts).toEqual(['.worktrees/a', 'tools', 'vendor/clone']);
+    // the repository's OWN .git at the root is not a nested checkout
+    fs.mkdirSync(path.join(plain, '.git'));
+    const p = extractStackManifest(plain, 'unpinned').manifest;
+    expect(p.images.map((i) => i.ref)).toEqual(['node:22']);
+    expect(p.coverage.unsupported.filter((l) => l.startsWith('nested git checkout'))).toEqual([]);
+  });
+
+  it('the nested-checkout rule is a property of the REVISION when git is consulted: a pinned tree and a working tree agree on digest AND coverage', () => {
+    const git = (repo: string, ...a: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.email=t@example.com', '-c', 'user.name=t', ...a], { encoding: 'utf8' }).trim();
+    const mkRepo = (label: string): string => {
+      const repo = synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n', 'services/api/Dockerfile': 'FROM node:22-slim\n' } });
+      git(repo, 'init', '-q', '-b', 'main');
+      git(repo, 'add', '-A');
+      git(repo, 'commit', '-q', '-m', label);
+      return repo;
+    };
+    const both = (repo: string) => {
+      const run = (extra: string[]) => {
+        const out = path.join(tmp('views-out'), 'm.json');
+        const cli = runCli(['stack', 'snapshot', '--ct-repo', repo, ...extra, '--out', out], ROOT);
+        expect(cli.stderr).toBe('');
+        const m = parseStackManifest(JSON.parse(fs.readFileSync(out, 'utf8')));
+        return { digest: m.stackDigest, refs: m.images.map((i) => i.ref).sort(), nested: m.coverage.unsupported.filter((l) => l.startsWith('nested git checkout')) };
+      };
+      const pinned = run([]);
+      const unpinned = run(['--no-pin']);
+      expect(unpinned).toEqual(pinned);
+      return pinned;
+    };
+    // (a) an UNTRACKED empty `.git` directory and (b) an UNTRACKED garbage `.git` file beside a TRACKED Dockerfile: the
+    // tracked files are this repository's tree, so both views read them and neither declares a nested checkout
+    const a = mkRepo('tracked-under-stray-marker');
+    fs.mkdirSync(path.join(a, 'services', 'api', '.git'));
+    fs.writeFileSync(path.join(a, 'services', '.git'), 'not a gitlink\n');
+    expect(both(a)).toEqual({ digest: expect.any(String), refs: ['node:22', 'node:22-slim'], nested: [] });
+    // (c) a real gitlink (submodule entry) whose working-tree contents are NOT this repository's: git archive has no
+    // submodule tree, so the pinned walk cannot see it — the coverage line comes from the gitlink itself
+    const c = mkRepo('with-submodule');
+    git(c, 'update-index', '--add', '--cacheinfo', `160000,${'0'.repeat(39)}1,deps/sub`);
+    git(c, 'commit', '-q', '-m', 'add gitlink');
+    fs.mkdirSync(path.join(c, 'deps', 'sub'), { recursive: true });
+    fs.writeFileSync(path.join(c, 'deps', 'sub', '.git'), 'gitdir: ../../.git/modules/sub\n');
+    fs.writeFileSync(path.join(c, 'deps', 'sub', 'Dockerfile'), 'FROM submodule/base:1\n');
+    const r = both(c);
+    expect(r.refs).toEqual(['node:22', 'node:22-slim']);
+    expect(r.nested).toEqual([stackCoverageNestedCheckout('deps/sub')]);
+    // (d) the library sees the same rule through the knowledge object the CLI derives from git
+    const k = listTreeKnowledge(c)!;
+    expect(k.gitlinks).toEqual(['deps/sub']);
+    expect(k.tracked.has('services/api/Dockerfile')).toBe(true);
+    const lib = extractStackManifest(c, 'unpinned', 'npm-lockfile', k).manifest;
+    expect(lib.stackDigest).toBe(r.digest);
+    expect(listTreeKnowledge(c, git(c, 'rev-parse', 'HEAD'))!.gitlinks).toEqual(['deps/sub']);
+    expect(listTreeKnowledge(tmp('not-a-repo'))).toBeNull();
+    // without knowledge the marker alone decides (a plain directory, no git): the stray marker in (a) hides the image
+    expect(extractStackManifest(a, 'unpinned').manifest.images.map((i) => i.ref)).toEqual(['node:22']);
+  });
+
+  it('MINOR-2 (pass 2): what git knows decides — an untracked clone is skipped, the PINNED view reads the sha (never the index), prefixes end at a slash, gitlinks are not tracked files, and nothing is left in the temp dir', () => {
+    const git = (repo: string, ...a: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.email=t@example.com', '-c', 'user.name=t', ...a], { encoding: 'utf8' }).trim();
+    const repo = synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n', 'vendor/tool2/keep.txt': 'tracked\n', '.gitignore': 'vendor/clone/\nvendor/tool/\n' } });
+    git(repo, 'init', '-q', '-b', 'main');
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'base');
+    const head = git(repo, 'rev-parse', 'HEAD');
+    const view = (extra: string[]) => {
+      const out = path.join(tmp('m2-out'), 'm.json');
+      const cli = runCli(['stack', 'snapshot', '--ct-repo', repo, ...extra, '--out', out], ROOT);
+      expect(cli.stderr).toBe('');
+      const m = parseStackManifest(JSON.parse(fs.readFileSync(out, 'utf8')));
+      return { digest: m.stackDigest, refs: m.images.map((i) => i.ref).sort(), nested: m.coverage.unsupported.filter((l) => l.startsWith('nested git checkout')) };
+    };
+    const before = view([]);
+    expect(before).toEqual({ digest: expect.any(String), refs: ['node:22'], nested: [] });
+
+    // E05 — the feature's main case: an UNTRACKED clone inside a real repository. git knows nothing under it, so the
+    // `.git` marker decides: its image is not this repository's, and the unpinned view says so in coverage.
+    // E08 — `vendor/tool` is such a clone too; the tracked `vendor/tool2/keep.txt` shares its PREFIX but not its directory.
+    for (const clone of ['vendor/clone', 'vendor/tool']) {
+      fs.mkdirSync(path.join(repo, clone, '.git'), { recursive: true });
+      fs.writeFileSync(path.join(repo, clone, 'Dockerfile'), `FROM ${path.basename(clone)}/base:1\n`);
+    }
+    const unpinned = view(['--no-pin']);
+    expect(unpinned.refs).toEqual(['node:22']);
+    expect(unpinned.digest).toBe(before.digest);
+    expect(unpinned.nested).toEqual([stackCoverageNestedCheckout('vendor/clone'), stackCoverageNestedCheckout('vendor/tool')]);
+    expect(view([])).toEqual(before); // the pinned tree never held them
+
+    // P05 / K02 — index ≠ commit: a gitlink and a file STAGED but not committed. The pinned view reads the sha.
+    git(repo, 'update-index', '--add', '--cacheinfo', `160000,${'0'.repeat(39)}1,deps/staged`);
+    fs.writeFileSync(path.join(repo, 'staged.txt'), 'staged\n');
+    git(repo, 'add', 'staged.txt');
+    const index = listTreeKnowledge(repo)!;
+    const atHead = listTreeKnowledge(repo, head)!;
+    expect(index.gitlinks).toEqual(['deps/staged']);
+    expect(index.tracked.has('staged.txt')).toBe(true);
+    expect(atHead.gitlinks).toEqual([]);
+    expect(atHead.tracked.has('staged.txt')).toBe(false);
+    expect(view([]).nested).toEqual([]); // the CLI's pinned view: nothing staged leaks into it
+    expect(view(['--no-pin']).nested).toContain(stackCoverageNestedCheckout('deps/staged')); // the working-tree view reads the index
+
+    // P07 — a gitlink is another repository's tree, never one of this repository's tracked files
+    expect(index.tracked.has('deps/staged')).toBe(false);
+    expect([...index.tracked].some((t) => t.startsWith('deps/staged'))).toBe(false);
+
+    // E02 / E03 — a gitlink the image walk could never reach (deeper than the walk, or under an excluded directory)
+    // gets no coverage line: coverage describes what the walk skipped, not the whole repository
+    git(repo, 'update-index', '--add', '--cacheinfo', `160000,${'0'.repeat(39)}2,a/b/c/deep`);
+    git(repo, 'update-index', '--add', '--cacheinfo', `160000,${'0'.repeat(39)}3,dist/sub`);
+    git(repo, 'update-index', '--add', '--cacheinfo', `160000,${'0'.repeat(39)}4,a/b/edge`);
+    git(repo, 'commit', '-q', '-m', 'gitlinks');
+    expect(listTreeKnowledge(repo)!.gitlinks).toEqual(['a/b/c/deep', 'a/b/edge', 'deps/staged', 'dist/sub']);
+    expect(view([]).nested).toEqual([stackCoverageNestedCheckout('a/b/edge'), stackCoverageNestedCheckout('deps/staged')]);
+
+    // P01 — the listing is streamed through a temp dir that is removed on success AND on every failure path
+    const saved = { TMPDIR: process.env.TMPDIR, TEMP: process.env.TEMP, TMP: process.env.TMP };
+    const privateTmp = tmp('m2-private-tmp');
+    try {
+      process.env.TMPDIR = process.env.TEMP = process.env.TMP = privateTmp;
+      expect(fs.realpathSync(os.tmpdir())).toBe(fs.realpathSync(privateTmp));
+      expect(listTreeKnowledge(repo)).not.toBeNull();
+      expect(listTreeKnowledge(repo, git(repo, 'rev-parse', 'HEAD'))).not.toBeNull();
+      expect(listTreeKnowledge(repo, 'f'.repeat(40))).toBeNull(); // a sha git does not know
+      expect(listTreeKnowledge(path.join(privateTmp, 'missing'))).toBeNull(); // no such directory
+      expect(fs.readdirSync(privateTmp)).toEqual([]);
+    } finally {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
+  });
+
+  it('hashed images are a SET: the same ref declared again (second Dockerfile, second compose service) keeps the digest; the manifest keeps every declaration', () => {
+    const one = extractStackManifest(synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n' } }), 'unpinned').manifest;
+    const many = extractStackManifest(
+      synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n', 'svc/a/Dockerfile': 'FROM node:22\n', 'svc/b/Dockerfile': '# again\nFROM node:22\n' } }),
+      'unpinned',
+    ).manifest;
+    expect(many.images).toHaveLength(3);
+    expect(stackHashedView(many).images).toHaveLength(1);
+    expect(many.stackDigest).toBe(one.stackDigest);
+    // a DIFFERENT identity is never folded: another tag, and the same ref from another KIND of file
+    const other = extractStackManifest(synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n', 'svc/a/Dockerfile': 'FROM node:23\n' } }), 'unpinned').manifest;
+    expect(stackHashedView(other).images).toHaveLength(2);
+    expect(other.stackDigest).not.toBe(one.stackDigest);
+    const compose = extractStackManifest(synth(baseLock(), { files: { Dockerfile: 'FROM node:22\n', 'compose.yml': 'services:\n  a:\n    image: node:22\n  b:\n    image: node:22\n' } }), 'unpinned').manifest;
+    expect(compose.images).toHaveLength(3);
+    expect(stackHashedView(compose).images).toHaveLength(2); // dockerfile + compose: `resolvedFrom` is a hashed field
   });
 
   it('a Dockerfile below the depth-3 walk is NOT read — and the manifest says so', () => {

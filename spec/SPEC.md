@@ -710,8 +710,10 @@ cannot verify.)
 
 **`stackDigest`** = SHA-256 over the canonical serialization (§11 rules) of the **HASHED VIEW**:
 `schemaVersion`, `kind`, `nodes[]` (every field except `layout`), `runtime`, `images[]` (every field
-except `evidenceRef`; the hashed images are ordered by their own serialized form AFTER that field
-is removed, so neither a comment line above a `FROM` nor moving a Dockerfile re-keys), `unmodeled[]`.
+except `evidenceRef`; the hashed images are the SET of image identities, ordered by their own
+serialized form AFTER that field is removed — so neither a comment line above a `FROM`, nor moving
+a Dockerfile, nor declaring the same ref again in a second Dockerfile or compose service re-keys;
+the manifest keeps every declaration with its `evidenceRef`), `unmodeled[]`.
 **Quarantined out** and present only in the manifest: `ctRepoRevision` (two revisions with the same
 closure share a digest — the join key), `sources[].sha256` (a re-serialized lockfile is the same
 closure), `edges` (a function of the node set plus the resolver walk), `rootDeclared` (declared
@@ -723,7 +725,9 @@ display), on every root-identity path — the lockfile root entry, the top-level
 defaulted identity. A release bump of the repository is not a change of its dependency closure:
 two revisions with the same closure share a digest whatever the package calls its version that
 day. The root `name` stays hashed (a renamed fork is a different stack subject). A non-root package
-that happens to share the root's name is an ordinary node with a hashed version. **Declared ranges
+that happens to share the root's name is an ordinary node with a hashed version; when it also shares
+the root's version, the ROOT's display `id` yields (`+root`, then `+root.2`, `+root.3`, … until no
+node owns it), so manifest ids are always unique. **Declared ranges
 never move the digest** — root or not: the digest names the RESOLVED closure, ranges live in the
 quarantined `edges` and, for the root package, in the quarantined manifest field
 `rootDeclared[] {name, spec, group}` — a range-only edit with identical resolved nodes leaves the
@@ -735,9 +739,22 @@ lockfile outside the reader's YAML subset (§16.1); a **hollow** lockfile (npm: 
 root entry, or NOTHING beyond the root; pnpm: no `importers`, `packages` or `snapshots` mapping — a
 closure with no node and no unmodeled entry beyond the root is never a green stack; a root plus only
 opaque entries IS accepted, because those entries are hashed); a **malformed entry** (not an
-object, or a missing / empty / non-string version; for pnpm see §16.1); any symbolic link among the
-sources, including a symlinked directory whose first level holds a Dockerfile or compose file
-(other symlinked directories are not walked and are declared in coverage). `FROM ${ARG}` bases and
+object, or a missing / empty / non-string version; for pnpm see §16.1); a dependency map carrying
+an EMPTY dependency name (fixed refusal, root or not); any symbolic link among the named sources
+(lockfile, `package.json`, runtime file) or NAMED like an image file (`Dockerfile*`, `*.Dockerfile`,
+compose). **Symlinks are `lstat`-only**: the image walk never follows one and never stats or lists
+its target — what a link points at is host state, not part of the revision — so every other symlink
+it meets (to a file, a directory, or nothing) is one coverage line (`symlink '<rel>' is not
+followed`) and neither the exit code nor coverage can differ between a pinned tree, a working tree
+and another host. Nothing under a symlink is ever read into `images[]`. The walk does not descend
+into a **nested git checkout** — another repository's tree (a submodule, a worktree, a clone),
+declared in coverage. The verb decides that from what git knows at the revision being read (the
+tracked paths and the gitlink entries, `git ls-tree` for a pinned ref, the index for `--no-pin`),
+never from the working tree alone: a gitlink is declared in the pinned view (where `git archive`
+holds no submodule contents) and in the working-tree view alike, and a stray `.git` beside files
+this repository tracks is ignored, so both views agree on digest AND coverage. A library caller
+that supplies no git knowledge gets the fallback: a directory below the root carrying a `.git`
+entry is skipped on that marker alone. `FROM ${ARG}` bases and
 `${VAR}` compose refs are coverage lines, never fabricated nodes. `images[].resolved` is always
 `false` in this slice: tag→digest resolution is a separate verb that writes a proposal, never a
 manifest field.
@@ -762,6 +779,20 @@ round-trip; every other value — `9`, `9.1`, `10.0`, a boolean, a list — is a
 A block scalar (`|`, `>`) is a distinct non-string value: this reader neither folds nor clips, so it
 is inert where pnpm really writes one (a multi-line `deprecated:` notice) and a `malformed` refusal in
 every identity position (`integrity`, `tarball`, `version`, a dependency reference, `os` / `cpu`).
+Inside a block-scalar body a `#`-led line, a line whose content starts with a TAB and a blank line
+are ordinary text (a tab is a refusal only where the line is STRUCTURE — indentation counts spaces
+only, so a tab-led line with fewer spaces than the body ends the scalar and is refused). Because the
+reader neither folds nor clips it cannot say what STRING a block scalar is; what it guarantees is
+that two scalars a YAML parser would read differently never hash alike inside an opaque
+whole-entry hash. The hash therefore covers the HEADER token exactly as written (`|` vs `>`, `-` /
+`+` chomping, an indentation indicator `1`-`9`; `0` is a malformed header) and the body LOSSLESSLY:
+each line's indentation relative to the body (the indicator's, else the first non-blank line's —
+negative when a line is indented less), its trailing whitespace, every interior blank line, and
+what a whitespace-only line carries beyond the body indentation. What is only the file's layout
+moves nothing: trailing blank lines (counted only under `+`, where YAML keeps them), a
+whitespace-only line no longer than the body indentation (an empty line in YAML), and the depth of
+the key itself. Structure is still right-trimmed once (a padded document marker is a marker, a
+padded plain scalar is its trimmed text). The body is opaque and never an identity.
 
 **Precedence**: when `package.json` `packageManager` starts with `pnpm@` and a `pnpm-lock.yaml`
 exists, it IS the declared closure and any npm lockfile beside it is a recorded ignore (no fallback
@@ -776,8 +807,11 @@ the lockfile that exists is still the only declared closure in the tree.
 
 **Derivation**: a node per `packages` key `name@version` (or `@scope/name@version` — a v6-style
 `/name@version` path key is refused) with a registry (semver) version; `integrity` from
-`resolution.integrity`, which must be ONE `sha1-` / `sha256-` / `sha384-` / `sha512-` hash when
-present; `platformConditional` from `os`/`cpu` (sorted: list order is presentation). `snapshots` keys
+`resolution.integrity`, which must be ONE `sha1-` / `sha256-` / `sha384-` / `sha512-` hash of the
+exact padded base64 length of its digest (28 / 44 / 64 / 88 characters) when present — a multi-hash
+SRI string (`sha512-… sha1-…`) is refused: pnpm writes the registry's `dist.integrity` verbatim, or
+one `sha1-` derived from `dist.shasum`, and no registry output carrying several hashes has been
+observed; `platformConditional` from `os`/`cpu` (sorted: list order is presentation). `snapshots` keys
 (`name@version(peer@x)(patch_hash=…)`) are peer/patch VARIANTS of one identity: they collapse into
 one node and are listed in the non-hashed `layout`. `optional` is read (true only when EVERY variant
 carries a real YAML `true` — the quoted string `'true'` is not one). pnpm v9 records no `dev`/`peer` flags, so both are **derived by reachability
@@ -826,7 +860,108 @@ is hashed — hashing the inputs as well would move the digest for two lockfiles
 the same thing. Any OTHER top-level section is unknown to this reader and is hashed whole as an
 opaque entry (`pnpm-unread-section`).
 
-**Fail-closed**: a HOLLOW lockfile (no or empty `importers`, `packages` or `snapshots`) and a lockfile with an entry the reader cannot trust (a dependency naming no
+**A dependency-free or link-only project is not hollow** (rulings D4-1 and D4-1a, the latter
+founder-confirmed 2026-09-20): pnpm writes `importers: {.: {}}` and nothing else for a project with
+no dependencies (D4-1), and a workspace whose only dependencies are links to each other is written
+with importers alone — a `link:` dependency has no `packages` entry by construction, so its
+presence is not evidence of a lost closure; it is already a hashed opaque entry (D4-1a). Such a
+lockfile is accepted — root-only closure plus the hashed links, one coverage line — ONLY when no
+importer declares a NON-link dependency (`dependencies`, `devDependencies`,
+`optionalDependencies`: every entry resolved to `link:` or ranged `workspace:`) and `packages` /
+`snapshots` are absent or empty; a single declared registry, `file:` or git dependency with no
+`packages` is still a hollow lockfile. The npm family is unchanged (a root-only
+`package-lock.json` still names its root entry and stays a refusal).
+
+**A truncated lockfile is never a smaller legitimate one.** D4-1 and D4-1a accept lockfiles that
+are importers alone, and a pnpm lockfile cut inside `importers:` looks exactly like one — a real
+three-package workspace cut after its second importer is BYTE-IDENTICAL to a real two-package
+link-only lockfile. The lockfile alone cannot decide that case; the tree it sits in can. Four
+guards, every one a refusal (exit 2, nothing written), none of them a skip:
+
+- **(a) no empty bucket, no bare entry.** pnpm never writes a dependency bucket with nothing in it
+  nor a snapshot entry with no value (it writes `{}`): an importer or snapshot bucket that is YAML
+  null or an empty mapping, and a snapshot entry that is null, are what a cut right after a key
+  leaves behind.
+- **(b) a workspace link lands on an importer.** A `link:` resolved from a `workspace:` range —
+  or from a plain range under `link-workspace-packages` — names a workspace package, and pnpm
+  writes every workspace package as an importer; the target (resolved from the importer's own
+  path) must be an importer key. A link onto the importer ITSELF is what pnpm writes
+  (`version: 'link:'`) for a package that depends on itself through `workspace:*`, and also what a
+  link path cut mid-line (`link:.`) resolves to: it is read only when the dependency name is that
+  importer's own package name — decided by the tree under (c). A `link:`-PROTOCOL dependency
+  (`specifier: link:…`) names a directory by path: pnpm writes no importer for it and it may sit
+  outside the tree, so no importer is required — but its value is a pure function of the
+  specifier and of where the tree lives: the specifier path resolved from the importer's
+  directory (an absolute path stays absolute) and re-relativised from that directory, `/`-separated
+  — measured on pnpm 10.11.1: `./vendor/lib/` → `vendor/lib`, `pkgs/../vendor/lib` →
+  `vendor/lib`, `../<checkout>/vendor/lib` seen from the root → `vendor/lib`, `/abs/outside` →
+  `../outside`. The anchor is the checkout `--ct-repo` names (where pnpm ran), never a
+  materialization, so the pinned and unpinned views agree; a reader given no anchor refuses the
+  anchor-dependent forms rather than guessing. Any other value (a bare `link:`, a path cut short, a
+  value naming a different directory) is refused. A committed fixture cannot carry an absolute
+  specifier (its value depends on the machine); that form is pinned in the reader's own tests.
+- **(c) every importer's `package.json` is covered.** For each importer the `package.json` of the
+  SAME view the rest of the verb reads (the pinned tree, or the working tree under `--no-pin`) is
+  read without following any symbolic link on the way, and every name it declares under
+  `dependencies`, `devDependencies` or `optionalDependencies` must be recorded somewhere in that
+  importer's entry. The one exemption is what pnpm itself leaves out: a `link:`-protocol
+  dependency when the lockfile's `settings.excludeLinksFromLockfile` is `true`. An importer whose
+  `package.json` is missing, is not a JSON object, carries a dependency field that is not an
+  object, or whose path leaves the tree cannot be checked — a refusal.
+- **(d) every workspace package is an importer.** When `pnpm-workspace.yaml` exists, every
+  directory its `packages:` globs name (literals, `*`, `**`, `?`, `.`, `!` negation; wildcards
+  never match a dot-led name; `node_modules` and `bower_components` never hold a package) that
+  holds a `package.json` must be an importer, and so must the root. pnpm never looks at `.git`, so
+  a package inside a nested clone or a checked-out submodule counts like any other — this walk
+  does NOT stop at another repository's tree (the image walk's nested-checkout rule is a separate
+  concern and unchanged). A gitlink the revision declares under a workspace glob (matching it, or
+  a glob that could name a directory below it) whose contents this view does not hold — a pinned
+  tree never holds a submodule's tree, and an uninitialised submodule is an empty directory —
+  cannot be checked and is refused. A workspace file outside the YAML subset, a `packages` value
+  that is not a list of strings, a glob syntax this reader does not evaluate (braces, character
+  classes, extglobs), and a lockfile with workspace importers in a tree with NO workspace file
+  cannot be checked — each a refusal. With NO `packages:` key the reading is decided by the
+  manager the root `package.json` declares, never by the lockfile's own importer list (that list
+  is exactly what a cut removes). MEASURED 2026-09-20: pnpm 10.11.1 with such a file writes the
+  root importer alone; pnpm 8.15.9, 9.0.0 and 9.15.4 refuse to run at all
+  (`ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION packages field missing or empty`). So
+  a lockfile beside such a file was written by pnpm 10 or later, whether or not `package.json`
+  declares it, and names the root alone: no declaration, an unreadable one, or another manager's
+  name all read the root alone. A DECLARED pnpm before 10 contradicts the lockfile beside it (that
+  pnpm cannot have written it) and is refused as an inconsistent tree, with that reason. (An
+  earlier reading took the undeclared case as pnpm's `**` default; it refused legitimate pnpm 10
+  trees that keep a `package.json` under `docs/` or `examples/`, and was withdrawn.) A gitlink under
+  a workspace glob is refused as unseen only when an include glob can name a directory below it
+  that no negated glob takes away again: `!packages/zsub/**` (or `!packages/**`) clears the
+  submodule `packages/zsub`, while `!packages/zsub` alone, or `!packages/zsub/*`, does not, because
+  a deeper directory could still be named.
+
+Every line prefix of the real pnpm-written lockfiles in `fixtures/stack/pnpm-v9-real-shapes`
+and of the synthetic golden, and every BYTE prefix of every committed real shape, is refused; only
+the whole file (or the whole file without its final newline: the same document) is read — a
+committed test sweeps all of them.
+
+**What the guards cost, and what they do not reach.** (c) and (d) make a snapshot a claim about
+the lockfile AND its tree: a lockfile out of step with its `package.json` files (what `pnpm install
+--frozen-lockfile` rejects), a workspace whose importers' `package.json` files are not in the view
+(a partial tree; a PINNED snapshot of a workspace whose package is a submodule or an ignored nested
+clone — the pinned tree never holds it, so both the honest and a cut lockfile refuse there; use
+`--no-pin` with the checkout in place, where (c) and (d) can be evaluated), a manifest kept as
+`package.yaml` / `package.json5`, and a declared dependency that a `.pnpmfile.cjs` hook or a
+removing override keeps out of the lockfile are all refused, by design. What the guards do NOT
+reach, stated plainly. (1) The format has no terminator and no checksum, so a cut on a line
+boundary INSIDE the FINAL snapshot entry — after one of its dependency lines, dropping the rest
+of that bucket, a following bucket, or its trailing `optional: true` line — leaves a well-formed
+lockfile in which every package and snapshot is still present; it is accepted. The manifest lacks
+the lost edges (its `manifestDigest` differs), and the `stackDigest` — nodes and their flags, not
+edges — is the whole file's UNLESS a lost line changed a hashed flag: a lost `optional: true` flips
+that node's `optional` flag, and a lost edge that was the only path making a package non-dev or
+non-peer flips those. A cut INSIDE any of those lines (a version, a name, `optional: tr`, a bare
+`optional:`) is refused. (2) An IGNORED nested clone leaves no trace in the revision — not a
+gitlink, not a tracked file — so the pinned view of a lockfile cut before its importer is
+indistinguishable from an honest smaller workspace and is read; the unpinned view refuses it.
+
+**Fail-closed**: a HOLLOW lockfile (no or empty `importers`, `packages` or `snapshots`), a lockfile that does not cover its tree (the four guards above) and a lockfile with an entry the reader cannot trust (a dependency naming no
 snapshot, a snapshot no package names, a key that is not `name@version`, a package with neither
 integrity nor tarball, an integrity that is not a hash, a package carrying the root's own identity,
 a patch without a hash, an importer / snapshot / dependency bucket / dependency entry of the wrong
@@ -891,7 +1026,14 @@ stays on an older version — produces the same manifest pair as an importer mov
 sibling's version (same nodes, edges, `rootDeclared` and `stackDigest`), so it blocks too; likewise
 an importer moving **up** onto a version below a sibling's retained version (`{2,9} → {5,9}` from
 `2 → 5`) is the same pair as the sibling moving **down** (`9 → 5` while the other goes `2 → 9`), so
-it blocks too. The manifest cannot tell the two apart; importer identity in the manifest is the real
+it blocks too. The rule compares retained versions with each other as well, so with TWO retained
+root versions of a name ANY drop of that name blocks — even a pure upgrade above everything:
+`{2,5,9} → {5,9,12}` (one importer `2 → 12`, the others untouched) is `unknown`, exit **2**,
+because `5` sits below the retained `9`, while its sibling with nothing dropped (`{5,9} → {5,9,12}`,
+a new importer joining at `12`) is an `added` copy, exit **0**. In a workspace that keeps one name
+at two versions, every bump of a third importer therefore blocks until acknowledged: an accepted
+fail-closed cost, never a wrong pass, and the comparison is deliberately not narrowed. The manifest
+cannot tell the two apart; importer identity in the manifest is the real
 fix and is a follow-on (WO-BSTACK-09, extractor work). **The false-pass half of the same limitation,
 stated just as plainly:** an importer moving between two versions the root still reaches from other
 importers (`app 9 / lib 9 / svc 2` → `app 9 / lib 2 / svc 2`) changes no root set, no node and no
@@ -899,7 +1041,11 @@ edge — edges collapse duplicates — so the diff is `identical`, exit **0**, u
 lands (WO-BSTACK-09). It is not made `unknown`: that would block every lockfile-only touch with zero
 modeled difference. Instead, an `identical` report whose two manifests differ carries both
 `manifestDigest`s as `manifestDigest: {from, to}` (absent on every other report), so a reader can
-see that the lockfile changed even though nothing modeled moved. For an npm manifest the root's
+see that the lockfile changed even though nothing modeled moved. Both values are RE-DERIVED from
+the manifest in canonical array order — never the recorded field, never the input's order: for a
+manifest `stack snapshot` wrote that is exactly its recorded `manifestDigest`, a forged recorded
+digest is never echoed, and a manifest diffed against a re-ordered copy of itself shows no field, so
+an `identical` report is as byte-stable under input array order as every other report. For an npm manifest the root's
 edges are exactly its declarations, so the sets have one version each and this reduces to a plain
 root pair.
 The remaining versions present on one side only are sorted by (SemVer 2.0.0 §11

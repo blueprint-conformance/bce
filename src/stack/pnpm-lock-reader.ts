@@ -39,6 +39,9 @@ export const STACK_COVERAGE_PNPM_NO_TRANSITIVE_SPECS =
 export const STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS =
   "pnpm workspace importers other than '.' have no locked identity: they are not nodes and their direct-dependency edges are attributed to the root node";
 
+export const STACK_COVERAGE_PNPM_DEPENDENCY_FREE =
+  'pnpm-lock declares no registry dependency on any importer and carries no packages: the declared closure is the root package (plus any workspace link entries) alone';
+
 /** A v9 lockfile that describes no closure: exit 2, nothing written — never a green root-only manifest. */
 export function stackRefusalPnpmHollow(why: string): string {
   return `lockfile 'pnpm-lock.yaml' is hollow (${why}): a manifest with only the root node is never a green stack; no stack facts extracted`;
@@ -46,6 +49,15 @@ export function stackRefusalPnpmHollow(why: string): string {
 /** An entry the reader cannot trust at all — a REFUSAL of the whole lockfile, never a skipped entry. */
 export function stackRefusalPnpmMalformed(what: string): string {
   return `lockfile 'pnpm-lock.yaml' ${what} is malformed: refused, never a partial manifest`;
+}
+
+/**
+ * The lockfile reads cleanly but the TREE says part of its closure is gone (or the tree cannot say):
+ * a lockfile cut inside `importers:` can be byte-identical to a smaller legitimate one, so the
+ * importers are checked against the `package.json` files and `pnpm-workspace.yaml` of the same view.
+ */
+export function stackRefusalPnpmLostClosure(what: string): string {
+  return `lockfile 'pnpm-lock.yaml' does not cover the tree it sits in (${what}): a lost closure is refused, never a partial manifest; no stack facts extracted`;
 }
 
 /** The lockfile parsed but is not lockfileVersion '9.0' (v5/v6 key packages by path with inline snapshots). */
@@ -81,7 +93,18 @@ export type PnpmYamlValue = string | boolean | null | PnpmBlockScalar | PnpmYaml
  * it — there it is a `malformed` refusal. Elsewhere (a multi-line `deprecated:` message) it is inert.
  */
 export class PnpmBlockScalar {
-  constructor(readonly text: string) {}
+  constructor(
+    /** the body as readable text: each line's indentation relative to the body, joined by `\n` */
+    readonly text: string,
+    /** the header token exactly as written: `|`, `>`, `|-`, `>+`, `|2`, … — it decides how YAML reads the body */
+    readonly header: string = '|',
+    /**
+     * the body LOSSLESSLY: one `[relativeIndent, content]` pair per line. `relativeIndent` may be
+     * negative (a line indented less than the body), `content` keeps its trailing whitespace, and a
+     * whitespace-only line keeps whatever it carries beyond the body indentation.
+     */
+    readonly lines: ReadonlyArray<readonly [number, string]> = text === '' ? [] : text.split('\n').map((l) => [0, l] as const),
+  ) {}
 }
 /** A Map, never an object: lockfile keys are attacker-shaped strings (`__proto__`, `constructor`). */
 export type PnpmYamlMap = Map<string, PnpmYamlValue>;
@@ -98,8 +121,17 @@ export class PnpmLockSubsetError extends Error {
 
 interface Line {
   no: number;
+  /** the line exactly as written (no trimming): a block-scalar body is hashed from this */
+  raw: string;
+  /** leading SPACES only — a tab is never indentation */
   indent: number;
   text: string; // content after the indentation, right-trimmed
+  /** a TAB sits in the leading whitespace: a refusal wherever the line is STRUCTURE, plain content inside a block-scalar body */
+  tab: boolean;
+  /** `#`-led: skipped as structure, kept as content inside a block-scalar body */
+  comment: boolean;
+  /** an empty / whitespace-only line: skipped as structure, kept (as an empty line) inside a block-scalar body */
+  blank: boolean;
 }
 
 function toLines(source: string): Line[] {
@@ -108,15 +140,20 @@ function toLines(source: string): Line[] {
   for (let i = 0; i < raw.length; i++) {
     const full = raw[i] ?? '';
     const no = i + 1;
-    if (full.trim() === '') continue;
+    if (full.trim() === '') {
+      out.push({ no, raw: full, indent: 0, text: '', tab: false, comment: false, blank: true });
+      continue;
+    }
+    const spaces = /^ */.exec(full)?.[0].length ?? 0;
     const lead = /^[ \t]*/.exec(full)?.[0] ?? '';
-    if (lead.includes('\t')) throw new PnpmLockSubsetError(no, 'tab indentation');
-    const text = full.slice(lead.length).trimEnd(); // linear — a /\s+$/ replace is quadratic on interior whitespace
-    if (text.startsWith('#')) continue;
+    const tab = lead.includes('\t');
+    // right-trimmed ONCE, here (linear — a /\s+$/ replace is quadratic on interior whitespace): the
+    // document-marker test below and a block-scalar body both see the trimmed text
+    const text = (tab ? full.slice(spaces) : full.slice(lead.length)).trimEnd();
     if (lead.length === 0 && (text === '---' || text.startsWith('--- ') || text === '...' || text.startsWith('%'))) {
       throw new PnpmLockSubsetError(no, 'document marker or directive (multi-document stream)');
     }
-    out.push({ no, indent: lead.length, text });
+    out.push({ no, raw: full, indent: spaces, text, tab, comment: !tab && text.startsWith('#'), blank: false });
   }
   return out;
 }
@@ -267,18 +304,22 @@ class SubsetParser {
   constructor(private readonly lines: Line[]) {}
 
   parseDocument(): PnpmYamlMap {
-    if (this.lines.length === 0) return new Map();
-    const first = this.lines[0]!;
+    const first = this.peek();
+    if (!first) return new Map();
     if (first.indent !== 0) throw new PnpmLockSubsetError(first.no, 'document does not start at column 0');
     if (first.text.startsWith('- ') || first.text === '-') throw new PnpmLockSubsetError(first.no, 'top-level sequence (a lockfile is a mapping)');
     const doc = this.parseMap(0, 0);
-    const rest = this.lines[this.i];
+    const rest = this.peek();
     if (rest) throw new PnpmLockSubsetError(rest.no, 'inconsistent indentation');
     return doc;
   }
 
+  /** The next STRUCTURAL line: comments are skipped, a tab-led line is the fixed refusal. */
   private peek(): Line | undefined {
-    return this.lines[this.i];
+    while (this.lines[this.i]?.comment || this.lines[this.i]?.blank) this.i++;
+    const line = this.lines[this.i];
+    if (line?.tab) throw new PnpmLockSubsetError(line.no, 'tab indentation');
+    return line;
   }
 
   private parseMap(indent: number, depth: number): PnpmYamlMap {
@@ -315,7 +356,9 @@ class SubsetParser {
   }
 
   private parseValue(rest: string, line: Line, depth: number): PnpmYamlValue {
-    const next = this.peek();
+    // a block-scalar header is decided BEFORE the next line is looked at as structure: its body may
+    // legitimately start with a `#`-led or TAB-led line
+    const next = rest[0] === '|' || rest[0] === '>' ? undefined : this.peek();
     if (rest === '') {
       if (next && next.indent > line.indent) {
         return next.text.startsWith('- ') || next.text === '-' ? this.parseSeq(next.indent) : this.parseMap(next.indent, depth + 1);
@@ -326,15 +369,45 @@ class SubsetParser {
     }
     const head = rest[0] ?? '';
     if (head === '|' || head === '>') {
-      if (!/^[|>][+-]?\d?$/.test(rest)) throw new PnpmLockSubsetError(line.no, 'malformed block scalar header');
-      const body: string[] = [];
+      // `0` is not an indentation indicator in YAML (1-9 only)
+      if (!/^[|>][+-]?[1-9]?$/.test(rest)) throw new PnpmLockSubsetError(line.no, 'malformed block scalar header');
+      // RAW lines, not peek(): inside a block scalar a `#`-led line, a line whose content starts with a
+      // TAB and a blank line are ordinary text. This reader never folds and never clips, so it cannot
+      // say what STRING the scalar is — what it guarantees instead is that two scalars a YAML parser
+      // would read differently never hash alike inside an opaque whole-entry hash. So the hash covers
+      // the HEADER token (`|` vs `>`, `-` / `+` chomping, an indentation indicator) and the body
+      // LOSSLESSLY: every line's indentation relative to the body (negative when a line is indented
+      // less), its trailing whitespace, every interior blank line and what a whitespace-only line
+      // carries beyond the body indentation. Trailing blank lines belong to the file's layout, not to
+      // the scalar — except under `+` (keep), where YAML keeps them, so there they are counted.
+      const keep = rest.includes('+');
+      const indicator = /[1-9]/.exec(rest)?.[0];
+      const body: Line[] = [];
       for (;;) {
-        const l = this.peek();
-        if (!l || l.indent <= line.indent) break;
-        body.push(l.text);
+        const l = this.lines[this.i];
+        if (!l) break;
+        if (!l.blank && l.indent <= line.indent) break;
+        body.push(l);
         this.i++;
       }
-      return new PnpmBlockScalar(body.join('\n')); // never a string: no identity position reads it
+      let trailingBlank = 0;
+      while (body.length > 0 && body[body.length - 1]!.blank) {
+        body.pop();
+        this.i--;
+        trailingBlank++;
+      }
+      // an indentation indicator states the body indentation (relative to the key's own); without one
+      // it is the indentation of the first non-blank line
+      const bodyIndent = indicator !== undefined ? line.indent + Number(indicator) : (body.find((l) => !l.blank)?.indent ?? 0);
+      const pairs: Array<readonly [number, string]> = body.map((l) => {
+        const lead = /^ */.exec(l.raw)?.[0].length ?? 0;
+        // a whitespace-only line no longer than the body indentation is an EMPTY line in YAML
+        if (l.blank) return lead > bodyIndent || l.raw.length > lead ? ([lead - bodyIndent, l.raw.slice(lead)] as const) : ([0, ''] as const);
+        return [lead - bodyIndent, l.raw.slice(lead)] as const;
+      });
+      if (keep) for (let k = 0; k < trailingBlank; k++) pairs.push([0, '']);
+      const text = pairs.map(([rel, content]) => `${' '.repeat(Math.max(0, rel))}${content}`).join('\n');
+      return new PnpmBlockScalar(text, rest, pairs);
     }
     let value: PnpmYamlValue;
     if (head === '{' || head === '[' || head === "'" || head === '"') {
@@ -404,6 +477,81 @@ export interface PnpmDerived {
   malformed: string[];
   /** why the lockfile describes no closure, else null — non-null ⇒ REFUSED */
   hollow: string | null;
+  /**
+   * Every importer (sorted by path) with the dependency NAMES its entry records across the three
+   * buckets — what the caller checks the tree's own `package.json` files against (a lockfile cut
+   * inside `importers:` can be byte-identical to a smaller legitimate one; only the tree can tell).
+   */
+  importers: PnpmImporterFacts[];
+  /** `settings.excludeLinksFromLockfile: true` — pnpm then leaves `link:`-protocol dependencies out of the importer entries */
+  excludeLinksFromLockfile: boolean;
+}
+
+export interface PnpmImporterFacts {
+  /** the importer key: a `/`-separated path relative to the lockfile's directory, `.` for the root */
+  path: string;
+  /** sorted, unique */
+  names: string[];
+  /**
+   * dependency names whose workspace link resolves to this importer ITSELF (pnpm writes `version: 'link:'`
+   * for a package that depends on itself through `workspace:*`). Legitimate only when the name IS the
+   * importer's own package name — which only the tree's `package.json` can say (guard c).
+   */
+  selfLinks: string[];
+}
+
+/**
+ * The value pnpm writes for a `link:`-protocol specifier: the specifier path RESOLVED against the
+ * importer's directory (an absolute path stays absolute) and re-relativised from that directory,
+ * `/`-separated — measured on pnpm 10.11.1 (`link:/abs/outside` → `link:../outside`;
+ * `link:../<repo>/vendor/lib` seen from the repo root → `link:vendor/lib`). Pure path algebra, so a
+ * value cut mid-line never matches. `anchorDir` is where the tree lives for whoever ran pnpm (the
+ * checkout, NOT a materialization — a pinned tree is read at the checkout's location). Returns `null`
+ * when the specifier resolves to the importer itself (pnpm never writes a link: onto itself).
+ */
+/** placeholder anchor for a reader given no linkAnchor: relative specifiers judge alone, everything anchor-dependent refuses */
+const PNPM_LINK_ANCHOR_UNKNOWN = '/.bce-link-anchor-unknown';
+
+export function pnpmLinkProtocolValue(anchorDir: string, imp: string, specPath: string): string | null {
+  // pure `/`-path algebra (this reader imports no node module): resolve = absolute + `.`/`..` folding
+  const fold = (abs: string): string[] => {
+    const out: string[] = [];
+    for (const seg of abs.split('/')) {
+      if (seg === '' || seg === '.') continue;
+      if (seg === '..') out.pop();
+      else out.push(seg);
+    }
+    return out;
+  };
+  const anchor = anchorDir.startsWith('/') ? anchorDir : `/${anchorDir}`;
+  const impSegs = fold(imp === '.' ? anchor : `${anchor}/${imp}`);
+  const targetSegs = fold(specPath.startsWith('/') ? specPath : `${impSegs.join('/') === '' ? '' : `/${impSegs.join('/')}`}/${specPath}`);
+  let common = 0;
+  while (common < impSegs.length && common < targetSegs.length && impSegs[common] === targetSegs[common]) common += 1;
+  const rel = [...impSegs.slice(common).map(() => '..'), ...targetSegs.slice(common)].join('/');
+  return rel === '' ? null : rel;
+}
+
+/** pnpm's normalised form of a `link:`-protocol specifier path: `./vendor/lib` → `vendor/lib`, a trailing `/` dropped, `..` kept. */
+export function pnpmNormalizeLinkPath(specPath: string): string {
+  const out: string[] = [];
+  for (const seg of specPath.split('/')) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..' && out.length > 0 && out[out.length - 1] !== '..') out.pop();
+    else out.push(seg);
+  }
+  return out.join('/');
+}
+
+/** `link:<relative>` seen from importer `imp`, as an importer key (`.` for the root). Never absolute. */
+export function pnpmLinkTarget(imp: string, link: string): string {
+  const out: string[] = [];
+  for (const seg of `${imp}/${link.slice('link:'.length)}`.split('/')) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..' && out.length > 0 && out[out.length - 1] !== '..') out.pop();
+    else out.push(seg);
+  }
+  return out.length === 0 ? '.' : out.join('/');
 }
 
 /** Canonical bytes of a parsed value: mapping keys sorted at every depth, so file order never matters. */
@@ -411,7 +559,9 @@ export function canonicalPnpmValue(v: PnpmYamlValue | undefined): string {
   if (v === undefined || v === null) return 'null';
   if (typeof v === 'boolean') return v ? 'true' : 'false';
   if (typeof v === 'string') return JSON.stringify(v);
-  if (v instanceof PnpmBlockScalar) return `|${JSON.stringify(v.text)}`;
+  // header + lossless body (see parseValue): `|` vs `>`, chomping, an indentation indicator, a line
+  // indented less than the body and trailing whitespace each move these bytes
+  if (v instanceof PnpmBlockScalar) return `|${JSON.stringify(v.header)}${JSON.stringify(v.lines)}`;
   if (Array.isArray(v)) return `[${v.map(canonicalPnpmValue).join(',')}]`;
   return `{${[...v.keys()].sort().map((k) => `${JSON.stringify(k)}:${canonicalPnpmValue(v.get(k))}`).join(',')}}`;
 }
@@ -422,6 +572,12 @@ function entrySha(v: PnpmYamlValue | undefined): string {
 export interface PnpmRootIdentity {
   name: string | null;
   version: string | null;
+  /**
+   * absolute directory the tree lives at for whoever ran pnpm — the anchor every `link:`-protocol
+   * value is re-relativised from (see pnpmLinkProtocolValue). Absent: a link: specifier that needs
+   * the anchor to be judged (an absolute path, a path that leaves and re-enters the tree) is refused.
+   */
+  linkAnchor?: string;
 }
 
 const isMap = (v: PnpmYamlValue | undefined): v is PnpmYamlMap => v instanceof Map;
@@ -432,7 +588,12 @@ const ASCII = /^[\x21-\x7e]+$/;
 /** The shape of a package NAME in a v9 key: `name` or `@scope/name`. A v6-style `/name@1.0.0` path key is not one. */
 const PACKAGE_NAME_SHAPE = /^(?:@[^\s/@]+\/)?[^\s/@]+$/;
 /** One SRI-style hash, the only form pnpm writes. Anything else in `resolution.integrity` names no bytes. */
-const INTEGRITY = /^(?:sha1|sha256|sha384|sha512)-[A-Za-z0-9+/]+={0,2}$/;
+/**
+ * …with the EXACT padded base64 length of its digest (20 / 32 / 48 / 64 bytes). A multi-hash SRI string
+ * (`sha512-… sha1-…`) is refused: pnpm writes the registry's `dist.integrity` verbatim, or ONE `sha1-`
+ * derived from `dist.shasum`, and no registry output carrying several hashes has been observed.
+ */
+const INTEGRITY = /^(?:sha1-[A-Za-z0-9+/]{27}=|sha256-[A-Za-z0-9+/]{43}=|sha384-[A-Za-z0-9+/]{64}|sha512-[A-Za-z0-9+/]{86}==)$/;
 /** A registry version. Anything else after `name@` (URL, `file:`, `link:`, git) has no locked registry identity. */
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
 
@@ -546,7 +707,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     // present-but-unusable is a refusal; YAML null (or no key at all) is ABSENT and falls to the tarball rule below
     const integrityRaw = res.get('integrity');
     if (integrityRaw !== undefined && integrityRaw !== null && (integrity === null || !INTEGRITY.test(integrity))) {
-      malformed.push(`packages entry '${key}' (integrity is not a sha1-/sha256-/sha384-/sha512- hash)`);
+      malformed.push(`packages entry '${key}' (integrity is not ONE sha1-/sha256-/sha384-/sha512- hash of its exact length)`);
       refusedPkgKeys.add(key);
       continue;
     }
@@ -646,8 +807,20 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
       continue;
     }
     const snapEntry = snapshots.get(key);
-    if (snapEntry !== null && !isMap(snapEntry)) {
+    // TRUNCATION GUARD (a), snapshot side: pnpm writes an entry with nothing in it as `{}` — a bare
+    // `name@version:` (YAML null) is what a lockfile cut right after the key looks like
+    if (snapEntry === null) {
+      malformed.push(`snapshots entry '${key}' (an entry with no value: pnpm writes '{}' — the lockfile is cut short)`);
+      continue;
+    }
+    if (!isMap(snapEntry)) {
       malformed.push(`snapshots entry '${key}' (not a mapping)`);
+      continue;
+    }
+    // `optional` is a YAML boolean or absent — pnpm writes `optional: true` and nothing else there; any
+    // other scalar (`optional: tr`, a string) is a value cut mid-line, never a flag that is quietly false
+    if (snapEntry.has('optional') && typeof snapEntry.get('optional') !== 'boolean') {
+      malformed.push(`snapshots entry '${key}' ('optional' is not a boolean — the lockfile is cut short)`);
       continue;
     }
     node.layout.push(key);
@@ -699,6 +872,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
   const importers: PnpmYamlMap = isMap(importersRaw) ? importersRaw : new Map();
   const seedsProd: string[] = [];
   const seedsAll: string[] = [];
+  const importerFacts: PnpmImporterFacts[] = [];
   for (const imp of sortedKeys(importers)) {
     const impMap = importers.get(imp);
     if (!isMap(impMap)) {
@@ -707,14 +881,24 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
       continue;
     }
     if (imp !== '.') unsupported.add(STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS);
+    const names = new Set<string>();
+    const selfLinks: string[] = [];
+    importerFacts.push({ path: imp, names: [], selfLinks: [] });
     for (const bucket of IMPORTER_BUCKETS) {
+      if (!impMap.has(bucket.key)) continue;
       const deps = impMap.get(bucket.key);
-      if (deps === undefined || deps === null) continue;
+      // TRUNCATION GUARD (a): pnpm never writes a bucket with nothing in it — a bare `dependencies:`
+      // (YAML null) or `dependencies: {}` is what a lockfile cut right after the bucket key looks like
+      if (deps === null || (isMap(deps) && deps.size === 0)) {
+        malformed.push(`importer ${imp} '${bucket.key}' (a bucket with no entries: pnpm never writes one — the lockfile is cut short)`);
+        continue;
+      }
       if (!isMap(deps)) {
         malformed.push(`importer ${imp} '${bucket.key}' (not a mapping)`);
         continue;
       }
       for (const dep of sortedKeys(deps)) {
+        names.add(dep);
         const d = deps.get(dep);
         if (!isMap(d)) {
           malformed.push(`importer ${imp} dependency '${dep}' (not a specifier/version mapping)`);
@@ -725,6 +909,31 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
         if (imp === '.') rootDeclared.push({ name: dep, spec: specifier, group: bucket.key });
         const depKey = `importers/${imp}/${bucket.key}/${dep}`;
         if (version.startsWith('link:')) {
+          // TRUNCATION GUARD (b): a WORKSPACE link (`workspace:` range, or a plain range resolved to a
+          // workspace package under link-workspace-packages) points at a package pnpm also writes as
+          // an importer. A `link:`-PROTOCOL dependency (`specifier: link:…`) names a directory by path —
+          // measured on pnpm 10.11.1, that directory is not an importer and may sit outside the tree.
+          const target = pnpmLinkTarget(imp, version);
+          if (specifier.startsWith('link:')) {
+            // a link:-PROTOCOL dependency: no importer to land on, but the value pnpm writes is a pure
+            // function of the specifier and the importer's location (pnpmLinkProtocolValue), so a value
+            // cut mid-line never matches. Without an anchor the reader judges relative specifiers against a
+            // placeholder root — an absolute specifier, or one that leaves and re-enters the tree, then
+            // fails to match and is refused rather than guessed (fail-closed).
+            const expected = pnpmLinkProtocolValue(root.linkAnchor ?? PNPM_LINK_ANCHOR_UNKNOWN, imp, specifier.slice('link:'.length)) ?? '';
+            if (expected === '' || version !== `link:${expected}`) {
+              malformed.push(`importer ${imp} dependency '${dep}' (link: protocol value '${version}' is not 'link:${expected}', the specifier resolved from the importer's directory — the lockfile is cut short)`);
+              continue;
+            }
+          } else if (!importers.has(target)) {
+            malformed.push(`importer ${imp} dependency '${dep}' (workspace link target '${target}' is not an importer — the lockfile is cut short)`);
+            continue;
+          } else if (target === imp) {
+            // the importer ITSELF: what pnpm writes (`version: 'link:'`) for a package depending on itself
+            // through `workspace:*` — and also what a link path cut mid-line (`link:.`) resolves to. Only
+            // the tree can tell them apart: the dependency name must be the importer's own package name.
+            selfLinks.push(dep);
+          }
           unsupported.add(`workspace/link entry ${imp}:${dep} -> ${version}: local package not part of the declared closure in slice 1; hashed as an opaque entry, no node`);
           // the declared range (`specifier: workspace:*`) is quarantined like every other range: only the
           // dependency name (in the key) and the RESOLVED link target are hashed
@@ -750,6 +959,8 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
         addEdge({ from: rootNode.id, to: target.id, spec: specifier, dev: bucket.dev, optional: bucket.optional, peer: false });
       }
     }
+    importerFacts[importerFacts.length - 1]!.names = [...names].sort();
+    importerFacts[importerFacts.length - 1]!.selfLinks = selfLinks.sort();
   }
 
   // ---- snapshot → snapshot adjacency + package edges ----
@@ -765,8 +976,13 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     const peers = peerNamesByPkgKey.get(fromPkgKey);
     const out: Adj[] = [];
     for (const bucket of SNAPSHOT_BUCKETS) {
+      if (!snapshotMap(key).has(bucket.key)) continue;
       const deps = snapshotMap(key).get(bucket.key);
-      if (deps === undefined || deps === null) continue;
+      // TRUNCATION GUARD (a), snapshot side: a bucket with nothing in it is a shape pnpm never writes
+      if (deps === null || (isMap(deps) && deps.size === 0)) {
+        malformed.push(`snapshot ${key} '${bucket.key}' (a bucket with no entries: pnpm never writes one — the lockfile is cut short)`);
+        continue;
+      }
       if (!isMap(deps)) {
         malformed.push(`snapshot ${key} '${bucket.key}' (not a mapping)`);
         continue;
@@ -828,16 +1044,54 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     node.peer = !keys.some((k) => reachNonPeer.has(k));
   }
 
+  // A DEPENDENCY-FREE project is what pnpm really writes as `importers: {.: {}}` and nothing else. It is
+  // accepted ONLY when EVERY importer declares zero dependencies (all three buckets absent or empty)
+  // and `packages` / `snapshots` are absent or empty: the closure then IS the root alone. One declared
+  // dependency anywhere with no `packages` is still a hollow lockfile — a closure that was lost.
+  const absentOrEmpty = (v: PnpmYamlValue | undefined): boolean => v === undefined || v === null || (isMap(v) && v.size === 0);
+  // D4-1a: a `link:` / `workspace:` dependency has NO packages entry by construction (pnpm writes a
+  // link-only workspace with importers alone), so its presence is not evidence of a lost closure —
+  // it is already a HASHED opaque entry above. Only a declared dependency that WOULD need a packages
+  // entry (anything else) makes an absent `packages` a hollow lockfile.
+  const isLinkDep = (d: PnpmYamlValue | undefined): boolean =>
+    isMap(d) && ((isStr(d.get('version')) && (d.get('version') as string).startsWith('link:')) || (isStr(d.get('specifier')) && (d.get('specifier') as string).startsWith('workspace:')));
+  const declaresNonLink = (imp: PnpmYamlValue | undefined): boolean =>
+    isMap(imp) &&
+    IMPORTER_BUCKETS.some((b) => {
+      const deps = imp.get(b.key);
+      return isMap(deps) && [...deps.values()].some((d) => !isLinkDep(d));
+    });
+  const dependencyFree =
+    isMap(importersRaw) &&
+    importers.size > 0 &&
+    [...importers.values()].every((imp) => isMap(imp) && !declaresNonLink(imp)) &&
+    absentOrEmpty(packagesRaw) &&
+    absentOrEmpty(snapshotsRaw);
+  if (dependencyFree) unsupported.add(STACK_COVERAGE_PNPM_DEPENDENCY_FREE);
   const hollow =
     !isMap(importersRaw) || importers.size === 0
       ? "no 'importers' mapping"
-      : !isMap(packagesRaw) || packages.size === 0
-        ? "no 'packages' mapping"
-        : !isMap(snapshotsRaw) || snapshots.size === 0
-          ? "no 'snapshots' mapping"
-          : null; // a non-empty `packages` always yields a node, a HASHED opaque entry, or a malformed refusal
+      : dependencyFree
+        ? null
+        : !isMap(packagesRaw) || packages.size === 0
+          ? "no 'packages' mapping"
+          : !isMap(snapshotsRaw) || snapshots.size === 0
+            ? "no 'snapshots' mapping"
+            : null; // a non-empty `packages` always yields a node, a HASHED opaque entry, or a malformed refusal
   unmodeled.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-  return { nodes: [rootNode, ...nodeByPkgKey.values()], edges, unmodeled, rootDeclared, unsupported: [...unsupported], malformed: malformed.sort(), hollow };
+  const settings = doc.get('settings');
+  const excludeLinksFromLockfile = isMap(settings) && settings.get('excludeLinksFromLockfile') === true;
+  return {
+    nodes: [rootNode, ...nodeByPkgKey.values()],
+    edges,
+    unmodeled,
+    rootDeclared,
+    unsupported: [...unsupported],
+    malformed: malformed.sort(),
+    hollow,
+    importers: importerFacts,
+    excludeLinksFromLockfile,
+  };
 }
 
 export interface PnpmLockReadResult {
@@ -869,4 +1123,130 @@ export function readPnpmLock(source: string, root: PnpmRootIdentity): PnpmLockRe
   if (derived.hollow !== null) return { derived: null, refusals: [stackRefusalPnpmHollow(derived.hollow)] };
   if (derived.malformed.length > 0) return { derived: null, refusals: derived.malformed.map(stackRefusalPnpmMalformed) };
   return { derived, refusals: [] };
+}
+
+/* -------------------------------------------------------------------------- */
+/* pnpm-workspace.yaml: which directories pnpm takes as workspace packages     */
+/* -------------------------------------------------------------------------- */
+
+export interface PnpmWorkspacePatterns {
+  include: RegExp[];
+  exclude: RegExp[];
+  /** the include globs as written (cleaned of `./` and a trailing `/`), for prefix reasoning */
+  includeGlobs: string[];
+  /** the negated globs as written (cleaned the same way, without the `!`), for below-reasoning */
+  excludeGlobs: string[];
+  /** deepest directory a pattern can name; `Infinity` when any include pattern carries `**` */
+  maxDepth: number;
+  /** the file carries a `packages:` key at all (absent: pnpm >= 10 takes the root alone; pnpm < 10 refuses to run) */
+  hasPackagesKey: boolean;
+}
+
+/** One workspace glob → an anchored RegExp over a `/`-separated directory path. `null` = syntax this reader does not evaluate. */
+export function pnpmWorkspaceGlobToRegExp(glob: string): RegExp | null {
+  const cleaned = glob.replace(/^(?:\.\/)+/, '').replace(/\/+$/, '');
+  if (cleaned === '' || /[{}[\]()\\!+@]\(|[{}[\]()\\]/.test(cleaned) || cleaned.startsWith('/')) return null;
+  if (cleaned === '.') return /^$/;
+  // dot-led names never match a wildcard (pnpm globs with dot:false)
+  const ANY = '(?!\\.)[^/]+';
+  let re = '^';
+  let needSep = false;
+  const segs = cleaned.split('/');
+  for (let i = 0; i < segs.length; i++) {
+    const seg = segs[i]!;
+    const last = i === segs.length - 1;
+    if (seg === '' || seg === '.' || seg === '..') return null;
+    if (seg === '**') {
+      // zero or more directories: `a/**` names `a` itself as well as everything below it
+      if (!last) {
+        re += `${needSep ? '/' : ''}(?:${ANY}/)*`;
+        needSep = false;
+      } else {
+        re += needSep ? `(?:/${ANY})*` : `(?:${ANY}(?:/${ANY})*)?`;
+      }
+      continue;
+    }
+    if (seg.includes('**')) return null;
+    if (needSep) re += '/';
+    if (seg[0] === '*' || seg[0] === '?') re += '(?!\\.)';
+    for (const ch of seg) re += ch === '*' ? '[^/]*' : ch === '?' ? '[^/]' : ch.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+    needSep = true;
+  }
+  return new RegExp(`${re}$`);
+}
+
+/**
+ * The `packages:` globs of a `pnpm-workspace.yaml`. Returns a refusal reason (string) when the file
+ * cannot be evaluated: outside the YAML subset, `packages` not a list of strings, or a glob syntax
+ * this reader does not evaluate (braces, classes, extglobs) — never a guess.
+ * No `packages:` key ⇒ no patterns: pnpm >= 10 then takes the root alone (measured on 10.11.1).
+ */
+export function readPnpmWorkspacePatterns(source: string): PnpmWorkspacePatterns | string {
+  let doc: PnpmYamlMap;
+  try {
+    doc = parsePnpmLockSubset(source);
+  } catch (e) {
+    if (e instanceof PnpmLockSubsetError) return `pnpm-workspace.yaml line ${e.line}: ${e.reason} — cannot be read, so the workspace packages cannot be checked`;
+    throw e;
+  }
+  const out: PnpmWorkspacePatterns = { include: [], exclude: [], includeGlobs: [], excludeGlobs: [], maxDepth: 0, hasPackagesKey: doc.has('packages') };
+  const raw = doc.get('packages');
+  if (raw === undefined || raw === null) return out;
+  if (!Array.isArray(raw) || !raw.every((x) => typeof x === 'string' && x !== '')) return "pnpm-workspace.yaml 'packages' is not a list of strings, so the workspace packages cannot be checked";
+  for (const item of raw as string[]) {
+    const negated = item.startsWith('!');
+    const glob = negated ? item.slice(1) : item;
+    const re = pnpmWorkspaceGlobToRegExp(glob);
+    if (re === null) return `pnpm-workspace.yaml package pattern '${item}' uses glob syntax this reader does not evaluate, so the workspace packages cannot be checked`;
+    (negated ? out.exclude : out.include).push(re);
+    const cleaned = glob.replace(/^(?:\.\/)+/, '').replace(/\/+$/, '');
+    if (negated) {
+      out.excludeGlobs.push(cleaned);
+    } else {
+      out.includeGlobs.push(cleaned);
+      out.maxDepth = glob.includes('**') ? Infinity : Math.max(out.maxDepth, cleaned.split('/').length);
+    }
+  }
+  return out;
+}
+
+/** Is directory `rel` (`/`-separated, '' for the root) a workspace package under these patterns? The root always is. */
+export function isPnpmWorkspaceDir(patterns: PnpmWorkspacePatterns, rel: string): boolean {
+  if (rel === '' || rel === '.') return true;
+  if (rel.split('/').some((seg) => seg === 'node_modules' || seg === 'bower_components')) return false;
+  return patterns.include.some((re) => re.test(rel)) && !patterns.exclude.some((re) => re.test(rel));
+}
+
+/** The `packages:` reading pnpm's own default gives: every directory below the root (`**`). */
+export function pnpmWorkspaceEveryDirectory(): PnpmWorkspacePatterns {
+  const all = readPnpmWorkspacePatterns('packages:\n  - "**"\n');
+  if (typeof all === 'string') throw new Error(all);
+  return all;
+}
+
+/**
+ * Could an include glob name a directory BELOW `dir` (not `dir` itself) that no negated glob takes
+ * away again? Decided from the globs' segments: an include glob must be able to consume every segment
+ * of `dir` and still have something left to match, and no negated glob may consume every segment of
+ * `dir` with only `**` left (that negation excludes everything below `dir`, whatever it is called — a
+ * negation naming only `dir` itself, or a deeper pattern that could miss a subdirectory, does not).
+ * Used for a gitlink under a workspace glob whose contents the view cannot see.
+ */
+export function pnpmWorkspaceGlobMayMatchBelow(patterns: PnpmWorkspacePatterns, dir: string): boolean {
+  const dirSegs = dir === '' || dir === '.' ? [] : dir.split('/');
+  const segMatches = (glob: string, seg: string): boolean => {
+    if (glob === '**') return true;
+    const re = pnpmWorkspaceGlobToRegExp(glob);
+    return re !== null && re.test(seg);
+  };
+  const walk = (gs: string[], ds: string[], consumed: (rest: string[]) => boolean): boolean => {
+    if (ds.length === 0) return consumed(gs);
+    if (gs.length === 0) return false;
+    const [g, ...gRest] = gs as [string, ...string[]];
+    if (g === '**') return walk(gRest, ds, consumed) || walk(gs, ds.slice(1), consumed); // zero or more segments
+    return segMatches(g, ds[0]!) && walk(gRest, ds.slice(1), consumed);
+  };
+  const reachesBelow = patterns.includeGlobs.some((glob) => walk(glob.split('/'), dirSegs, (rest) => rest.length > 0));
+  const excludesBelow = patterns.excludeGlobs.some((glob) => walk(glob.split('/'), dirSegs, (rest) => rest.length > 0 && rest.every((s) => s === '**')));
+  return reachesBelow && !excludesBelow;
 }

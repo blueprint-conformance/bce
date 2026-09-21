@@ -59,7 +59,7 @@ import { evaluate, routeGuardEvidenceLimit, stableStringify, type ComplianceRepo
 import { assessTeeth, type TeethReport } from './teeth.js';
 import { assessExtractorTeethCorpus, buildSourceReviewProof } from './extractor-teeth.js';
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
-import { resolveRevision, materializeAtRevision } from './pin.js';
+import { resolveRevision, materializeAtRevision, listTreeKnowledge } from './pin.js';
 import { extractStackManifest } from './stack/stack-extractor.js';
 import { StackManifestSchema, verifyStackManifest, type StackManifest } from './stack/stack-manifest.js';
 import { diffStackManifests, stackDiffExitCode } from './stack/stack-diff.js';
@@ -2249,7 +2249,7 @@ async function main(): Promise<void> {
 
   if (cmd === 'stack') {
     // bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]
-    //   Extract the DECLARED dependency closure (npm lockfile v3 / shrinkwrap, Dockerfile FROM,
+    //   Extract the DECLARED dependency closure (npm lockfile v3 / shrinkwrap or pnpm-lock v9, Dockerfile FROM,
     //   compose image:, node runtime) of a pinned tree into a content-addressed StackManifest.
     //   No network, node_modules never read. Refusal (no supported lockfile, malformed or
     //   wrong-version lockfile) is exit 2 and writes NOTHING — never a silent empty manifest.
@@ -2345,19 +2345,26 @@ async function main(): Promise<void> {
     let tree: string;
     let revision: string;
     let cleanup: (() => void) | null = null;
+    // what git tracks (and which directories are gitlinks) at the revision being read, so the image
+    // walk's nested-checkout rule is the same for a pinned tree and a working tree; null when
+    // --ct-repo is not a git repository (the walk then falls back to the `.git` marker alone)
+    let knowledge: ReturnType<typeof listTreeKnowledge> = null;
     if (noPin) {
       tree = ctRepo;
       revision = ref || 'unpinned';
+      knowledge = listTreeKnowledge(ctRepo);
     } else {
       // same pin discipline as scan/run: an explicit 40-hex sha passes through; otherwise the ref
       // resolves worktree-scoped (HEAD default), never origin/main implicitly.
       const sha = /^[0-9a-f]{40}$/.test(ref ?? '') ? (ref as string) : resolveRevision(ctRepo, ref ?? 'HEAD');
       tree = materializeAtRevision(ctRepo, sha);
       revision = sha;
+      knowledge = listTreeKnowledge(ctRepo, sha);
       cleanup = () => fs.rmSync(tree, { recursive: true, force: true });
     }
     try {
-      const { manifest, refusals } = extractStackManifest(tree, revision);
+      // link:-protocol values are re-relativised from the CHECKOUT (where pnpm ran), never from a materialization
+      const { manifest, refusals } = extractStackManifest(tree, revision, 'npm-lockfile', knowledge === null ? undefined : { ...knowledge, linkAnchor: path.resolve(ctRepo).split(path.sep).join('/') });
       if (refusals.length > 0) {
         for (const r of refusals) process.stderr.write(`::error::${r}\n`);
         die(`stack snapshot REFUSED: ${refusals.length} refusal(s) — no manifest written (revision ${revision})`, 2);
@@ -2532,9 +2539,11 @@ async function main(): Promise<void> {
       `  bce portfolio compile --portfolio <file> [--out-dir <dir>]\n` +
       `  bce portfolio collect --registry <file> --reports-dir <dir>\n` +
       `  bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]\n` +
-      `       Content-addressed StackManifest of the DECLARED closure (npm lockfile v3 / shrinkwrap, Dockerfile FROM,\n` +
-      `       compose image:, node runtime). No network; node_modules never read. stackDigest hashes ONLY the\n` +
-      `       identity view (nodes/runtime/images) — a re-serialized lockfile or a spec-only range change keeps\n` +
+      `       Content-addressed StackManifest of the DECLARED closure (npm lockfile v3 / shrinkwrap or pnpm-lock v9,\n` +
+      `       Dockerfile FROM, compose image:, node runtime). No network; node_modules never read. When package.json\n` +
+      `       packageManager starts with pnpm@ and a pnpm-lock.yaml exists, it IS the closure (an npm lockfile beside it\n` +
+      `       is a recorded ignore); otherwise pnpm-lock.yaml is read only when no npm lockfile is present. stackDigest\n` +
+      `       hashes ONLY the identity view (nodes/runtime/images/unmodeled) — a re-serialized lockfile or a spec-only range change keeps\n` +
       `       the digest; a version/integrity move changes it. npm-shrinkwrap.json wins over package-lock.json.\n` +
       `       No supported lockfile, a hollow/malformed one, or a symlinked source = exit 2, nothing written.\n` +
       `  bce stack diff --from <A.stack.json> --to <B.stack.json> [--out <path>]\n` +

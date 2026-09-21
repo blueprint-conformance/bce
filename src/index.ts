@@ -98,7 +98,7 @@ export type { TeethMutationManifest, ExtractorTeethReport, ExtractorTeethCaseRes
 export { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 export type { TeethWaiver } from './teeth-waiver.js';
 
-export { resolveRevision, materializeAtRevision } from './pin.js';
+export { resolveRevision, materializeAtRevision, listTreeKnowledge } from './pin.js';
 
 // The stack plane (slice 1): the declared dependency closure as a content-addressed StackManifest.
 // A SEPARATE seam from RepositoryFactsExtractor — a lockfile is not an ArchitectureGraph.
@@ -157,12 +157,15 @@ export {
   STACK_COVERAGE_IMAGE_WALK_DEPTH,
   stackCoverageLockfileIgnored,
   stackCoveragePackageManagerMismatch,
+  stackCoverageSymlinkNotFollowed,
+  stackCoverageNestedCheckout,
+  stackRefusalEmptyDependencyName,
   STACK_REFUSAL_YARN,
   STACK_REFUSAL_NO_LOCKFILE,
   STACK_COVERAGE_DECLARED_NOT_INSTALLED,
   STACK_COVERAGE_NO_IMAGES,
 } from './stack/stack-extractor.js';
-export type { StackFactsExtractor, StackExtractionResult, ParsedImageRef } from './stack/stack-extractor.js';
+export type { StackFactsExtractor, StackExtractionResult, ParsedImageRef, StackTreeKnowledge } from './stack/stack-extractor.js';
 export {
   diffStackManifests,
   stackDiffExitCode,
@@ -202,6 +205,7 @@ export {
   STACK_COVERAGE_PNPM_DERIVED_FLAGS,
   STACK_COVERAGE_PNPM_NO_TRANSITIVE_SPECS,
   STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS,
+  STACK_COVERAGE_PNPM_DEPENDENCY_FREE,
 } from './stack/pnpm-lock-reader.js';
 export type { PnpmYamlValue, PnpmYamlMap, PnpmDerived, PnpmUnmodeled, PnpmStackNode, PnpmRootIdentity, PnpmLockReadResult } from './stack/pnpm-lock-reader.js';
 
