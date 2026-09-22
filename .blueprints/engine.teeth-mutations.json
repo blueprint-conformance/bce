@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1",
-  "blueprintRef": "bce-engine-architecture@0.1.1",
+  "blueprintRef": "bce-engine-architecture@0.1.2",
   "allowedMutationRoots": [
     "src"
   ],
@@ -464,6 +464,18 @@
       "allowedCollateralConstraints": []
     },
     {
+      "id": "source-mutant-only-cli-may-call-process-exit--stack",
+      "constraintId": "only-cli-may-call-process-exit--stack",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/stack/stack-extractor.ts",
+        "preconditionSha256": "50146338d3f305e756941c90a1dde691c658f4fa0bd3592e08ad8628060cd03d",
+        "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
+      },
+      "expectedEvidencePath": "src/stack/stack-extractor.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
       "id": "source-mutant-only-cli-may-call-process-exit--teeth",
       "constraintId": "only-cli-may-call-process-exit--teeth",
       "operation": {
@@ -572,6 +584,30 @@
       "allowedCollateralConstraints": [
         "runtime-dep-allowlist-approved-parsers"
       ]
+    },
+    {
+      "id": "source-mutant-stack-plane-no-global-network-api",
+      "constraintId": "stack-plane-no-global-network-api",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/stack/stack-extractor.ts",
+        "preconditionSha256": "50146338d3f305e756941c90a1dde691c658f4fa0bd3592e08ad8628060cd03d",
+        "content": "\nexport async function __bceMutationFetch(): Promise<unknown> { return fetch('https://example.invalid/'); }\n"
+      },
+      "expectedEvidencePath": "src/stack/stack-extractor.ts",
+      "allowedCollateralConstraints": []
+    },
+    {
+      "id": "source-mutant-stack-plane-no-network-no-subprocess",
+      "constraintId": "stack-plane-no-network-no-subprocess",
+      "operation": {
+        "kind": "appendText",
+        "target": "src/stack/stack-extractor.ts",
+        "preconditionSha256": "50146338d3f305e756941c90a1dde691c658f4fa0bd3592e08ad8628060cd03d",
+        "content": "\nimport * as __bceMutationHttps from 'node:https';\n"
+      },
+      "expectedEvidencePath": "src/stack/stack-extractor.ts",
+      "allowedCollateralConstraints": []
     }
   ]
 }

@@ -1,0 +1,6 @@
+{
+  "sourceCommit": "fe01f75968b5698293a1d34e37f7daf040e0de70",
+  "artifactSha256": "8314c3148da27b7bec0d20ca0fbf910d04e7636deb1deac6520ed2518ab31179",
+  "integrity": "sha512-iYcLkBfHPuMIwfq6JHBmbzOh6spHrRkfohhfBaGJXdOai8z4nvEpF2UGzc1R2EFVLz4G07rvQS0bWyLlypJFVA==",
+  "distribution": "source-built from a pristine clone of the governed pull request head (npm ci && npm run build, then npm pack --ignore-scripts), packed BEFORE the review was posted; the ceremony ran from that same clone's dist; distinct from any immutable npm bce-engine release"
+}

@@ -1,0 +1,34 @@
+{
+  "binding": {
+    "candidateDigest": "d59bc79f37d3842779aaa136d223db53452721056553893d49af3bf4522b8251",
+    "engineArtifactDigest": "0f0bbc7d81027c885dc58795282142589a355082330ac564c9d417b8ed941a85",
+    "extractorArtifactDigest": "0f0bbc7d81027c885dc58795282142589a355082330ac564c9d417b8ed941a85",
+    "packetDigest": "5b4afc234f4707aed18c72f5acf6358e15363764a98731726dfed79ff6691f76",
+    "repositoryRevision": "fe01f75968b5698293a1d34e37f7daf040e0de70",
+    "toolchainDigest": "ed6093aeccf5ae455f7bb89fdcbc70a0627222f03d795bef753eaeddf394cb31",
+    "worktreeDigest": "f52510d4ae5c8bc2294f748245caf0bac9debfd014e6baa9d87f7fcc09733313"
+  },
+  "decidedAt": "2026-09-21T23:00:13Z",
+  "decision": "approve",
+  "decisionDigest": "3f31b1951305d7652f891ef05d04385cf90244c644d28fe5a48eba23100cae8c",
+  "kind": "BlueprintDecisionRecord",
+  "proposalId": "bstack-01b-stack-policy-coverage",
+  "rationale": "I accept this exact policy as its solo steward. The amendment to bce-engine-architecture@0.1.2 brings the src/stack/ plane under the engine's own contract. That plane was added by #89 and has since grown through #92 (pnpm lockfile reader), #91 (stack diff) and #93 (release carry-ins); all four of its files are on main at 996db96c. The amendment adds one glob never-exit row, widens both extraction-seam scopes to the plane, adds a no-network/no-subprocess import row and a row forbidding the global network APIs, and raises the scan floor to 45, the real recursive src/**/*.ts count. All seven semantic-diff rows are classified tightening; no constraint, severity, scope or approval requirement is removed or loosened.\n\nThis pull request replaces #90, which is closed unmerged. An independent adversarial review of #90 found that its global-network row matched call syntax only, so the injectable-default idiom (fetchImpl = fetch, o.fetch ?? fetch, const f = fetch, fetch.call, navigator.sendBeacon) passed green in all four plane files while the record said the row forbade the global network APIs. This candidate forbids those identifiers by bare reference, and its import row now covers every quote style including a template literal, a missing space after from/import, and cluster, inspector, undici and createRequire. What a line scan still cannot see is stated in docs/self-hosting.md rather than claimed away: a computed specifier, an alias the line does not name, and the never-exit blind spots every such row shares.\n\nProof on a throwaway copy with the candidate installed as the engine blueprint: extractor-real teeth 50/50; a clean run of 100 before and after; 25 planted violations each red in every one of the four src/stack files and 3 legitimate lines green in each, 112 of 112 as expected. The suite is 1337 tests, equal to the badge. The packet was prepared from a pristine clone at head fe01f75968b5698293a1d34e37f7daf040e0de70 and reproduces byte for byte from a second fresh clone. The installed policy on this branch is byte-identical to main until the amend step runs.\n\nThis decision is self-ratified. It was reviewed, posted and executed by the coding agent under the steward's recorded delegation, quoted verbatim: \"Delegate: I (agent) run the amend ceremony as steward for these 3 PRs\". This PR is the policy-coverage half of the first of those three amendments, split out because an engine-code PR cannot carry a blueprint change. Independent review, independent replication and product efficacy are not claimed.",
+  "reviewer": {
+    "authentication": {
+      "assertionDigest": "41091f144a140274fd090d9909fa4239dc138ac115eb3883cdddb30e4d313d0b",
+      "issuer": "https://github.com",
+      "method": "scm",
+      "reference": "https://github.com/blueprint-conformance/bce/pull/97#pullrequestreview-5272627518",
+      "reviewMode": "self-ratified",
+      "subject": "github:user:243248197"
+    },
+    "id": "github:user:243248197"
+  },
+  "satisfiedRequirement": {
+    "role": "maintainer",
+    "stage": "ratify"
+  },
+  "schemaVersion": "1",
+  "weakeningAccepted": false
+}
