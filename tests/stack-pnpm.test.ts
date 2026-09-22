@@ -62,6 +62,7 @@ import {
   stackRefusalPnpmMalformed,
   stackRefusalPnpmLostClosure,
   pnpmLinkTarget,
+  pnpmLinkProtocolValue,
   pnpmWorkspaceGlobToRegExp,
   readPnpmWorkspacePatterns,
   isPnpmWorkspaceDir,
@@ -1572,7 +1573,7 @@ describe('stack pnpm — group 10: a link-only workspace is not hollow; block-sc
 describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link target, (c) declared dependencies, (d) workspace packages', () => {
   const REAL = path.join(ROOT, 'fixtures', 'stack', 'pnpm-v9-real-shapes');
   /** every committed pnpm-written shape that is a stack (link-plus-registry is the hollow negative control) */
-  const REAL_SHAPES = ['link-only', 'injected', 'mixed', 'link-workspace-packages', 'link-protocol', 'exclude-links', 'negated-globs', 'self-link', 'link-reenter'];
+  const REAL_SHAPES = ['link-only', 'injected', 'mixed', 'link-workspace-packages', 'link-protocol', 'exclude-links', 'negated-globs', 'self-link', 'link-reenter', 'self-link-protocol'];
   const lost = (what: string): string => stackRefusalPnpmLostClosure(what);
   const bucket = (imp: string, key: string): string => stackRefusalPnpmMalformed(`importer ${imp} '${key}' (a bucket with no entries: pnpm never writes one — the lockfile is cut short)`);
   /** A temp copy of a committed fixture tree whose lockfile is cut to its first `n` lines (all of it when `n` is undefined). */
@@ -1740,8 +1741,19 @@ describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link 
     expect(proto('link:vendor/lib/', 'link:vendor/lib')).toEqual([]);
     expect(proto('link:./a/../vendor/lib', 'link:vendor/lib')).toEqual([]);
     for (const cut of ['link:vendor/li', 'link:vendor', 'link:', 'link:./vendor/lib', 'link:vendor/lib/', 'link:../vendor/lib']) expect(proto('link:./vendor/lib', cut), cut).toEqual([mismatch(cut, 'vendor/lib')]);
+    // MINOR-1 (pass 5): a specifier that resolves to the importer ITSELF makes the expected value a BARE
+    // `link:` (no path suffix) — measured on pnpm 10.11.1 (fixtures/self-link-protocol): `packages/a`
+    // depending on itself via `link:.` (empty path, or `.`) or a longer path that climbs back onto its own
+    // directory (`link:../a`) all write `version: 'link:'`, and that is the ONE value accepted for that
+    // shape. The prior code refused every self-link unconditionally (`expected === '' || …`) regardless of
+    // `version`, and rendered a self-contradictory message ('link:' is not 'link:') doing it.
+    expect(proto('link:', 'link:')).toEqual([]); // specifier `link:` (empty path) resolves to packages/a itself
+    expect(proto('link:.', 'link:')).toEqual([]); // `.` resolves to packages/a itself — the bare value pnpm writes
+    expect(proto('link:../a', 'link:')).toEqual([]); // climbs out of packages/a and back onto it — same identity
+    // …but a self-link is refused for any OTHER value, including one that merely LOOKS like a truncated path
     expect(proto('link:.', 'link:.')).toEqual([mismatch('link:.', '')]);
-    expect(proto('link:', 'link:')).toEqual([mismatch('link:', '')]);
+    expect(proto('link:', 'link:.')).toEqual([mismatch('link:.', '')]);
+    expect(proto('link:../a', 'link:vendor')).toEqual([mismatch('link:vendor', '')]);
     // MINOR-1 (pass 4): the value is pnpm's PATH RESOLUTION from the importer's directory, not string cleanup — an
     // absolute specifier is re-relativised, and a path that leaves and re-enters through the checkout's own name
     // comes back inside; both need the anchor (where the tree lives), which the CLI passes and this reader is given
@@ -1905,6 +1917,57 @@ describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link 
         expect(fs.existsSync(out), `${name} ${view.join(' ')} written`).toBe(want === 0);
         if (want === 2) expect(cli.stderr).toContain("is not 'link:../link-reenter/vendor/lib'");
       }
+    }
+  });
+
+  it("MINOR-3 (pass 5, K12): the extractor's fallback link anchor resolves a RELATIVE, non-repository repoDir — the raw string is never used as the anchor", () => {
+    // p5/nr/link-reenter (a non-git tree, `--ct-repo .` and `--ct-repo link-reenter` from the parent) showed
+    // the head behaviour is right, but nothing in this file distinguishes `path.resolve(repoDir)` from the
+    // RAW relative string: every other test passes an ABSOLUTE repoDir, on which `path.resolve` is a no-op,
+    // so the resolve call itself goes unexercised. A SHALLOW climb-then-reenter (the committed `link-reenter`
+    // fixture's `l1`: one `..` then back down by name) does not discriminate — popping and re-pushing the
+    // SAME trailing segment cancels identically whether or not the anchor is resolved, as long as there is at
+    // least one segment to pop. What DOES discriminate is a climb deeper than the raw relative string's OWN
+    // segment count: only `path.resolve` has the extra (real, cwd-derived) segments to keep climbing through
+    // — that is the sense in which "the relative path's last segment" (and everything before it) matters.
+    const relDirAbs = path.join(ROOT, '.tmp-minor3-relative-anchor', 'link-reenter'); // named `link-reenter`, 2 segments under ROOT
+    const relDir = path.relative(process.cwd(), relDirAbs); // what a caller passes: cwd-relative, no leading '/'
+    expect(path.isAbsolute(relDir)).toBe(false);
+    try {
+      const spec = '../../../outside/vendor/lib'; // climbs 3 — one more than relDir's own 2 segments
+      // mirror the extractor's OWN normalisation (`path.resolve(repoDir).split(path.sep).join('/')` at
+      // stack-extractor.ts) exactly — on a `/`-separated OS this is a no-op, but on Windows `path.resolve`
+      // returns a BACKSLASH-joined path with no `/` in it at all, which `fold()` (a pure `/`-splitter) would
+      // read as a single monolithic segment, collapsing the very depth difference this test relies on. The
+      // K12 mutant applies the identical `.split(path.sep).join('/')` to the RAW `repoDir` (see p5mut.py) —
+      // reproduced here so `rawValue` is what the mutant would actually compute, not merely `repoDir` as-is.
+      const toPosix = (p: string): string => p.split(path.sep).join('/');
+      // prove the construction actually discriminates BEFORE relying on it: the correctly-resolved anchor
+      // (plenty of real segments above ROOT to climb through) and the raw relative string (only 2, so the
+      // third climb pops against an empty array and clamps) must compute DIFFERENT expected values
+      const resolvedValue = pnpmLinkProtocolValue(toPosix(path.resolve(relDir)), '.', spec);
+      const rawValue = pnpmLinkProtocolValue(toPosix(relDir), '.', spec); // what the K12 mutant would compute
+      expect(resolvedValue).not.toBeNull();
+      expect(rawValue).not.toBe(resolvedValue);
+      fs.mkdirSync(relDirAbs, { recursive: true });
+      fs.writeFileSync(path.join(relDirAbs, 'package.json'), JSON.stringify({ name: 'minor3-root', version: '1.0.0', private: true, dependencies: { l1: `link:${spec}` } }));
+      fs.writeFileSync(
+        path.join(relDirAbs, 'pnpm-lock.yaml'),
+        `lockfileVersion: '9.0'\n\nsettings:\n  autoInstallPeers: true\n  excludeLinksFromLockfile: false\n\nimporters:\n\n  .:\n    dependencies:\n      l1:\n        specifier: link:${spec}\n        version: link:${resolvedValue}\n`,
+      );
+      // a CORRECT reader resolves `relDir` before anchoring — accepted, matching the RESOLVED algebra; a
+      // reader using the raw string (K12) would compute `rawValue` instead, which does not match this
+      // lockfile's recorded version and would be refused (the mismatch just proven above)
+      const viaRelative = extractStackManifest(relDir, REVISION);
+      expect(viaRelative.refusals, viaRelative.refusals.join('\n')).toEqual([]);
+      expect(viaRelative.manifest).not.toBeNull();
+      // …and the SAME tree read through its absolute path gives the identical result — relative is not a
+      // second code path, only a different spelling of the same anchor
+      const viaAbsolute = extractStackManifest(relDirAbs, REVISION);
+      expect(viaAbsolute.refusals).toEqual([]);
+      expect(viaRelative.manifest!.stackDigest).toBe(viaAbsolute.manifest!.stackDigest);
+    } finally {
+      fs.rmSync(path.join(ROOT, '.tmp-minor3-relative-anchor'), { recursive: true, force: true });
     }
   });
 
@@ -2097,7 +2160,13 @@ describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link 
     expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'packages/**'\n  - '!packages/zsub'\n  - '!packages/zsub/**'\n"), 'packages/zsub')).toBe(false);
     expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'packages/**'\n  - '!packages/zsub/**'\n"), 'packages/zsub')).toBe(false);
     expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - '**'\n  - '!vendor/**'\n"), 'vendor/lib')).toBe(false);
-    // …but a negation that names only the gitlink directory itself, or a deeper pattern that could miss a subdirectory, still reaches below
+    // MINOR-2 (pass 5): `**/*` clears everything below just as bare `**` does — one or more `**` optionally
+    // followed by a single trailing `*` (`**/*` names every descendant)
+    expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'packages/**'\n  - '!packages/zsub/**/*'\n"), 'packages/zsub')).toBe(false);
+    expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'packages/**'\n  - '!packages/**/*'\n"), 'packages/zsub')).toBe(false);
+    expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'packages/**'\n  - '!**/zsub/**/*'\n"), 'packages/zsub')).toBe(false);
+    // …but a negation that names only the gitlink directory itself, a lone trailing `*` with no `**` (a
+    // deeper directory could still be named), or a deeper pattern that could miss a subdirectory, still reaches below
     expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'packages/**'\n  - '!packages/zsub'\n"), 'packages/zsub')).toBe(true);
     expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'packages/**'\n  - '!packages/zsub/*'\n"), 'packages/zsub')).toBe(true);
     expect(pnpmWorkspaceGlobMayMatchBelow(P("packages:\n  - 'packages/**'\n  - '!packages/other/**'\n"), 'packages/zsub')).toBe(true);

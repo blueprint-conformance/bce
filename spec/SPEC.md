@@ -895,11 +895,16 @@ guards, every one a refusal (exit 2, nothing written), none of them a skip:
   directory (an absolute path stays absolute) and re-relativised from that directory, `/`-separated
   — measured on pnpm 10.11.1: `./vendor/lib/` → `vendor/lib`, `pkgs/../vendor/lib` →
   `vendor/lib`, `../<checkout>/vendor/lib` seen from the root → `vendor/lib`, `/abs/outside` →
-  `../outside`. The anchor is the checkout `--ct-repo` names (where pnpm ran), never a
-  materialization, so the pinned and unpinned views agree; a reader given no anchor refuses the
-  anchor-dependent forms rather than guessing. Any other value (a bare `link:`, a path cut short, a
-  value naming a different directory) is refused. A committed fixture cannot carry an absolute
-  specifier (its value depends on the machine); that form is pinned in the reader's own tests.
+  `../outside`. When the specifier resolves to the importer ITSELF the expected value is a BARE
+  `link:` (no path suffix) — measured on pnpm 10.11.1: `packages/a` depending on itself through
+  `"a": "link:."`, or by a longer path that climbs back onto its own directory (`"me": "link:../a"`
+  seen from `packages/a`), both write `version: 'link:'`; that is the ONE shape a bare `link:` is
+  the correct, accepted value for. The anchor is the checkout `--ct-repo` names (where pnpm ran),
+  never a materialization, so the pinned and unpinned views agree; a reader given no anchor refuses
+  the anchor-dependent forms rather than guessing. Any other value (a bare `link:` where the
+  specifier does NOT resolve to the importer itself, a path cut short, a value naming a different
+  directory) is refused. A committed fixture cannot carry an absolute specifier (its value depends
+  on the machine); that form is pinned in the reader's own tests.
 - **(c) every importer's `package.json` is covered.** For each importer the `package.json` of the
   SAME view the rest of the verb reads (the pinned tree, or the working tree under `--no-pin`) is
   read without following any symbolic link on the way, and every name it declares under

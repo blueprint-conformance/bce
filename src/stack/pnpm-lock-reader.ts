@@ -507,7 +507,10 @@ export interface PnpmImporterFacts {
  * `link:../<repo>/vendor/lib` seen from the repo root → `link:vendor/lib`). Pure path algebra, so a
  * value cut mid-line never matches. `anchorDir` is where the tree lives for whoever ran pnpm (the
  * checkout, NOT a materialization — a pinned tree is read at the checkout's location). Returns `null`
- * when the specifier resolves to the importer itself (pnpm never writes a link: onto itself).
+ * when the specifier resolves to the importer ITSELF — measured on pnpm 10.11.1, that shape writes a
+ * BARE `link:` (no path suffix), e.g. `packages/a` depending on itself via `"a": "link:."` or a longer
+ * path that climbs back onto its own directory (`"me": "link:../a"` seen from `packages/a`); the caller
+ * treats a `null` result as the single expected value `link:` rather than as "unknown".
  */
 /** placeholder anchor for a reader given no linkAnchor: relative specifiers judge alone, everything anchor-dependent refuses */
 const PNPM_LINK_ANCHOR_UNKNOWN = '/.bce-link-anchor-unknown';
@@ -919,9 +922,13 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
             // function of the specifier and the importer's location (pnpmLinkProtocolValue), so a value
             // cut mid-line never matches. Without an anchor the reader judges relative specifiers against a
             // placeholder root — an absolute specifier, or one that leaves and re-enters the tree, then
-            // fails to match and is refused rather than guessed (fail-closed).
+            // fails to match and is refused rather than guessed (fail-closed). A specifier that resolves to
+            // the importer ITSELF makes pnpmLinkProtocolValue return null — the expected value there is a
+            // BARE `link:` (no suffix), which is what pnpm 10.11.1 actually writes for that shape; treating
+            // that null as "always refuse" (the prior behaviour) refused every real self-link unconditionally
+            // and produced a self-contradictory message ('link:' is not 'link:') — MINOR-1, pass 5.
             const expected = pnpmLinkProtocolValue(root.linkAnchor ?? PNPM_LINK_ANCHOR_UNKNOWN, imp, specifier.slice('link:'.length)) ?? '';
-            if (expected === '' || version !== `link:${expected}`) {
+            if (version !== `link:${expected}`) {
               malformed.push(`importer ${imp} dependency '${dep}' (link: protocol value '${version}' is not 'link:${expected}', the specifier resolved from the importer's directory — the lockfile is cut short)`);
               continue;
             }
@@ -1247,6 +1254,15 @@ export function pnpmWorkspaceGlobMayMatchBelow(patterns: PnpmWorkspacePatterns, 
     return segMatches(g, ds[0]!) && walk(gRest, ds.slice(1), consumed);
   };
   const reachesBelow = patterns.includeGlobs.some((glob) => walk(glob.split('/'), dirSegs, (rest) => rest.length > 0));
-  const excludesBelow = patterns.excludeGlobs.some((glob) => walk(glob.split('/'), dirSegs, (rest) => rest.length > 0 && rest.every((s) => s === '**')));
+  // a negation clears every directory below `dir` when its LEFTOVER segments (after consuming `dir`) are
+  // one or more `**` optionally followed by a single trailing `*` — `**/*` names every descendant exactly
+  // as `**` alone does (MINOR-2, pass 5). A lone trailing `*` with no `**` (`packages/zsub/*`) does NOT
+  // clear: a deeper directory could still be named, so only the `**`-only core (the `*` dropped) is checked.
+  const clearsEverythingBelow = (rest: string[]): boolean => {
+    if (rest.length === 0) return false;
+    const core = rest[rest.length - 1] === '*' ? rest.slice(0, -1) : rest;
+    return core.length > 0 && core.every((s) => s === '**');
+  };
+  const excludesBelow = patterns.excludeGlobs.some((glob) => walk(glob.split('/'), dirSegs, clearsEverythingBelow));
   return reachesBelow && !excludesBelow;
 }
