@@ -5,8 +5,16 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = process.cwd();
-const blueprintPath = resolve(root, '.blueprints', 'engine.blueprint.json');
-const outputPath = resolve(root, '.blueprints', 'engine.teeth-mutations.json');
+// Optional: `--blueprint <path> --out <path>` generates the manifest for a CANDIDATE blueprint
+// (an amendment under review) without touching the installed policy.
+const argValue = (flag) => {
+  const i = process.argv.indexOf(flag);
+  return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : undefined;
+};
+const blueprintPath = resolve(root, argValue('--blueprint') ?? '.blueprints/engine.blueprint.json');
+const outputPath = resolve(root, argValue('--out') ?? '.blueprints/engine.teeth-mutations.json');
+// A glob-path row covers a whole plane; its real source mutation needs ONE concrete file in it.
+const STACK_PLANE_TARGET = 'src/stack/stack-extractor.ts';
 const blueprint = JSON.parse(readFileSync(blueprintPath, 'utf8'));
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
@@ -49,6 +57,15 @@ const cases = blueprint.constraints.map((constraint) => {
   }
   if (constraint.id === 'review-core-no-io-imports') {
     return appendCase(constraint, 'src/review.ts', "\nimport * as __bceMutationFs from 'node:fs';\n");
+  }
+  if (constraint.id === 'only-cli-may-call-process-exit--stack') {
+    return appendCase(constraint, STACK_PLANE_TARGET, '\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n');
+  }
+  if (constraint.id === 'stack-plane-no-network-no-subprocess') {
+    return appendCase(constraint, STACK_PLANE_TARGET, "\nimport * as __bceMutationHttps from 'node:https';\n");
+  }
+  if (constraint.id === 'stack-plane-no-global-network-api') {
+    return appendCase(constraint, STACK_PLANE_TARGET, "\nexport async function __bceMutationFetch(): Promise<unknown> { return fetch('https://example.invalid/'); }\n");
   }
   if (constraint.id.startsWith('only-cli-may-call-process-exit--') && constraint.type === 'forbiddenPattern' && constraint.path) {
     return appendCase(constraint, constraint.path, '\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n');

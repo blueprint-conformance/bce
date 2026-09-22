@@ -28,7 +28,9 @@ blueprint records the real architecture, not an aspiration.
 | `src/schema.ts` (the single source of truth for the artifact shape) imports only `zod` plus the local `safe-regex` guard. | `schema-imports-only-zod-and-safe-regex` | per-file `forbiddenPattern` |
 | The evaluator is pure: `report.ts` may import only `node:crypto` (deterministic hashing) + local modules; `score.ts` and `teeth.ts` import local modules only. No fs, no network, no process, no child processes. | `evaluator-pure--*` (3 constraints) | per-file `forbiddenPattern` |
 | Proposal compilation and review semantics remain pure; only the assistant, SCM-authentication, quarantine, and CLI shells own I/O. | `review-core-no-io-imports` plus explicit component relationships | per-file `forbiddenPattern` + authored graph |
-| Only the two process-owning bins (`cli.ts` and `mcp-server.ts`) are exempt from the no-exit rule; every one of the 39 library modules returns or throws. | `only-cli-may-call-process-exit--*` (39 per-file constraints) | per-file `forbiddenPattern` |
+| Only the two process-owning bins (`cli.ts` and `mcp-server.ts`) are exempt from the no-exit rule; every one of the 39 flat library modules returns or throws, and so does every module of the `src/stack/` plane. | `only-cli-may-call-process-exit--*` (39 per-file constraints) plus `only-cli-may-call-process-exit--stack` (one glob over `src/stack/**/*.ts`) | per-file and glob `forbiddenPattern` |
+| The `src/stack/` plane reads files and computes; it never opens a socket and never starts a process. No import of `child_process`, `cluster`, `http`, `https`, `http2`, `net`, `dgram`, `tls`, `dns`, `inspector` or `undici` (with or without `node:`, any quote style, any import form a line carries), and no `createRequire`. | `stack-plane-no-network-no-subprocess` | glob `forbiddenPattern` over `src/stack/**/*.ts` |
+| The plane never touches a global network API — not even by reference: `fetch`, `WebSocket`, `XMLHttpRequest`, `EventSource`, `sendBeacon` may not appear as identifiers at all, so the injectable-default idiom (`fetchImpl = fetch`) is caught as well as a direct call. | `stack-plane-no-global-network-api` | glob `forbiddenPattern` over `src/stack/**/*.ts` |
 
 Design notes, recorded honestly:
 
@@ -38,11 +40,21 @@ Design notes, recorded honestly:
   The obvious gap — a *new* src file arriving with no per-file constraint — is closed by
   construction: `tests/self-blueprint.test.ts` (run inside the self-gate workflow) fails
   whenever the actual `src/*.ts` set and the blueprint's coverage disagree, including
-  `extraction.minFiles`, which is pinned to the exact file count as a fail-closed scan
-  floor.
+  `extraction.minFiles`, a fail-closed scan floor. The flat `src/*.ts` files are pinned one
+  by one; the `src/stack/` plane is covered by GLOB rows instead, so a new file there inherits
+  coverage without an amendment, and the floor is a range: above the flat count (a scan that
+  lost the plane fails closed) and at most the real recursive count.
 - **What the content patterns can and cannot see.** The import-allowlist patterns are
   anchored single-line matches (`import … from 'x'`, `export … from 'x'`, and the
   multi-line closer `} from 'x'`). They do not see a dynamic `import('x')` expression.
+  The stack-plane rows are line scans too, and wider: they match static, side-effect, dynamic
+  and `require` forms in any quote style, and the global network APIs by bare reference. What a
+  line scan still cannot see is a COMPUTED specifier (`import('node:' + 'http')`), a module
+  reached through an alias the line does not name, and the never-exit blind spots every
+  `only-cli-may-call-process-exit--*` row shares (`process['exit']`, a destructured `exit`,
+  `process.kill`, `process.abort`). `node:worker_threads` is not forbidden: it is neither network
+  nor subprocess. The rows also match inside comments and strings, which is why the identifiers
+  they forbid must not appear in the plane at all.
   The `ts-morph` seam constraint does not rely on them — it rides the AST import graph.
 - **Purity of the evaluator vs. wall-clock/randomness.** A content constraint forbidding
   `Math.random(`/`Date.now(` in the evaluator would false-fire today: those tokens appear
@@ -145,8 +157,8 @@ npm run test:self-teeth-mutations
 npx vitest run tests/self-blueprint.test.ts
 ```
 
-Expected: blueprint VALID, gate score 100 (pass), and `extractor-real-proven` with all 47
-constraints killed by 47 separately materialized source-tree mutants. The mutation manifest is
+Expected: blueprint VALID, gate score 100 (pass), and `extractor-real-proven` with all 50
+constraints killed by 50 separately materialized source-tree mutants. The mutation manifest is
 regenerated from the blueprint and is freshness-checked before the real CLI proof runs. Tests are
 green. To watch the gate actually bite, add `import { Project } from 'ts-morph';` to
 `src/score.ts` and re-run the gate: it exits 1 with two violations (the seam constraint,
@@ -163,7 +175,7 @@ discriminating regression test in `tests/self-blueprint.test.ts`. The former eva
 now closed by `.blueprints/engine.teeth-mutations.json`: every self-blueprint clause maps to one
 real create/replace/append/delete mutation, and the CLI refuses missing, duplicate, surviving,
 out-of-scope, protected-surface, syntax-invalid, or collateral mutations. This proves the current
-47 clauses can bite the current extraction/evaluation path; it does not prove the blueprint is a
+50 clauses can bite the current extraction/evaluation path; it does not prove the blueprint is a
 complete specification of every desirable property.
 
 ## Full self-adoption
@@ -177,5 +189,5 @@ exercises the actual project MCP configuration. The enforced mode is explicit in
 check for a completed lifecycle is `node dist/cli.js doctor --repo .`: real-source teeth, matching
 approved policy and adoption history, exact CI pin, project integrations, and full gate must agree.
 A missing ceremony remains a warning until its authenticated history exists. Both blueprints now
-carry digest-bound source mutation manifests: 47 engine clauses and 13 skill-standard clauses.
+carry digest-bound source mutation manifests: 50 engine clauses and 13 skill-standard clauses.
 The latter includes exact file evidence for forbidden files, without inventing line numbers.

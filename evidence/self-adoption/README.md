@@ -36,3 +36,37 @@ This is distinct from the immutable npm `bce-engine@0.3.0` release, which predat
 
 This evidence proves first-party operational self-adoption. The decision is explicitly self-ratified.
 It does not establish independent review, independent replication, external adoption, or product efficacy.
+
+## Second amendment: the stack plane comes under the engine's own contract (0.1.1 → 0.1.2)
+
+Completed on 2026-09-21 (UTC) through [the governed pull request](https://github.com/blueprint-conformance/bce/pull/97) and its
+[packet-bound GitHub COMMENT review](https://github.com/blueprint-conformance/bce/pull/97#pullrequestreview-5272627518).
+The decision is self-ratified: the coding agent reviewed, posted and executed it under the steward's
+recorded delegation, quoted verbatim in the review. No mocked review API or branch-protection bypass was used.
+
+Amended the engine contract from 0.1.1 to 0.1.2 so the `src/stack/` plane (added by #89 and grown by #92,
+#91 and #93) is policed by the engine's own blueprint: one glob never-exit row, both extraction-seam scopes
+widened to the plane, a no-network/no-subprocess import row, a row forbidding the global network APIs by
+bare reference, and the scan floor raised to 45, the real recursive `src/**/*.ts` count. All seven
+semantic-diff rows are classified `tightening`; nothing is removed or loosened.
+
+An earlier attempt at this amendment, #90, was closed unmerged. Its independent adversarial review found
+that the global-network row matched call syntax only, so the injectable-default idiom passed green; this
+candidate closes that before ratification. What a line scan still cannot see is stated in
+[docs/self-hosting.md](../../docs/self-hosting.md).
+
+- [Review with the authenticated decision](bstack-01b-stack-policy-coverage/review.txt) ([HTML](bstack-01b-stack-policy-coverage/review.html))
+- [Canonical packet](bstack-01b-stack-policy-coverage/review-packet.json): `sha256:5b4afc234f4707aed18c72f5acf6358e15363764a98731726dfed79ff6691f76`
+- [Saved decision](bstack-01b-stack-policy-coverage/decisions/approve-3f31b1951305d765.json)
+- [Sanitized GitHub receipt](bstack-01b-stack-policy-coverage/github-review-receipt.json)
+- [Runtime binding](bstack-01b-stack-policy-coverage/runtime-binding.json)
+- [Doctor](bstack-01b-stack-policy-coverage/doctor.txt): ready, exit 0, after the transition
+
+The packet preserves the pre-transition source head `fe01f75968b5698293a1d34e37f7daf040e0de70`. It was
+prepared from a pristine clone and reproduces byte for byte from a second fresh clone of that head. The
+runtime was packed from that clone before the review was posted, and the ceremony ran from the same build.
+Proof with the candidate installed on a throwaway copy: extractor-real teeth 50/50, a clean run of 100, and
+25 planted violations each caught in every one of the four `src/stack` files.
+
+As before, this proves first-party operational self-adoption and is explicitly self-ratified. It does not
+establish independent review, independent replication, external adoption, or product efficacy.
