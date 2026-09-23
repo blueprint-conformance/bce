@@ -1,13 +1,13 @@
 /**
  * mcp-server.test.ts — the THIN MCP stdio server (`bce-mcp`) round-trips against real fixture trees.
  *
- * The server is spec-churn insurance: EXACTLY ten tools, each a logic-free shell over the SAME
+ * The server is spec-churn insurance: EXACTLY eleven tools, each a logic-free shell over the SAME
  * exported engine API the `bce` CLI calls. These
  * tests SPAWN the real server (source, via tsx — the project convention) and drive newline-delimited
  * JSON-RPC 2.0 over its stdin/stdout, asserting:
  *
  *   1. HANDSHAKE — initialize returns the server identity + protocolVersion; tools/list returns
- *      EXACTLY the ten tools (an extra tool, or a missing one, is a surface regression).
+ *      EXACTLY the eleven tools (an extra tool, or a missing one, is a surface regression).
  *   2. run_gate is BYTE-IDENTICAL to `bce gate --report-json` — RED and GREEN produce OPPOSITE
  *      machine verdicts (gateFailed / exitCode) matching the CLI's, over the same fixtures.
  *   3. validate_blueprint / assess_teeth round-trip a real blueprint against a real tree.
@@ -177,7 +177,7 @@ describe('bce-mcp — handshake + tool surface', () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([
       'assess_teeth', 'check_baseline', 'compare_blueprint_policy', 'doctor_repository',
-      'explain_constraint', 'get_report', 'inspect_blueprint', 'run_gate',
+      'explain_constraint', 'get_report', 'inspect_blueprint', 'run_gate', 'stack_diff',
       'validate_blueprint', 'verify_review_packet',
     ]);
     expect(names).not.toEqual(expect.arrayContaining(['adopt', 'propose', 'review_decide', 'ratify', 'amend', 'graduate', 'baseline']));

@@ -67,8 +67,8 @@ the named `file#L<line>` on a red, fixes the code, and re-gates until green.
 
 ### Generic MCP
 
-For an agent that speaks MCP, the `bce-mcp` stdio server exposes the same engine as the CLI as ten
-read-only tools:
+For an agent that speaks MCP, the `bce-mcp` stdio server exposes the same engine as the CLI as
+eleven read-only tools:
 
 | Tool | Does |
 |---|---|
@@ -82,6 +82,7 @@ read-only tools:
 | `compare_blueprint_policy` | classify exact base/candidate policy direction conservatively |
 | `verify_review_packet` | replay packet and optional decision integrity without writing |
 | `get_report` | fetch the deterministic compliance report |
+| `stack_diff` | classify moves between two StackManifests written by `bce stack snapshot` |
 
 Point your agent's MCP client at the `bce-mcp` bin (it ships in the same package, `bin: bce-mcp`). The
 snippets tell the agent to prefer `run_gate` as its done-check. The server is deliberately thin — it

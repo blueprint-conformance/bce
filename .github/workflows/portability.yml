@@ -38,6 +38,8 @@ jobs:
         run: npm run test:portable
       - name: Built MCP compatibility
         run: npm run test:mcp-compatibility
+      - name: Stack manifest cross-OS golden-byte-identity (slice-1 seed, a949557)
+        run: npm run test:stack-cross-os
       - name: Restricted-network runtime and hostile proxy/registry settings
         run: npm run test:restricted-network
       - name: Packed consumer proof

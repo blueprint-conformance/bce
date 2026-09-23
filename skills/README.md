@@ -114,7 +114,7 @@ Three surfaces, three different jobs. They compose; they are not alternatives to
 |---|---|---|
 | **Agent Skill** (this directory) | On-demand lifecycle instructions — AI-first proposal/review plus validate → run → teeth → gate, loaded when the agent needs it | An agent is *creating or reviewing* a contract, or adopting the gate on a repository for the first time |
 | **House-rules snippet** ([`integrations/`](../integrations/README.md)) | An always-loaded block of three standing rules for a repository that already has a blueprint | An agent is *working inside* a gated repository day to day |
-| **MCP server** (`bce-mcp`, ships with the package) | Ten read-only tools: readiness, review, baseline diagnosis, validation, gate, teeth, and report reading | The agent speaks MCP and should call the review/gate API rather than shell out |
+| **MCP server** (`bce-mcp`, ships with the package) | Eleven read-only tools: readiness, review, baseline diagnosis, validation, gate, teeth, stack-diff classification, and report reading | The agent speaks MCP and should call the review/gate API rather than shell out |
 
 The snippet is the standing done-check; the skill is the thing that gets a contract to exist in the
 first place.

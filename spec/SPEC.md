@@ -1151,6 +1151,15 @@ declaredBy, canonical row bytes)` and the report is serialized by the §11 rules
 `edges[]` / `images[]` / `unmodeled[]` array order — yields byte-identical report bytes. The report
 is a verb output, not a published schema in this specification version.
 
+**CI enforcement (as of 0.4.0).** Both `stack snapshot` and `stack diff` are now proven, not only
+specified: a cross-OS golden-byte-identity proof runs on every one of `portability.yml`'s three OS
+legs (ubuntu-latest, macos-latest, windows-latest), and a built-dist-CLI RED/GREEN discriminating
+pair runs in `ci.yml` on every push, materializing the real revisions `47a51f4` → `e0f7344` (this
+repository's own vitest 4 → 5 bump) via `stack snapshot --ref` and asserting the exact top
+classification `removed` in the forward direction, `backward`/exit 2/`FAILS CLOSED` in the reverse.
+See [`docs/stack-plane.md`](../docs/stack-plane.md) for the operator-facing summary. `stack
+reconcile` and any blueprint constraint type over a stack remain unspecified.
+
 ---
 
 ## 15. Conformance

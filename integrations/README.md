@@ -11,7 +11,7 @@ The index:
 | pre-commit hook | [`pre-commit/`](./pre-commit/) | `bce-gate.sh` gates the **staged tree** before every commit, exit-code passthrough. Executed by the test suite in both of its modes (see its README) |
 | Agent instructions | `CLAUDE.md.snippet`, `AGENTS.md.snippet`, `.cursorrules.snippet` | House-rules snippets teaching an agent the three rules below |
 | Agent Skill | [`../skills/README.md`](../skills/README.md) | The proposal/review and validate → run → teeth → gate lifecycle as an on-demand skill, in the folder-per-skill Agent-Skills format. The snippets below are the standing done-check for a repo that already has a blueprint; the skill is what gets the contract to exist |
-| MCP server | `bce-mcp` bin (ships with the package) | Ten read-only stdio tools over the same engine API |
+| MCP server | `bce-mcp` bin (ships with the package) | Eleven read-only stdio tools over the same engine API |
 
 ## Agent-instruction snippets
 
@@ -43,10 +43,11 @@ agent picks it up alongside everything else the repo already tells it.
 
 ## The MCP tools (for an agent that speaks MCP)
 
-The `bce-mcp` stdio server exposes ten read-only tools over the same engine the CLI uses:
+The `bce-mcp` stdio server exposes eleven read-only tools over the same engine the CLI uses:
 `doctor_repository`, `check_baseline`, `validate_blueprint`, `run_gate`, `assess_teeth`, and
-`get_report`, plus `inspect_blueprint`, `explain_constraint`, `compare_blueprint_policy`, and
-`verify_review_packet`. Point your agent's MCP client at the `bce-mcp` bin; the snippets tell the
+`get_report`, plus `inspect_blueprint`, `explain_constraint`, `compare_blueprint_policy`,
+`verify_review_packet`, and `stack_diff` (classify moves between two already-written
+StackManifests). Point your agent's MCP client at the `bce-mcp` bin; the snippets tell the
 agent to prefer `run_gate` as its done-check. Proposal generation, decision recording, and policy
 mutation tools are deliberately absent.
 

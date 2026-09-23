@@ -108,7 +108,7 @@ If a label here overstates reality, that is a bug — please open an issue.
   ([`rfcs/RFC-0001-process.md`](rfcs/RFC-0001-process.md)); no spec-change RFC has yet been run
   through it.
 
-- **[DESIGN]** Stack plane, slice 1 — `bce stack snapshot` emits a content-addressed
+- **[RUNS]** Stack plane, slice 1 — `bce stack snapshot` emits a content-addressed
   `StackManifest` of the DECLARED dependency closure (npm lockfile v3 / shrinkwrap and pnpm-lock v9
   nodes keyed by name+version+integrity — pnpm through a hand-rolled YAML-subset reader, no YAML
   dependency ([`src/stack/pnpm-lock-reader.ts`](src/stack/pnpm-lock-reader.ts)), Dockerfile/compose image refs, the declared node runtime) with a
@@ -116,14 +116,16 @@ If a label here overstates reality, that is a bug — please open an issue.
   ([`src/stack/stack-manifest.ts`](src/stack/stack-manifest.ts), [`src/stack/stack-extractor.ts`](src/stack/stack-extractor.ts),
   [`spec/SPEC.md` §16](spec/SPEC.md)). The verb, the extractor and the golden-pinned determinism
   suites ([`tests/stack-determinism.test.ts`](tests/stack-determinism.test.ts),
-  [`tests/stack-pnpm.test.ts`](tests/stack-pnpm.test.ts)) are in the tree and
-  run under the vitest suite; this line moves to **[RUNS]** only when the dedicated built-dist
-  RED/GREEN CLI leg (the discriminating-pair convention above) lands. yarn lockfiles, pnpm lockfiles other than v9,
-  image-tag resolution and any blueprint constraint over a stack are not built.
+  [`tests/stack-pnpm.test.ts`](tests/stack-pnpm.test.ts)) run under the vitest suite, AND a
+  cross-OS golden-byte-identity proof over the committed `a949557` fixture now runs on every one of
+  `portability.yml`'s three OS legs ([`scripts/stack-cross-os-golden-proof.mjs`](scripts/stack-cross-os-golden-proof.mjs)),
+  proving the extractor reproduces the golden manifest byte for byte on ubuntu, macOS AND Windows —
+  the council's cross-OS prediction is now a measured, running fact. yarn lockfiles, pnpm lockfiles
+  other than v9, image-tag resolution and any blueprint constraint over a stack are not built.
   Unreleased API note: the `STACK_REFUSAL_PNPM` export (the slice-1 "pnpm is not supported" refusal
   string, never shipped in a published version) is removed — a `pnpm-lock.yaml` is now read, and its own
   refusals are the `stackRefusalPnpm*` strings.
-- **[DESIGN]** Stack plane — `bce stack diff --from <A> --to <B>` classifies every move between two
+- **[RUNS]** Stack plane — `bce stack diff --from <A> --to <B>` classifies every move between two
   StackManifests (`added` / `removed` / `forward` / `backward` / `rewritten` / `flags-changed` /
   `spec-changed` / `unknown`), joined on `(kind, name)` and never on `name@version`, with per-name
   set matching and a strict no-dependency semver parser
@@ -132,9 +134,15 @@ If a label here overstates reality, that is a bug — please open an issue.
   own rows. `unknown` fails closed (`unknown-potential-backward`, exit 2); `backward`, `rewritten`
   and a same-version install-script gain exit 2 too. [`tests/stack-diff.test.ts`](tests/stack-diff.test.ts)
   pins the measured table of a real revision pair of this repository (`47a51f4` → `a949557`, the
-  vitest 4 → 5 bump: 7 forward, 1 added copy, 7 removed) and the same-closure-different-revision
-  zero diff (`e0f7344` ≡ `a949557`). Same
-  label rule as the line above: **[RUNS]** only when the dedicated built-dist CI leg lands. `stack
+  vitest 4 → 5 bump: 7 forward, 1 added copy, 7 removed, top classification `removed` by the max-rank
+  rule) and the same-closure-different-revision zero diff (`e0f7344` ≡ `a949557`). The dedicated
+  built-dist RED/GREEN CI leg now runs on every push
+  ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): the GREEN leg materializes real
+  revisions `47a51f4` → `e0f7344` via `bce stack snapshot --ref` and asserts the exact top
+  classification `removed` (not merely exit 0 — a no-op or wrong pair also exits 0 trivially), and
+  the RED leg is the reverse (downgrade) direction of the SAME pair, asserting exit 2 and
+  `FAILS CLOSED`. The read-only `stack_diff` MCP tool exposes the classifier over two
+  already-written manifests (11th tool; [`src/mcp-server.ts`](src/mcp-server.ts)). `stack
   reconcile` and any gate wiring of the diff are not built.
 
 ## Directions — [FUTURE]

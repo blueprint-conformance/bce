@@ -1141,7 +1141,7 @@ async function main(): Promise<void> {
       process.stdout.write(
         `MCP config: ${repoRelative(repoDir, mcpTarget!)} ` +
         `(doctor_repository, check_baseline, validate_blueprint, run_gate, assess_teeth, ` +
-        `inspect_blueprint, explain_constraint, compare_blueprint_policy, verify_review_packet, get_report)\n`,
+        `inspect_blueprint, explain_constraint, compare_blueprint_policy, verify_review_packet, get_report, stack_diff)\n`,
       );
       process.stdout.write(`next: run 'npx --no-install bce doctor --repo .' and review/commit the proposal; ratification remains attended\n`);
     }

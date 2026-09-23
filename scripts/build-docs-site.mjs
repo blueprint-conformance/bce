@@ -144,6 +144,7 @@ const PAGES = [
   { route: 'guides/release-v0.3.1', source: 'docs/release-v0.3.1.md', section: 'Guides' },
   { route: 'guides/mcp-compatibility', source: 'docs/mcp-compatibility.md', section: 'Guides' },
   { route: 'guides/portability', source: 'docs/portability.md', section: 'Guides' },
+  { route: 'guides/stack-plane', source: 'docs/stack-plane.md', section: 'Guides' },
   { route: 'guides/scale-and-detection', source: 'docs/scale-and-detection.md', section: 'Guides' },
   { route: 'guides/extending-extractors', source: 'docs/extending-extractors.md', section: 'Guides' },
   { route: 'guides/pin-ceremony', source: 'docs/pin-ceremony.md', section: 'Guides' },

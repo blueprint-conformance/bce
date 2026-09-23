@@ -34,6 +34,7 @@
  *   compare_blueprint_policy → compareBlueprintPolicy (semantic direction, read-only)
  *   verify_review_packet → verifyReviewPacket  (integrity replay; no decision write)
  *   get_report          → (read a serialized report file the CLI already wrote — logic-free)
+ *   stack_diff           → diffStackManifests   (classify moves between two committed StackManifests)
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -55,6 +56,9 @@ import {
   verifyReviewPacket,
   BlueprintReviewPacketSchema,
   BlueprintDecisionRecordSchema,
+  parseStackManifest,
+  verifyStackManifest,
+  diffStackManifests,
 } from './index.js';
 
 // ── JSON-RPC 2.0 framing (newline-delimited, per MCP stdio transport spec) ──────────────────────
@@ -95,7 +99,7 @@ function negotiateProtocolVersion(requested: unknown): string {
 }
 
 const SERVER_NAME = 'bce-mcp';
-const SERVER_VERSION = '3';
+const SERVER_VERSION = '4';
 
 interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -369,6 +373,27 @@ const TOOL_DEFINITIONS = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'stack_diff',
+    description:
+      'Read-only classification of every move between two committed StackManifests (added / removed / ' +
+      'forward / backward / rewritten / flags-changed / spec-changed / unknown), written beforehand by ' +
+      "`bce stack snapshot`. Inputs are manifests, never repositories: a file that is not a strict " +
+      "StackManifest, is a symbolic link, or whose recorded digests do not re-derive, is refused. This tool " +
+      'only classifies and returns the report — it never writes one and never blocks the caller; the ' +
+      'report itself carries `classification`, `approvalBlocked`, and `downgradeAckRequired` so a backward, ' +
+      'rewritten, or unproven move is legible in the structured result, not silently passed.',
+    annotations: { title: 'Diff BCE stack manifests', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        fromManifestPath: { type: 'string', description: 'Path to the base StackManifest (written by `bce stack snapshot`).' },
+        toManifestPath: { type: 'string', description: 'Path to the candidate StackManifest (written by `bce stack snapshot`).' },
+      },
+      required: ['fromManifestPath', 'toManifestPath'],
+      additionalProperties: false,
+    },
+  },
 ] as const;
 
 /**
@@ -506,6 +531,22 @@ function callTool(name: string, rawArgs: unknown): Record<string, unknown> {
         const doc = readJsonFile(p); // logic-free: re-read a graded fact, never re-derive it
         return toolResult(doc);
       }
+      case 'stack_diff': {
+        const load = (key: 'fromManifestPath' | 'toManifestPath') => {
+          const p = requireString(args, key);
+          const manifest = parseStackManifest(readJsonFile(p)); // fail-closed schema parse — THROWS on invalid
+          const check = verifyStackManifest(manifest);
+          if (!check.valid) {
+            throw new ToolArgError(
+              `${key} ${p} REFUSED: recorded digests do not re-derive (stackDigest ${check.stackDigestOk ? 'ok' : 'MISMATCH'}, ` +
+                `stackId ${check.stackIdOk ? 'ok' : 'MISMATCH'}, manifestDigest ${check.manifestDigestOk ? 'ok' : 'MISMATCH'}) — the manifest was edited after extraction`,
+            );
+          }
+          return manifest;
+        };
+        const report = diffStackManifests(load('fromManifestPath'), load('toManifestPath'));
+        return toolResult(report);
+      }
       default:
         return toolError(`unknown tool: ${name}`);
     }
@@ -536,7 +577,8 @@ function handleRequest(req: JsonRpcRequest): void {
           'named code violation and rerun—never silently edit a blueprint or baseline. Use ' +
           'validate_blueprint for contract syntax, assess_teeth to prove a contract can fail, ' +
           'inspect_blueprint / explain_constraint for review, compare_blueprint_policy for semantic ' +
-          'direction, verify_review_packet for integrity, check_baseline for debt maintenance, and ' +
+          'direction, verify_review_packet for integrity, check_baseline for debt maintenance, ' +
+          'stack_diff to classify moves between two StackManifests written by `bce stack snapshot`, and ' +
           'get_report only to reread an existing report. ' +
           'All tools are read-only; policy changes require attended CLI review.',
       });

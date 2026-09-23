@@ -200,6 +200,24 @@ Specification: [blueprint-conformance/v1alpha1](spec/SPEC.md) · Agent loop:
 [MCP and agent workflow](docs/agent-loop.md) · Documentation:
 [blueprint-conformance.github.io/bce](https://blueprint-conformance.github.io/bce/)
 
+**Source candidate: v0.4.0.** This stages the stack plane's slice-1 closure classifier: `bce stack
+snapshot` emits a content-addressed `StackManifest` of the declared dependency closure (npm
+lockfile v3/shrinkwrap and pnpm-lock v9, Dockerfile/compose image refs, the declared node runtime),
+and `bce stack diff` classifies every move between two manifests (added / removed / forward /
+backward / rewritten / flags-changed / spec-changed / unknown), failing closed on a backward,
+rewritten, or unproven move. A cross-OS golden-byte-identity proof and a built-dist-CLI RED/GREEN
+discriminating pair over a real revision pair now run in CI, and a read-only `stack_diff` MCP tool
+exposes the classifier over already-written manifests. The registry release remains v0.3.1 until
+the candidate passes the release workflow and the published artifact is verified. Check
+availability before choosing an install target:
+
+```bash
+npm view bce-engine@0.4.0 version dist.integrity
+```
+
+The v0.4.0 candidate also packages the previously merged pnpm-lock v9 ingestion (`sources[].parser`
+widened accordingly); these remain absent from immutable v0.3.1.
+
 **Current registry release: v0.3.1.** It expands route-handler inventory, refuses recognized
 unsupported or rebound handlers, and makes the call-site evidence limit visible in the terminal.
 A fresh registry installation passed all 52 route cases against the exact released archive. This
