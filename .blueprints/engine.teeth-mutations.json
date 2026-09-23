@@ -469,7 +469,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/stack/stack-extractor.ts",
-        "preconditionSha256": "50146338d3f305e756941c90a1dde691c658f4fa0bd3592e08ad8628060cd03d",
+        "preconditionSha256": "55b18618310e2385543ad5df690ff70ab2f7d2839d4dbe3c068fd922f28c102b",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/stack/stack-extractor.ts",
@@ -591,7 +591,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/stack/stack-extractor.ts",
-        "preconditionSha256": "50146338d3f305e756941c90a1dde691c658f4fa0bd3592e08ad8628060cd03d",
+        "preconditionSha256": "55b18618310e2385543ad5df690ff70ab2f7d2839d4dbe3c068fd922f28c102b",
         "content": "\nexport async function __bceMutationFetch(): Promise<unknown> { return fetch('https://example.invalid/'); }\n"
       },
       "expectedEvidencePath": "src/stack/stack-extractor.ts",
@@ -603,7 +603,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/stack/stack-extractor.ts",
-        "preconditionSha256": "50146338d3f305e756941c90a1dde691c658f4fa0bd3592e08ad8628060cd03d",
+        "preconditionSha256": "55b18618310e2385543ad5df690ff70ab2f7d2839d4dbe3c068fd922f28c102b",
         "content": "\nimport * as __bceMutationHttps from 'node:https';\n"
       },
       "expectedEvidencePath": "src/stack/stack-extractor.ts",

@@ -339,6 +339,20 @@ export function checkPnpmLockCoversTree(
           present = false;
         }
         if (present) continue; // its contents are in this view: the walk above already judged them
+        // an OR of two INDEPENDENT questions, both about `g` — never conflate them, and never "complete" one
+        // by widening the other. `isPnpmWorkspaceDir(g)` asks whether `g` ITSELF still resolves to a package
+        // (untouched by MINOR-2/pass-5 — see pnpm-lock-reader.ts); `pnpmWorkspaceGlobMayMatchBelow(g)` asks
+        // whether an include glob could still name something STRICTLY BELOW `g` (the one MINOR-2 touched). A
+        // `dir/**/*`-style negation (`!packages/zsub/**/*`) clears the SECOND question — `**/*` requires at
+        // least one real segment below `dir`, so nothing below can be named — but NEVER the first: the glob
+        // never excludes `dir` itself (only its bare-`**` sibling, `!packages/zsub/**`, does that, since `**`
+        // alone can collapse to zero segments and cover `dir` too). Real pnpm 10.11.1 agrees: under
+        // `packages: [packages/**, "!packages/zsub/**/*"]` it still writes an importer for `packages/zsub`
+        // itself. So this refusal correctly PERSISTS for a `dir/**/*`-only negation on a gitlink — do not read
+        // that as this guard "half-fixed"; making `isPnpmWorkspaceDir` also treat `dir/**/*` as excluding
+        // `dir` would be a genuine fail-open (silently certifying a submodule's root package as covered
+        // without ever having seen it). See the MAJOR-1 (pass 1, refute #98) end-to-end regression test in
+        // stack-pnpm.test.ts and SPEC §16.1 (d).
         if (isPnpmWorkspaceDir(patterns, g) || pnpmWorkspaceGlobMayMatchBelow(patterns, g)) {
           lost.push(`pnpm-workspace.yaml may name a package under the submodule '${g}', whose contents are not in this view, so the workspace packages cannot be checked`);
         }

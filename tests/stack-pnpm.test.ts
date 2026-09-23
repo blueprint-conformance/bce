@@ -2192,4 +2192,74 @@ describe('stack pnpm — group 11: truncation guards (a) empty bucket, (b) link 
       "pnpm-workspace.yaml: the root package is always a workspace package but the lockfile has no importer '.'",
     ]);
   });
+
+  it("MAJOR-1 (pass 1, refute #98): a `dir/**/*`-style negation clears the reach BELOW a gitlink but never the gitlink itself — end to end, real git submodule, pinned view", () => {
+    // MINOR-2 (pass 5) fixed ONLY `pnpmWorkspaceGlobMayMatchBelow` — the "could an include glob name a
+    // package BELOW dir" question. The call site at stack-extractor.ts refuses on the OR of THAT function
+    // with `isPnpmWorkspaceDir` — the SEPARATE "is dir itself still a workspace package" question — and a
+    // `dir/**/*` negation (at least one segment required below `dir`; `**` can be zero, `*` cannot) never
+    // excludes `dir` itself from `isPnpmWorkspaceDir`'s include/exclude test. Real pnpm 10.11.1 agrees: under
+    // `packages: [packages/**, "!packages/zsub/**/*"]` it writes an importer for `packages/zsub` itself (only
+    // `nested/` below it is excluded) — so refusing to certify closure without seeing the submodule's root
+    // manifest is the CORRECT, fail-closed answer for that shape, not a residual bug. Only a negation that
+    // ALSO excludes `dir` itself (`!packages/zsub/**`, or naming `dir` bare) can ever clear it — confirmed
+    // against real pnpm the same way in the MINOR-2 (pass 5) fixture work. This test is the end-to-end
+    // regression the refuter's pass-1 report asked for: it drives a REAL git repo with a REAL submodule
+    // (gitlink, mode 160000) through the REAL CLI at a PINNED `HEAD` view — not the isolated
+    // `pnpmWorkspaceGlobMayMatchBelow` unit function every other MINOR-2 test in this file calls — so a
+    // future "finish the job" change that makes `isPnpmWorkspaceDir` also treat `dir/**/*` as clearing `dir`
+    // itself would be caught here (that change would be a real fail-open: it would silently accept a
+    // lockfile for a gitlink whose own root package.json is a genuine, unverified workspace member).
+    const git = (repo: string, ...a: string[]): string => execFileSync('git', ['-C', repo, '-c', 'user.email=t@example.com', '-c', 'user.name=t', ...a], { encoding: 'utf8' }).trim();
+    const mk = (negation: string): string => {
+      const repo = tmp(`major1-refute98-${negation.replace(/[^a-z0-9]+/gi, '_')}`);
+      fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ name: 'major1-root', version: '1.0.0', private: true }));
+      fs.writeFileSync(path.join(repo, 'pnpm-workspace.yaml'), `packages:\n  - packages/**\n  - '${negation}'\n`);
+      // root-only lockfile: the "may name a package under the submodule" check fires independently of
+      // whether `packages/zsub` is (or isn't) already recorded as an importer — it is a structural
+      // cannot-verify refusal, not a declared-vs-lockfile mismatch (see the direct-knowledge cross-check
+      // in this WO's verification notes: identical refusal set with a root-only lockfile either way).
+      fs.writeFileSync(path.join(repo, 'pnpm-lock.yaml'), "lockfileVersion: '9.0'\nimporters:\n  .: {}\n");
+      git(repo, 'init', '-q', '-b', 'main');
+      // packages/zsub: a REAL nested repository, so the parent's `git add -A` records it as a gitlink
+      // (mode 160000) — the exact shape `MAJOR-1 (pass 3)` above already proves the CLI reads correctly
+      const zsub = path.join(repo, 'packages', 'zsub');
+      fs.mkdirSync(zsub, { recursive: true });
+      fs.writeFileSync(path.join(zsub, 'package.json'), JSON.stringify({ name: 'zsub', version: '1.0.0' }));
+      git(zsub, 'init', '-q', '-b', 'main');
+      git(zsub, 'add', '-A');
+      git(zsub, 'commit', '-q', '-m', 'zsub');
+      git(repo, 'add', '-A');
+      git(repo, 'commit', '-q', '-m', 'root');
+      expect(git(repo, 'ls-files', '--stage', 'packages/zsub'), negation).toMatch(/^160000 /);
+      return repo;
+    };
+    const lostSubmodule = stackRefusalPnpmLostClosure("pnpm-workspace.yaml may name a package under the submodule 'packages/zsub', whose contents are not in this view, so the workspace packages cannot be checked");
+    const pinnedSnapshot = (repo: string): { status: number; stderr: string } => {
+      const out = path.join(tmp('major1-refute98-out'), 'm.json');
+      const cli = runCli(['stack', 'snapshot', '--ct-repo', repo, '--out', out], ROOT); // no --no-pin: the default IS the pinned HEAD view
+      return { status: cli.status, stderr: cli.stderr };
+    };
+    // genuinely fixed by MINOR-2 (pass 5): `**/*` excludes `packages/zsub` itself too (real pnpm drops it
+    // from `importers` entirely under this config), so `isPnpmWorkspaceDir` is false and the OR clears
+    expect(pinnedSnapshot(mk('!packages/**/*'))).toMatchObject({ status: 0 });
+    // NOT fixed, and MUST NOT be "fixed" by a future change: `dir/**/*` requires a segment below `dir`, so
+    // `packages/zsub` itself stays a workspace-eligible directory — the mount point cannot be certified
+    // without seeing its (submodule, absent-from-this-view) root manifest, exactly as real pnpm implies
+    let r = pinnedSnapshot(mk('!packages/zsub/**/*'));
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain(lostSubmodule);
+    r = pinnedSnapshot(mk('!**/zsub/**/*'));
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain(lostSubmodule);
+    // the pre-existing clearing form (bare `**`, unaffected by and predating this PR) still clears — `**`
+    // alone can collapse to zero segments and cover `packages/zsub` itself, unlike `**/*`
+    expect(pinnedSnapshot(mk('!packages/zsub/**'))).toMatchObject({ status: 0 });
+    // naming only the gitlink directory itself, with NO wildcard at all, still refuses: it excludes `zsub`
+    // from `isPnpmWorkspaceDir`, but excludes nothing BELOW it, and `packages/**` can still reach a deeper
+    // (unseen) package there — `pnpmWorkspaceGlobMayMatchBelow` alone keeps the OR guard firing
+    r = pinnedSnapshot(mk('!packages/zsub'));
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain(lostSubmodule);
+  });
 });
