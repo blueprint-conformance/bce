@@ -895,11 +895,16 @@ guards, every one a refusal (exit 2, nothing written), none of them a skip:
   directory (an absolute path stays absolute) and re-relativised from that directory, `/`-separated
   — measured on pnpm 10.11.1: `./vendor/lib/` → `vendor/lib`, `pkgs/../vendor/lib` →
   `vendor/lib`, `../<checkout>/vendor/lib` seen from the root → `vendor/lib`, `/abs/outside` →
-  `../outside`. The anchor is the checkout `--ct-repo` names (where pnpm ran), never a
-  materialization, so the pinned and unpinned views agree; a reader given no anchor refuses the
-  anchor-dependent forms rather than guessing. Any other value (a bare `link:`, a path cut short, a
-  value naming a different directory) is refused. A committed fixture cannot carry an absolute
-  specifier (its value depends on the machine); that form is pinned in the reader's own tests.
+  `../outside`. When the specifier resolves to the importer ITSELF the expected value is a BARE
+  `link:` (no path suffix) — measured on pnpm 10.11.1: `packages/a` depending on itself through
+  `"a": "link:."`, or by a longer path that climbs back onto its own directory (`"me": "link:../a"`
+  seen from `packages/a`), both write `version: 'link:'`; that is the ONE shape a bare `link:` is
+  the correct, accepted value for. The anchor is the checkout `--ct-repo` names (where pnpm ran),
+  never a materialization, so the pinned and unpinned views agree; a reader given no anchor refuses
+  the anchor-dependent forms rather than guessing. Any other value (a bare `link:` where the
+  specifier does NOT resolve to the importer itself, a path cut short, a value naming a different
+  directory) is refused. A committed fixture cannot carry an absolute specifier (its value depends
+  on the machine); that form is pinned in the reader's own tests.
 - **(c) every importer's `package.json` is covered.** For each importer the `package.json` of the
   SAME view the rest of the verb reads (the pinned tree, or the working tree under `--no-pin`) is
   read without following any symbolic link on the way, and every name it declares under
@@ -931,10 +936,24 @@ guards, every one a refusal (exit 2, nothing written), none of them a skip:
   pnpm cannot have written it) and is refused as an inconsistent tree, with that reason. (An
   earlier reading took the undeclared case as pnpm's `**` default; it refused legitimate pnpm 10
   trees that keep a `package.json` under `docs/` or `examples/`, and was withdrawn.) A gitlink under
-  a workspace glob is refused as unseen only when an include glob can name a directory below it
-  that no negated glob takes away again: `!packages/zsub/**` (or `!packages/**`) clears the
-  submodule `packages/zsub`, while `!packages/zsub` alone, or `!packages/zsub/*`, does not, because
-  a deeper directory could still be named.
+  a workspace glob is refused as unseen when EITHER of two independent questions about it is still
+  open: (i) does the gitlink's OWN directory still resolve as a workspace package (an include glob
+  matches it and no exclude glob excludes that exact directory), or (ii) can an include glob still
+  name a directory STRICTLY BELOW it that no exclude glob clears. BOTH must be closed to accept.
+  `!packages/zsub/**` (or `!packages/**`) closes both at once — `**` can collapse to zero segments,
+  so it excludes the directory itself as well as everything below it. `!packages/**/*` also closes
+  both for a first-level gitlink: with `**` collapsed to zero it reduces to `packages/*`, which
+  matches the gitlink's own single segment directly. `!packages/zsub` alone, or `!packages/zsub/*`,
+  closes NEITHER — a deeper directory could still be named, and the mount point itself is still
+  reachable through `packages/**`. A `dir/**/*`-style negation whose prefix names the gitlink
+  itself (`!packages/zsub/**/*`, `!**/zsub/**/*`) closes ONLY question (ii), never question (i):
+  `**/*` requires at least one real segment below the prefix (`**` may be zero, `*` may not), so it
+  can never exclude the gitlink's own directory. Real pnpm 10.11.1 agrees — under
+  `packages: [packages/**, "!packages/zsub/**/*"]` it still writes an importer for `packages/zsub`
+  itself (only a nested package below it is excluded). So a `dir/**/*`-only negation on a gitlink's
+  own directory is refused as unseen even though the reach BELOW it is fully cleared — this is the
+  correct, fail-closed answer, not a residual gap: closing question (i) for this shape would mean
+  silently certifying a submodule's root package as covered without ever having seen it.
 
 Every line prefix of the real pnpm-written lockfiles in `fixtures/stack/pnpm-v9-real-shapes`
 and of the synthetic golden, and every BYTE prefix of every committed real shape, is refused; only

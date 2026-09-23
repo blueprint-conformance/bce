@@ -29,3 +29,10 @@ with the `package.json` / `pnpm-workspace.yaml` files its lockfile must cover:
   `link:vendor/lib` for all three. The directory this fixture sits in MUST stay named `link-reenter`:
   the value is a function of where the tree lives (SPEC §16.1 (b)). Written by pnpm 10.11.1 on
   2026-09-21 with `pnpm install --ignore-scripts --offline`.
+- `self-link-protocol` — `packages/a` depending on itself through the `link:` PROTOCOL (not
+  `workspace:*`): `"a": "link:."` and `"me": "link:../a"`, both specifiers resolving to
+  `packages/a` itself. pnpm writes a BARE `version: 'link:'` (no path suffix) for both — the one
+  shape a bare `link:` is the correct, accepted value for (SPEC §16.1 (b), MINOR-1 pass 5). Unlike
+  `link-reenter`, this shape resolves to the importer regardless of the anchor's absolute depth, so
+  the directory this fixture sits in is NOT anchor-sensitive and may be renamed freely. Written by
+  pnpm 10.11.1 on 2026-09-22 with `pnpm install --ignore-scripts --offline`.
