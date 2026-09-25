@@ -109,7 +109,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@modelcontextprotocol/inspector": "2.6.0",
+    "@modelcontextprotocol/inspector": "2.7.0",
     "@sigstore/cli": "0.10.3",
     "@types/node": "^22.5.0",
     "ajv": "^8.20.0",

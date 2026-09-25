@@ -19,7 +19,7 @@
         "bce-mcp": "dist/mcp-server.js"
       },
       "devDependencies": {
-        "@modelcontextprotocol/inspector": "2.6.0",
+        "@modelcontextprotocol/inspector": "2.7.0",
         "@sigstore/cli": "0.10.3",
         "@types/node": "^22.5.0",
         "ajv": "^8.20.0",
@@ -620,9 +620,9 @@
       }
     },
     "node_modules/@modelcontextprotocol/ext-apps": {
-      "version": "1.7.5",
-      "resolved": "https://registry.npmjs.org/@modelcontextprotocol/ext-apps/-/ext-apps-1.7.5.tgz",
-      "integrity": "sha512-TjPH2S2y5UEGKhmI6+XGFuqfqOV4ppe1x6DA3txnUaEWkgtA4G5vo14jGKFZmegdkZ1H4QMLyujLvoU1BEdnAg==",
+      "version": "2.0.0",
+      "resolved": "https://registry.npmjs.org/@modelcontextprotocol/ext-apps/-/ext-apps-2.0.0.tgz",
+      "integrity": "sha512-a6tXzFcIbIIdnqumQ7W8Oxd8W/KAPkAKYpoxpD9nDgxZ24ywgxG5pK/8G9W5pOFUygS7gWHQhPv8cwRB44/8yg==",
       "dev": true,
       "license": "MIT",
       "workspaces": [
@@ -635,12 +635,17 @@
         "node": ">=20"
       },
       "peerDependencies": {
-        "@modelcontextprotocol/sdk": "^1.29.0",
+        "@modelcontextprotocol/client": "^2.0.0",
+        "@modelcontextprotocol/core": "^2.0.0",
+        "@modelcontextprotocol/server": "^2.0.0",
         "react": "^17.0.0 || ^18.0.0 || ^19.0.0",
         "react-dom": "^17.0.0 || ^18.0.0 || ^19.0.0",
-        "zod": "^3.25.0 || ^4.0.0"
+        "zod": "^4.2.0"
       },
       "peerDependenciesMeta": {
+        "@modelcontextprotocol/server": {
+          "optional": true
+        },
         "react": {
           "optional": true
         },
@@ -650,9 +655,9 @@
       }
     },
     "node_modules/@modelcontextprotocol/inspector": {
-      "version": "2.6.0",
-      "resolved": "https://registry.npmjs.org/@modelcontextprotocol/inspector/-/inspector-2.6.0.tgz",
-      "integrity": "sha512-e/kC3Xx+iqsYg17nxZtp9H6ZfpK8gVlGklsT/4LcpbSgMVaAQZCa5jihRvcrmnksNl+h5dcwm7WgH/ao2gI1ew==",
+      "version": "2.7.0",
+      "resolved": "https://registry.npmjs.org/@modelcontextprotocol/inspector/-/inspector-2.7.0.tgz",
+      "integrity": "sha512-V1SqfR+m3NWMkEe2i3v2GMm00pZtAl/JISAHQzYnOZElEuwuLLkU8vTWBYg5HMCYTgpvuMmzb+MZz98HjdcGuw==",
       "dev": true,
       "hasInstallScript": true,
       "license": "MIT",
@@ -660,7 +665,7 @@
         "@hono/node-server": "^2.0.12",
         "@modelcontextprotocol/client": "2.0.0",
         "@modelcontextprotocol/core": "2.0.0",
-        "@modelcontextprotocol/ext-apps": "^1.7.4",
+        "@modelcontextprotocol/ext-apps": "^2.0.0",
         "@modelcontextprotocol/server": "2.0.0",
         "@modelcontextprotocol/server-legacy": "2.0.0",
         "@napi-rs/keyring": "^1.3.0",
@@ -695,48 +700,6 @@
       "license": "MIT",
       "engines": {
         "node": ">=18"
-      }
-    },
-    "node_modules/@modelcontextprotocol/sdk": {
-      "version": "1.30.0",
-      "resolved": "https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.30.0.tgz",
-      "integrity": "sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==",
-      "dev": true,
-      "license": "MIT",
-      "peer": true,
-      "dependencies": {
-        "@hono/node-server": "^1.19.9 || ^2.0.5",
-        "ajv": "^8.17.1",
-        "ajv-formats": "^3.0.1",
-        "content-type": "^1.0.5",
-        "cors": "^2.8.5",
-        "cross-spawn": "^7.0.5",
-        "eventsource": "^3.0.2",
-        "eventsource-parser": "^3.0.0",
-        "express": "^5.2.1",
-        "express-rate-limit": "^8.2.1",
-        "hono": "^4.11.4",
-        "jose": "^6.1.3",
-        "json-schema-typed": "^8.0.2",
-        "pkce-challenge": "^5.0.0",
-        "raw-body": "^3.0.0",
-        "zod": "^3.25 || ^4.0",
-        "zod-to-json-schema": "^3.25.1"
-      },
-      "engines": {
-        "node": ">=18"
-      },
-      "peerDependencies": {
-        "@cfworker/json-schema": "^4.1.1",
-        "zod": "^3.25 || ^4.0"
-      },
-      "peerDependenciesMeta": {
-        "@cfworker/json-schema": {
-          "optional": true
-        },
-        "zod": {
-          "optional": false
-        }
       }
     },
     "node_modules/@modelcontextprotocol/server": {
@@ -2685,25 +2648,6 @@
         "url": "https://github.com/sponsors/epoberezkin"
       }
     },
-    "node_modules/ajv-formats": {
-      "version": "3.0.1",
-      "resolved": "https://registry.npmjs.org/ajv-formats/-/ajv-formats-3.0.1.tgz",
-      "integrity": "sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==",
-      "dev": true,
-      "license": "MIT",
-      "peer": true,
-      "dependencies": {
-        "ajv": "^8.0.0"
-      },
-      "peerDependencies": {
-        "ajv": "^8.0.0"
-      },
-      "peerDependenciesMeta": {
-        "ajv": {
-          "optional": true
-        }
-      }
-    },
     "node_modules/ansi-escapes": {
       "version": "7.3.0",
       "resolved": "https://registry.npmjs.org/ansi-escapes/-/ansi-escapes-7.3.0.tgz",
@@ -3905,9 +3849,9 @@
       }
     },
     "node_modules/hono": {
-      "version": "4.13.7",
-      "resolved": "https://registry.npmjs.org/hono/-/hono-4.13.7.tgz",
-      "integrity": "sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ==",
+      "version": "4.13.8",
+      "resolved": "https://registry.npmjs.org/hono/-/hono-4.13.8.tgz",
+      "integrity": "sha512-/Gng7NfoykZl2pjukW5Z6+8Yxm3BPRf86GTbQnt0SbySkvax4fyL4H3HhY1cCpBGmiW9XDRFzRV+CXK2W8QudQ==",
       "dev": true,
       "license": "MIT",
       "engines": {
@@ -4217,14 +4161,6 @@
       "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==",
       "dev": true,
       "license": "MIT"
-    },
-    "node_modules/json-schema-typed": {
-      "version": "8.0.2",
-      "resolved": "https://registry.npmjs.org/json-schema-typed/-/json-schema-typed-8.0.2.tgz",
-      "integrity": "sha512-fQhoXdcvc3V28x7C7BMs4P5+kNlgUURe2jmUT1T//oBRMDrqy1QPelJimwZGo7Hg9VPV3EQV5Bnq4hbFy2vetA==",
-      "dev": true,
-      "license": "BSD-2-Clause",
-      "peer": true
     },
     "node_modules/lightningcss": {
       "version": "1.33.0",
