@@ -31,6 +31,7 @@ const expectedTools = [
   'get_report',
   'inspect_blueprint',
   'run_gate',
+  'stack_diff',
   'validate_blueprint',
   'verify_review_packet',
 ];
@@ -411,12 +412,12 @@ const gitResponses = await rpcRoundTrip(gitMcp, gitConsumer, [
   { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
 ]);
 const gitTools = gitResponses.get(2)?.result?.tools?.map((tool) => tool.name).sort();
-assert(JSON.stringify(gitTools) === JSON.stringify(expectedTools), 'Git-installed MCP did not expose all ten tools');
+assert(JSON.stringify(gitTools) === JSON.stringify(expectedTools), 'Git-installed MCP did not expose all eleven tools');
 
 process.stdout.write(`packed artifact: ${basename(tarball)} (${packResult[0].files.length} files)\n`);
 process.stdout.write('packed binaries: bce + bce-mcp PASS\n');
 process.stdout.write('cold lifecycle: author -> onboard -> RED -> fix -> GREEN -> evidence PASS\n');
-process.stdout.write('MCP: ten tools listed; six lifecycle tools called successfully PASS\n');
+process.stdout.write('MCP: eleven tools listed; six lifecycle tools called successfully PASS\n');
 process.stdout.write('Git install: prepare build + bce + bce-mcp PASS\n');
 process.stdout.write('onboarding consumer proof: PASS\n');
 

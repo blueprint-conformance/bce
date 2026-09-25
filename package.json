@@ -1,7 +1,7 @@
 {
   "name": "bce-engine",
-  "version": "0.3.1",
-  "description": "bce — the blueprint conformance engine. Author an EngineeringBlueprint and gate code against it with deterministic scores, fail-closed verdicts, and re-derivable evidence. TypeScript/JavaScript AST extraction covers framework surfaces and direct module boundaries; Python import extraction is an explicit MVP.",
+  "version": "0.4.0",
+  "description": "bce \u2014 the blueprint conformance engine. Author an EngineeringBlueprint and gate code against it with deterministic scores, fail-closed verdicts, and re-derivable evidence. TypeScript/JavaScript AST extraction covers framework surfaces and direct module boundaries; Python import extraction is an explicit MVP.",
   "license": "Apache-2.0",
   "author": "bce maintainers",
   "repository": {
@@ -55,6 +55,7 @@
     "test:ai-adoption": "node scripts/ai-adoption-proof.mjs",
     "test:mcp-compatibility": "node scripts/mcp-compatibility-proof.mjs",
     "test:portable": "vitest run --exclude tests/pre-commit-hook.test.ts --exclude tests/skill-contract.test.ts --exclude tests/self-gate-honesty.test.ts",
+    "test:stack-cross-os": "node scripts/stack-cross-os-golden-proof.mjs",
     "test:action-pins": "node scripts/check-action-pins.selftest.mjs && node scripts/check-action-pins.mjs",
     "test:release-policy": "node scripts/check-release-proof-policy.selftest.mjs && node scripts/check-release-proof-policy.mjs",
     "test:reproducibility": "node scripts/reproducibility-proof.mjs",

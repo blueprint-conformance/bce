@@ -4,7 +4,8 @@ BCE's published runtime declares Node 22 and newer. The repository's source-buil
 to Node 22.22.2 because its locked release-signing dependency requires that patch floor. The
 portability workflow tests the supported core on Ubuntu, macOS, and Windows against exact Node
 22.22.2 and 24.15.0. Each matrix leg performs an exact `npm ci`, build, typecheck, cross-platform
-test suite, built MCP compatibility proof, and clean packed-consumer proof.
+test suite, built MCP compatibility proof, a stack-manifest cross-OS golden-byte-identity proof
+(see [`docs/stack-plane.md`](stack-plane.md)), and clean packed-consumer proof.
 
 The cross-platform suite excludes three intentionally Unix-specific integration contracts: the POSIX pre-commit hook, the shell-based Agent Skill scanner, and the repository self-gate shell harness. Those integrations remain release-gated on Ubuntu; their exclusion does not remove engine, CLI, evidence, or MCP coverage from Windows or macOS.
 

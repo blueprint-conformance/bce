@@ -28,6 +28,7 @@ const expectedTools = [
   'get_report',
   'inspect_blueprint',
   'run_gate',
+  'stack_diff',
   'validate_blueprint',
   'verify_review_packet',
 ];

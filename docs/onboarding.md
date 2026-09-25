@@ -141,14 +141,16 @@ must be accepted, use `bce baseline --check` and the reviewed baseline ceremony.
 
 ## 5. Verify the agent surfaces
 
-The MCP server exposes ten read-only tools:
+The MCP server exposes eleven read-only tools:
 
 - `doctor_repository` and `check_baseline` diagnose adoption and debt;
 - `validate_blueprint`, `run_gate`, and `assess_teeth` drive the correction loop;
 - `inspect_blueprint`, `explain_constraint`, and `compare_blueprint_policy` expose the canonical
   Promise/Lens/Proof/Limits and semantic-review functions;
 - `verify_review_packet` replays packet and optional decision integrity without writing;
-- `get_report` reads a report already produced by the engine.
+- `get_report` reads a report already produced by the engine;
+- `stack_diff` classifies moves between two StackManifests already written by `bce stack snapshot`
+  (added / removed / forward / backward / rewritten / flags-changed / spec-changed / unknown).
 
 It deliberately cannot adopt, ratify, amend, graduate, or grow a baseline. Those are policy acts.
 On a first session, launch the harness after onboarding, ask it to list BCE tools, and call

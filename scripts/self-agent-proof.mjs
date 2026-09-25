@@ -18,11 +18,11 @@ const run = spawnSync(process.execPath, config.args, { input, encoding: 'utf8', 
 assert.equal(run.status, 0, run.stderr);
 const responses = run.stdout.trim().split('\n').map(JSON.parse);
 const tools = responses.find((response) => response.id === 2)?.result?.tools;
-assert.equal(tools?.length, 10);
+assert.equal(tools?.length, 11);
 assert.ok(tools.every((tool) => tool.annotations?.readOnlyHint === true && tool.annotations?.destructiveHint === false));
 const gate = responses.find((response) => response.id === 3)?.result;
 assert.equal(gate?.isError, false);
 assert.ok(gate.structuredContent.reports.length > 0);
 assert.ok(gate.structuredContent.reports.every((report) => report.verdict === 'pass'));
 assert.equal(gate.structuredContent.refusals?.length ?? 0, 0);
-console.log('Self-agent proof: project configuration starts the built server, exposes ten read-only tools, and gates this live checkout GREEN.');
+console.log('Self-agent proof: project configuration starts the built server, exposes eleven read-only tools, and gates this live checkout GREEN.');

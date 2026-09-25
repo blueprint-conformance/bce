@@ -251,6 +251,68 @@ jobs:
 
           echo "RED/GREEN discriminating pair: PROVEN — opposite verdicts by real exit codes (0 / 1)."
 
+      - name: Stack RED/GREEN discriminating pair (built dist CLI, real exit codes)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Two REAL revisions of this repository (the vitest 4 -> 5 bump: 7 forward version
+          # moves, 1 added copy, 7 removed names), materialized fresh by the BUILT dist CLI's own
+          # `stack snapshot --ref` — never the committed golden fixtures directly — so this leg
+          # also proves the extractor reproduces them on THIS checkout (`fetch-depth: 0` above
+          # keeps both revisions' objects available). The seed pair `a949557^ -> a949557` named in
+          # early drafts of this leg is UNUSABLE: a949557 is a Dependabot branch commit, unreachable
+          # from a full clone of main. `47a51f4 -> e0f7344` is the SAME bump — both real ancestors
+          # of main — and e0f7344 shares a949557's stackDigest byte for byte (see
+          # tests/stack-diff.test.ts group D), so this is the identical seed table pinned there.
+          TMP="$(mktemp -d)"
+          node dist/cli.js stack snapshot --ct-repo . --ref 47a51f4 --out "$TMP/base.stack.json"
+          node dist/cli.js stack snapshot --ct-repo . --ref e0f7344 --out "$TMP/head.stack.json"
+
+          echo "--- GREEN leg: 47a51f4 -> e0f7344 must PASS (exit 0), top classification 'removed' ---"
+          set +e
+          node dist/cli.js stack diff --from "$TMP/base.stack.json" --to "$TMP/head.stack.json" --out "$TMP/fwd.json" > fwd.out 2> fwd.err
+          rc_fwd=$?
+          set -e
+          cat fwd.out fwd.err
+          if [ "$rc_fwd" -ne 0 ]; then
+            echo "::error::GREEN leg exited ${rc_fwd} (expected 0) — the forward pair did not pass"
+            exit 1
+          fi
+          # A WRONG revision pair (e.g. a no-op X -> X diff) would ALSO exit 0 trivially on an empty
+          # diff, proving nothing. Assert the SPECIFIC named top classification — the rank rule puts
+          # `removed` above `forward` because 7 names are removed alongside the 7 forward moves — so
+          # this leg only passes on the real, non-trivial seed pair.
+          if ! grep -qF "classification removed" fwd.out; then
+            echo "::error::GREEN leg exit 0 but the expected top classification 'removed' is missing — a no-op or wrong pair also exits 0, so this pair is not proven to discriminate"
+            exit 1
+          fi
+          if ! grep -qF "vitest  4.1.11 -> 5.0.0  [root-declared ^4.1.11 -> ^5.0.0]" fwd.out; then
+            echo "::error::GREEN leg missing the named root-declared vitest forward move"
+            exit 1
+          fi
+
+          echo "--- RED leg: the REVERSE of the same pair (a downgrade) must FAIL CLOSED (exit exactly 2) ---"
+          set +e
+          node dist/cli.js stack diff --from "$TMP/head.stack.json" --to "$TMP/base.stack.json" --out "$TMP/rev.json" > rev.out 2> rev.err
+          rc_rev=$?
+          set -e
+          cat rev.out rev.err
+          if [ "$rc_rev" -ne 2 ]; then
+            echo "::error::RED leg exited ${rc_rev} (expected exactly 2) — the reverse (downgrade) pair did not fail closed"
+            exit 1
+          fi
+          if ! grep -qF "FAILS CLOSED" rev.err; then
+            echo "::error::RED leg exit 2 but no FAILS CLOSED verdict on stderr — a config error is not a gate verdict"
+            exit 1
+          fi
+          if ! grep -qF "classification backward" rev.out; then
+            echo "::error::RED leg failed without the expected 'backward' top classification"
+            exit 1
+          fi
+
+          echo "Stack RED/GREEN discriminating pair: PROVEN — opposite verdicts by real exit codes (0 / 2) on a real revision pair."
+
       - name: Python RED/GREEN discriminating pair (python-import-surface profile)
         shell: bash
         run: |

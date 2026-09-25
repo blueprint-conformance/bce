@@ -45,7 +45,7 @@ under the installed `node_modules/bce-engine/docs/` and `spec/`, not the consume
 6. Report the exact violation fixed, changed code files, final score/verdict, and whether policy
    changed. A normal repair must say policy did not change.
 
-The MCP server exposes ten read-only tools:
+The MCP server exposes eleven read-only tools:
 
 | Tool | Use it for |
 |---|---|
@@ -59,6 +59,7 @@ The MCP server exposes ten read-only tools:
 | `compare_blueprint_policy` | conservative semantic direction for an exact base/candidate pair |
 | `verify_review_packet` | packet and optional decision integrity replay |
 | `get_report` | a deterministic report already written by the engine |
+| `stack_diff` | classify moves between two StackManifests written by `bce stack snapshot` |
 
 MCP cannot generate a proposal, record a decision, ratify, amend, graduate, create a baseline, or
 weaken policy. That absence is a security boundary, not missing functionality.
