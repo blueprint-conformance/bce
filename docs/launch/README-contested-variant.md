@@ -35,8 +35,9 @@ to use them instead. What this one offers is not primacy but
   trust in this project required to check a verdict.
 
 Judge it on those three, side by side with anything comparable. Released extraction is
-TypeScript/JavaScript framework AST plus a Python import-surface MVP. The unpublished candidate adds
-direct TypeScript/JavaScript and structured Python module graphs; it does not claim Python call,
-egress, transitive, or cycle analysis.
+TypeScript/JavaScript framework AST, direct TypeScript/JavaScript module graphs, a Python
+import-surface MVP, and structured Python module graphs. The `v0.4.0` stack plane also snapshots
+and diffs declared dependency closures. It does not claim Python call, egress, transitive, or
+cycle analysis.
 
 <!-- END contested top-section -->

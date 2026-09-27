@@ -4,15 +4,15 @@ Do not begin by learning the whole specification. Run the architecture failure c
 you need to prevent. Each recipe stays offline and runs one conforming tree plus one planted drift
 tree through the same engine used by the merge gate.
 
-**Release boundary:** the immutable `bce-engine@0.3.1` registry release contains both the original
+**Release boundary:** the immutable `bce-engine@0.4.0` registry release contains both the original
 zero-argument demo and the six named recipes below. Use the exact version; do not substitute a range
 or `latest` for a merge gate.
 
 Run the released proof:
 
 ```bash
-npm view bce-engine@0.3.1 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.3.1
+npm view bce-engine@0.4.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.4.0
 npx --no-install bce demo
 ```
 
@@ -68,7 +68,7 @@ surface fails the zero-handler check, but omitted handlers alongside recognized 
 can produce a misleading pass. File counts are not handler coverage. Do not use this release's
 route check as proof that every route enforces access control.
 
-**Released correction (v0.3.1):** direct named function declarations and immutable `const`
+**Released correction (v0.4.0):** direct named function declarations and immutable `const`
 arrow/function-expression exports are inventoried for GET, POST, PATCH, PUT, DELETE, HEAD, and
 OPTIONS. Relevant indirect exports, wrappers, mutable handlers, and star re-exports refuse
 extraction with a source location. Recognizable writes to exported handler bindings and CommonJS
@@ -81,7 +81,7 @@ registration, eval, and reflective replacement are not supported. This correctio
 control-flow or tenant-binding analysis. Reports and ordinary terminal output explicitly label
 authorization behavior unverified.
 
-The [v0.3.1 release record](release-v0.3.1.md) binds this correction to the verified registry
+The [v0.4.0 release record](release-v0.4.0.md) binds this correction to the verified registry
 artifact and the 52-case installed-archive proof.
 
 The [route regression suite](../tests/route-evidence.test.ts) preserves detection, refusal, and

@@ -1,6 +1,6 @@
 # AI-first blueprint proposal and review
 
-> **Release status:** this surface is available in the exact `bce-engine@0.3.1` registry release.
+> **Release status:** this surface is available in the exact `bce-engine@0.4.0` registry release.
 
 `bce propose` is the optional provider-backed drafting path: a maintainer states intent, an AI drafts a
 plan, BCE deterministically compiles and tests the exact candidate, and a human reviews one immutable
@@ -14,9 +14,9 @@ packet. The model never gains approval or policy-write authority.
 </p>
 
 For drafting with your current coding agent and no additional provider call, use
-[ordered onboarding](onboarding.md). This source and v0.3.1 additionally
+[ordered onboarding](onboarding.md). This source and v0.4.0 additionally
 support offline `review prepare` and [solo-steward ratification](solo-steward-ratification.md).
-Those additions are absent from immutable npm `0.3.0`. An installed v0.3.1 package can use its
+Those additions are absent from immutable npm `0.3.0`. An installed v0.4.0 package can use its
 local binary for these commands.
 
 ## 1. Freeze the state and state the intent
