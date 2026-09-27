@@ -119,9 +119,13 @@ export function evaluatePreparedEvidence(bp: EngineeringBlueprint, evidence: Pre
     component: v.component,
     observed: v.observed,
     expected: v.expected,
-    evidenceRef: v.evidenceRef,
   });
-  const unique = [...new Map(violations.map(v=>[violationKey(v),v])).values()].sort((a,b)=>compare(violationKey(a),violationKey(b)));
+  const uniqueByKey = new Map<string, Violation>();
+  for (const violation of [...violations].sort((a,b)=>compare(`${violationKey(a)}\0${a.evidenceRef}`,`${violationKey(b)}\0${b.evidenceRef}`))) {
+    const key = violationKey(violation);
+    if (!uniqueByKey.has(key)) uniqueByKey.set(key,violation);
+  }
+  const unique = [...uniqueByKey.values()].sort((a,b)=>compare(violationKey(a),violationKey(b)));
   const orderedRefusals=[...new Map(refusals.map(r=>[stableStringify(r),r])).values()].sort((a,b)=>compare(`${a.constraintId}\0${a.code}\0${a.sources.join(',')}`,`${b.constraintId}\0${b.code}\0${b.sources.join(',')}`));
   const score=orderedRefusals.length ? null : Math.max(0,unique.reduce((n,v)=>n-SEVERITY_WEIGHT[v.severity],100));
   return {schemaVersion:'2',blueprintRef:`${bp.metadata.id}@${bp.metadata.version}`,ctRepoRevision:evidence.revision,...(repoName!==undefined?{repo:repoName}:{}),score,verdict:orderedRefusals.length?'indeterminate':unique.length?'fail':'pass',violations:unique,evidenceRef:f?`declared-stack-facts.json@sha256:${canonicalHash(f)}`:'n/a',summary:`${bp.constraints.length} constraint(s) evaluated; ${unique.length} violation(s); ${orderedRefusals.length} refusal(s); score ${score === null?'indeterminate':score}`,coverage:{providers},stack:m&&f?{stackDigest:m.stackDigest,manifestDigest:m.manifestDigest,sourceConfigDigest:f.sourceConfigDigest,claim:'selected-declarations-not-installed-state'}:null,refusals:orderedRefusals};

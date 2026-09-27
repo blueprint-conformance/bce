@@ -65,6 +65,11 @@ describe('declared-stack enforcement',()=>{
    expect(run(raw).report.verdict).toBe('pass');
    write('Dockerfile',`FROM node:22@${digest} AS build\nFROM node:23\n`);write('.nvmrc','24.8.0\n');
    const {report}=run(raw);expect(report.verdict).toBe('fail');expect(report.violations.map(v=>v.component).sort()).toEqual(['node-runtime:node','oci-image:node']);
+   write('Dockerfile','FROM node:22\nFROM node:22\n');write('.nvmrc','22.22.2\n');
+   const duplicate=run(policy([rule('requirePinnedImages')]));
+   expect(duplicate.evidence.manifest!.images.map(image=>image.evidenceRef)).toEqual(['Dockerfile#L1','Dockerfile#L2']);
+   expect(duplicate.report.violations).toEqual([expect.objectContaining({constraintId:'requirePinnedImages',component:'oci-image:node',observed:'node:22',expected:'sha256 digest pin',evidenceRef:'Dockerfile#L1'})]);
+   expect(duplicate.report.score).toBe(80);
  });
  it.each([
    ['standalone comment', `FROM node:22@${digest} AS build\n# ignored comment \\\nFROM alpine:latest\n`],
