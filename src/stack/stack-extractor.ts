@@ -49,6 +49,8 @@ import {
   readPnpmWorkspacePatterns,
   stackRefusalPnpmLostClosure,
   type PnpmDerived,
+  type StackWarningCode,
+  type StackWarningObserver,
   type PnpmWorkspacePatterns,
 } from './pnpm-lock-reader.js';
 
@@ -449,8 +451,11 @@ function mergeStringSets(a: string[], b: string[] | null): string[] {
  * devOptional are true only when EVERY copy carries them, installScript when ANY does — never
  * first-path-wins: the digest must not depend on which path sorts first.
  */
-export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockfile {
+export function deriveFromLockfileV3(lock: Record<string, unknown>, onWarning?: StackWarningObserver, allowDependencyFreeRoot = false): ParsedLockfile {
   const unsupported = new Set<string>();
+  const warn = (message: string, code: StackWarningCode = 'unclassified-coverage'): void => {
+    unsupported.add(message); onWarning?.(code, message);
+  };
   const malformed: string[] = [];
   const emptyDependencyNames: string[] = [];
   const unmodeled: StackUnmodeled[] = [];
@@ -463,7 +468,7 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
   if (!keys.includes('')) {
     return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, emptyDependencyNames: [], hollow: "no root '' entry in 'packages'" };
   }
-  if (keys.length === 1) {
+  if (keys.length === 1 && !allowDependencyFreeRoot) {
     return { nodes: [], edges: [], unmodeled, rootDeclared: [], unsupported: [], malformed, emptyDependencyNames: [], hollow: 'no package beyond the root' };
   }
   const entries: LockEntry[] = [];
@@ -488,7 +493,7 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
     if (p === '') {
       const rootName = declaredName ?? asString(lock.name);
       const rootVersion = version ?? asString(lock.version);
-      if (!rootName || !rootVersion) unsupported.add('root package has no name/version in the lockfile: identity defaulted');
+      if (!rootName || !rootVersion) warn('root package has no name/version in the lockfile: identity defaulted');
       const name = rootName ?? 'root';
       const ver = rootVersion ?? '0.0.0';
       const node: StackNode = {
@@ -525,27 +530,27 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
     // ---- entries slice 1 cannot fully model: HASHED as opaque nodes + a fixed coverage line ----
     if (!pathName) {
       unmodeled.push(opaque(p, 'not-under-node-modules', raw));
-      unsupported.add(`workspace/link entry ${p}: local package not part of the declared closure in slice 1`);
+      warn(`workspace/link entry ${p}: local package not part of the declared closure in slice 1`, 'opaque-package-entry');
       continue;
     }
     if (raw.link === true) {
       unmodeled.push(opaque(p, 'link', raw));
-      unsupported.add(`workspace/link entry ${p}: local package not part of the declared closure in slice 1`);
+      warn(`workspace/link entry ${p}: local package not part of the declared closure in slice 1`, 'opaque-package-entry');
       continue;
     }
     if (/^(file:|git\+|git:|github:|gitlab:|bitbucket:)/.test(resolved) || /^(file:|git\+|git:|github:)/.test(version ?? '')) {
       unmodeled.push(opaque(p, 'local-or-git', raw));
-      unsupported.add(`workspace/link entry ${p}: local package not part of the declared closure in slice 1`);
+      warn(`workspace/link entry ${p}: local package not part of the declared closure in slice 1`, 'opaque-package-entry');
       continue;
     }
     if (declaredName !== null && declaredName !== pathName) {
       unmodeled.push(opaque(p, 'npm-alias', raw));
-      unsupported.add(`npm: alias at ${p} — alias resolution owned-by-follow-on`);
+      warn(`npm: alias at ${p} — alias resolution owned-by-follow-on`, 'opaque-package-entry');
       continue;
     }
     if (!ASCII.test(pathName)) {
       unmodeled.push(opaque(p, 'non-ascii-name', raw));
-      unsupported.add(`non-ASCII package name at ${p}: not modeled (npm registry names are ASCII)`);
+      warn(`non-ASCII package name at ${p}: not modeled (npm registry names are ASCII)`, 'opaque-package-entry');
       continue;
     }
     if (version === null || version === '') {
@@ -553,7 +558,7 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
       continue;
     }
     const integrity = asString(raw.integrity);
-    if (integrity === null) unsupported.add(`lockfile entry ${p} has no integrity: its 'resolved' is hashed instead`);
+    if (integrity === null) warn(`lockfile entry ${p} has no integrity: its 'resolved' is hashed instead`, 'snapshot-information');
     const os = asStringArray(raw.os);
     const cpu = asStringArray(raw.cpu);
     const resolvedWhenUnpinned = integrity === null ? asString(raw.resolved) : null;
@@ -573,7 +578,7 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
       if (taken !== undefined && taken !== identityKey) {
         // the bare id is already another identity — disambiguate from the FULL identity key
         id = `${id}+${sha256(Buffer.from(identityKey)).slice(0, 12)}`;
-        unsupported.add(`id collision on ${stackNodeId('npm', pathName, version)} (a distinct identity at ${p}): id suffixed`);
+        warn(`id collision on ${stackNodeId('npm', pathName, version)} (a distinct identity at ${p}): id suffixed`, 'snapshot-information');
       }
       node = {
         id,
@@ -611,7 +616,7 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
   if (rootNode && idsTaken.has(rootNode.id)) {
     // a non-root package shares the root's name@version: the ROOT's display id yields (its hashed
     // id is `root:<name>` regardless), so the twin's hashed identity never depends on the root version
-    unsupported.add(`id collision on ${rootNode.id} (a non-root package shares the root's name and version): root id suffixed`);
+    warn(`id collision on ${rootNode.id} (a non-root package shares the root's name and version): root id suffixed`, 'snapshot-information');
     // loop until FREE: `+root` is valid semver build metadata, so another package may already own it
     const base = rootNode.id;
     let candidate = `${base}+root`;
@@ -633,11 +638,12 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
   // edges: nearest-ancestor node_modules walk, exactly npm's resolution
   const edges: StackEdge[] = [];
   const seenEdges = new Set<string>();
-  const resolveDep = (fromPath: string, dep: string): string | null => {
+  const opaqueByPath = new Map(unmodeled.map(u => [u.key, u.key]));
+  const resolveDep = (fromPath: string, dep: string, lookup: ReadonlyMap<string, string> = idByPath): string | null => {
     let base = fromPath;
     for (;;) {
       const candidate = base === '' ? `node_modules/${dep}` : `${base}/node_modules/${dep}`;
-      const id = idByPath.get(candidate);
+      const id = lookup.get(candidate);
       if (id) return id;
       if (base === '') return null;
       const idx = base.lastIndexOf('/node_modules/');
@@ -663,8 +669,13 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
         if (!toId) {
           const meta = isRecord(peerMeta[dep]) ? (peerMeta[dep] as Record<string, unknown>) : {};
           const optionalPeer = g.peer && meta.optional === true;
-          unsupported.add(
+          warn(
             `unresolved ${optionalPeer ? 'optional peer' : g.optional ? 'optional' : g.peer ? 'peer' : 'dependency'} '${dep}' from ${p === '' ? '<root>' : p}: no node in the closure; edge omitted`,
+            optionalPeer
+              ? 'snapshot-information'
+              : resolveDep(p, dep, opaqueByPath) !== null
+                ? 'opaque-package-entry'
+                : 'unclassified-coverage',
           );
           continue;
         }
@@ -678,7 +689,6 @@ export function deriveFromLockfileV3(lock: Record<string, unknown>): ParsedLockf
 
   return { nodes: [...byIdentity.values()], edges, unmodeled, rootDeclared, unsupported: [...unsupported], malformed, emptyDependencyNames, hollow: null };
 }
-
 /* -------------------------------------------------------------------------- */
 /* Dockerfile FROM + compose image:                                            */
 /* -------------------------------------------------------------------------- */
@@ -720,7 +730,7 @@ interface ImageScan {
   unsupported: string[];
 }
 
-function imageNode(img: StackImage): StackNode {
+export function imageNode(img: StackImage): StackNode {
   const version = img.digest ?? img.tag ?? 'latest';
   return {
     id: stackNodeId('oci-image', img.name, version),
@@ -743,11 +753,12 @@ function imageNode(img: StackImage): StackNode {
 
 const OCI_DIGEST = /^sha256:[0-9a-f]{64}$/;
 
-function toImage(ref: string, resolvedFrom: 'dockerfile' | 'compose', evidenceRef: string, unsupported: string[]): StackImage {
+function toImage(ref: string, resolvedFrom: 'dockerfile' | 'compose', evidenceRef: string, unsupported: string[], onWarning?: StackWarningObserver): StackImage {
   const parsed = parseImageRef(ref);
   const wellFormed = parsed.digest !== null && OCI_DIGEST.test(parsed.digest);
   if (parsed.digest !== null && !wellFormed) {
-    unsupported.push(`image ref '${ref}' at ${evidenceRef} carries a malformed digest (expected sha256:<64 hex>): pin:false`);
+    const message = `image ref '${ref}' at ${evidenceRef} carries a malformed digest (expected sha256:<64 hex>): pin:false`;
+    unsupported.push(message); onWarning?.('unresolved-image', message);
   }
   return {
     ref,
@@ -763,7 +774,7 @@ function toImage(ref: string, resolvedFrom: 'dockerfile' | 'compose', evidenceRe
 }
 
 /** Parse every `FROM` of a Dockerfile (comments stripped, `\` continuations joined, stage aliases dropped). */
-export function scanDockerfile(relPath: string, text: string): ImageScan {
+export function scanDockerfile(relPath: string, text: string, onWarning?: StackWarningObserver, strict = false): ImageScan {
   const out: ImageScan = { images: [], nodes: [], unsupported: [] };
   const rawLines = text.split(/\r?\n/);
   const aliases = new Set<string>();
@@ -772,46 +783,69 @@ export function scanDockerfile(relPath: string, text: string): ImageScan {
   for (let i = 0; i < rawLines.length; i++) {
     let t = rawLines[i] ?? '';
     const start = i + 1;
+    // Full-line comments do not participate in Dockerfile continuations. Keep
+    // standalone comments for parser-directive checks below, but never let a
+    // trailing backslash on a comment consume the next instruction.
+    if (/^\s*#/.test(t)) {
+      logical.push({ line: start, text: t });
+      continue;
+    }
     while (/\\\s*$/.test(t) && i + 1 < rawLines.length) {
       i++;
+      if (/^\s*#/.test(rawLines[i] ?? '')) continue;
       t = `${t.replace(/\\\s*$/, ' ')}${rawLines[i] ?? ''}`;
     }
     logical.push({ line: start, text: t });
   }
   for (const { line, text: t } of logical) {
+    if (strict && (/^\s*#\s*escape\s*=\s*`/i.test(t) || /<<[-~]?\s*['"]?[A-Za-z_]/.test(t) || /^\s*ONBUILD\s+FROM\b/i.test(t))) {
+      const message = `Dockerfile ${relPath}:${line} contains unsupported stage-sensitive syntax`;
+      out.unsupported.push(message); onWarning?.('unsupported-source-syntax', message);
+    }
     if (/^\s*#/.test(t)) continue;
     const m = /^\s*FROM\s+(?:--platform=\S+\s+)?(\S+)(?:\s+AS\s+(\S+))?/i.exec(t);
+    if (strict && /^\s*FROM\b/i.test(t) && (!m || !/^\s*FROM\s+(?:--platform=\S+\s+)?\S+(?:\s+AS\s+[A-Za-z0-9_.-]+)?\s*(?:#.*)?$/i.test(t))) {
+      const message = `Dockerfile ${relPath}:${line} has unsupported FROM syntax`;
+      out.unsupported.push(message); onWarning?.('unsupported-source-syntax', message); continue;
+    }
     if (!m) continue;
     const ref = m[1] ?? '';
     const alias = m[2];
     if (VAR_REF.test(ref)) {
-      out.unsupported.push(`Dockerfile ${relPath}:${line} FROM uses ARG substitution: unresolved base image`);
+      const message = `Dockerfile ${relPath}:${line} FROM uses ARG substitution: unresolved base image`;
+      out.unsupported.push(message); onWarning?.('unresolved-image', message);
       if (alias) aliases.add(alias.toLowerCase());
       continue;
+    }
+    if (strict && /^\d+$/.test(ref)) {
+      const message = `Dockerfile ${relPath}:${line} has an ambiguous numeric stage reference`;
+      out.unsupported.push(message); onWarning?.('unresolved-image', message); continue;
     }
     if (aliases.has(ref.toLowerCase()) || ref.toLowerCase() === 'scratch') {
       if (alias) aliases.add(alias.toLowerCase());
       continue;
     }
-    out.images.push(toImage(ref, 'dockerfile', `${relPath}#L${line}`, out.unsupported));
+    out.images.push(toImage(ref, 'dockerfile', `${relPath}#L${line}`, out.unsupported, onWarning));
     if (alias) aliases.add(alias.toLowerCase());
   }
   return out;
 }
 
 /** Line-anchored `image:` read of a compose file — no YAML parser, `${VAR}` refs are coverage lines. */
-export function scanComposeFile(relPath: string, text: string): ImageScan {
+export function scanComposeFile(relPath: string, text: string, onWarning?: StackWarningObserver): ImageScan {
   const out: ImageScan = { images: [], nodes: [], unsupported: [STACK_COVERAGE_COMPOSE_BUILD_ONLY] };
+  onWarning?.('unresolved-image', STACK_COVERAGE_COMPOSE_BUILD_ONLY);
   const lines = text.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const m = /^\s+image:\s*["']?([^"'\s#]+)/.exec(lines[i] ?? '');
     if (!m) continue;
     const ref = m[1] ?? '';
     if (VAR_REF.test(ref)) {
-      out.unsupported.push(`compose ${relPath}:${i + 1} image uses variable interpolation: unresolved image ref`);
+      const message = `compose ${relPath}:${i + 1} image uses variable interpolation: unresolved image ref`;
+      out.unsupported.push(message); onWarning?.('unresolved-image', message);
       continue;
     }
-    out.images.push(toImage(ref, 'compose', `${relPath}#L${i + 1}`, out.unsupported));
+    out.images.push(toImage(ref, 'compose', `${relPath}#L${i + 1}`, out.unsupported, onWarning));
   }
   return out;
 }

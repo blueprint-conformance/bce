@@ -1105,8 +1105,8 @@ describe('stack slice 1 — images and runtime hygiene', () => {
       expect(fs.realpathSync(os.tmpdir())).toBe(fs.realpathSync(privateTmp));
       expect(listTreeKnowledge(repo)).not.toBeNull();
       expect(listTreeKnowledge(repo, git(repo, 'rev-parse', 'HEAD'))).not.toBeNull();
-      expect(listTreeKnowledge(repo, 'f'.repeat(40))).toBeNull(); // a sha git does not know
-      expect(listTreeKnowledge(path.join(privateTmp, 'missing'))).toBeNull(); // no such directory
+      expect(() => listTreeKnowledge(repo, 'f'.repeat(40))).toThrow(/git tree knowledge failed/); // a requested sha must fail closed
+      expect(() => listTreeKnowledge(path.join(privateTmp, 'missing'))).toThrow(/git repository discovery failed/); // absence is not a verified plain directory
       expect(fs.readdirSync(privateTmp)).toEqual([]);
     } finally {
       for (const [k, v] of Object.entries(saved)) {

@@ -212,6 +212,8 @@ try {
 
 const consumerStep = '      - name: Exercise the exact publish tarball as a fresh consumer\n        id: route_consumer\n' +
   '        run: node scripts/route-consumer-proof.mjs --tarball "$GITHUB_WORKSPACE/$RELEASE_TARBALL" --out release-route-consumer-proof.json --evidence-dir release-route-consumer-evidence\n\n';
+const declaredStackConsumerStep = '      - name: Exercise declared-stack contracts from the exact publish tarball\n' +
+  '        run: node scripts/package-consumer-proof.mjs --tarball "$GITHUB_WORKSPACE/$RELEASE_TARBALL"\n\n';
 for (const [label, altered] of [
   ['missing', source.replace(consumerStep, '')],
   ['lost-evidence', source.replace('          path: release-route-consumer-evidence\n', '          path: absent-evidence\n')],
@@ -225,6 +227,21 @@ for (const [label, altered] of [
     throw new Error(`release policy accepted ${label} exact-artifact consumer proof`);
   } catch (error) {
     if (error.status !== 1 || !/consumer (proof|evidence)/.test(String(error.stderr))) throw error;
+  }
+}
+
+for (const [label, altered] of [
+  ['missing', source.replace(declaredStackConsumerStep, '')],
+  ['substituted', source.replace('node scripts/package-consumer-proof.mjs --tarball "$GITHUB_WORKSPACE/$RELEASE_TARBALL"', 'node scripts/package-consumer-proof.mjs --tarball "other.tgz"')],
+  ['nonblocking', source.replace('      - name: Exercise declared-stack contracts from the exact publish tarball\n', '      - name: Exercise declared-stack contracts from the exact publish tarball\n        continue-on-error: true\n')],
+  ['after-publish', source.replace(declaredStackConsumerStep, '').replace('  finalize-github-release:', declaredStackConsumerStep + '  finalize-github-release:')],
+]) {
+  writeFileSync(fixture, altered);
+  try {
+    execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    throw new Error(`release policy accepted ${label} exact-artifact declared-stack proof`);
+  } catch (error) {
+    if (error.status !== 1 || !/declared-stack|consumer proof/.test(String(error.stderr))) throw error;
   }
 }
 

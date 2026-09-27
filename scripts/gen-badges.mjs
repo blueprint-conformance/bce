@@ -57,9 +57,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const badgeDir = path.join(repoRoot, 'assets', 'badges');
 
+class HarnessFailure extends Error {}
+
 function harness(msg) {
-  console.error(`gen-badges: ${msg}`);
-  process.exit(2);
+  throw new HarnessFailure(msg);
 }
 
 const read = (rel) => {
@@ -328,4 +329,12 @@ function main() {
   process.exit(1);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    main();
+  } catch (error) {
+    if (!(error instanceof HarnessFailure)) throw error;
+    console.error(`gen-badges: ${error.message}`);
+    process.exitCode = 2;
+  }
+}

@@ -1,4 +1,5 @@
 <p align="center">
+
   <picture>
     <source media="(max-width: 600px)" srcset="assets/bce-banner-mobile.svg">
     <img src="assets/bce-banner.svg" alt="bce — architecture that holds while agents move fast. A human-owned blueprint and an agent code change enter the BCE gate. The gate catches a forbidden dependency, names its source line, and blocks the merge.">
@@ -6,6 +7,19 @@
 </p>
 
 # Check architectural boundaries in agent-written code
+
+> Development tree: **0.5.0 candidate, unpublished**. The registry release: v0.4.0
+> remains the supported installation below. Declared-stack enforcement is local
+> development work; no 0.5.0 release, pin or self-adoption is asserted. Before any
+> future candidate installation, verify publication with
+> `npm view bce-engine@0.5.0 version dist.integrity`. A failed lookup means it is
+> unavailable; do not substitute an unverified installation. The verified 0.4.0
+> foundation is published and active as the exact Lane-A pin.
+
+The candidate retains the 0.4.0 stack foundation (`stack snapshot`, `stack diff`, cross-OS
+golden-byte proof, and read-only MCP classification) and adds selected declared-stack enforcement
+to the ordinary gate plus offline v2 replay. It does not add automatic repair or registry
+resolution.
 
 `bce` gives coding agents a local, deterministic architecture check. A versioned
 `EngineeringBlueprint` records the repository's structural rules. Agents draft those rules from
@@ -27,7 +41,7 @@ verify realistic violations in your own repository.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 1339">
+  <img src="assets/badges/tests.svg" alt="tests: 1414">
 </p>
 
 [Watch BCE govern its own main branch](https://blueprint-conformance.github.io/bce/trust/#self-adoption-status): live GitHub stages, authenticated self-adoption, and explicit evidence boundaries.
@@ -100,7 +114,7 @@ real `pluginSurface`; **C2 `requiredDependency`** requires its governed registra
 **C3 `forbiddenDependency`** rejects the `axios` import; and **C4 `forbiddenPath`** keeps extracted
 components out of `src/legacy/**`. The taxonomy has four more enforcing types and three explicit
 reserved types—[open the C1–C4 visual guide](docs/constraint-guide.md) or
-[read the exact semantics](spec/SPEC.md#3-constraint-taxonomy--11-types).
+[read the exact semantics](spec/SPEC.md#3-constraint-taxonomy--16-types).
 
 In `v0.4.0`, the AI-first review surface's `bce propose` writes an immutable draft
 packet to quarantine; the model cannot approve or land policy. [Read the review

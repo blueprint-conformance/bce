@@ -3,7 +3,7 @@
 The first four enforcing constraint types answer four different questions about the observed
 architecture graph: does a component exist, does it use the governed edge, does a prohibited import
 exist, and does an extracted component live under a prohibited path? This is a visual reading aid;
-the [constraint taxonomy in the specification](../spec/SPEC.md#3-constraint-taxonomy--11-types) is
+the [constraint taxonomy in the specification](../spec/SPEC.md#3-constraint-taxonomy--16-types) is
 normative.
 
 The module-graph notes on C2 and C3 describe profiles released in `bce-engine@0.3.0`, alongside the
@@ -85,6 +85,42 @@ All four constraints flow through the same evaluator and report contract. A grad
 `1` in enforced mode; an inability to grade honestly exits `2`. The report names the constraint,
 severity, component, observed fact, expected fact, and a file-and-line evidence reference where the
 extractor can provide one.
+
+## Declared-stack rules — unpublished 0.5.0 candidate
+
+The local **0.5.0 candidate is unpublished**. Its five declared-stack rules extend the ordinary
+gate to selected dependency, image and Node declarations. See the
+[locally accepted enforcement RFC](../rfcs/RFC-0002-declared-stack-contracts.md) and
+[normative specification](../spec/SPEC.md#17-declared-stack-enforcement-local-050-development).
+
+| Rule | Requirement |
+|---|---|
+| `pinnedVersion` | Every matching non-root package has the exact version, every matching selected image has the exact digest, or the selected Node declaration has the exact version; a match must exist. |
+| `stackClosureMatch` | The canonical declared stack digest equals the expected digest; this does not prove installed state or dependency topology. |
+| `forbiddenStackPackage` | No modeled non-root package has the prohibited name, including transitive packages; opaque identities prevent proof of absence. |
+| `requirePinnedImages` | At least one selected external image exists, and every selected image carries a syntactically valid SHA-256 digest. |
+| `allowedNodeVersions` | The declared Node version belongs to an explicit set of exact versions; this does not inspect the executing Node process. |
+
+Author `minEngineVersion: "0.5.0"`, required `declaredStack` evidence with `onMissing: "block"`,
+and an explicit `stack` source block: one supported root npm-v3 or pnpm-v9 lockfile,
+`package.json`, and exact `imageFiles` and `runtimeFiles` lists. Lists are required even when
+empty; they do not enable discovery. Image rules cover the selected files, not every image in
+the repository. The RFC provides the complete JSON shape and path restrictions.
+
+Missing inputs, conflicting declarations and insufficient relevant evidence refuse with exit `2`,
+verdict `indeterminate` and a null score. Selected Compose parsing currently records incomplete
+image evidence, so it cannot establish a passing image-policy result. Selected pnpm workspace
+grading is unsupported and refuses; root-only pnpm is supported. Unsupported Dockerfile syntax,
+unresolved image variables and non-exact Node declarations also prevent relevant grading.
+An npm peer explicitly marked optional in `peerDependenciesMeta` may be absent without making
+unrelated image or runtime evidence indeterminate; missing non-optional dependency edges still
+refuse conservatively.
+Advisory mode and baselines do not turn these refusals into passes.
+
+Version 2 evidence bundles support offline replay of the selected facts and policy. Verification
+checks artifact bindings and re-evaluates the report: it proves internal consistency, **not source
+provenance, authenticity or deployed state**. A coherently rewritten unsigned bundle does not
+establish who produced its inputs. Repair automation and cross-repository coordination are deferred.
 
 ## Recommended next step
 

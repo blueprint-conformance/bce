@@ -199,7 +199,7 @@ const unresolvedImportSchema: Record<string, unknown> = {
   },
 };
 
-function complianceReportSchema(): Record<string, unknown> {
+function legacyComplianceReportSchema(): Record<string, unknown> {
   return envelope(
     'compliance-report.schema.json',
     'ComplianceReport',
@@ -265,7 +265,70 @@ function complianceReportSchema(): Record<string, unknown> {
   );
 }
 
+/** V1 remains its own strict arm: stack facts never masquerade as a graph report. */
+function complianceReportSchema(): Record<string, unknown> {
+  const legacy = legacyComplianceReportSchema();
+  const properties = legacy.properties as Record<string, unknown>;
+  const coverage = properties.coverage as { properties: Record<string, unknown> };
+  const refusal = {
+    type: 'object', additionalProperties: false,
+    required: ['constraintId', 'evidenceClass', 'code', 'reason', 'sources'],
+    properties: {
+      constraintId: { type: 'string' }, evidenceClass: { type: 'string' }, code: { type: 'string' },
+      reason: { type: 'string' }, sources: { type: 'array', items: { type: 'string' } },
+    },
+  };
+  const v2 = {
+    type: 'object', additionalProperties: false,
+    required: [...legacy.required as string[], 'stack', 'refusals'],
+    properties: {
+      ...properties, schemaVersion: { const: '2' },
+      score: { type: ['integer', 'null'], minimum: 0, maximum: 100 },
+      verdict: { enum: ['pass', 'fail', 'indeterminate'] },
+      mode: { enum: ['enforced', 'advisory'] },
+      coverage: {
+        type: 'object', additionalProperties: false, required: ['providers'],
+        properties: { providers: { type: 'array', items: { oneOf: [
+          { type: 'object', additionalProperties: false, required: ['evidenceClass', 'extractor', 'filesScanned', 'unsupported'],
+            properties: { evidenceClass: { const: 'staticAst' }, ...coverage.properties } },
+          { type: 'object', additionalProperties: false, required: ['evidenceClass', 'filesScanned', 'unsupported'],
+            properties: { evidenceClass: { const: 'declaredStack' }, filesScanned: { type: 'integer', minimum: 0 }, unsupported: { type: 'array', items: { type: 'string' } } } },
+        ] } } },
+      },
+      stack: { anyOf: [ { type: 'null' }, {
+        type: 'object', additionalProperties: false, required: ['stackDigest', 'manifestDigest', 'sourceConfigDigest', 'claim'],
+        properties: { stackDigest: { type: 'string', pattern: HEX64 }, manifestDigest: { type: 'string', pattern: HEX64 },
+          sourceConfigDigest: { type: 'string', pattern: HEX64 }, claim: { const: 'selected-declarations-not-installed-state' } },
+      } ] },
+      refusals: { type: 'array', items: refusal },
+    },
+    allOf: [{ if: { properties: { verdict: { const: 'indeterminate' } } },
+      then: { properties: { score: { type: 'null' }, refusals: { minItems: 1 } } },
+      else: { properties: { score: { type: 'integer' }, refusals: { maxItems: 0 } } } }],
+  };
+  const { $schema: _schema, $id: _id, title: _title, description: _description, ...v1 } = legacy;
+  return envelope('compliance-report.schema.json', 'ComplianceReport', 'Versioned conformance report: v1 code evidence or v2 declared-stack evidence. Indeterminate means no numeric score.', { oneOf: [v1, v2] });
+}
+
 function evidenceRecordSchema(): Record<string, unknown> {
+  const schema = baseEvidenceRecordSchema();
+  const properties = schema.properties as Record<string, any>;
+  const legacyToolchain = properties.toolchain;
+  const { extractor, ...identityProperties } = legacyToolchain.properties;
+  properties.toolchain = { oneOf: [legacyToolchain, {
+    type: 'object', additionalProperties: false, required: ['engine', 'dependencyLock', 'runtime', 'providers'],
+    properties: { ...identityProperties, providers: { type: 'array', minItems: 1, items: { oneOf: [
+      { ...extractor, required: [...extractor.required, 'evidenceClass'], properties: { ...extractor.properties, evidenceClass: { const: 'staticAst' } } },
+      { type: 'object', additionalProperties: false, required: ['evidenceClass', 'provider', 'version'], properties: { evidenceClass: { const: 'declaredStack' }, provider: { const: 'selected-stack-v1' }, version: { type: 'string' } } },
+    ] } } },
+  }] };
+  schema.allOf = [{ if: { properties: { verdict: { const: 'indeterminate' } } },
+    then: { properties: { score: { type: 'null' } } }, else: { properties: { score: { type: 'integer' } } } }];
+  schema.dependencies = { stackDigest: ['manifestDigest'], manifestDigest: ['stackDigest'] };
+  return schema;
+}
+
+function baseEvidenceRecordSchema(): Record<string, unknown> {
   return envelope(
     'evidence-record.schema.json',
     'EvidenceRecord',
@@ -298,8 +361,10 @@ function evidenceRecordSchema(): Record<string, unknown> {
         traceId: { type: 'string', description: 'the chain key (blueprint id — one chain per subsystem)' },
         blueprintRef: { type: 'string' },
         ctRepoRevision: { type: 'string' },
-        score: { type: 'integer', minimum: 0, maximum: 100 },
-        verdict: { type: 'string', enum: ['pass', 'fail'] },
+        score: { type: ['integer', 'null'], minimum: 0, maximum: 100 },
+        verdict: { type: 'string', enum: ['pass', 'fail', 'indeterminate'] },
+        stackDigest: { type: 'string', pattern: HEX64 },
+        manifestDigest: { type: 'string', pattern: HEX64 },
         violationCount: { type: 'integer', minimum: 0 },
         reportEvidenceRef: { type: 'string' },
         toolchain: {
@@ -327,7 +392,7 @@ function evidenceRecordSchema(): Record<string, unknown> {
               properties: {
                 kind: { type: 'string', enum: ['ast', 'line-scan'] },
                 profile: { type: 'string', enum: [...EXTRACTION_PROFILES] },
-                provider: { type: 'string', enum: ['typescript-ts-morph', 'typescript-line-scan', 'python-line-scan'] },
+                provider: { type: 'string', enum: ['typescript-ts-morph', 'typescript-line-scan', 'python-line-scan', 'python-lezer'] },
                 version: { type: 'string' },
               },
             },

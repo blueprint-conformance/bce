@@ -1,11 +1,12 @@
 # Stack plane, slice 1 — [RUNS]
 
-The stack plane is a sibling evidence class to the observed architecture graph and the compliance
-report: it pins the DECLARED dependency closure of a repository — every direct and transitive
-package, the declared node runtime, and any Dockerfile/compose image references — as a
-content-addressed artifact. It does not join the graph or the compliance report in this slice, and
-no blueprint constraint type grades it yet. See [`spec/SPEC.md` §16](../spec/SPEC.md) for the
-normative format.
+The stack plane pins the DECLARED dependency closure of a repository — every direct and transitive
+package, the declared node runtime, and selected Dockerfile/compose image references — as a
+content-addressed artifact. The 0.4.0 source foundation exposes standalone snapshot/diff commands.
+The local unpublished 0.5.0 candidate additionally lets an authored blueprint select exact stack
+sources, grade five declared-stack rule types through the ordinary gate/MCP path, and replay a v2
+report offline. See [`spec/SPEC.md` §§16–17](../spec/SPEC.md) for the normative formats and the
+explicit evidence boundary: selected declarations are not installed-state or origin-authenticity.
 
 ## `bce stack snapshot` — the manifest
 
@@ -75,5 +76,7 @@ reverse direction is the mirror image and fails closed on 7 `backward` moves, ex
 ## What is not built yet
 
 `stack reconcile` (a forward-only proposal to bring a blueprint's stack block in sync with the
-latest closure), any blueprint constraint type over a stack, yarn lockfiles, pnpm lockfiles other
-than v9, and image-tag resolution. Registry resolution never happens inside `gate`/`run`.
+latest closure), yarn lockfiles, pnpm lockfiles other than v9, and image-tag resolution. The local
+0.5.0 candidate implements exact `pinnedVersion`, `stackClosureMatch`,
+`forbiddenStackPackage`, `requirePinnedImages`, and `allowedNodeVersions`; it does not resolve a
+registry, mutate declarations, or apply a repair inside `gate`/`run`.

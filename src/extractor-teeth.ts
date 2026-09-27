@@ -7,6 +7,7 @@ import { z } from 'zod/v3';
 import { makeExtractor } from './extractor-registry.js';
 import { resolveExtraction, sourceSyntaxDiagnostics } from './extractors.js';
 import { evaluate, stableStringify } from './report.js';
+import { hasStackConstraints, prepareDeclaredEvidence, evaluatePreparedEvidence } from './stack/stack-evaluation.js';
 import type { EngineeringBlueprint } from './schema.js';
 import type { ArchitectureGraph } from './graph.js';
 import type { ReviewSourceProof } from './review-contracts.js';
@@ -55,7 +56,7 @@ export interface ExtractorTeethReport {
   schemaVersion: '1';
   blueprintRef: string;
   extractor: 'ast' | 'line-scan';
-  cleanVerdict: 'pass' | 'fail';
+  cleanVerdict: 'pass' | 'fail' | 'indeterminate';
   constraints: number;
   mapped: number;
   killed: number;
@@ -218,14 +219,19 @@ export function assessExtractorTeethCorpus(input: {
   extractor?: 'ast' | 'line-scan';
   onMutation?: (constraintId: string, graph: ArchitectureGraph) => void;
 }): ExtractorTeethReport {
+  const stack = hasStackConstraints(input.blueprint);
   const manifest = TeethMutationManifestSchema.parse(input.manifest);
   const extractorKind = input.extractor ?? 'ast';
   const blueprintRef = `${input.blueprint.metadata.id}@${input.blueprint.metadata.version}`;
   if (manifest.blueprintRef !== blueprintRef) throw new Error(`mutation manifest blueprintRef ${manifest.blueprintRef} does not match ${blueprintRef}`);
   const cfg = resolveExtraction(input.blueprint.extraction, input.blueprint.constraints);
   const extractor = makeExtractor(extractorKind, cfg);
-  const cleanGraph = extractor.extract(input.repoDir, 'extractor-teeth:clean');
-  const cleanReport = evaluate(input.blueprint, cleanGraph, cfg.profile);
+  const cleanReport = stack
+    ? evaluatePreparedEvidence(input.blueprint, prepareDeclaredEvidence(input.blueprint, input.repoDir, 'extractor-teeth:clean', extractorKind), cfg.profile)
+    : evaluate(input.blueprint, extractor.extract(input.repoDir, 'extractor-teeth:clean'), cfg.profile);
+  // Stack conflicts may come from unselected runtime declarations or alternative locks. Copy
+  // and bind the full source tree for this path; mutation authority remains the manifest roots.
+  const copyRoots = stack ? ['.'] : manifest.allowedMutationRoots;
   const constraints = input.blueprint.constraints.map((constraint) => constraint.id).sort();
   const mappingCounts = countValues(manifest.cases.map((entry) => entry.constraintId));
   const unmappedConstraints = constraints.filter((id) => !mappingCounts.has(id));
@@ -240,6 +246,10 @@ export function assessExtractorTeethCorpus(input: {
       results.push({ id: testCase.id, constraintId: testCase.constraintId, mutationTarget: testCase.operation.target, preconditionSha256: null, mutatedSha256: null, targetViolations: [], unexpectedCollateralConstraints: [], status: 'refused', detail: 'constraint is not present in blueprint' });
       continue;
     }
+    if (cleanReport.verdict === 'indeterminate') {
+      results.push({ id: testCase.id, constraintId: testCase.constraintId, mutationTarget: testCase.operation.target, preconditionSha256: null, mutatedSha256: null, targetViolations: [], unexpectedCollateralConstraints: [], status: 'refused', detail: 'clean source evidence is indeterminate; a mutation cannot establish a passing starting point' });
+      continue;
+    }
     const cleanTargetViolations = cleanReport.violations.filter((violation) => violation.constraintId === testCase.constraintId);
     if (cleanTargetViolations.length > 0) {
       results.push({ id: testCase.id, constraintId: testCase.constraintId, mutationTarget: testCase.operation.target, preconditionSha256: null, mutatedSha256: null, targetViolations: cleanTargetViolations.map((violation) => violation.evidenceRef), unexpectedCollateralConstraints: [], status: 'refused', detail: 'target constraint is already RED on the clean tree' });
@@ -247,13 +257,17 @@ export function assessExtractorTeethCorpus(input: {
     }
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), `bce-extractor-teeth-${testCase.id}-`));
     try {
-      copySourceTree(input.repoDir, scratch, manifest.allowedMutationRoots);
+      copySourceTree(input.repoDir, scratch, copyRoots);
       const mutation = applyOperation(scratch, manifest, testCase.operation);
-      const mutatedGraph = extractor.extract(scratch, `extractor-teeth:${testCase.id}`);
-      input.onMutation?.(testCase.constraintId, mutatedGraph);
-      const mutatedReport = evaluate(input.blueprint, mutatedGraph, cfg.profile);
+      const evidence = stack ? prepareDeclaredEvidence(input.blueprint, scratch, `extractor-teeth:${testCase.id}`, extractorKind, input.repoDir) : undefined;
+      const mutatedGraph = stack ? evidence?.graph : extractor.extract(scratch, `extractor-teeth:${testCase.id}`);
+      if (mutatedGraph) input.onMutation?.(testCase.constraintId, mutatedGraph);
+      const mutatedReport = evidence ? evaluatePreparedEvidence(input.blueprint, evidence, cfg.profile) : evaluate(input.blueprint, mutatedGraph!, cfg.profile);
+      if (mutatedReport.verdict === 'indeterminate') throw new Error(`mutated source evidence refused: ${mutatedReport.summary}`);
       const targetViolations = mutatedReport.violations.filter((violation) => violation.constraintId === testCase.constraintId);
-      const exactEvidence = targetViolations.filter((violation) => targetConstraint.type === 'forbiddenFile'
+      const exactEvidence = targetViolations.filter((violation) => violation.evidenceType === 'declaredStack'
+        ? violation.evidenceRef === normalized(testCase.expectedEvidencePath) || violation.evidenceRef.startsWith(`${normalized(testCase.expectedEvidencePath)}#`)
+        : targetConstraint.type === 'forbiddenFile'
         ? violation.evidenceRef === normalized(testCase.expectedEvidencePath)
         : violation.evidenceRef.startsWith(`${normalized(testCase.expectedEvidencePath)}#L`));
       const unexpected = [...new Set(mutatedReport.violations
@@ -297,10 +311,10 @@ export function assessExtractorTeethCorpus(input: {
     unmappedConstraints,
     duplicateMappings,
     inputBindings: {
-      sourceTreeSha256: sourceTreeSha256(input.repoDir, manifest.allowedMutationRoots),
+      sourceTreeSha256: sourceTreeSha256(input.repoDir, copyRoots),
       blueprintSha256: sha256(stableStringify(input.blueprint)),
       mutationManifestSha256: sha256(stableStringify(manifest)),
-      extractorIdentity: extractorKind === 'ast' ? 'bce-ast:ts-morph@28.0.0' : 'bce-line-scan:v1',
+      extractorIdentity: stack ? 'selected-stack-v1:shared-evidence-dispatcher' : extractorKind === 'ast' ? 'bce-ast:ts-morph@28.0.0' : 'bce-line-scan:v1',
       nodeVersion: process.version,
     },
     cases: results,
@@ -326,6 +340,7 @@ export function discoverTeethManifest(repoDir: string, blueprint: EngineeringBlu
 
 /** Materialize every source mutation again; the returned graphs are for offline review replay. */
 export function buildSourceReviewProof(repoDir: string, blueprint: EngineeringBlueprint, suppliedManifest?: unknown): ReviewSourceProof | undefined {
+  if (hasStackConstraints(blueprint)) throw new Error('source review proof refused: graph-only review packets cannot encode declared-stack provider facts');
   const raw = suppliedManifest ?? discoverTeethManifest(repoDir, blueprint);
   if (raw === undefined) return undefined;
   const manifest = TeethMutationManifestSchema.parse(raw);

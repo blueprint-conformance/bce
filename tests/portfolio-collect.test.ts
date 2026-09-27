@@ -9,7 +9,9 @@
  * determinism-proof builds them).
  */
 import { describe, it, expect } from 'vitest';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { collectPortfolio, PortfolioRegistrySchema, type PortfolioRegistry } from '../src/portfolio-collect.js';
 import { architectureScore } from '../src/score.js';
@@ -98,5 +100,27 @@ describe('PortfolioRegistrySchema', () => {
   it('REJECTS an empty consumer set and a non-positive minMembers', () => {
     expect(PortfolioRegistrySchema.safeParse({ consumers: [], governance: { minMembers: 1 } }).success).toBe(false);
     expect(PortfolioRegistrySchema.safeParse({ consumers: [{ repo: 'a/b' }], governance: { minMembers: 0 } }).success).toBe(false);
+  });
+});
+
+describe('portfolio collect CLI report parsing', () => {
+  it('accepts a valid v2 null score and refuses it as indeterminate, not malformed', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-portfolio-v2-'));
+    try {
+      const reports = path.join(root, 'reports');
+      const sink = path.join(reports, 'example-org-service-alpha');
+      fs.mkdirSync(sink, { recursive: true });
+      fs.writeFileSync(path.join(root, 'registry.json'), JSON.stringify({ consumers: [{ repo: REPO_A }], governance: { minMembers: 1 } }));
+      fs.writeFileSync(path.join(sink, 'report.json'), JSON.stringify({
+        schemaVersion: '2', blueprintRef: 'stack@1.0.0', ctRepoRevision: 'test', repo: REPO_A,
+        score: null, verdict: 'indeterminate', violations: [], evidenceRef: 'n/a', summary: 'refused',
+        coverage: { providers: [{ evidenceClass: 'declaredStack', filesScanned: 0, unsupported: ['missing'] }] },
+        stack: null, refusals: [{ constraintId: 'stack', evidenceClass: 'declaredStack', code: 'missing-source', reason: 'missing', sources: ['package-lock.json'] }],
+      }));
+      const run = spawnSync(process.execPath, ['--import', 'tsx', path.resolve('src/cli.ts'), 'portfolio', 'collect', '--registry', path.join(root, 'registry.json'), '--reports-dir', reports], { encoding: 'utf8' });
+      expect(run.status).toBe(1);
+      expect(run.stderr).toContain('portfolio collect REFUSED: indeterminate report(s)');
+      expect(run.stderr).not.toContain('not a ComplianceReport');
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
   });
 });

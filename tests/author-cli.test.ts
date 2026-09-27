@@ -57,7 +57,7 @@ describe('bce author — model-agnostic scaffold generator', () => {
   it('author → validate ROUND-TRIP: the written draft passes bce validate + parseBlueprint', () => {
     const out = join(tmp, 'bp.json');
     const r = runCli(baseArgs(out));
-    expect(r.code).toBe(0);
+    expect(r.code, r.stderr).toBe(0);
     expect(r.stdout).toMatch(/authored DRAFT blueprint authored-under-test@0\.1\.0/);
     expect(r.stdout).toMatch(/schema-VALID, round-tripped/);
     expect(existsSync(out)).toBe(true);
@@ -74,6 +74,8 @@ describe('bce author — model-agnostic scaffold generator', () => {
 
   it('EVERY constraint type in ConstraintTypeSchema is authorable (incl. both forbiddenEgress modes)', () => {
     const out = join(tmp, 'all.json');
+    const sources = join(tmp, 'sources.json');
+    writeFileSync(sources, JSON.stringify({source:'npm-lockfile-v3',lockfile:'package-lock.json',packageManifest:'package.json',imageFiles:['Dockerfile'],runtimeFiles:['.nvmrc']}));
     const specs = [
       'forbiddenDependency:@anthropic-ai/sdk:critical',
       'requiredDependency:pluginSurface',
@@ -83,6 +85,11 @@ describe('bce author — model-agnostic scaffold generator', () => {
       'forbiddenEgress:api.openai.com,api.anthropic.com',
       'forbiddenEgress:governed=api-gateway,internal.example.com:critical',
       'requiredEvidence:staticAst:medium',
+      'forbiddenStackPackage:bad-package:critical',
+      'pinnedVersion:npm:zod=3.25.0',
+      `stackClosureMatch:${'a'.repeat(64)}`,
+      'requirePinnedImages:all',
+      'allowedNodeVersions:22.0.0,22.1.0',
       'minimumMetric:coverage=0.8:low',
       'customPolicy:policy/gateway-choke-point',
       'behavioralInvariant:dashboard-varies-with-query:critical',
@@ -91,12 +98,13 @@ describe('bce author — model-agnostic scaffold generator', () => {
     const r = runCli([
       'author',
       '--id', 'every-type',
+      '--stack-sources', sources,
       '--intent-ref', 'intent-a',
       '--repository', 'example-org/example',
       '--out', out,
       ...specs.flatMap((s) => ['--constraint', s]),
     ]);
-    expect(r.code).toBe(0);
+    expect(r.code, r.stderr).toBe(0);
     const bp = parseBlueprint(JSON.parse(readFileSync(out, 'utf8')));
     expect(bp.constraints).toHaveLength(specs.length);
     // every enum member is present at least once
@@ -118,10 +126,44 @@ describe('bce author — model-agnostic scaffold generator', () => {
     expect(byType('behavioralInvariant')[0]).toMatchObject({ behaviorRef: 'dashboard-varies-with-query', severity: 'critical' });
     // forbiddenPattern (0.9.0): internal `\(` survives the rest-join; trailing :critical is the severity
     expect(byType('forbiddenPattern')[0]).toMatchObject({ pattern: 'Math\\.random\\(', severity: 'critical' });
+    expect(byType('forbiddenStackPackage')[0]).toMatchObject({packageName:'bad-package',severity:'critical'});
+    expect(byType('pinnedVersion')[0]).toMatchObject({stackTarget:{kind:'npm',name:'zod'},expectedVersion:'3.25.0'});
+    expect(byType('stackClosureMatch')[0]).toMatchObject({expectedStackDigest:'a'.repeat(64)});
+    expect(byType('requirePinnedImages')[0]).toMatchObject({type:'requirePinnedImages'});
+    expect(byType('allowedNodeVersions')[0]).toMatchObject({versions:['22.0.0','22.1.0']});
+    expect(bp.minEngineVersion).toBe('0.5.0');
+    expect(bp.evidenceRequirements).toEqual(['behaviorObservation','declaredStack','staticAst'].map(type => ({type,required:true,onMissing:'block'})));
     // derived intended architecture is coherent with the constraints
     expect(bp.architecture.components.map((c) => c.id).sort()).toEqual(['apiRouteHandler', 'pluginSurface']);
     expect(bp.architecture.relationships.some((rel) => rel.to === '@anthropic-ai/sdk' && rel.allowed === false)).toBe(true);
     expect(bp.architecture.relationships.some((rel) => rel.to === 'api-gateway' && rel.allowed === true)).toBe(true);
+  }, 60000);
+
+  it('authors and grades an explicit stack-only policy, catching a transitive package under unchanged policy', () => {
+    const repo = join(tmp, 'stack-repo');
+    mkdirSync(repo);
+    writeFileSync(join(repo, 'package.json'), JSON.stringify({name:'consumer',version:'1.0.0'}));
+    const sources = join(tmp, 'sources.json');
+    writeFileSync(sources, JSON.stringify({source:'npm-lockfile-v3',lockfile:'package-lock.json',packageManifest:'package.json',imageFiles:[],runtimeFiles:[]}));
+    const lock = {name:'consumer',version:'1.0.0',lockfileVersion:3,packages:{'':{name:'consumer',version:'1.0.0'}}};
+    writeFileSync(join(repo,'package-lock.json'), JSON.stringify(lock));
+    const out = join(tmp,'stack.json');
+    const args = ['author','--id','no-bad-package','--intent-ref','policy/supply-chain','--repository','example/consumer','--repo',repo,'--constraint','forbiddenStackPackage:bad-package','--out',out];
+    expect(runCli(args).stderr).toContain('--stack-sources');
+    expect(existsSync(out)).toBe(false);
+    const authored = runCli([...args,'--stack-sources',sources]);
+    expect(authored.code, authored.stderr).toBe(0);
+    expect(authored.stdout).toContain('selected declarations are gradeable');
+    const policy = readFileSync(out,'utf8');
+    const run = () => runCli(['run','--no-pin','--blueprint',out,'--ct-repo',repo,'--out',join(tmp,'report.json')]);
+    const clean = run();
+    expect(clean.code, clean.stderr).toBe(0);
+    writeFileSync(join(repo,'package-lock.json'), JSON.stringify({...lock,packages:{...lock.packages,'node_modules/bad-package':{version:'1.0.0',resolved:'https://registry.npmjs.org/bad-package/-/bad-package-1.0.0.tgz',integrity:'sha512-test'}}}));
+    expect(run().code).toBe(1);
+    expect(JSON.parse(readFileSync(join(tmp,'report.json'),'utf8')).violations[0].constraintId).toContain('forbidden-stack-package');
+    writeFileSync(join(repo,'package-lock.json'),JSON.stringify(lock));
+    expect(run().code).toBe(0);
+    expect(readFileSync(out,'utf8')).toBe(policy);
   }, 60000);
 
   it('REFUSES with no --intent-ref (schema demands intentRefs min 1)', () => {
@@ -206,7 +248,7 @@ describe('bce author — model-agnostic scaffold generator', () => {
   it('bce init is an alias for bce author', () => {
     const out = join(tmp, 'bp.json');
     const r = runCli(['init', ...baseArgs(out).slice(1)]);
-    expect(r.code).toBe(0);
+    expect(r.code, r.stderr).toBe(0);
     expect(r.stdout).toMatch(/authored DRAFT blueprint/);
   }, 60000);
 
@@ -228,7 +270,7 @@ describe('bce author — model-agnostic scaffold generator', () => {
       '--constraint', 'forbiddenEgress:governed=api-gateway',
       '--out', out,
     ]);
-    expect(r.code).toBe(0);
+    expect(r.code, r.stderr).toBe(0);
     expect(r.stdout).toMatch(/author sanity: scope matches 1 file\(s\)/);
     // --repository derived from the repo directory name
     const bp = parseBlueprint(JSON.parse(readFileSync(out, 'utf8')));
@@ -255,7 +297,7 @@ describe('bce author — model-agnostic scaffold generator', () => {
       '--constraint', 'requiredDependency:typescriptModule->module:src/domain/**:high',
       '--out', out,
     ]);
-    expect(r.code).toBe(0);
+    expect(r.code, r.stderr).toBe(0);
     const bp = parseBlueprint(JSON.parse(readFileSync(out, 'utf8')));
     expect(bp.extraction).toMatchObject({
       profile: 'typescript-module-graph',
@@ -287,7 +329,7 @@ describe('bce author — model-agnostic scaffold generator', () => {
       '--constraint', 'forbiddenDependency:module:src/service/api.py:critical',
       '--out', out,
     ]);
-    expect(r.code).toBe(0);
+    expect(r.code, r.stderr).toBe(0);
     expect(r.stdout).toContain('author sanity: scope matches 1 file(s)');
     const bp = parseBlueprint(JSON.parse(readFileSync(out, 'utf8')));
     expect(bp.extraction).toMatchObject({
@@ -339,7 +381,7 @@ describe('bce author — model-agnostic scaffold generator', () => {
       '--constraint', 'forbiddenPath:src/legacy/**',
       '--constraint', 'forbiddenPath:src/legacy/**:critical',
     ]);
-    expect(r.code).toBe(0);
+    expect(r.code, r.stderr).toBe(0);
     const bp = parseBlueprint(JSON.parse(readFileSync(out, 'utf8')));
     const ids = bp.constraints.map((c) => c.id);
     expect(new Set(ids).size).toBe(2);
