@@ -5,16 +5,16 @@ code fix → GREEN task, the primary `SKILL.md` is sufficient.
 
 ## Install and discriminate
 
-Use an existing repository-local BCE installation when available. This source and v0.3.1 include
+Use an existing repository-local BCE installation when available. This source and v0.4.0 include
 offline `review prepare`, solo-steward ratification, lifecycle audits, and local `spec/SPEC.md`.
 The installed package runs those commands without a source checkout. The new-install commands
-below target published v0.3.1; verify its release record before changing artifacts.
+below target published v0.4.0; verify its release record before changing artifacts.
 
 Use an exact provenance-backed version, never a range or `latest` for a merge gate:
 
 ```bash
-npm view bce-engine@0.3.1 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.3.1
+npm view bce-engine@0.4.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.4.0
 npx --no-install bce demo
 ```
 
@@ -77,7 +77,7 @@ or `critical`.
 `requiredEvidence`, `minimumMetric`, and `customPolicy` are reserved/run-only in v0.1; do not use
 one as the enforcing constraint in a first blueprint. Extraction profiles are
 `next-route-handler`, `plugin-surface`, `python-import-surface`, `typescript-module-graph`, and
-`python-module-graph` in the released `v0.3.1` binary. The direct-module profiles require explicit
+`python-module-graph` in the released `v0.4.0` binary. The direct-module profiles require explicit
 scope paths, use `module:`, `package:`, or `builtin:` dependency targets, and automatically write
 `minEngineVersion: "0.3.0"`. Follow `docs/typescript-module-graph.md` or
 `docs/python-module-graph.md`. The normal primary skill loop remains unchanged: after setup,
@@ -96,14 +96,14 @@ bce validate --blueprint parameterized-queries-only.blueprint.json
 bce onboard \
   --repo . \
   --blueprint parameterized-queries-only.blueprint.json \
-  --engine bce-engine@0.3.1 \
+  --engine bce-engine@0.4.0 \
   --harness codex
 ```
 
 This exact onboarding command supports the framework, import-surface, and direct-module profiles in
-`v0.3.1`.
+`v0.4.0`.
 
-Its `--engine` selects v0.3.1 for CI. Upgrading locally does not upgrade an existing workflow;
+Its `--engine` selects v0.4.0 for CI. Upgrading locally does not upgrade an existing workflow;
 check that its separately selected exact version or Action source commit matches the intended
 release before relying on the correction. Historical v0.3.0 CI lacks the route correction.
 

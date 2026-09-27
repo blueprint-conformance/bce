@@ -27,7 +27,7 @@ disclosure; see [AI proposal and review](ai-first-review.md).
    Separate observed code from intended policy; today's dependencies are not automatically desired.
 2. Check `node --version` (22+) and the existing package manager and lockfile. If BCE is already
    installed, identify and use that local artifact. For a new registry installation, the current
-   published target is exact `bce-engine@0.3.1`; the [onboarding guide](onboarding.md) supplies
+   published target is exact `bce-engine@0.4.0`; the [onboarding guide](onboarding.md) supplies
    npm, pnpm, and Yarn commands.
 3. Run `bce demo --list` through the installed local binary, then one matching
    `bce demo --recipe <id>`. This proves the engine; it has not installed a rule in your repository.
@@ -81,16 +81,16 @@ proof. Preserve the real planted RED and exact source anchor as evidence of what
 
 ## Know which artifact you are operating
 
-The immutable `bce-engine@0.3.1` registry release includes named demos, authoring, onboarding,
+The immutable `bce-engine@0.4.0` registry release includes named demos, authoring, onboarding,
 ten MCP tools, provider-backed proposals, and the non-author GitHub review path. It also includes
 offline `review prepare`, explicit solo-steward ratification, and coherent lifecycle audits.
-Those additions are absent from v0.3.0. An installed v0.3.1 package runs them through its local
+Those additions are absent from v0.3.0. An installed v0.4.0 package runs them through its local
 binary without a source checkout; see [solo-steward ratification](solo-steward-ratification.md).
-Verify the [release record](release-v0.3.1.md) before changing the selected artifact.
+Verify the [release record](release-v0.4.0.md) before changing the selected artifact.
 
 Prefer the installed package's local `docs/` and skill references for version-specific behavior.
 The `0.3.0` tarball omits `spec/SPEC.md`; use the [released specification](https://github.com/blueprint-conformance/bce/blob/v0.3.0/spec/SPEC.md)
-when operating that version. The v0.3.1 package includes `spec/SPEC.md`; read that local,
+when operating that version. The v0.4.0 package includes `spec/SPEC.md`; read that local,
 version-matched file when it is present.
 
 The public `llms.txt` and each documentation page's Markdown link provide browser-free reading.
