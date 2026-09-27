@@ -1,7 +1,11 @@
-# RFC-0002: Declared-stack contracts and forward repair obligations
+# RFC-0002: Declared-stack contracts and deferred repair design
 
-Status: draft for public RFC discussion; local enforcement implementation accepted; reconciliation deferred
+Status: accepted; reconciliation deferred
 Author(s): BCE maintainer, with AI-assisted drafting
+
+Decision (2026-09-27): accepted because the five selected-source rule types are
+additive, preserve existing blueprint semantics, and fail closed when evidence is
+insufficient; the repair and reconciliation design remains deferred.
 
 This document follows [RFC-0001](RFC-0001-process.md). On 2026-09-20 the human
 maintainer explicitly accepted the enforcement contract and directed local implementation:
@@ -14,20 +18,26 @@ insufficient evidence, ordinary-gate integration and versioned offline replay. R
 reconciliation and cross-repository work are **deferred**. The reconciliation sections
 below remain proposals and create no implemented command or mutation authority.
 
-This is a local maintainer decision record, not a claim that the RFC was reviewed
-publicly, merged or released. This draft PR begins that separate public discussion;
-the RFC status must record its public decision before any follow-on implementation PR.
+The public scope discussion and maintainer decision are recorded in the RFC pull
+request. Acceptance authorizes a follow-on enforcement implementation PR and publishes
+this RFC through the normal documentation workflow; it is not an engine or npm release.
 The local development engine uses the proposed `0.5.0` identity so real minimum-engine
 checks apply; this is not evidence of a published 0.5.0 package. Public distribution,
 pinning and self-adoption remain subject to the required release sequence.
 
 ## Summary
 
-Make the ordinary conformance gate enforce selected declared package, image and Node contracts alongside code, replay its facts offline, and produce bounded forward repair obligations. The enforcement portion is accepted for local implementation; reconciliation remains deferred and no public release is claimed.
+Make the ordinary conformance gate enforce selected declared package, image and Node
+contracts alongside code and replay its facts offline. The enforcement and replay
+contract is accepted; repair and reconciliation remain deferred.
 
 ## Motivation
 
-One ordinary gate checks code plus selected declared npm/pnpm packages, image references and Node declarations; repository repairs turn red to green with unchanged policy. Its complete fact artifact can reproduce the evaluation offline. Missing or insufficient evidence refuses. Reconciliation emits a proposed repair without modifying the repository, policy, baseline, dependencies or installed engine.
+One ordinary gate checks code plus selected declared npm/pnpm packages, image references
+and Node declarations; repository repairs turn red to green with unchanged policy. Its
+complete fact artifact can reproduce the evaluation offline. Missing or insufficient
+evidence refuses. A later, separately accepted RFC may define reconciliation; this RFC
+does not authorize a repair command or repair artifact.
 
 Two equality rules alone are powerful but do not meet the adoption journey's explicit forbidden-transitive-package and universal-image-pinning cases. Recommend five small rule types, sharing one provider and evaluator. Runtime allowlists use exact versions; defer semantic ranges, importer-specific selectors, installed-state claims, vulnerability checks, registry resolution and automatic application. There is no new semver-range dependency.
 
@@ -110,7 +120,11 @@ Old engine strict parsing rejects top-level stack; new constraints also require 
 
 Use existing baseline treatment for established, gradeable violations: an explicitly reviewed committed baseline can mark them pre-existing. Do NOT silently special-case stack violations to bypass established baseline semantics. The acceptance journey uses unchanged empty baseline so actual package/image/runtime violations fail1. Refusal cannot be baselined, ever. Capturing a fresh baseline is a protected relaxation; reconcile cannot generate/install it. Changing pinnedVersion or closure digest is generally incomparable/unknown-potential-relaxation, not automatic tightening. Removing a constraint or sources relaxes; changing source identity is unknown. Adding a constraint tightens only with well-formed unchanged source scope. Narrowing exact Node allowlist tightens, widening relaxes; runtime parser/rule changes remain protected code review.
 
-## Proposal-only reconciliation
+## Deferred design appendix: proposal-only reconciliation (not accepted)
+
+Everything in this section and the later reconciliation-vector section is retained as
+design context only. It is outside the accepted enforcement and replay scope and does
+not authorize implementation, publication, or mutation.
 
 Do not depend on nonexistent `stack resolve`. Initial proposed invocation is `stack reconcile --base <bundle-v2> --head <bundle-v2> --target <bundle-v2> --blueprint <blueprint> --out <quarantine-json>`. Each input is a complete v2 evidence bundle carrying manifest and typed stackFacts, not a bare manifest. Verify each bundle with the unchanged supplied blueprint; head may have a gradeable failing report, while base and target must be gradeable and conformant. All manifests must pass complete identity and source-binding validation; the blueprint is the unchanged reviewed policy. Verify the current repository's source hashes/revision against head. Base explains the observed drift and must satisfy the same policy; it is never a file-restoration instruction. Target is an explicitly supplied desired declaration state, not a registry resolution result or authority to mutate anything.
 
@@ -139,12 +153,18 @@ No writes except explicit quarantine output. Reject output/input aliases, hardli
 
 1. Schema/capability + selected-source provider: generated schemas, strict cross-field validation, minimum-engine/tolerant-parse vectors, source and coverage typing; new types refuse until full integration. No partial shipped acceptance.
 2. Shared evaluation + gate selection: five rule arms, pure evaluation, mixed/stack-only facts, report2 and refusal aggregation, baseline/mode/portfolio/renderers; CLI/MCP/teeth all call same preparation seam.
-3. Replay + lineage + teeth: bundle2, record binding, verifier1 compatibility, synthetic evaluator mutations and real lockfile/Dockerfile/runtime source mutations clearly distinguished. Quarantine forward-target obligations with freshness/alias tests, explicit backward/unknown refusal and no exact-patch claim.
+3. Replay + lineage + teeth: bundle2, record binding, verifier1 compatibility, synthetic evaluator mutations and real lockfile/Dockerfile/runtime source mutations clearly distinguished.
 4. Packed consumer/CI: genuine install, initial three independent violations, repairs with fixed policy, source deletion/opaque/variable/runtime conflict refusal, lockfile-only gate selection, offline replay in separate temp consumer, intentional manifest substitution/tamper, old-engine fail-closed. Generated CI check must exercise ordinary gate. Release/pin/self-adoption are subsequent owner-controlled acts.
 
-## Owner decisions to record in RFC acceptance
+## Accepted decision scope
 
-Accept explicit selected-file image scope (not whole-repository coverage); five rule types with exact-version runtime sets rather than ranges; all-occurrence package pin; package exact version does not assert integrity; closure digest does not assert topology; strict source ambiguity refusal; existing baseline/advisory semantics; schema2 stack report/bundle with null indeterminate score; conservative proposal-only forward-target obligations. Accept or revise release ordering explicitly: local development is allowed after accepted RFC on proved foundation, but public0.5/pin/self-adoption follows required0.4 foundation release sequence. No statement here ratifies these decisions.
+Accepted: explicit selected-file image scope (not whole-repository coverage); five rule
+types with exact-version runtime sets rather than ranges; all-occurrence package pin;
+package exact version does not assert integrity; closure digest does not assert topology;
+strict source ambiguity refusal; existing baseline/advisory semantics; and schema2 stack
+report/bundle with null indeterminate score. Public 0.5.0 distribution, pinning, and
+self-adoption follow publication and predecessor-gated activation of the 0.4.0
+foundation. Proposal-only forward-target obligations remain deferred.
 
 ## Portable provider facts and source-binding algorithm
 
@@ -572,7 +592,7 @@ independent package/image/runtime violations, then fix declarations with unchang
 policy and empty baseline; refuse missing/opaque/variable/conflicting input; replay
 in a separate offline consumer. Six portability legs must run the built consumer proof.
 
-## Reconciliation vectors and limits
+## Deferred reconciliation vectors and limits (not accepted)
 
 A genuinely possible positive case uses `allowedNodeVersions:["22.22.2","24.8.0"]`
 with `.nvmrc` as the sole selected runtime declaration, no conflicting engines/node-
@@ -635,7 +655,8 @@ specification changes must land together after acceptance, as RFC-0001 requires.
 - Manifest v1 warning substring heuristics: unsafe portability seam; typed facts in a
   new bundle version permit explicit refusal without altering strict manifest v1.
 - Automatic patches or restoring base: neither supplied hashes nor historic green
-  evidence justify a safe edit or backward change. Obligations remain proposal-only.
+  evidence justify a safe edit or backward change. Any obligation design requires a
+  separately accepted RFC.
 - Silent report v1 extension: older consumers/verifiers could claim compatibility
   while dropping the new facts; v2 requires explicit consumer support.
 
@@ -649,7 +670,8 @@ typed facts and ordinary public entry-point integration.
 
 Deferred: forward repair obligations, reconcile commands, importer-specific scope,
 root/nonroot ambiguity changes and cross-repository orchestration. No policy/baseline
-ratification, release, merge or publication is implied. The local development version
-is 0.5.0, matching the accepted provisional minimum; actual release publication remains
-a separate owner-governed act. Existing code-only policies retain their established
+ratification or engine/package publication is implied. The RFC itself is published as
+documentation when this decision lands. The local development version is 0.5.0,
+matching the accepted provisional minimum; engine release publication remains a
+separate owner-governed act. Existing code-only policies retain their established
 minimums and v1 output behavior.
