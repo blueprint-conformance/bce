@@ -458,6 +458,7 @@ const SECTION_BLURB = {
 // Sources that are deliberately NOT published, each with the reason. Anything
 // publishable that is neither mapped above nor listed here fails the build.
 const UNPUBLISHED = {
+  'rfcs/RFC-0002-declared-stack-contracts.md': 'draft under public RFC review; decision and publication pending',
   'docs/launch/README-contested-variant.md': 'launch-preparation material, not documentation',
   'docs/launch/public-flip-checklist.md': 'launch-preparation material, not documentation',
   'docs/launch/show-hn-draft.md': 'launch-preparation material, not documentation',
