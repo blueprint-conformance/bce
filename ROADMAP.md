@@ -90,10 +90,10 @@ If a label here overstates reality, that is a bug — please open an issue.
 - **[RUNS]** Tag-gated release workflow that re-executes every proof at the tag — full suite,
   deterministic Agent Skills/MCP adoption, clean-install reproducibility, corpus recall, self-gate,
   and RED/GREEN pair — and refuses to publish unless all of them are green in that run
-  ([`.github/workflows/release.yml`](.github/workflows/release.yml)). `bce-engine@0.4.0` is public
+  ([`.github/workflows/release.yml`](.github/workflows/release.yml)). `bce-engine@0.5.0` is public
   with npm provenance. Its canonical GitHub Release is immutable with the exact tarball, signed
   payload manifest, signed EvidenceRecord, and compliance report attached
-  ([verification record](docs/release-v0.4.0.md)).
+  ([verification record](docs/release-v0.5.0.md)).
 
 ## Designed, not built — [DESIGN]
 
@@ -122,9 +122,9 @@ If a label here overstates reality, that is a bug — please open an issue.
   `portability.yml`'s three OS legs ([`scripts/stack-cross-os-golden-proof.mjs`](scripts/stack-cross-os-golden-proof.mjs)),
   proving the extractor reproduces the golden manifest byte for byte on ubuntu, macOS AND Windows —
   the council's cross-OS prediction is now a measured, running fact. yarn lockfiles, pnpm lockfiles
-  other than v9, image-tag resolution and automatic reconciliation are not built. The unpublished
-  local 0.5.0 candidate adds the five RFC-0002 declared-stack constraints to ordinary gate/MCP and
-  v2 offline replay; it does not claim a public release.
+  other than v9, image-tag resolution and automatic reconciliation are not built. The public
+  0.5.0 release adds the five RFC-0002 declared-stack constraints to ordinary gate/MCP and v2
+  offline replay; it does not claim automatic repair or registry resolution.
   Unreleased API note: the `STACK_REFUSAL_PNPM` export (the slice-1 "pnpm is not supported" refusal
   string, never shipped in a published version) is removed — a `pnpm-lock.yaml` is now read, and its own
   refusals are the `stackRefusalPnpm*` strings.

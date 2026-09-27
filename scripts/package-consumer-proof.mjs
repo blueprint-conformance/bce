@@ -35,7 +35,7 @@ const installedMcp = join(installedRoot, 'dist', 'mcp-server.js');
 const oldConsumer = join(scratch, 'old-engine-consumer');
 mkdirSync(oldConsumer, { recursive: true });
 npm(['init', '-y'], { cwd: oldConsumer, stdio: 'ignore' });
-npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--save-exact', 'bce-engine@0.3.1'], { cwd: oldConsumer, stdio: 'inherit' });
+npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--save-exact', 'bce-engine@0.4.0'], { cwd: oldConsumer, stdio: 'inherit' });
 const oldInstalledRoot = join(oldConsumer, 'node_modules', 'bce-engine');
 
 // Exercise pristine installed bytes before the artifact-identity mutation controls.

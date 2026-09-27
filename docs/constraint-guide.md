@@ -86,12 +86,12 @@ All four constraints flow through the same evaluator and report contract. A grad
 severity, component, observed fact, expected fact, and a file-and-line evidence reference where the
 extractor can provide one.
 
-## Declared-stack rules — unpublished 0.5.0 candidate
+## Declared-stack rules — released in 0.5.0
 
-The local **0.5.0 candidate is unpublished**. Its five declared-stack rules extend the ordinary
+The public **0.5.0 release** adds five declared-stack rules to the ordinary
 gate to selected dependency, image and Node declarations. See the
-[locally accepted enforcement RFC](../rfcs/RFC-0002-declared-stack-contracts.md) and
-[normative specification](../spec/SPEC.md#17-declared-stack-enforcement-local-050-development).
+[accepted enforcement RFC](../rfcs/RFC-0002-declared-stack-contracts.md) and
+[normative specification](../spec/SPEC.md#17-declared-stack-enforcement).
 
 | Rule | Requirement |
 |---|---|

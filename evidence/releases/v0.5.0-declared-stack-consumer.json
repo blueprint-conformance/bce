@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1",
+  "kind": "declared-stack-registry-consumer-result-summary",
+  "package": "bce-engine",
+  "version": "0.5.0",
+  "predecessorVersion": "0.4.0",
+  "sourceCommit": "bbc898156fa5d41b89d5a09c566f4e50481ccf63",
+  "releaseUrl": "https://github.com/blueprint-conformance/bce/releases/tag/v0.5.0",
+  "provenanceRunUrl": "https://github.com/blueprint-conformance/bce/actions/runs/36325500098/attempts/1",
+  "tarballSha256": "2002ca9a8ce3f95e96e9653720d2a7244baf090acf15bf4a0c8a1d45f2cd4b1d",
+  "npmIntegrity": "sha512-Uq1nWo6SR/xJUDCCiDXdoK+1RrnDm4/0z++brj5gsJlBOwpHdISxSH/p21ZqSFmaggXp7DB53AJpZKT2I9Xd9A==",
+  "npmShasum": "5613a98691ee0319c518755e7af225f2ac7e7b2d",
+  "passed": true,
+  "caseCount": 90,
+  "claims": [
+    "selected-declarations",
+    "offline-integrity-replay"
+  ],
+  "originAuthenticity": "not-established",
+  "environment": {
+    "node": "v22.22.2",
+    "npm": "10.9.7",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "proofHarnessCorrection": "The first replay exposed a stale literal expecting predecessor 0.3.1. The activation PR installs public predecessor 0.4.0 and derives the refusal text from its package metadata; the corrected replay passed without modifying the public 0.5.0 runtime bytes.",
+  "evidenceBoundary": "First-party synthetic installed-byte verification across gate, run, MCP, offline replay, tamper, substitution, and refusal paths; not installed-state, origin-authenticity, independent-adoption, or efficacy evidence.",
+  "rawLocalProofSha256": "47495cf9640a84a668fb169b9ef666ef55623b1aea07c9a5dfa6c5a452c9c6e2"
+}

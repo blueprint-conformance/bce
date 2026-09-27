@@ -5,12 +5,12 @@ source tree.
 
 ## Released self-adoption changes
 
-The v0.4.0 release supports an explicit base-authorized solo-steward GitHub ceremony,
+The v0.5.0 release supports an explicit base-authorized solo-steward GitHub ceremony,
 local authored review preparation, source-mutation proof replay and live landing re-execution,
 and coherent policy/adoption/graduation records. Doctor requires real teeth for every clause;
 the skill standard now has its own 13-case live-source mutation manifest alongside the engine
 manifest. Team review retains the non-author approval
-default. These additions are included in v0.4.0 and are absent from the immutable npm `v0.3.0` artifact. The project now
+default. These additions are included in v0.5.0 and are absent from the immutable npm `v0.3.0` artifact. The project now
 has installed Agent Skills, its built MCP server configuration, and explicit enforced mode.
 The [real GitHub ceremony](evidence/self-adoption/README.md) amended the engine contract to
 `0.1.1` with all 47 constraints preserved. Authenticated history and adoption record agree on
@@ -22,19 +22,19 @@ replication, or product efficacy is claimed.
 
 | Surface | Status | What a user may rely on |
 |---|---|---|
-| Source checkout | Working, released | `v0.4.0`; Node 22.22.2, `npm ci`, `npm run build`, then `node dist/cli.js`; source and registry identities are bound in the release record |
+| Source checkout | Working, released | `v0.5.0`; Node 22.22.2, `npm ci`, `npm run build`, then `node dist/cli.js`; source and registry identities are bound in the release record |
 | Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree, preserves the zero-argument `bce demo` contract, and executes all six packaged architecture recipes; the released tarball digest also matches npm |
-| npm | Released | [`bce-engine@0.4.0`](https://www.npmjs.com/package/bce-engine/v/0.4.0) is public with SLSA provenance and integrity `sha512-x3W82Nn4r2cpTap8IbD9yfrcbEdbq3prQA7Ix0QioUe7P27dyTim/LjfdH6dIdkZP89XdC+RgI94sX/oMnucIg==`; install the exact version on Node 22+ |
-| Git tag / GitHub Release | Released, immutable | [`v0.4.0`](https://github.com/blueprint-conformance/bce/releases/tag/v0.4.0) is immutable at source `91e7b05f5a3cf2734654bb060ed2b7940692cf69` with six digest-bound assets: the exact tarball, payload manifest and signature, EvidenceRecord and signature, and compliance report ([verification record](docs/release-v0.4.0.md)) |
-| GitHub Action | Released | Pin `blueprint-conformance/bce@91e7b05f5a3cf2734654bb060ed2b7940692cf69` (the v0.4.0 source commit), never a tag; the creator-maintained external RED/GREEN witness below remains evidence for its recorded v0.1.5 Action pin, not v0.4.0 |
-| GitLab template | Unsupported reference | It uses exact `bce-engine@0.4.0` and is fail-closed, but no real GitLab runner/client matrix has been completed; GitLab is not a supported integration |
+| npm | Released | [`bce-engine@0.5.0`](https://www.npmjs.com/package/bce-engine/v/0.5.0) is public with SLSA provenance and integrity `sha512-Uq1nWo6SR/xJUDCCiDXdoK+1RrnDm4/0z++brj5gsJlBOwpHdISxSH/p21ZqSFmaggXp7DB53AJpZKT2I9Xd9A==`; install the exact version on Node 22+ |
+| Git tag / GitHub Release | Released, immutable | [`v0.5.0`](https://github.com/blueprint-conformance/bce/releases/tag/v0.5.0) is immutable at source `bbc898156fa5d41b89d5a09c566f4e50481ccf63` with six digest-bound assets: the exact tarball, payload manifest and signature, EvidenceRecord and signature, and compliance report ([verification record](docs/release-v0.5.0.md)) |
+| GitHub Action | Released | Pin `blueprint-conformance/bce@bbc898156fa5d41b89d5a09c566f4e50481ccf63` (the v0.5.0 source commit), never a tag; the creator-maintained external RED/GREEN witness below remains evidence for its recorded v0.1.5 Action pin, not v0.5.0 |
+| GitLab template | Unsupported reference | It uses exact `bce-engine@0.5.0` and is fail-closed, but no real GitLab runner/client matrix has been completed; GitLab is not a supported integration |
 | OpenAI plugin | Packaged, unsubmitted | `.codex-plugin/plugin.json` validates as a skills-only ChatGPT/Codex plugin; there is no portal submission, public listing URL, or clean-account directory install |
 
 ## What the engine currently proves
 
 - For supported extractor/constraint combinations, it can discriminate committed conformant and
   seeded-drift fixtures and produce deterministic reports.
-- The released `v0.4.0` First Win catalog executes six GREEN/named-RED architecture recipes
+- The released `v0.5.0` First Win catalog executes six GREEN/named-RED architecture recipes
   across the mature TypeScript/JavaScript AST path, direct TypeScript/JavaScript and structured
   Python module graphs, and a real-source configuration pattern pair. The released Python
   import-surface MVP remains available unchanged. These are mechanism demonstrations; their
@@ -42,18 +42,24 @@ replication, or product efficacy is claimed.
 - Gate outcomes are three-state: pass (exit 0), violation (exit 1), and structural refusal
   (exit 2). A missing blueprint set, unsupported critical analysis, unknown constraint, unbound
   runtime constraint, unsafe evidence path, or unresolved allowlist destination cannot pass.
+- The v0.5.0 declared-stack contract selects exact npm/pnpm lockfiles, package manifests, image
+  files, and Node runtime files, then enforces exact package pins, closure equality, forbidden
+  packages, digest-pinned images, and allowed Node versions through `gate`, `run`, and MCP. Missing,
+  opaque, variable, conflicting, or integrity-invalid required evidence refuses. Offline v2 bundles
+  bind the stack manifest and source facts; substitution and tamper controls refuse. A fresh public
+  registry installation passed 90/90 bounded declared-stack cases against the released bytes.
 - Route-guard evidence requires symbol provenance from a blueprint-declared governed module.
-  v0.4.0 inventories direct function and immutable const arrow/function-expression handlers for
+  v0.5.0 inventories direct function and immutable const arrow/function-expression handlers for
   all seven HTTP verbs. Recognized unsupported exports, rebound handlers, CommonJS assignments,
   and duplicate canonical handlers refuse with source evidence. A fresh registry installation
   passed 52/52 cases against the signed release archive. A governed call site still does not prove
   execution, awaiting, denial propagation, or tenant/resource binding; green output says
-  **authorization behavior unverified**. [Inspect the release proof](docs/release-v0.4.0.md).
+  **authorization behavior unverified**. [Inspect the release proof](docs/release-v0.5.0.md).
 - Runtime observation envelopes are bound to revision, scanned source bytes, extracted graph,
   probe definition, stimulus set, collector, and environment before they can affect a verdict.
 - `bce run --emit` can emit hash-chained integrity records. Ordinary gate runs do not emit them,
   and a local hash chain is not authenticated provenance.
-- The v0.4.0 release evidence embeds the exact dependency-lock digest and extractor/provider
+- The v0.5.0 release evidence embeds the exact dependency-lock digest and extractor/provider
   identity. Its reproducibility proof obtains the same production graph and report hash from two
   clean installs. Historical 0.1.5 records predate this additive field.
 - The built MCP server passes strict discovery through locked Inspector 2.6.0, boundary/framing
@@ -63,8 +69,8 @@ replication, or product efficacy is claimed.
   enforces a 30-second p95 ceiling per structured provider, and requires a planted cross-package
   import to redden at its exact line. It is a regression budget, not real-repository
   generalization evidence.
-- The v0.4.0 source and packed artifact passed the public Ubuntu/macOS/Windows × Node 22/24
-  [portability matrix](https://github.com/blueprint-conformance/bce/actions/runs/36316182535), including
+- The v0.5.0 source and packed artifact passed the public Ubuntu/macOS/Windows × Node 22/24
+  [portability matrix](https://github.com/blueprint-conformance/bce/actions/runs/36324003262), including
   build, typecheck, cross-platform engine/CLI/evidence/MCP tests, restricted-network operation, and
   a packed-consumer proof. This establishes the current source path, not a retrospective claim that
   every platform executed the historical `v0.1.5` release workflow.
@@ -85,7 +91,7 @@ replication, or product efficacy is claimed.
   [GREEN after the fix](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33690296051).
   That RED is evidence of enforced blocking in an external consumer. It remains creator-maintained
   (see the consumer's `WITNESS.md`), so it does not change the independent-witness count below, and
-  the sequence has not yet been rerun against the v0.4.0 Action commit.
+  the sequence has not yet been rerun against the v0.5.0 Action commit.
 - The v0.3.0 AI-adoption proof runs all four supported harness layouts. It checks project-local
   discovery of both skills, project-local MCP configuration, read-only tool affordances,
   zero-argument repository calls, and live GREEN → RED → GREEN correction. This is a deterministic
@@ -186,10 +192,10 @@ replication, or product efficacy is claimed.
 - A [working paper draft](docs/paper.md) is shared for discussion. No arXiv identifier, DOI, archival publication, or independent replication is claimed.
 - No external implementation has submitted a complete run against the digest-frozen 12-vector set;
   the accepted implementation count remains zero.
-- The current v0.4.0 EvidenceRecord and payload manifest have authenticated Sigstore identities
+- The current v0.5.0 EvidenceRecord and payload manifest have authenticated Sigstore identities
   bound to the GitHub OIDC issuer and exact tag workflow. Both signed payloads match their attached
-  JSON, all 485 archive entries match the signed inventory, and the archive matches npm integrity.
-  The release workflow completed on its first attempt. [Current verification](docs/release-v0.4.0.md)
+  JSON, all 492 archive entries match the signed inventory, and the archive matches npm integrity.
+  The release workflow completed on its first attempt. [Current verification](docs/release-v0.5.0.md)
   records the identities and consumer tests. This is first-party
   verification; AI council checks do not count as independent adoption or human review.
 - The historical v0.3.0 EvidenceRecord and payload manifest have authenticated Sigstore identities bound to the

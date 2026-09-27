@@ -1155,27 +1155,26 @@ declaredBy, canonical row bytes)` and the report is serialized by the §11 rules
 `edges[]` / `images[]` / `unmodeled[]` array order — yields byte-identical report bytes. The report
 is a verb output, not a published schema in this specification version.
 
-**CI enforcement (as of 0.4.0).** Both `stack snapshot` and `stack diff` are now proven, not only
+**CI enforcement (as of 0.5.0).** Both `stack snapshot` and `stack diff` are now proven, not only
 specified: a cross-OS golden-byte-identity proof runs on every one of `portability.yml`'s three OS
 legs (ubuntu-latest, macos-latest, windows-latest), and a built-dist-CLI RED/GREEN discriminating
 pair runs in `ci.yml` on every push, materializing the real revisions `47a51f4` → `e0f7344` (this
 repository's own vitest 4 → 5 bump) via `stack snapshot --ref` and asserting the exact top
 classification `removed` in the forward direction, `backward`/exit 2/`FAILS CLOSED` in the reverse.
 See [`docs/stack-plane.md`](../docs/stack-plane.md) for the operator-facing summary. `stack
-reconcile` remains unspecified; the local 0.5.0 declared-stack constraint contract is specified
+reconcile` remains unspecified; the released 0.5.0 declared-stack constraint contract is specified
 separately in §17 and does not imply reconciliation or automatic repair.
 
 ---
 
-## 17. Declared-stack enforcement (local 0.5.0 development)
+## 17. Declared-stack enforcement
 
 This section adopts the **enforcement** portions of
 [RFC-0002](../rfcs/RFC-0002-declared-stack-contracts.md): Authored source block; Rule JSON
 and semantics; Gradeability and outputs; Concrete report and evidence envelope;
 Compatibility and baseline decisions; the typed facts/source-binding contract; and the
-Acceptance and compatibility matrix. Those sections are normative for this local
+Acceptance and compatibility matrix. Those sections are normative for the 0.5.0
 implementation. Reconciliation sections remain deferred and are not incorporated.
-No public release is asserted by this development specification.
 
 An authored stack contract MUST select a supported root npm-v3 or pnpm-v9 lockfile,
 package manifest, and exact image/runtime source lists. It MUST declare required

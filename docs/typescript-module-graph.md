@@ -5,12 +5,12 @@ not a framework-specific route or plugin shape. Every scanned module becomes a
 `typescriptModule` component. Every statically named dependency becomes an `imports` edge before
 any policy is applied.
 
-This profile is available in the `v0.4.0` registry release. Install the exact version and run its packaged
+This profile is available in the `v0.5.0` registry release. Install the exact version and run its packaged
 proof:
 
 ```bash
-npm view bce-engine@0.4.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.4.0
+npm view bce-engine@0.5.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.5.0
 npx --no-install bce demo --recipe module-layering
 ```
 
