@@ -10,6 +10,10 @@
  * architecture-graph + diff. One vision, two axes.
  */
 export {
+  StackSourceConfigSchema,
+  ExactStackVersionSchema,
+  STACK_CONSTRAINTS,
+  DECLARED_STACK_MIN_ENGINE_VERSION,
   EngineeringBlueprintSchema,
   ValidatedEngineeringBlueprintSchema,
   parseBlueprint,
@@ -32,6 +36,7 @@ export {
   parseAnyBlueprint,
 } from './schema.js';
 export type {
+  StackSourceConfig,
   EngineeringBlueprint,
   ConstraintType,
   Severity,
@@ -89,7 +94,7 @@ export {
 } from './python-module-graph.js';
 
 export { evaluate, stableStringify, SEVERITY_WEIGHT } from './report.js';
-export type { ComplianceReport, Violation } from './report.js';
+export type { ComplianceReport, LegacyComplianceReport, DeclaredStackReport, EvidenceRefusal, Violation } from './report.js';
 
 export { assessTeeth, ConstraintTeeth } from './teeth.js';
 export type { TeethReport, RefutabilityWitness } from './teeth.js';
@@ -217,8 +222,8 @@ export { auditAdoption, readPolicyHistory, semverGreater, PolicyHistoryError, PO
 export type { PolicyHistoryEntry, PolicyOperation } from './policy-history.js';
 export { classifyPolicyChanges } from './policy-change.js';
 export type { PolicyChangeClass, FileChange, ClassifiedChange, PolicyChangeReport } from './policy-change.js';
-export { createEvidenceBundle, verifyEvidenceBundle } from './evidence-bundle.js';
-export type { EvidenceBundle, EvidenceBundleVerification } from './evidence-bundle.js';
+export { createEvidenceBundle, createDeclaredStackBundle, verifyEvidenceBundle } from './evidence-bundle.js';
+export type { EvidenceBundle, LegacyEvidenceBundle, DeclaredStackEvidenceBundle, EvidenceBundleVerification } from './evidence-bundle.js';
 export { validateJudgments, benchmarkMetrics, metricsByClass } from './benchmark.js';
 export type { BenchmarkOutcome, BenchmarkJudgment, BenchmarkMetrics, Interval } from './benchmark.js';
 
@@ -360,3 +365,7 @@ export type {
   DisclosureManifest,
   OpenAIResponsesAdapterOptions,
 } from './assistant-adapter.js';
+
+export * from './stack/stack-evaluation.js';
+export * from './stack/selected-stack.js';
+export { renderReportMarkdown, renderReportJUnit, renderReportSarif } from './report.js';

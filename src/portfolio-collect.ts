@@ -126,6 +126,11 @@ export function collectPortfolio(input: {
     .flatMap((repo) => (input.reportsByRepo[repo] ?? []).map((report) => ({ repo, report })))
     .sort((a, b) => cmp(a.repo, b.repo) || cmp(a.report.blueprintRef, b.report.blueprintRef));
 
+  const indeterminate = envelopes.filter(({ report }) => report.score === null || report.verdict === 'indeterminate');
+  if (indeterminate.length > 0) {
+    return { refused: true, reason: `indeterminate report(s): ${indeterminate.map(({ repo, report }) => `${repo}:${report.blueprintRef}`).join(', ')} — insufficient evidence cannot be averaged into a portfolio score` };
+  }
+
   return {
     refused: false,
     envelopes,

@@ -1,161 +1,476 @@
 {
   "$id": "https://blueprint-conformance.github.io/bce/schemas/compliance-report.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "additionalProperties": false,
-  "description": "The deterministic conformance report `bce run` / `bce gate` emit (src/report.ts). score = max(0, 100 − Σ severity weight per violation) with weights {\"critical\":40,\"high\":20,\"medium\":10,\"low\":5,\"info\":0}; verdict is pass iff the violation set is EMPTY (zero-violations-pass — an info-only violation set scores 100 yet fails). Canonical serialization: sorted keys, 2-space indent, trailing newline. This schema describes the CURRENT engine version’s canonical output; per the widen-only policy, consumers reading reports from other engine versions SHOULD read tolerantly (unknown fields ignored).",
-  "properties": {
-    "blueprintRef": {
-      "description": "blueprint identity `<id>@<version>` (or the file basename for a parse-failed blueprint)",
-      "type": "string"
-    },
-    "coverage": {
+  "description": "Versioned conformance report: v1 code evidence or v2 declared-stack evidence. Indeterminate means no numeric score.",
+  "oneOf": [
+    {
       "additionalProperties": false,
       "properties": {
-        "extractor": {
-          "enum": [
-            "ast",
-            "line-scan"
-          ],
+        "blueprintRef": {
+          "description": "blueprint identity `<id>@<version>` (or the file basename for a parse-failed blueprint)",
           "type": "string"
         },
-        "filesScanned": {
+        "coverage": {
+          "additionalProperties": false,
+          "properties": {
+            "extractor": {
+              "enum": [
+                "ast",
+                "line-scan"
+              ],
+              "type": "string"
+            },
+            "filesScanned": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "unresolvedImports": {
+              "description": "OPTIONAL located unresolved imports from the TypeScript module graph; relevant boundaries fail closed on these facts",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "ref": {
+                    "type": "string"
+                  },
+                  "specifier": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "from",
+                  "specifier",
+                  "kind",
+                  "ref",
+                  "reason"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "unsupported": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "extractor",
+            "filesScanned",
+            "unsupported"
+          ],
+          "type": "object"
+        },
+        "ctRepoRevision": {
+          "description": "the target-repo revision the observed graph was extracted at (40-hex sha, or `unpinned`)",
+          "type": "string"
+        },
+        "evidenceRef": {
+          "description": "content-addressed pointer to the observed graph (`architecture-graph.json@sha256:<hex>`), or `n/a` on a fail-closed report that never scanned",
+          "type": "string"
+        },
+        "repo": {
+          "description": "OPTIONAL repo identity stamp (omit-not-empty: absent unless the producer passed one)",
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": "1"
+        },
+        "score": {
+          "maximum": 100,
           "minimum": 0,
           "type": "integer"
         },
-        "unresolvedImports": {
-          "description": "OPTIONAL located unresolved imports from the TypeScript module graph; relevant boundaries fail closed on these facts",
+        "summary": {
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "pass",
+            "fail"
+          ],
+          "type": "string"
+        },
+        "violations": {
           "items": {
             "additionalProperties": false,
             "properties": {
-              "from": {
+              "component": {
                 "type": "string"
               },
-              "kind": {
+              "constraintId": {
                 "type": "string"
               },
-              "reason": {
+              "evidenceRef": {
                 "type": "string"
               },
-              "ref": {
+              "evidenceType": {
                 "type": "string"
               },
-              "specifier": {
+              "expected": {
+                "type": "string"
+              },
+              "observed": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "info",
+                  "low",
+                  "medium",
+                  "high",
+                  "critical"
+                ],
                 "type": "string"
               }
             },
             "required": [
-              "from",
-              "specifier",
-              "kind",
-              "ref",
-              "reason"
+              "constraintId",
+              "severity",
+              "component",
+              "evidenceType",
+              "evidenceRef",
+              "observed",
+              "expected"
             ],
             "type": "object"
-          },
-          "type": "array"
-        },
-        "unsupported": {
-          "items": {
-            "type": "string"
           },
           "type": "array"
         }
       },
       "required": [
-        "extractor",
-        "filesScanned",
-        "unsupported"
+        "schemaVersion",
+        "blueprintRef",
+        "ctRepoRevision",
+        "score",
+        "verdict",
+        "violations",
+        "evidenceRef",
+        "summary",
+        "coverage"
       ],
       "type": "object"
     },
-    "ctRepoRevision": {
-      "description": "the target-repo revision the observed graph was extracted at (40-hex sha, or `unpinned`)",
-      "type": "string"
-    },
-    "evidenceRef": {
-      "description": "content-addressed pointer to the observed graph (`architecture-graph.json@sha256:<hex>`), or `n/a` on a fail-closed report that never scanned",
-      "type": "string"
-    },
-    "repo": {
-      "description": "OPTIONAL repo identity stamp (omit-not-empty: absent unless the producer passed one)",
-      "type": "string"
-    },
-    "schemaVersion": {
-      "const": "1"
-    },
-    "score": {
-      "maximum": 100,
-      "minimum": 0,
-      "type": "integer"
-    },
-    "summary": {
-      "type": "string"
-    },
-    "verdict": {
-      "enum": [
-        "pass",
-        "fail"
-      ],
-      "type": "string"
-    },
-    "violations": {
-      "items": {
-        "additionalProperties": false,
-        "properties": {
-          "component": {
-            "type": "string"
+    {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "refusals": {
+                "maxItems": 0
+              },
+              "score": {
+                "type": "integer"
+              }
+            }
           },
-          "constraintId": {
-            "type": "string"
+          "if": {
+            "properties": {
+              "verdict": {
+                "const": "indeterminate"
+              }
+            }
           },
-          "evidenceRef": {
-            "type": "string"
-          },
-          "evidenceType": {
-            "type": "string"
-          },
-          "expected": {
-            "type": "string"
-          },
-          "observed": {
-            "type": "string"
-          },
-          "severity": {
-            "enum": [
-              "info",
-              "low",
-              "medium",
-              "high",
-              "critical"
-            ],
-            "type": "string"
+          "then": {
+            "properties": {
+              "refusals": {
+                "minItems": 1
+              },
+              "score": {
+                "type": "null"
+              }
+            }
           }
+        }
+      ],
+      "properties": {
+        "blueprintRef": {
+          "description": "blueprint identity `<id>@<version>` (or the file basename for a parse-failed blueprint)",
+          "type": "string"
         },
-        "required": [
-          "constraintId",
-          "severity",
-          "component",
-          "evidenceType",
-          "evidenceRef",
-          "observed",
-          "expected"
-        ],
-        "type": "object"
+        "coverage": {
+          "additionalProperties": false,
+          "properties": {
+            "providers": {
+              "items": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "evidenceClass": {
+                        "const": "staticAst"
+                      },
+                      "extractor": {
+                        "enum": [
+                          "ast",
+                          "line-scan"
+                        ],
+                        "type": "string"
+                      },
+                      "filesScanned": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "unresolvedImports": {
+                        "description": "OPTIONAL located unresolved imports from the TypeScript module graph; relevant boundaries fail closed on these facts",
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "from": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "reason": {
+                              "type": "string"
+                            },
+                            "ref": {
+                              "type": "string"
+                            },
+                            "specifier": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "from",
+                            "specifier",
+                            "kind",
+                            "ref",
+                            "reason"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "unsupported": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "evidenceClass",
+                      "extractor",
+                      "filesScanned",
+                      "unsupported"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "evidenceClass": {
+                        "const": "declaredStack"
+                      },
+                      "filesScanned": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "unsupported": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "evidenceClass",
+                      "filesScanned",
+                      "unsupported"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "providers"
+          ],
+          "type": "object"
+        },
+        "ctRepoRevision": {
+          "description": "the target-repo revision the observed graph was extracted at (40-hex sha, or `unpinned`)",
+          "type": "string"
+        },
+        "evidenceRef": {
+          "description": "content-addressed pointer to the observed graph (`architecture-graph.json@sha256:<hex>`), or `n/a` on a fail-closed report that never scanned",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "enforced",
+            "advisory"
+          ]
+        },
+        "refusals": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "constraintId": {
+                "type": "string"
+              },
+              "evidenceClass": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "sources": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "constraintId",
+              "evidenceClass",
+              "code",
+              "reason",
+              "sources"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "repo": {
+          "description": "OPTIONAL repo identity stamp (omit-not-empty: absent unless the producer passed one)",
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": "2"
+        },
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "stack": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "claim": {
+                  "const": "selected-declarations-not-installed-state"
+                },
+                "manifestDigest": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "sourceConfigDigest": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "stackDigest": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "stackDigest",
+                "manifestDigest",
+                "sourceConfigDigest",
+                "claim"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "pass",
+            "fail",
+            "indeterminate"
+          ]
+        },
+        "violations": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "component": {
+                "type": "string"
+              },
+              "constraintId": {
+                "type": "string"
+              },
+              "evidenceRef": {
+                "type": "string"
+              },
+              "evidenceType": {
+                "type": "string"
+              },
+              "expected": {
+                "type": "string"
+              },
+              "observed": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "info",
+                  "low",
+                  "medium",
+                  "high",
+                  "critical"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "constraintId",
+              "severity",
+              "component",
+              "evidenceType",
+              "evidenceRef",
+              "observed",
+              "expected"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
       },
-      "type": "array"
+      "required": [
+        "schemaVersion",
+        "blueprintRef",
+        "ctRepoRevision",
+        "score",
+        "verdict",
+        "violations",
+        "evidenceRef",
+        "summary",
+        "coverage",
+        "stack",
+        "refusals"
+      ],
+      "type": "object"
     }
-  },
-  "required": [
-    "schemaVersion",
-    "blueprintRef",
-    "ctRepoRevision",
-    "score",
-    "verdict",
-    "violations",
-    "evidenceRef",
-    "summary",
-    "coverage"
   ],
-  "title": "ComplianceReport",
-  "type": "object"
+  "title": "ComplianceReport"
 }

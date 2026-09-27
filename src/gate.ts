@@ -1,3 +1,4 @@
+import { hasStackConstraints, prepareDeclaredEvidence, evaluatePreparedEvidence } from './stack/stack-evaluation.js';
 /**
  * `bce gate` — the blueprint-conformance PR GATE (the D13 anti-shelfware mechanism).
  *
@@ -179,6 +180,10 @@ export function blueprintTouchesChanges(
   changed: string[] | null,
 ): boolean {
   if (changed === null) return true;
+  if (bp.stack) {
+    const watched = new Set([bp.stack.lockfile,bp.stack.packageManifest,...bp.stack.imageFiles,...bp.stack.runtimeFiles,'package-lock.json','npm-shrinkwrap.json','pnpm-lock.yaml','.nvmrc','.node-version','.npmrc','pnpm-workspace.yaml','.bce-mode.json','.bce-baseline.json']);
+    if(changed.some(p => watched.has(p.replace(/^\.\//,'')) || p.includes('.blueprint.json') || p.startsWith('.blueprints/'))) return true;
+  }
   const patterns = bp.extraction?.paths ?? bp.scope.paths ?? [];
   if (patterns.length === 0) return true; // no path scoping declared → conservative: run it
   // Match each changed file against the blueprint's globs (repo-relative).
@@ -338,6 +343,13 @@ export function runGate(
         `blueprint ${bp.metadata.id} declares scope.repositories [${bp.scope.repositories.join(', ')}] ` +
           `but the gate is running as '${repoName}'`,
       );
+    }
+    if (hasStackConstraints(bp)) {
+      const prepared = prepareDeclaredEvidence(bp,repoDir,revision,extractorKind);
+      const report = evaluatePreparedEvidence(bp,prepared,resolveExtraction(bp.extraction,bp.constraints).profile,repoName);
+      reports.push(report);
+      if(report.schemaVersion === '2') refusals.push(...report.refusals.map(r=>`${report.blueprintRef}: ${r.code}: ${r.reason}`));
+      continue;
     }
     // Runtime constraints require bound observations. A static-only gate cannot prove them and
     // therefore refuses, while still evaluating any static subset for useful diagnostics.
@@ -567,7 +579,7 @@ export function assembleGateReportDoc(args: {
 }): GateReportDoc {
   const { resolvedMode, baseline, result, blockingBlueprints, newViolationsTotal, baselinedViolationsTotal } = args;
   const reportRefusals = result.reports
-    .filter((r) => r.verdict !== 'pass' && r.violations.length === 0)
+    .filter((r) => (r.verdict === 'indeterminate' || (r.verdict !== 'pass' && r.violations.length === 0)))
     .map((r) => r.summary);
   const refusals = [...new Set([...(result.refusals ?? []), ...reportRefusals])];
   const gateFailed = args.gateFailed || refusals.length > 0;
@@ -646,7 +658,7 @@ export function computeGateReport(
   // graded fail that produced NO violation ROWS — empty/partial scan, malformed blueprint,
   // minEngineVersion miss). A baseline can NEVER suppress a refusal (no violation identity to
   // accept) — it always blocks (SPEC §7 fail-closed discipline).
-  const isRefusal = (r: ComplianceReport): boolean => r.verdict !== 'pass' && r.violations.length === 0;
+  const isRefusal = (r: ComplianceReport): boolean => (r.verdict === 'indeterminate' || (r.verdict !== 'pass' && r.violations.length === 0));
   const blocks = (r: ComplianceReport): boolean => {
     if (isRefusal(r)) return true;
     const p = partByRef.get(r.blueprintRef);

@@ -114,9 +114,9 @@ A `PortfolioBlueprint` additionally:
 
 ---
 
-## 3. Constraint taxonomy — 11 types
+## 3. Constraint taxonomy — 16 types
 
-The taxonomy has **eleven** constraint types: **eight enforcing** and **three reserved
+The taxonomy has **sixteen** constraint types: **thirteen enforcing** and **three reserved
 (explicit-skip)**. The enum is **widen-only** (§10): it only ever gains members.
 
 | # | Type | Class | Evidence class | Graded against |
@@ -132,6 +132,11 @@ The taxonomy has **eleven** constraint types: **eight enforcing** and **three re
 | 9 | `requiredEvidence` | RESERVED | — | *(explicit skip)* |
 | 10 | `minimumMetric` | RESERVED | — | *(explicit skip)* |
 | 11 | `customPolicy` | RESERVED | — | *(explicit skip)* |
+| 12 | `pinnedVersion` | ENFORCING | declaredStack | selected exact package, image digest or Node declaration |
+| 13 | `stackClosureMatch` | ENFORCING | declaredStack | selected canonical declared closure digest |
+| 14 | `forbiddenStackPackage` | ENFORCING | declaredStack | all selected modeled non-root package identities |
+| 15 | `requirePinnedImages` | ENFORCING | declaredStack | every selected external image declaration |
+| 16 | `allowedNodeVersions` | ENFORCING | declaredStack | selected exact Node declaration |
 
 ### 3.1 Enforcing semantics (normative)
 
@@ -672,7 +677,7 @@ family is pinned by an explicit test assertion so it can never silently widen.
 
 `bce stack snapshot` emits a **StackManifest** (`stack-manifest.schema.json`): the DECLARED dependency
 closure of a repository at a revision. It is a sibling artifact to the observed graph and the
-compliance report — it joins neither in this slice, and no constraint type grades it yet.
+compliance report. Snapshot behavior remains defined here; the explicitly selected enforcement provider in §17 reuses this manifest without changing its v1 identity.
 
 **Inputs** (read from the pinned tree, nothing else): `npm-shrinkwrap.json` or `package-lock.json`
 with `lockfileVersion` **3 only** — when both exist **`npm-shrinkwrap.json` wins** (npm's own rule)
@@ -1003,8 +1008,7 @@ consumer to read it.
 
 **Determinism**: same tree ⇒ byte-identical manifest on every OS (`tests/stack-determinism.test.ts`
 and `tests/stack-pnpm.test.ts` pin committed goldens, their negative controls, and one test per
-rule above). This section is descriptive of the verb that runs; grading a stack (a `stack` block on
-the blueprint, version/closure constraint types) is not part of this specification version.
+rule above). This section describes the snapshot verb. Declared-stack grading is separately defined in §17; its strict selection does not change snapshot discovery or precedence.
 
 ### 16.2 Stack diff (the closure classifier)
 
@@ -1158,7 +1162,65 @@ pair runs in `ci.yml` on every push, materializing the real revisions `47a51f4` 
 repository's own vitest 4 → 5 bump) via `stack snapshot --ref` and asserting the exact top
 classification `removed` in the forward direction, `backward`/exit 2/`FAILS CLOSED` in the reverse.
 See [`docs/stack-plane.md`](../docs/stack-plane.md) for the operator-facing summary. `stack
-reconcile` and any blueprint constraint type over a stack remain unspecified.
+reconcile` remains unspecified; the local 0.5.0 declared-stack constraint contract is specified
+separately in §17 and does not imply reconciliation or automatic repair.
+
+---
+
+## 17. Declared-stack enforcement (local 0.5.0 development)
+
+This section adopts the **enforcement** portions of
+[RFC-0002](../rfcs/RFC-0002-declared-stack-contracts.md): Authored source block; Rule JSON
+and semantics; Gradeability and outputs; Concrete report and evidence envelope;
+Compatibility and baseline decisions; the typed facts/source-binding contract; and the
+Acceptance and compatibility matrix. Those sections are normative for this local
+implementation. Reconciliation sections remain deferred and are not incorporated.
+No public release is asserted by this development specification.
+
+An authored stack contract MUST select a supported root npm-v3 or pnpm-v9 lockfile,
+package manifest, and exact image/runtime source lists. It MUST declare required
+`declaredStack` evidence with `onMissing: block` and minimum engine 0.5.0. A stack
+configuration without a stack constraint is invalid. Unknown fields, unsafe source
+paths, missing inputs and inconsistent package-manager declarations MUST refuse.
+
+`pinnedVersion` compares all matching non-root package identities literally, or all
+selected named image digests, or the selected normalized exact Node declaration.
+At least one matching identity is required. `stackClosureMatch` compares the canonical
+stack digest, including hashed opaque entries, without asserting topology or installed
+state. `forbiddenStackPackage` prohibits a named non-root package; opaque package
+identities prevent proof of absence. `requirePinnedImages` requires at least one
+selected external image and a syntactically valid sha256 digest on every selected
+image. `allowedNodeVersions` requires membership in an explicit sorted unique set of
+exact versions; aliases and ranges are not resolved. No registry access is introduced.
+
+Sufficient evidence and a known mismatch yield a violation; insufficient relevant
+facts yield an explicit refusal. Refusal takes precedence over all proven violations,
+baselines and advisory mode: exit2, verdict `indeterminate`, score `null`. Diagnostic
+violations MUST remain visible. Ordinary gradeable violations retain existing baseline
+and advisory semantics. The original v1 report, evidence and scoring contracts remain
+unchanged for blueprints with no declared-stack constraints.
+
+Stack policies emit report/bundle schemaVersion2. Stack-only evidence MUST NOT invent
+an AST graph or coverage. Mixed policies MUST grade all required providers. Exact
+source inventory, companion typed facts and all artifact hashes bind the report;
+offline replay validates those bindings and invokes the same evaluator. Replay proves
+internal consistency, not source origin or deployed state. Coherently rewritten
+unsigned evidence is not an authenticity proof. Null scores MUST remain explicit in
+renderers and portfolio collection, never averaged or converted to a passing number.
+
+The initial selected provider supports root-only pnpm inputs. Workspace pnpm requires
+additional importer-manifest observations introduced by the snapshot truncation guards;
+until those inputs can be completely bound and replayed, selected workspace grading
+MUST refuse explicitly. Snapshot workspace behavior remains unchanged. Selected grading
+omits only producer-tagged snapshot informational notices about install-script inference,
+derived dev/peer flags and unavailable transitive specifier ranges: these are not properties
+any of the five rules claims to verify. Canonical represented flags remain part of closure
+identity. Opaque entries, incomplete enumeration and unknown limitations still refuse the
+applicable rules; no warning-text heuristic may authorize a pass.
+
+Every ordinary run/gate path, including changed-file selection and MCP, MUST consume
+this same prepared evidence. Configured source deletion and lockfile-only changes
+select the policy. No schema arm may be registered without executable enforcement.
 
 ---
 

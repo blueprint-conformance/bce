@@ -104,9 +104,10 @@ If a label here overstates reality, that is a bug — please open an issue.
   exists today. [CITATION.cff](CITATION.cff) intentionally contains software metadata only, and
   [`scripts/check-release-citation.mjs`](scripts/check-release-citation.mjs) prevents provisional
   identifiers from entering a release.
-- **[DESIGN]** Spec-change process beyond `v1alpha1`. The RFC process is written
-  ([`rfcs/RFC-0001-process.md`](rfcs/RFC-0001-process.md)); no spec-change RFC has yet been run
-  through it.
+- **[DESIGN]** Public spec-change process beyond `v1alpha1`. The RFC process is written
+  ([`rfcs/RFC-0001-process.md`](rfcs/RFC-0001-process.md)); RFC-0002 records local maintainer
+  acceptance for declared-stack enforcement, while public RFC discussion, landing, and release
+  remain separate.
 
 - **[RUNS]** Stack plane, slice 1 — `bce stack snapshot` emits a content-addressed
   `StackManifest` of the DECLARED dependency closure (npm lockfile v3 / shrinkwrap and pnpm-lock v9
@@ -121,7 +122,9 @@ If a label here overstates reality, that is a bug — please open an issue.
   `portability.yml`'s three OS legs ([`scripts/stack-cross-os-golden-proof.mjs`](scripts/stack-cross-os-golden-proof.mjs)),
   proving the extractor reproduces the golden manifest byte for byte on ubuntu, macOS AND Windows —
   the council's cross-OS prediction is now a measured, running fact. yarn lockfiles, pnpm lockfiles
-  other than v9, image-tag resolution and any blueprint constraint over a stack are not built.
+  other than v9, image-tag resolution and automatic reconciliation are not built. The unpublished
+  local 0.5.0 candidate adds the five RFC-0002 declared-stack constraints to ordinary gate/MCP and
+  v2 offline replay; it does not claim a public release.
   Unreleased API note: the `STACK_REFUSAL_PNPM` export (the slice-1 "pnpm is not supported" refusal
   string, never shipped in a published version) is removed — a `pnpm-lock.yaml` is now read, and its own
   refusals are the `stackRefusalPnpm*` strings.

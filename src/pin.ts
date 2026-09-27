@@ -100,6 +100,9 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
         `tar -x failed (exit ${extract.status}): ${extract.stderr?.toString().trim() ?? ''}`,
       );
     }
+  } catch (error) {
+    fs.rmSync(dest, { recursive: true, force: true });
+    throw error;
   } finally {
     fs.rmSync(tarPath, { force: true });
   }
@@ -113,33 +116,83 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
  * Returns null when `repoDir` is not a git repository, so a plain directory is still readable.
  */
 export function listTreeKnowledge(repoDir: string, sha?: string): { tracked: Set<string>; gitlinks: string[] } | null {
-  const args = sha ? ['ls-tree', '-r', '-z', sha] : ['ls-files', '--stage', '-z'];
-  // STREAMED TO DISK, like materializeAtRevision: the listing of a large tree is written straight
-  // to a temp-file fd and read back from disk, so it never transits a bounded Node buffer (the
-  // ENOBUFS class — see the note above). Listing size is bounded by disk, not memory.
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-tree-'));
-  const listPath = path.join(dir, 'entries.z');
-  let listing: string;
-  try {
-    const outFd = fs.openSync(listPath, 'w');
-    let res;
+  // Use file descriptors for Git output: large indexes must not hit a pipe capture limit.
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-git-knowledge-'));
+  function query(args: string[]): { status: number | null; stdout: string; stderr: string } {
+    const out = path.join(scratch, 'out');
+    const err = path.join(scratch, 'err');
+    const outFd = fs.openSync(out, 'w');
+    let errFd: number | undefined;
     try {
-      res = spawnSync('git', ['-C', repoDir, ...args], { stdio: ['ignore', outFd, 'ignore'] });
+      errFd = fs.openSync(err, 'w');
+      const result = spawnSync('git', ['-C', repoDir, ...args], {
+        stdio: ['ignore', outFd, errFd],
+        env: { ...process.env, LC_ALL: 'C' },
+      });
+      if (result.error) throw result.error;
+      return {
+        status: result.status,
+        stdout: fs.readFileSync(out, 'utf8'),
+        stderr: fs.readFileSync(err, 'utf8').trim(),
+      };
     } finally {
       fs.closeSync(outFd);
+      if (errFd !== undefined) fs.closeSync(errFd);
     }
-    if (res.error || res.status !== 0) return null;
-    listing = fs.readFileSync(listPath, 'utf8');
+  }
+  let output: string;
+  try {
+    const probe = query(['rev-parse', '--is-inside-work-tree']);
+    if (probe.status !== 0) {
+      // Only a verified plain directory gets the filesystem fallback. A broken
+      // repository marker or any operational failure must remain a refusal.
+      let cursor = path.resolve(repoDir);
+      let marker = false;
+      for (;;) {
+        try {
+          fs.lstatSync(path.join(cursor, '.git'));
+          marker = true;
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        }
+        const parent = path.dirname(cursor);
+        if (parent === cursor) break;
+        cursor = parent;
+      }
+      if (!sha && !marker && probe.status === 128 &&
+          /^fatal: not a git repository \(or any (?:of the parent directories|parent up to mount point [^\n]+)\)(?:: \.git)?(?:\nStopping at filesystem boundary \(GIT_DISCOVERY_ACROSS_FILESYSTEM not set\)\.)?$/.test(probe.stderr)) {
+        return null;
+      }
+      throw new Error(`git repository discovery failed (exit ${probe.status}): ${probe.stderr}`);
+    }
+    if (!sha && probe.stdout.trim() !== 'true') {
+      throw new Error('unpinned stack tree knowledge requires a Git working tree');
+    }
+    const args = sha ? ['ls-tree', '-r', '-z', sha] : ['ls-files', '--stage', '-z'];
+    const result = query(args);
+    if (result.status !== 0) {
+      throw new Error(`git tree knowledge failed (exit ${result.status}): ${result.stderr}`);
+    }
+    output = result.stdout;
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(scratch, { recursive: true, force: true });
   }
   const tracked = new Set<string>();
   const gitlinks: string[] = [];
-  for (const rec of listing.split('\0')) {
+  for (const rec of output.split('\0')) {
     if (rec === '') continue;
     // ls-tree: `<mode> <type> <sha>\t<path>`   ls-files --stage: `<mode> <sha> <stage>\t<path>`
     const tabAt = rec.indexOf('\t');
-    if (tabAt === -1) continue;
+    if (tabAt === -1) throw new Error('malformed Git tree entry');
+    const header = rec.slice(0, tabAt);
+    const shape = sha
+      ? /^(100644|100755|120000|160000) (blob|commit) [0-9a-f]+$/
+      : /^(100644|100755|120000|160000) [0-9a-f]+ ([0-3])$/;
+    const match = shape.exec(header);
+    if (!match) throw new Error('malformed Git tree entry header');
+    if (!sha && match[2] !== '0') {
+      throw new Error('unresolved Git index entries prevent stack discovery');
+    }
     const mode = rec.slice(0, 6);
     const rel = rec.slice(tabAt + 1);
     if (mode === '160000') gitlinks.push(rel);

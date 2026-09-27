@@ -1,3 +1,4 @@
+import { hasStackConstraints } from './stack/stack-evaluation.js';
 /**
  * bce-mcp — a THIN, logic-free MCP (Model Context Protocol) stdio server over the bce engine API.
  *
@@ -477,6 +478,7 @@ function callTool(name: string, rawArgs: unknown): Record<string, unknown> {
           return toolError(`extractor must be 'ast' or 'line-scan'`);
         }
         const bp = parseBlueprint(readJsonFile(p)); // fail-closed parse
+        if(hasStackConstraints(bp)) return toolError('declared-stack teeth requires CLI --mutation-manifest --require-all-extractor-real; graph-only proof unavailable');
         const cfg = resolveExtraction(bp.extraction, bp.constraints);
         const graph = buildLiveGraph(bp, repoDir, extractor);
         const teeth = assessTeeth(bp, graph, cfg.profile); // the engine's authoritative grade

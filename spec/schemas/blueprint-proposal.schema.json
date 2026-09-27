@@ -114,6 +114,13 @@
                   "evidenceType": {
                     "type": "string"
                   },
+                  "expectedStackDigest": {
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "expectedVersion": {
+                    "type": "string"
+                  },
                   "forbiddenEgressHosts": {
                     "items": {
                       "type": "string"
@@ -137,6 +144,10 @@
                   },
                   "minimum": {
                     "type": "number"
+                  },
+                  "packageName": {
+                    "minLength": 1,
+                    "type": "string"
                   },
                   "path": {
                     "type": "string"
@@ -167,6 +178,28 @@
                     ],
                     "type": "string"
                   },
+                  "stackTarget": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "npm",
+                          "oci-image",
+                          "node-runtime"
+                        ],
+                        "type": "string"
+                      },
+                      "name": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "name"
+                    ],
+                    "type": "object"
+                  },
                   "stimulusSetHash": {
                     "pattern": "^[0-9a-f]{64}$",
                     "type": "string"
@@ -186,9 +219,22 @@
                       "minimumMetric",
                       "customPolicy",
                       "behavioralInvariant",
-                      "forbiddenPattern"
+                      "forbiddenPattern",
+                      "pinnedVersion",
+                      "stackClosureMatch",
+                      "forbiddenStackPackage",
+                      "requirePinnedImages",
+                      "allowedNodeVersions"
                     ],
                     "type": "string"
+                  },
+                  "versions": {
+                    "items": {
+                      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$",
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
                   }
                 },
                 "required": [
@@ -379,6 +425,52 @@
               },
               "required": [
                 "repositories"
+              ],
+              "type": "object"
+            },
+            "stack": {
+              "additionalProperties": false,
+              "properties": {
+                "imageFiles": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "lockfile": {
+                  "enum": [
+                    "package-lock.json",
+                    "npm-shrinkwrap.json",
+                    "pnpm-lock.yaml"
+                  ],
+                  "type": "string"
+                },
+                "packageManifest": {
+                  "const": "package.json",
+                  "type": "string"
+                },
+                "runtimeFiles": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "source": {
+                  "enum": [
+                    "npm-lockfile-v3",
+                    "pnpm-lockfile-v9"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source",
+                "lockfile",
+                "packageManifest",
+                "imageFiles",
+                "runtimeFiles"
               ],
               "type": "object"
             }
@@ -789,6 +881,13 @@
                       "evidenceType": {
                         "type": "string"
                       },
+                      "expectedStackDigest": {
+                        "pattern": "^[0-9a-f]{64}$",
+                        "type": "string"
+                      },
+                      "expectedVersion": {
+                        "type": "string"
+                      },
                       "forbiddenEgressHosts": {
                         "items": {
                           "type": "string"
@@ -812,6 +911,10 @@
                       },
                       "minimum": {
                         "type": "number"
+                      },
+                      "packageName": {
+                        "minLength": 1,
+                        "type": "string"
                       },
                       "path": {
                         "type": "string"
@@ -842,6 +945,28 @@
                         ],
                         "type": "string"
                       },
+                      "stackTarget": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "kind": {
+                            "enum": [
+                              "npm",
+                              "oci-image",
+                              "node-runtime"
+                            ],
+                            "type": "string"
+                          },
+                          "name": {
+                            "minLength": 1,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "name"
+                        ],
+                        "type": "object"
+                      },
                       "stimulusSetHash": {
                         "pattern": "^[0-9a-f]{64}$",
                         "type": "string"
@@ -861,9 +986,22 @@
                           "minimumMetric",
                           "customPolicy",
                           "behavioralInvariant",
-                          "forbiddenPattern"
+                          "forbiddenPattern",
+                          "pinnedVersion",
+                          "stackClosureMatch",
+                          "forbiddenStackPackage",
+                          "requirePinnedImages",
+                          "allowedNodeVersions"
                         ],
                         "type": "string"
+                      },
+                      "versions": {
+                        "items": {
+                          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$",
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
                       }
                     },
                     "required": [

@@ -1,28 +1,47 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const scratch = mkdtempSync(join(tmpdir(), 'bce-package-proof-'));
+process.once('exit', () => rmSync(scratch, { recursive: true, force: true }));
 const npmExecPath = process.env.npm_execpath;
 const npm = (args, options) => npmExecPath
   ? execFileSync(process.execPath, [npmExecPath, ...args], options)
   : execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, options);
 
-npm(['run', 'build'], { cwd: root, stdio: 'inherit' });
-const packOutput = npm(['pack', '--json', '--pack-destination', scratch], { cwd: root, encoding: 'utf8' });
-// Git/npm lifecycle output may precede npm's JSON when `prepare` builds the
-// package. Parse the final JSON document, not the build log.
-const jsonStart = packOutput.lastIndexOf('\n[');
-const packed = JSON.parse(packOutput.slice(jsonStart >= 0 ? jsonStart + 1 : 0));
-const tarball = join(scratch, packed[0].filename);
+const tarballArg = process.argv.indexOf('--tarball');
+let tarball;
+if (tarballArg >= 0) {
+  if (!process.argv[tarballArg + 1]) throw new Error('--tarball requires a path');
+  tarball = resolve(process.argv[tarballArg + 1]);
+  if (!existsSync(tarball)) throw new Error(`--tarball not found: ${tarball}`);
+} else {
+  npm(['run', 'build'], { cwd: root, stdio: 'inherit' });
+  const packOutput = npm(['pack', '--json', '--pack-destination', scratch], { cwd: root, encoding: 'utf8' });
+  // Git/npm lifecycle output may precede npm's JSON when `prepare` builds the
+  // package. Parse the final JSON document, not the build log.
+  const jsonStart = packOutput.lastIndexOf('\n[');
+  const packed = JSON.parse(packOutput.slice(jsonStart >= 0 ? jsonStart + 1 : 0));
+  tarball = join(scratch, packed[0].filename);
+}
 npm(['init', '-y'], { cwd: scratch, stdio: 'ignore' });
 npm(['install', '--ignore-scripts', tarball], { cwd: scratch, stdio: 'inherit' });
 const installedRoot = join(scratch, 'node_modules', 'bce-engine');
 const installedCli = join(installedRoot, 'dist', 'cli.js');
 const installedMcp = join(installedRoot, 'dist', 'mcp-server.js');
+const oldConsumer = join(scratch, 'old-engine-consumer');
+mkdirSync(oldConsumer, { recursive: true });
+npm(['init', '-y'], { cwd: oldConsumer, stdio: 'ignore' });
+npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--save-exact', 'bce-engine@0.3.1'], { cwd: oldConsumer, stdio: 'inherit' });
+const oldInstalledRoot = join(oldConsumer, 'node_modules', 'bce-engine');
+
+// Exercise pristine installed bytes before the artifact-identity mutation controls.
+execFileSync(process.execPath, [join(root, 'scripts/declared-stack-consumer-proof.mjs'), installedRoot, oldInstalledRoot], {
+  cwd: scratch, stdio: 'inherit',
+});
 
 function callInstalledRunGate(repoDir, blueprintDir) {
   const input = [
@@ -277,4 +296,4 @@ for (const rel of [
 process.stdout.write(output);
 process.stdout.write('packed MCP module-layering run_gate: GREEN/RED PASS\n');
 process.stdout.write('packed MCP python-module-layering run_gate: GREEN/RED PASS\n');
-process.stdout.write(`packed consumer proof: PASS (${packed[0].filename})\n`);
+process.stdout.write(`packed consumer proof: PASS (${basename(tarball)})\n`);

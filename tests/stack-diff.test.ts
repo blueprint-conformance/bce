@@ -1585,6 +1585,28 @@ describe('stack diff — I: image and runtime moves get rows of their OWN sub-vi
   }
   const line = (r: ReturnType<typeof diffStackManifests>): string[] => r.moves.map((m) => `${m.class}/${m.view} ${m.kind} ${m.name} ${m.from ?? '-'} -> ${m.to ?? '-'}`);
 
+  it.each(['node:22', `node:22@${DIGEST_A}`])('duplicate image declarations preserve identity in both directions: %s', (ref) => {
+    const base = repo('image-single', { x: '1.0.0', from: ref });
+    const duplicate = finalizeStackManifest({ ...base, images: [...base.images, { ...base.images[0]!, evidenceRef: 'Dockerfile.copy#L1' }] });
+    expect(duplicate.stackDigest).toBe(base.stackDigest);
+    expect(duplicate.manifestDigest).not.toBe(base.manifestDigest);
+    for (const [a, b] of [[base, duplicate], [duplicate, base]]) {
+      const report = diffStackManifests(a!, b!);
+      expect(report.classification).toBe('identical');
+      expect(report.moves).toEqual([]);
+      expect(report.unexplained).toEqual([]);
+      expect(stackDiffExitCode(report)).toBe(0);
+    }
+    // Deduplication must retain distinct hashed flags, even when the ref is unchanged.
+    const changed = finalizeStackManifest({ ...base, images: [{ ...base.images[0]!, tagImplicit: !base.images[0]!.tagImplicit }] });
+    expect(changed.stackDigest).not.toBe(base.stackDigest);
+    const report = diffStackManifests(duplicate, changed);
+    expect(report.classification).toBe('rewritten');
+    expect(report.moves).toHaveLength(1);
+    expect(report.moves[0]!.fields).toContain('tagImplicit');
+    expect(stackDiffExitCode(report)).toBe(2);
+  });
+
   it('an image TAG move is unknown ALONE and unknown IN COMPANY of an unrelated bump (the masked repro)', () => {
     const base0 = repo('img-base', { x: '1.0.0', from: `node:22-alpine@${DIGEST_A}` });
     const tagOnly = repo('img-tag', { x: '1.0.0', from: `node:18-alpine@${DIGEST_A}` });
@@ -1936,6 +1958,37 @@ describe('stack diff — H: the CLI takes manifests, refuses everything else, an
     expect(viaTo.stderr).toContain('it resolves to the --to manifest');
     expect(fs.readFileSync(a, 'utf8')).toBe(bytesA);
     expect(fs.readFileSync(b, 'utf8')).toBe(bytesB);
+  });
+
+  it.each(['from', 'to'] as const)('--out hardlinked to --%s refuses without changing either input', (flag) => {
+    const dir = tmp(`out-hardlink-${flag}`);
+    const a = path.join(dir, 'a.stack.json');
+    const b = path.join(dir, 'b.stack.json');
+    const out = path.join(dir, 'report.json');
+    fs.copyFileSync(FILE.base, a);
+    fs.copyFileSync(FILE.head, b);
+    const bytesA = fs.readFileSync(a);
+    const bytesB = fs.readFileSync(b);
+    fs.linkSync(flag === 'from' ? a : b, out);
+    const r = runCli(['stack', 'diff', '--from', a, '--to', b, '--out', out], ROOT);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain(`it resolves to the --${flag} manifest`);
+    expect(fs.readFileSync(a)).toEqual(bytesA);
+    expect(fs.readFileSync(b)).toEqual(bytesB);
+    expect(fs.readFileSync(out)).toEqual(flag === 'from' ? bytesA : bytesB);
+  });
+
+  it.skipIf(process.platform === 'win32')('--out symlinked to an input refuses without changing the manifest', () => {
+    const dir = tmp('out-symlink');
+    const input = path.join(dir, 'input.stack.json');
+    const out = path.join(dir, 'report.json');
+    fs.copyFileSync(FILE.head, input);
+    const bytes = fs.readFileSync(input);
+    fs.symlinkSync(input, out);
+    const r = runCli(['stack', 'diff', '--from', FILE.base, '--to', input, '--out', out], ROOT);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('it resolves to the --to manifest');
+    expect(fs.readFileSync(input)).toEqual(bytes);
   });
 
   it('a schema refusal names the FIRST failing path behind a fixed prefix', () => {

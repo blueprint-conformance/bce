@@ -1,3 +1,5 @@
+import { hasStackConstraints, prepareDeclaredEvidence, evaluatePreparedEvidence } from './stack/stack-evaluation.js';
+import { createDeclaredStackBundle } from './evidence-bundle.js';
 /**
  * `bce` — the Blueprint Conformance Engine CLI (walking skeleton).
  *
@@ -41,6 +43,8 @@ import {
   parseBlueprint,
   parsePortfolioBlueprint,
   ConstraintTypeSchema,
+  StackSourceConfigSchema,
+  constraintEvidenceClass,
   SeveritySchema,
   ExtractionProfileSchema,
   PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION,
@@ -85,7 +89,7 @@ import {
   BaselineError,
   BASELINE_RELPATH,
 } from './baseline.js';
-import { resolveEngineVersion } from './gate.js';
+import { resolveEngineVersion, semverLt } from './gate.js';
 import { renderViolations } from './violation-format.js';
 import { emitRun, EVIDENCE_GENESIS_HASH } from './emit.js';
 import { compilePortfolio, serializeBlueprintCanonical, slugifyRepo } from './portfolio-compile.js';
@@ -172,6 +176,30 @@ process.stdout.on('error', (e: NodeJS.ErrnoException) => {
 function die(msg: string, code = 1): never {
   process.stderr.write(`::error::${msg}\n`);
   process.exit(code);
+}
+
+/** Throw only inside an acquisition scope whose finally block must run before the CLI exits. */
+class DeferredCliExit extends Error {
+  constructor(message: string, readonly exitCode: number) {
+    super(message);
+    this.name = 'DeferredCliExit';
+  }
+}
+
+function dieAfterCleanup(msg: string, code = 1): never {
+  throw new DeferredCliExit(msg, code);
+}
+
+function isPortfolioComplianceReport(value: unknown): value is ComplianceReport {
+  if (typeof value !== 'object' || value === null) return false;
+  const report = value as Record<string, unknown>;
+  if (typeof report.blueprintRef !== 'string' || typeof report.ctRepoRevision !== 'string' || !Array.isArray(report.violations)) return false;
+  if (report.schemaVersion === '1') {
+    return typeof report.score === 'number' && Number.isFinite(report.score) && (report.verdict === 'pass' || report.verdict === 'fail');
+  }
+  if (report.schemaVersion !== '2' || !Array.isArray(report.refusals)) return false;
+  if (report.score === null) return report.verdict === 'indeterminate' && report.refusals.length > 0;
+  return typeof report.score === 'number' && Number.isFinite(report.score) && (report.verdict === 'pass' || report.verdict === 'fail') && report.refusals.length === 0;
 }
 
 function readBlueprint(p: string) {
@@ -310,7 +338,7 @@ function printDemoRecipe(recipe: DemoRecipe, clean: ComplianceReport, drift: Com
   const witness = drift.violations.find((violation) => violation.constraintId === recipe.expectedConstraintId);
   process.stdout.write(`recipe ${recipe.id} [${recipe.support}] — ${recipe.title}\n`);
   process.stdout.write(`GREEN conformant: score ${clean.score}, exit 0\n`);
-  const routeLimit = routeGuardEvidenceLimit(clean.coverage);
+  const routeLimit = clean.schemaVersion === '1' ? routeGuardEvidenceLimit(clean.coverage) : undefined;
   if (routeLimit) process.stdout.write(`  ${routeLimit}\n`);
   process.stdout.write(`RED drift: score ${drift.score}, would exit 1, violation ${recipe.expectedConstraintId}\n`);
   if (witness) process.stdout.write(`  observed ${witness.observed}\n  evidence ${witness.evidenceRef}\n`);
@@ -475,6 +503,18 @@ function parseConstraintSpec(spec: string, index: number): Constraint {
   const type = typeParsed.data;
   const id = (frag: string): string => `${kebab(type)}-${slugFragment(frag) || String(index + 1)}`;
 
+  if (type === 'forbiddenStackPackage') return { id: id(arg), type, severity, packageName: arg };
+  if (type === 'stackClosureMatch') return { id: id(arg), type, severity, expectedStackDigest: arg };
+  if (type === 'allowedNodeVersions') return { id: id(arg), type, severity, versions: arg.split(',').map(v => v.trim()) };
+  if (type === 'requirePinnedImages') {
+    if (arg !== 'all') die(`--constraint '${spec}': requirePinnedImages requires 'all' (all explicitly selected image files).`);
+    return { id: id(arg), type, severity };
+  }
+  if (type === 'pinnedVersion') {
+    const match = /^(npm|oci-image|node-runtime):(.+)=(.+)$/.exec(arg);
+    if (!match) die(`--constraint '${spec}': pinnedVersion requires '<npm|oci-image|node-runtime>:<name>=<exact-version-or-digest>'.`);
+    return { id: id(arg), type, severity, stackTarget: { kind: match[1] as 'npm'|'oci-image'|'node-runtime', name: match[2]! }, expectedVersion: match[3]! };
+  }
   if (type === 'forbiddenDependency') return { id: id(arg), type, severity, from: '*', to: arg };
   if (type === 'requiredDependency') {
     const arrow = arg.indexOf('->');
@@ -609,7 +649,7 @@ function buildGraph(
     // fail-closed: the scan MUST resolve at least the blueprint-derived floor of files.
     // An empty/partial scan can never score 100 (a stale glob would else pass green).
     if (graph.coverage.filesScanned < cfg.minFiles) {
-      die(
+      dieAfterCleanup(
         `fail-closed: scanned ${graph.coverage.filesScanned} file(s), expected >= ${cfg.minFiles} ` +
           `for the '${cfg.profile}' profile. An empty/partial scan can never score 100. (revision ${revision})`,
         2,
@@ -926,8 +966,8 @@ async function main(): Promise<void> {
       : args._[1] === 'decide'
         ? ['packet', 'decision', 'github-repo', 'github-pull', 'github-review', 'review-mode', 'repo']
         : ['packet', 'decision', 'repo'],
-    author: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'python-root', 'min-files', 'repo', 'out'],
-    init: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'python-root', 'min-files', 'repo', 'out'],
+    author: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'python-root', 'min-files', 'repo', 'out', 'stack-sources'],
+    init: ['id', 'intent-ref', 'constraint', 'repository', 'guard-symbol', 'name', 'owner-role', 'steward-role', 'scope-paths', 'extraction-profile', 'tsconfig', 'python-root', 'min-files', 'repo', 'out', 'stack-sources'],
     scan: ['ct-repo', 'blueprint', 'ref', 'extractor', 'no-pin', 'out'],
     run: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'out', 'observations', 'emit-bundle', 'emit', 'prev-hash', 'emit-evidence-out', 'emit-wo-out'],
     teeth: ['blueprint', 'ct-repo', 'ref', 'extractor', 'no-pin', 'require-extractor-real', 'reviewed-waiver', 'mutation-manifest', 'require-all-extractor-real', 'out'],
@@ -1612,6 +1652,15 @@ async function main(): Promise<void> {
       }
     }
 
+    const stackRules = constraints.some(c => constraintEvidenceClass(c.type) === 'declaredStack');
+    let stack: EngineeringBlueprint['stack'];
+    if (stackRules && typeof args['stack-sources'] !== 'string') die('declaredStack authoring requires --stack-sources <JSON file> with explicit selected sources.');
+    if (args['stack-sources'] !== undefined) {
+      if (!stackRules) die('--stack-sources requires at least one declaredStack constraint.');
+      try { stack = StackSourceConfigSchema.parse(JSON.parse(fs.readFileSync(args['stack-sources'] as string, 'utf8'))); }
+      catch (e) { die(`invalid --stack-sources: ${(e as Error).message}`); }
+    }
+
     const name = typeof args.name === 'string' ? (args.name as string) : undefined;
     const ownerRole = typeof args['owner-role'] === 'string' ? (args['owner-role'] as string) : undefined;
     const stewardRole = typeof args['steward-role'] === 'string' ? (args['steward-role'] as string) : undefined;
@@ -1634,10 +1683,12 @@ async function main(): Promise<void> {
       constraints,
       // house-fixture defaults for the author to edit — the engine IS the staticAst evidence
       // producer, and ratification is a blueprint-steward stage (see fixtures/*.json).
-      evidenceRequirements: [{ type: 'staticAst', required: true, onMissing: 'block' }],
+      evidenceRequirements: stackRules
+        ? [...new Set(constraints.map(c => constraintEvidenceClass(c.type)))].sort().map(type => ({type, required: true, onMissing: 'block'}))
+        : [{ type: 'staticAst', required: true, onMissing: 'block' }],
       approvals: [{ role: 'blueprint-steward', stage: 'ratify' }],
       ...(extraction ? { extraction } : {}),
-      ...(extraction?.profile === 'typescript-module-graph'
+      ...(stack ? { stack, minEngineVersion: '0.5.0' } : extraction?.profile === 'typescript-module-graph'
         ? { minEngineVersion: TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION }
         : extraction?.profile === 'python-module-graph'
           ? { minEngineVersion: PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION }
@@ -1663,7 +1714,13 @@ async function main(): Promise<void> {
 
     // scan-based sanity (only when --repo is given): the authored scope must match >= 1 real
     // file, else the draft would gate NOTHING — refuse (exit 2, the fail-closed scan class).
-    if (repoDir) {
+    if (repoDir && stackRules) {
+      const evidence = prepareDeclaredEvidence(bp, repoDir, 'author-sanity');
+      const report = evaluatePreparedEvidence(bp, evidence);
+      if (report.schemaVersion === '2' && report.refusals.length) die(`author sanity FAILED: ${report.refusals.map(r => r.reason).join('; ')} (draft left at ${out} for editing).`, 2);
+      process.stdout.write('author sanity: selected declarations are gradeable; conformance requires the gate\n');
+    }
+    if (repoDir && !stackRules) {
       const cfg = resolveExtraction(bp.extraction, bp.constraints);
       const graph = makeExtractor('ast', cfg).extract(repoDir, 'author-sanity');
       if (graph.coverage.filesScanned < 1) {
@@ -1703,6 +1760,47 @@ async function main(): Promise<void> {
 
   if (cmd === 'run') {
     const bp = readBlueprint(args.blueprint as string);
+    if (hasStackConstraints(bp)) {
+      if (semverLt(resolveEngineVersion(), bp.minEngineVersion!)) die(`blueprint requires engine >= ${bp.minEngineVersion}`,2);
+      const repo=args['ct-repo'] as string;
+      if(!repo || !fs.existsSync(repo)) die(`--ct-repo not found: ${repo}`,2);
+      const cfg=resolveExtraction(bp.extraction,bp.constraints);
+      let tree=repo;
+      const revision=noPin ? (typeof args.ref==='string' ? args.ref : 'unpinned') : resolveRevision(repo,typeof args.ref==='string'?args.ref:'HEAD');
+      if(!noPin) tree=materializeAtRevision(repo,revision);
+      try {
+        const prepared=prepareDeclaredEvidence(bp,tree,revision,extractorKind,repo);
+        if(args.observations!==undefined) {
+          if(typeof args.observations!=='string' || !prepared.graph) dieAfterCleanup('--observations requires a path and code evidence',2);
+          const behavioral=bp.constraints.filter(c=>c.type==='behavioralInvariant');
+          const identities=new Set(behavioral.map(c=>`${c.probeDefinitionHash ?? ''}|${c.stimulusSetHash ?? ''}|${c.environmentId ?? ''}`));
+          const parts=[...identities][0]?.split('|');
+          if(identities.size!==1 || !parts || parts.length!==3 || parts.some(p=>!p)) dieAfterCleanup('behavioral constraints require one shared probe, stimuli, and environment binding',2);
+          const [probeDefinitionHash,stimulusSetHash,environmentId]=parts as [string,string,string];
+          const observations=loadObservations(args.observations,{...observationBinding(tree,prepared.graph),probeDefinitionHash,stimulusSetHash,environmentId});
+          prepared.graph.components=[...prepared.graph.components,...observations].sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
+        }
+        const report=evaluatePreparedEvidence(bp,prepared,cfg.profile);
+        if(report.schemaVersion!=='2') throw new Error('stack dispatcher returned legacy report');
+        fs.writeFileSync((args.out as string)||'compliance-report.json',stableStringify(report));
+        if(typeof args['emit-bundle']==='string') {
+          if(!prepared.manifest || !prepared.facts || (bp.constraints.some(c=>!hasStackConstraints({...bp,constraints:[c]})) && !prepared.graph)) {
+            process.stderr.write('portable bundle unavailable: source acquisition did not complete\n');
+          } else fs.writeFileSync(args['emit-bundle'],stableStringify(createDeclaredStackBundle({blueprint:bp,evidence:prepared,report,engineVersion:resolveEngineVersion(),command:'bce run',extractionProfile:cfg.profile})));
+        }
+        if(args.emit===true || args.emit==='true') {
+          const previous=typeof args['prev-hash']==='string'?args['prev-hash']:EVIDENCE_GENESIS_HASH;
+          const identity=resolveToolchainIdentity({engineVersion:resolveEngineVersion(),extractorKind:prepared.graph?.coverage.extractor ?? extractorKind,extractionProfile:cfg.profile});
+          const {extractor,...toolchain}=identity;
+          const emission=emitRun(report,previous,{...toolchain,providers:[...(prepared.graph?[{evidenceClass:'staticAst' as const,...extractor}]:[]),{evidenceClass:'declaredStack',provider:'selected-stack-v1',version:resolveEngineVersion()}]});
+          fs.writeFileSync((args['emit-evidence-out'] as string)||'evidence-record.json',stableStringify(emission.evidence));
+          fs.writeFileSync((args['emit-wo-out'] as string)||'remediation-work-orders.json',stableStringify(emission.workOrders));
+        }
+        process.stdout.write(`ComplianceReport: ${report.blueprintRef} -> ${report.verdict}; ${report.summary}\n`);
+        process.exitCode=report.verdict==='indeterminate'?2:report.verdict==='pass'?0:1;
+      } finally { if(!noPin) fs.rmSync(tree,{recursive:true,force:true}); }
+      return;
+    }
     const cfg = resolveExtraction(bp.extraction, bp.constraints);
     // line-scan structurally cannot resolve a bare governed import (it has no symbol table), so it
     // would FALSE-REJECT a conformant route or extension that uses a bare governed call. Refuse
@@ -1857,6 +1955,7 @@ async function main(): Promise<void> {
       );
       return;
     }
+    if(hasStackConstraints(bp)) die('declared-stack teeth requires --mutation-manifest --require-all-extractor-real; graph-only proof unavailable',2);
     const cfg = resolveExtraction(bp.extraction, bp.constraints);
     const graph = buildGraph(args['ct-repo'] as string, args.ref as string | undefined, extractorKind, noPin, cfg);
     const teeth = assessTeeth(bp, graph, cfg.profile);
@@ -1983,7 +2082,7 @@ async function main(): Promise<void> {
     // violation identity to accept, so it is not a "pre-existing accepted violation" — it always
     // blocks + prints FAILED (SPEC §7 fail-closed discipline, unchanged by the baseline overlay).
     const isRefusal = (r: (typeof result.reports)[number]): boolean =>
-      r.verdict !== 'pass' && r.violations.length === 0;
+      (r.verdict === 'indeterminate' || (r.verdict !== 'pass' && r.violations.length === 0));
     const blocks = (r: (typeof result.reports)[number]): boolean => {
       if (isRefusal(r)) return true;
       const p = partByRef.get(r.blueprintRef);
@@ -2002,7 +2101,7 @@ async function main(): Promise<void> {
       if (r.verdict === 'pass') {
         // graded green: nothing to baseline, nothing blocking.
         process.stdout.write(`  ✓ ${r.blueprintRef} — score ${r.score} (pass)\n`);
-        const routeLimit = routeGuardEvidenceLimit(r.coverage);
+        const routeLimit = r.schemaVersion === '1' ? routeGuardEvidenceLimit(r.coverage) : undefined;
         if (routeLimit) process.stdout.write(`    ${routeLimit}\n`);
       } else if (isRefusal(r)) {
         // FAIL-CLOSED REFUSAL — always blocks, never baselineable. Prints FAILED with the legible cause.
@@ -2303,9 +2402,14 @@ async function main(): Promise<void> {
           }
         }
       };
+      // realpath catches symbolic aliases; device/inode identity also catches hardlinks.
+      const outStat = fs.statSync(out, { bigint: true, throwIfNoEntry: false });
       for (const flag of ['from', 'to'] as const) {
         const file = args[flag];
-        if (typeof file === 'string' && file && canonical(file) === canonical(out)) {
+        if (typeof file !== 'string' || !file) continue;
+        const inputStat = outStat ? fs.statSync(file, { bigint: true, throwIfNoEntry: false }) : undefined;
+        const sameInode = outStat && inputStat && outStat.dev === inputStat.dev && outStat.ino === inputStat.ino;
+        if (canonical(file) === canonical(out) || sameInode) {
           die(`--out ${out} REFUSED: it resolves to the --${flag} manifest; the report would overwrite its own input`, 2);
         }
       }
@@ -2349,25 +2453,27 @@ async function main(): Promise<void> {
     // walk's nested-checkout rule is the same for a pinned tree and a working tree; null when
     // --ct-repo is not a git repository (the walk then falls back to the `.git` marker alone)
     let knowledge: ReturnType<typeof listTreeKnowledge> = null;
-    if (noPin) {
-      tree = ctRepo;
-      revision = ref || 'unpinned';
-      knowledge = listTreeKnowledge(ctRepo);
-    } else {
-      // same pin discipline as scan/run: an explicit 40-hex sha passes through; otherwise the ref
-      // resolves worktree-scoped (HEAD default), never origin/main implicitly.
-      const sha = /^[0-9a-f]{40}$/.test(ref ?? '') ? (ref as string) : resolveRevision(ctRepo, ref ?? 'HEAD');
-      tree = materializeAtRevision(ctRepo, sha);
-      revision = sha;
-      knowledge = listTreeKnowledge(ctRepo, sha);
-      cleanup = () => fs.rmSync(tree, { recursive: true, force: true });
-    }
     try {
+      if (noPin) {
+        tree = ctRepo;
+        revision = ref || 'unpinned';
+        knowledge = listTreeKnowledge(ctRepo);
+      } else {
+        // same pin discipline as scan/run: an explicit 40-hex sha passes through; otherwise the ref
+        // resolves worktree-scoped (HEAD default), never origin/main implicitly.
+        const sha = /^[0-9a-f]{40}$/.test(ref ?? '') ? (ref as string) : resolveRevision(ctRepo, ref ?? 'HEAD');
+        tree = materializeAtRevision(ctRepo, sha);
+        revision = sha;
+        // Register cleanup before the second Git query: a failure while acquiring tree knowledge
+        // must not leak the already-materialized revision.
+        cleanup = () => fs.rmSync(tree, { recursive: true, force: true });
+        knowledge = listTreeKnowledge(ctRepo, sha);
+      }
       // link:-protocol values are re-relativised from the CHECKOUT (where pnpm ran), never from a materialization
       const { manifest, refusals } = extractStackManifest(tree, revision, 'npm-lockfile', knowledge === null ? undefined : { ...knowledge, linkAnchor: path.resolve(ctRepo).split(path.sep).join('/') });
       if (refusals.length > 0) {
         for (const r of refusals) process.stderr.write(`::error::${r}\n`);
-        die(`stack snapshot REFUSED: ${refusals.length} refusal(s) — no manifest written (revision ${revision})`, 2);
+        dieAfterCleanup(`stack snapshot REFUSED: ${refusals.length} refusal(s) — no manifest written (revision ${revision})`, 2);
       }
       const out = (typeof args.out === 'string' && args.out) || 'stack-manifest.json';
       fs.writeFileSync(out, stableStringify(manifest));
@@ -2441,7 +2547,7 @@ async function main(): Promise<void> {
           try {
             const parsed = JSON.parse(fs.readFileSync(path.join(sink, f), 'utf8')) as ComplianceReport;
             // light structural guard — a non-report JSON in the sink is a hard error, never skipped.
-            if (typeof parsed?.blueprintRef !== 'string' || typeof parsed?.score !== 'number' || !Array.isArray(parsed?.violations)) {
+            if (!isPortfolioComplianceReport(parsed)) {
               die(`not a ComplianceReport: ${path.join(sink, f)}`);
             }
             reports.push(parsed);
@@ -2507,6 +2613,9 @@ async function main(): Promise<void> {
       `         forbiddenFile:<glob> (raw scanned-file glob — export-shape-agnostic) | forbiddenPattern:<regex> (per-line content grep)\n` +
       `         behavioralInvariant:<behaviorRef> (runtime not-a-mock substance constraint)\n` +
       `         requiredEvidence:<evidenceType> | minimumMetric:<metric>=<number> | customPolicy:<policyRef>\n` +
+      `         forbiddenStackPackage:<name> | pinnedVersion:<npm|oci-image|node-runtime>:<name>=<version-or-digest>\n` +
+      `         stackClosureMatch:<sha256> | requirePinnedImages:all | allowedNodeVersions:<version,...>\n` +
+      `       Stack constraints require --stack-sources <JSON file> (source, lockfile, packageManifest, imageFiles, runtimeFiles).\n` +
       `       optional trailing :<severity> = info|low|medium|high|critical (default high)\n` +
       `  bce validate --blueprint <path>\n` +
       `  bce scan  --ct-repo <dir> [--blueprint <path>] [--ref <sha|ref>] [--extractor ast|line-scan] --out <path>\n` +
@@ -2570,5 +2679,6 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error: unknown) => {
+  if (error instanceof DeferredCliExit) die(error.message, error.exitCode);
   die(`unexpected CLI failure: ${(error as Error).message}`, 2);
 });

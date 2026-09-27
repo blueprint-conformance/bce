@@ -82,6 +82,7 @@ export const ConstraintTypeSchema = z.enum([
   // existing authored blueprint is unaffected (it cannot already contain this string). See
   // `evaluate()` in report.ts.
   'forbiddenPattern',
+  'pinnedVersion', 'stackClosureMatch', 'forbiddenStackPackage', 'requirePinnedImages', 'allowedNodeVersions',
 ]);
 export type ConstraintType = z.infer<typeof ConstraintTypeSchema>;
 
@@ -103,7 +104,10 @@ export const RUNTIME_OBSERVATION_CONSTRAINTS: ReadonlySet<string> = new Set(['be
  *    a static gate run cannot grade it (see RUNTIME_OBSERVATION_CONSTRAINTS above).
  *  - `staticAst` — facts come from the source extractor; gate mode grades it exactly as today.
  */
-export function constraintEvidenceClass(type: ConstraintType): 'behaviorObservation' | 'staticAst' {
+export const STACK_CONSTRAINTS: ReadonlySet<string> = new Set(['pinnedVersion', 'stackClosureMatch', 'forbiddenStackPackage', 'requirePinnedImages', 'allowedNodeVersions']);
+export const DECLARED_STACK_MIN_ENGINE_VERSION = '0.5.0';
+export function constraintEvidenceClass(type: ConstraintType): 'behaviorObservation' | 'staticAst' | 'declaredStack' {
+  if (STACK_CONSTRAINTS.has(type)) return 'declaredStack';
   return RUNTIME_OBSERVATION_CONSTRAINTS.has(type) ? 'behaviorObservation' : 'staticAst';
 }
 
@@ -132,11 +136,36 @@ export const RelationshipSchema = z
   .passthrough();
 export type Relationship = z.infer<typeof RelationshipSchema>;
 
+/** Exact selected declaration scope; no implicit discovery or path aliases. */
+export const ExactStackVersionSchema = z.string().regex(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/);
+const sortedUniquePaths = z.array(z.string().min(1)).superRefine((items, ctx) => {
+  if (items.some((p, i) => i > 0 && p <= items[i - 1]!)) ctx.addIssue({code: z.ZodIssueCode.custom, message: 'must be sorted and unique'});
+  if (items.some(p => p.includes('\\') || p.includes('\0') || p.split('/').some(v => !v || v === '.' || v === '..') || /^[A-Za-z]:/.test(p))) ctx.addIssue({code: z.ZodIssueCode.custom, message: 'must use canonical repository-relative POSIX paths'});
+});
+export const StackSourceConfigSchema = z.object({
+  source: z.enum(['npm-lockfile-v3', 'pnpm-lockfile-v9']),
+  lockfile: z.enum(['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml']),
+  packageManifest: z.literal('package.json'),
+  imageFiles: sortedUniquePaths,
+  runtimeFiles: sortedUniquePaths,
+}).strict().superRefine((v, ctx) => {
+  const issue = (message: string) => ctx.addIssue({code: z.ZodIssueCode.custom, message});
+  if ((v.source === 'pnpm-lockfile-v9') !== (v.lockfile === 'pnpm-lock.yaml')) issue('lockfile must match selected package manager');
+  if (v.runtimeFiles.some(p => !['.nvmrc', '.node-version', 'package.json'].includes(p))) issue('unsupported runtime source');
+  if (v.imageFiles.some(p => !/^(?:Dockerfile(?:\..+)?|compose\.ya?ml|docker-compose\.ya?ml)$/.test(p.split('/').at(-1)!))) issue('unsupported image filename');
+});
+export type StackSourceConfig = z.infer<typeof StackSourceConfigSchema>;
+
 /** A single conformance constraint the BCE evaluates against the observed graph. */
 export const ConstraintSchema = z
   .object({
     id: z.string(),
     type: ConstraintTypeSchema,
+    stackTarget: z.object({kind: z.enum(['npm', 'oci-image', 'node-runtime']), name: z.string().min(1)}).strict().optional(),
+    expectedVersion: z.string().optional(),
+    expectedStackDigest: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    packageName: z.string().min(1).optional(),
+    versions: z.array(ExactStackVersionSchema).min(1).optional(),
     severity: SeveritySchema,
     from: z.string().optional(),
     to: z.string().optional(),
@@ -219,6 +248,20 @@ export const ConstraintSchema = z
    * untouched (widen-only: every existing authored blueprint parses byte-identically).
    */
   .superRefine((c, ctx) => {
+    const issue = (message: string) => ctx.addIssue({code: z.ZodIssueCode.custom, message});
+    const stackFields = ['stackTarget','expectedVersion','expectedStackDigest','packageName','versions'];
+    const allowed: Record<string, string[]> = {pinnedVersion:['stackTarget','expectedVersion'], stackClosureMatch:['expectedStackDigest'], forbiddenStackPackage:['packageName'], requirePinnedImages:[], allowedNodeVersions:['versions']};
+    if (STACK_CONSTRAINTS.has(c.type)) {
+      const keys = ['id','type','severity', ...allowed[c.type]!];
+      for (const key of Object.keys(c)) if (!keys.includes(key)) issue(`field ${key} is not legal for ${c.type}`);
+      for (const key of allowed[c.type]!) if (c[key] === undefined) issue(`${c.type} requires ${key}`);
+      if (c.type === 'pinnedVersion' && c.stackTarget && c.expectedVersion !== undefined) {
+        if (c.stackTarget.kind === 'oci-image' ? !/^sha256:[0-9a-f]{64}$/.test(c.expectedVersion) : !ExactStackVersionSchema.safeParse(c.expectedVersion).success) issue('expectedVersion must be an exact version or OCI sha256 digest');
+        if (c.stackTarget.kind === 'node-runtime' && (c.stackTarget.name !== 'node' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(c.expectedVersion))) issue('node-runtime requires name node and an exact x.y.z version');
+      }
+      if (c.versions && c.versions.some(v=>!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(v))) issue('Node versions must be exact x.y.z');
+      if (c.versions && c.versions.some((v, i) => i > 0 && v <= c.versions![i-1]!)) issue('versions must be sorted and unique');
+    } else for (const field of stackFields) if (c[field] !== undefined) issue(`${field} is only legal on its stack rule arm`);
     if (c.type !== 'forbiddenPattern') return;
     if (typeof c.pattern !== 'string' || c.pattern.length === 0) {
       ctx.addIssue({
@@ -597,12 +640,31 @@ export const EngineeringBlueprintSchema = z
       .string()
       .regex(/^\d+\.\d+\.\d+$/, 'minEngineVersion must be semver x.y.z')
       .optional(),
+    stack: StackSourceConfigSchema.optional(),
     evolution: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 
 /** Normative cross-field validator; the public ZodObject above remains API-compatible. */
-export const ValidatedEngineeringBlueprintSchema = EngineeringBlueprintSchema.superRefine(refineModuleGraphBlueprint);
+export const ValidatedEngineeringBlueprintSchema = EngineeringBlueprintSchema.superRefine((v, ctx) => {
+  refineModuleGraphBlueprint(v, ctx);
+  const rules = v.constraints.filter(c => STACK_CONSTRAINTS.has(c.type));
+  const issue = (message: string) => ctx.addIssue({code: z.ZodIssueCode.custom, message});
+  if (!rules.length) { if (v.stack) issue('stack without declaredStack constraints is inert'); return; }
+  if (!v.stack) issue('declaredStack constraints require explicit stack sources');
+  const version = v.minEngineVersion?.split('.').map(Number);
+  if (!version || version[0]! < 0 || (version[0] === 0 && version[1]! < 5)) issue('declaredStack requires minEngineVersion >=0.5.0');
+  if (!v.evidenceRequirements.some(e => e.type === 'declaredStack' && e.required && e.onMissing === 'block')) issue('declaredStack requires required evidence with onMissing:block');
+  for(const evidenceClass of new Set(v.constraints.filter(c=>!STACK_CONSTRAINTS.has(c.type)).map(c=>constraintEvidenceClass(c.type)))) {
+    if(!v.evidenceRequirements.some(e=>e.type===evidenceClass && e.required)) issue(`mixed declaredStack policy requires ${evidenceClass} evidence`);
+  }
+  for (const c of rules) {
+    if ((c.type === 'requirePinnedImages' || c.stackTarget?.kind === 'oci-image') && !v.stack?.imageFiles.length) issue('image constraints require selected imageFiles');
+    if ((c.type === 'allowedNodeVersions' || c.stackTarget?.kind === 'node-runtime') && !v.stack?.runtimeFiles.length) issue('runtime constraints require selected runtimeFiles');
+  }
+  const pins = rules.filter(c => c.stackTarget?.kind === 'node-runtime').map(c => c.expectedVersion!);
+  if (new Set(pins).size > 1 || rules.some(c => c.versions && pins.some(pin => !c.versions!.includes(pin)))) issue('contradictory exact runtime policies');
+});
 
 export type EngineeringBlueprint = z.infer<typeof EngineeringBlueprintSchema>;
 

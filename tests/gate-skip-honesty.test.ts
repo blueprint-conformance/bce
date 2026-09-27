@@ -77,10 +77,12 @@ describe('constraintEvidenceClass — the pure classifier (derived from type, no
     expect(RUNTIME_OBSERVATION_CONSTRAINTS.has('behavioralInvariant')).toBe(true);
   });
 
-  it('EVERY other enum member is staticAst-class (the run-only set is exactly behavioralInvariant)', () => {
+  it('partitions all enum members into code, declared stack and runtime evidence classes', () => {
+    const stack = ['pinnedVersion', 'stackClosureMatch', 'forbiddenStackPackage', 'requirePinnedImages', 'allowedNodeVersions'];
     for (const t of ConstraintTypeSchema.options.filter((x) => x !== 'behavioralInvariant')) {
-      expect(constraintEvidenceClass(t)).toBe('staticAst');
+      expect(constraintEvidenceClass(t)).toBe(stack.includes(t) ? 'declaredStack' : 'staticAst');
     }
+    expect(ConstraintTypeSchema.options.filter(t => constraintEvidenceClass(t) === 'declaredStack').sort()).toEqual([...stack].sort());
     expect([...RUNTIME_OBSERVATION_CONSTRAINTS]).toEqual(['behavioralInvariant']);
   });
 });

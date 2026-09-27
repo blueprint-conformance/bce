@@ -22,6 +22,9 @@ import type { ComplianceReport, Violation } from './report.js';
 import type { Severity } from './schema.js';
 import { stableStringify } from './report.js';
 import type { ToolchainIdentity } from './runtime-identity.js';
+import type { DeclaredStackEvidenceBundle } from './evidence-bundle.js';
+
+export type EvidenceToolchainIdentity = ToolchainIdentity | DeclaredStackEvidenceBundle['toolchain'];
 
 /* -------------------------------------------------------------------------- */
 /* Evidence record (the append-only hash-chain)                               */
@@ -35,13 +38,15 @@ export interface EvidenceRecord {
   traceId: string;
   blueprintRef: string;
   ctRepoRevision: string;
-  score: number;
-  verdict: 'pass' | 'fail';
+  score: number | null;
+  verdict: 'pass' | 'fail' | 'indeterminate';
   violationCount: number;
+  stackDigest?: string;
+  manifestDigest?: string;
   /** the report's own content-addressed evidence pointer (the graph hash). */
   reportEvidenceRef: string;
   /** Producer/parser identity. Optional only so historical pre-0.1.6 records remain verifiable. */
-  toolchain?: ToolchainIdentity;
+  toolchain?: EvidenceToolchainIdentity;
   /** SHA-256 of the PREVIOUS record in the chain, or the genesis sentinel. */
   previousHash: string;
   /** SHA-256 of THIS record's canonical body (previousHash included) — the chain link. */
@@ -63,7 +68,7 @@ function sha256(s: string): string {
 export function toEvidenceRecord(
   report: ComplianceReport,
   previousHash: string = EVIDENCE_GENESIS_HASH,
-  toolchain?: ToolchainIdentity,
+  toolchain?: EvidenceToolchainIdentity,
 ): EvidenceRecord {
   const body = {
     schemaVersion: '1' as const,
@@ -73,6 +78,10 @@ export function toEvidenceRecord(
     score: report.score,
     verdict: report.verdict,
     violationCount: report.violations.length,
+    ...(report.schemaVersion === '2' && report.stack ? {
+      stackDigest: report.stack.stackDigest,
+      manifestDigest: report.stack.manifestDigest,
+    } : {}),
     reportEvidenceRef: report.evidenceRef,
     ...(toolchain ? { toolchain } : {}),
     previousHash,
@@ -178,7 +187,7 @@ export interface RunEmission {
 export function emitRun(
   report: ComplianceReport,
   previousHash: string = EVIDENCE_GENESIS_HASH,
-  toolchain?: ToolchainIdentity,
+  toolchain?: EvidenceToolchainIdentity,
 ): RunEmission {
   return { evidence: toEvidenceRecord(report, previousHash, toolchain), workOrders: toWorkOrders(report) };
 }

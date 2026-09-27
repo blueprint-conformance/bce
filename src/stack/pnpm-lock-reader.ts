@@ -30,6 +30,9 @@ import { stackNodeId, type StackEdge, type StackNode, type StackRootDeclared, ty
 /* Fixed refusal / coverage strings (verbatim contract — tests pin these)       */
 /* -------------------------------------------------------------------------- */
 
+export type StackWarningCode = 'snapshot-information' | 'opaque-package-entry' | 'unresolved-image' | 'unsupported-source-syntax' | 'unclassified-coverage';
+export type StackWarningObserver = (code: StackWarningCode, message: string) => void;
+
 export const STACK_COVERAGE_PNPM_NO_INSTALL_SCRIPTS =
   'pnpm-lock v9 does not record install scripts: installScript is false for every pnpm node (unknown, not proven absent)';
 export const STACK_COVERAGE_PNPM_DERIVED_FLAGS =
@@ -644,7 +647,7 @@ const SNAPSHOT_BUCKETS: ReadonlyArray<{ key: string; optional: boolean }> = [
  * Derive nodes + edges from a parsed lockfileVersion-'9.0' document. Pure; every iteration is over
  * SORTED keys, so the result is independent of the order entries appear in the file.
  */
-export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): PnpmDerived {
+export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity, onWarning?: StackWarningObserver): PnpmDerived {
   const unmodeled: PnpmUnmodeled[] = [];
   const rootDeclared: StackRootDeclared[] = [];
   const malformed: string[] = [];
@@ -657,20 +660,25 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
       entrySha256: entrySha(raw),
     });
   };
-  const unsupported = new Set<string>([
-    STACK_COVERAGE_PNPM_NO_INSTALL_SCRIPTS,
-    STACK_COVERAGE_PNPM_DERIVED_FLAGS,
-    STACK_COVERAGE_PNPM_NO_TRANSITIVE_SPECS,
-  ]);
+  const unsupported = new Set<string>();
+  const warn = (message: string, code: StackWarningCode = 'unclassified-coverage'): void => {
+    unsupported.add(message); onWarning?.(code, message);
+  };
+  // Snapshot-only notices: the selected contract claims neither install scripts,
+  // inferred dev/peer flags nor transitive dependency ranges. Canonical facts still
+  // preserve those established representations; no installed-state claim is made.
+  warn(STACK_COVERAGE_PNPM_NO_INSTALL_SCRIPTS, 'snapshot-information');
+  warn(STACK_COVERAGE_PNPM_DERIVED_FLAGS, 'snapshot-information');
+  warn(STACK_COVERAGE_PNPM_NO_TRANSITIVE_SPECS, 'snapshot-information');
   for (const k of sortedKeys(doc)) {
     if (KNOWN_TOP_LEVEL.has(k)) continue;
-    unsupported.add(`pnpm-lock top-level section '${k}' is not read: hashed as an opaque entry`);
+    warn(`pnpm-lock top-level section '${k}' is not read: hashed as an opaque entry`, 'opaque-package-entry');
     opaque(`sections/${k}`, 'pnpm-unread-section', doc.get(k), { name: k });
   }
 
   // ---- root ----
   // an empty string is as absent as null: it must default, never reach the strict schema as ''
-  if (!root.name || !root.version) unsupported.add('root package has no name/version in package.json: identity defaulted');
+  if (!root.name || !root.version) warn('root package has no name/version in package.json: identity defaulted');
   const rootNode: PnpmStackNode = {
     id: stackNodeId('npm', root.name || 'root', root.version || '0.0.0'),
     kind: 'npm',
@@ -723,15 +731,16 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     const resolvedRaw = resStr('tarball') ?? (resStr('repo') && resStr('commit') ? `${resStr('repo')}#${resStr('commit')}` : null) ?? resStr('directory');
     const declaredVersion = isStr(entry.get('version')) ? (entry.get('version') as string) : null;
     if (!SEMVER.test(parts.version) || res.has('type') || res.has('directory') || res.has('repo')) {
-      unsupported.add(
+      warn(
         `pnpm package '${key}': non-registry resolution (tarball URL / git / file: / directory) — no locked registry identity in this slice; hashed as an opaque entry, no node`,
+        'opaque-package-entry',
       );
       opaque(`packages/${key}`, 'local-or-git', entry, { name: parts.name, version: declaredVersion ?? parts.version, resolved: resolvedRaw, integrity });
       refusedPkgKeys.add(key);
       continue;
     }
     if (!ASCII.test(parts.name)) {
-      unsupported.add(`non-ASCII package name at ${key}: hashed as an opaque entry, no node (npm registry names are ASCII)`);
+      warn(`non-ASCII package name at ${key}: hashed as an opaque entry, no node (npm registry names are ASCII)`, 'opaque-package-entry');
       opaque(`packages/${key}`, 'non-ascii-name', entry, { name: parts.name, version: parts.version, resolved: resolvedRaw, integrity });
       refusedPkgKeys.add(key);
       continue;
@@ -747,7 +756,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
       refusedPkgKeys.add(key);
       continue;
     }
-    if (integrity === null) unsupported.add(`pnpm package '${key}' has no integrity: its tarball URL is hashed instead`);
+    if (integrity === null) warn(`pnpm package '${key}' has no integrity: its tarball URL is hashed instead`, 'snapshot-information');
     const strList = (field: string): string[] | null => {
       const v = entry.get(field);
       if (v === undefined) return null;
@@ -759,7 +768,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     const os = strList('os');
     const cpu = strList('cpu');
     if (entry.has('libc')) {
-      unsupported.add(`pnpm package '${key}' declares a libc condition: not representable in platformConditional (os/cpu kept)`);
+      warn(`pnpm package '${key}' declares a libc condition: not representable in platformConditional (os/cpu kept)`);
     }
     const peers = entry.get('peerDependencies');
     if (isMap(peers)) peerNamesByPkgKey.set(key, peers);
@@ -786,8 +795,9 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
   const patched = doc.get('patchedDependencies');
   if (isMap(patched)) {
     for (const k of sortedKeys(patched)) {
-      unsupported.add(
+      warn(
         `pnpm patchedDependencies '${k}': a local patch alters the installed package; the node integrity is the UNPATCHED registry tarball — the patch hash is hashed as an opaque entry`,
+        'opaque-package-entry',
       );
       const pe = patched.get(k);
       const hash = isMap(pe) && isStr(pe.get('hash')) ? (pe.get('hash') as string) : null;
@@ -838,7 +848,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
   for (const [pkgKey, node] of nodeByPkgKey) {
     const keys = snapshotKeysByPkgKey.get(pkgKey) ?? [];
     if (keys.length === 0) {
-      unsupported.add(`pnpm package '${pkgKey}' has no snapshot: kept, flags defaulted`);
+      warn(`pnpm package '${pkgKey}' has no snapshot: kept, flags defaulted`);
       continue;
     }
     // optional only when EVERY variant is optional — one required variant makes the package required
@@ -883,7 +893,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
       malformed.push(`importer '${imp}' (not a mapping)`);
       continue;
     }
-    if (imp !== '.') unsupported.add(STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS);
+    if (imp !== '.') warn(STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS);
     const names = new Set<string>();
     const selfLinks: string[] = [];
     importerFacts.push({ path: imp, names: [], selfLinks: [] });
@@ -941,14 +951,14 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
             // the tree can tell them apart: the dependency name must be the importer's own package name.
             selfLinks.push(dep);
           }
-          unsupported.add(`workspace/link entry ${imp}:${dep} -> ${version}: local package not part of the declared closure in slice 1; hashed as an opaque entry, no node`);
+          warn(`workspace/link entry ${imp}:${dep} -> ${version}: local package not part of the declared closure in slice 1; hashed as an opaque entry, no node`, 'opaque-package-entry');
           // the declared range (`specifier: workspace:*`) is quarantined like every other range: only the
           // dependency name (in the key) and the RESOLVED link target are hashed
           opaque(depKey, 'link', version, { name: dep, version, link: true });
           continue;
         }
         if (specifier.startsWith('catalog:')) {
-          unsupported.add(`pnpm catalog reference ${imp}:${dep} (${specifier}): catalog range not dereferenced; edge spec kept verbatim`);
+          warn(`pnpm catalog reference ${imp}:${dep} (${specifier}): catalog range not dereferenced; edge spec kept verbatim`, 'snapshot-information');
         }
         const snapKey = version === '' ? null : resolveRef(dep, version);
         const target = snapKey ? nodeOfSnapshot(snapKey) : null;
@@ -958,7 +968,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
         }
         if (target.name !== dep) {
           // an npm: alias — the REAL identity is a node; the alias name itself is hashed as an opaque entry
-          unsupported.add(`npm: alias ${imp}:${dep} -> ${version}: the real package is a node; the alias name is hashed as an opaque entry`);
+          warn(`npm: alias ${imp}:${dep} -> ${version}: the real package is a node; the alias name is hashed as an opaque entry`, 'opaque-package-entry');
           opaque(depKey, 'npm-alias', version, { name: dep, version }); // alias name + resolved target; the range is quarantined
         }
         seedsAll.push(snapKey);
@@ -1002,7 +1012,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
         }
         const depKey = `snapshots/${key}/${bucket.key}/${dep}`;
         if (ref.startsWith('link:')) {
-          unsupported.add(`workspace/link entry ${key}:${dep} -> ${ref}: local package not part of the declared closure in slice 1; hashed as an opaque entry, no node`);
+          warn(`workspace/link entry ${key}:${dep} -> ${ref}: local package not part of the declared closure in slice 1; hashed as an opaque entry, no node`, 'opaque-package-entry');
           opaque(depKey, 'link', ref, { name: dep, version: ref, link: true });
           continue;
         }
@@ -1013,7 +1023,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
           continue;
         }
         if (target.name !== dep) {
-          unsupported.add(`npm: alias ${key}:${dep} -> ${ref}: the real package is a node; the alias name is hashed as an opaque entry`);
+          warn(`npm: alias ${key}:${dep} -> ${ref}: the real package is a node; the alias name is hashed as an opaque entry`, 'opaque-package-entry');
           opaque(depKey, 'npm-alias', ref, { name: dep, version: ref });
         }
         const peerRange = peers?.get(dep);
@@ -1044,7 +1054,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     const keys = snapshotKeysByPkgKey.get(pkgKey) ?? [];
     if (keys.length === 0) continue;
     if (!keys.some((k) => reachAll.has(k))) {
-      unsupported.add(`pnpm package '${pkgKey}' is not reachable from any importer: kept, dev/peer defaulted false`);
+      warn(`pnpm package '${pkgKey}' is not reachable from any importer: kept, dev/peer defaulted false`);
       continue;
     }
     node.dev = !keys.some((k) => reachProd.has(k));
@@ -1074,7 +1084,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     [...importers.values()].every((imp) => isMap(imp) && !declaresNonLink(imp)) &&
     absentOrEmpty(packagesRaw) &&
     absentOrEmpty(snapshotsRaw);
-  if (dependencyFree) unsupported.add(STACK_COVERAGE_PNPM_DEPENDENCY_FREE);
+  if (dependencyFree) warn(STACK_COVERAGE_PNPM_DEPENDENCY_FREE, 'snapshot-information');
   const hollow =
     !isMap(importersRaw) || importers.size === 0
       ? "no 'importers' mapping"
@@ -1100,7 +1110,6 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity): 
     excludeLinksFromLockfile,
   };
 }
-
 export interface PnpmLockReadResult {
   derived: PnpmDerived | null;
   /** non-empty when the lockfile was refused whole (subset error, wrong lockfileVersion, hollow, malformed entries) */
@@ -1108,7 +1117,7 @@ export interface PnpmLockReadResult {
 }
 
 /** Text → derived facts, or ONE refusal string. Never throws on lockfile content. */
-export function readPnpmLock(source: string, root: PnpmRootIdentity): PnpmLockReadResult {
+export function readPnpmLock(source: string, root: PnpmRootIdentity, onWarning?: StackWarningObserver): PnpmLockReadResult {
   let doc: PnpmYamlMap;
   try {
     doc = parsePnpmLockSubset(source);
@@ -1121,7 +1130,7 @@ export function readPnpmLock(source: string, root: PnpmRootIdentity): PnpmLockRe
   if (version !== '9.0') return { derived: null, refusals: [stackRefusalPnpmLockfileVersion(version)] };
   let derived: PnpmDerived;
   try {
-    derived = deriveFromPnpmLockV9(doc, root);
+    derived = deriveFromPnpmLockV9(doc, root, onWarning);
   } catch (e) {
     // belt to the nesting cap: content can never surface as an exception to a library / MCP caller
     if (e instanceof RangeError) return { derived: null, refusals: [stackRefusalPnpmMalformed('document (nested too deeply for the reader)')] };

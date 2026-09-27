@@ -368,6 +368,10 @@ function assessConstraint(
   g: ArchitectureGraph,
   profile: Profile,
 ): RefutabilityWitness {
+  if (['pinnedVersion', 'stackClosureMatch', 'forbiddenStackPackage', 'requirePinnedImages', 'allowedNodeVersions'].includes(c.type)) {
+    return { constraintId: c.id, type: c.type, verdict: ConstraintTeeth.INDETERMINATE,
+      mutation: 'INDETERMINATE: declared-stack constraints require selected source facts and a real-source mutation proof; a graph-only witness cannot prove them' };
+  }
   const unsupported = g.coverage?.unsupported ?? [];
 
   // (1) INDETERMINATE FIRST — a constraint over an unsupported surface has unknowable refutability.

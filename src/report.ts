@@ -9,6 +9,7 @@
 import { createHash } from 'node:crypto';
 import type { ArchitectureGraph } from './graph.js';
 import type { EngineeringBlueprint, ExtractionProfile, Severity } from './schema.js';
+import { STACK_CONSTRAINTS } from './schema.js';
 import { isGovernedHost } from './extractors.js';
 
 /** Shared renderer contract: keep CLI and JSON consumers honest about route evidence. */
@@ -28,7 +29,7 @@ export interface Violation {
   expected: string;
 }
 
-export interface ComplianceReport {
+export interface LegacyComplianceReport {
   schemaVersion: '1';
   blueprintRef: string;
   ctRepoRevision: string;
@@ -66,6 +67,17 @@ export interface ComplianceReport {
    */
   mode?: 'enforced' | 'advisory';
 }
+
+export interface EvidenceRefusal { constraintId: string; evidenceClass: string; code: string; reason: string; sources: string[] }
+export interface DeclaredStackReport extends Omit<LegacyComplianceReport, 'schemaVersion' | 'score' | 'verdict' | 'coverage'> {
+  schemaVersion: '2';
+  score: number | null;
+  verdict: 'pass' | 'fail' | 'indeterminate';
+  coverage: { providers: Array<({evidenceClass: 'staticAst'} & LegacyComplianceReport['coverage']) | {evidenceClass: 'declaredStack'; filesScanned: number; unsupported: string[]}> };
+  stack: null | {stackDigest: string; manifestDigest: string; sourceConfigDigest: string; claim: 'selected-declarations-not-installed-state'};
+  refusals: EvidenceRefusal[];
+}
+export type ComplianceReport = LegacyComplianceReport | DeclaredStackReport;
 
 /**
  * Fixed per-severity weights. NOTE (honest flag per the design): these live in code
@@ -196,7 +208,8 @@ export function evaluate(
    * Absent → the field is OMITTED (not '') so pre-B2 reports stay byte-identical.
    */
   repoName?: string,
-): ComplianceReport {
+): LegacyComplianceReport {
+  if (blueprint.constraints.some(c => STACK_CONSTRAINTS.has(c.type))) throw new Error('declaredStack requires the prepared evidence dispatcher');
   const violations: Violation[] = [];
   const byId = new Map(graph.components.map((c) => [c.id, c]));
   const componentsByType = (t: string): typeof graph.components =>
@@ -679,5 +692,44 @@ export function evaluate(
     // omit-not-empty: an absent repoName leaves the key OFF the report entirely, so the
     // canonical bytes (and every downstream hash) of a pre-B2 report are unchanged.
     ...(repoName !== undefined ? { repo: repoName } : {}),
+  };
+}
+
+/** Pure consumer adapters. Refusal is an execution error, never a zero score or a pass. */
+
+const xml = (value: string): string => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
+const md = (value: string): string => value.replaceAll('\\', '\\\\').replaceAll('|', '\\|').replaceAll('\n', ' ');
+const refusals = (report: ComplianceReport) => report.schemaVersion === '2' ? report.refusals : [];
+
+export function renderReportMarkdown(report: ComplianceReport): string {
+  const lines = [`# ${md(report.blueprintRef)}`, '', `Verdict: **${report.verdict}**`, `Score: ${report.score === null ? 'unavailable (insufficient evidence)' : report.score}`, '', md(report.summary)];
+  if (report.schemaVersion === '2') {
+    lines.push('', 'Claim: selected declarations only; installed state and origin authenticity are not established.');
+    for (const refusal of report.refusals) lines.push('', `Refusal **${md(refusal.constraintId)}** (${md(refusal.code)}): ${md(refusal.reason)}; sources: ${refusal.sources.map(md).join(', ')}`);
+  }
+  for (const violation of report.violations) lines.push('', `Violation **${md(violation.constraintId)}**: ${md(violation.observed)}; expected: ${md(violation.expected)}; evidence: ${md(violation.evidenceRef)}`);
+  return `${lines.join('\n')}\n`;
+}
+
+export function renderReportJUnit(report: ComplianceReport): string {
+  const errors = refusals(report);
+  const cases = [
+    ...report.violations.map((v) => `  <testcase name="${xml(v.constraintId)}" classname="${xml(report.blueprintRef)}"><failure message="${xml(v.observed)}">${xml(`Expected: ${v.expected}; evidence: ${v.evidenceRef}`)}</failure></testcase>`),
+    ...errors.map((r) => `  <testcase name="${xml(r.constraintId)}" classname="${xml(report.blueprintRef)}"><error type="${xml(r.code)}" message="${xml(r.reason)}">${xml(r.sources.join(', '))}</error></testcase>`),
+  ];
+  if (cases.length === 0) cases.push(`  <testcase name="conformance" classname="${xml(report.blueprintRef)}"/>`);
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuite name="${xml(report.blueprintRef)}" tests="${cases.length}" failures="${report.violations.length}" errors="${errors.length}">\n${cases.join('\n')}\n</testsuite>\n`;
+}
+
+export function renderReportSarif(report: ComplianceReport): Record<string, unknown> {
+  return {
+    version: '2.1.0', $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
+    runs: [{ tool: { driver: { name: 'bce-engine' } },
+      invocations: [{ executionSuccessful: report.verdict !== 'indeterminate',
+        toolExecutionNotifications: refusals(report).map((r) => ({ level: 'error', descriptor: { id: r.code }, message: { text: `${r.constraintId}: ${r.reason}; sources: ${r.sources.join(', ')}` } })),
+      }],
+      results: report.violations.map((v) => ({ ruleId: v.constraintId, level: v.severity === 'info' ? 'note' : v.severity === 'low' ? 'warning' : 'error', message: { text: `${v.observed}; expected: ${v.expected}; evidence: ${v.evidenceRef}` } })),
+      properties: { blueprintRef: report.blueprintRef, verdict: report.verdict, score: report.score },
+    }],
   };
 }

@@ -467,6 +467,9 @@ export function diffIntendedVsObserved(intended: IntendedGraph, observed: Archit
  * them to the blueprint's declared risk posture — class-3 already carries the marker severity).
  */
 export function materialize(blueprint: EngineeringBlueprint, observed: ArchitectureGraph): MaterializationResult {
+  if (blueprint.constraints.some((constraint) => ['pinnedVersion', 'stackClosureMatch', 'forbiddenStackPackage', 'requirePinnedImages', 'allowedNodeVersions'].includes(constraint.type))) {
+    throw new Error('materialization refused: declared-stack constraints require selected provider facts; graph-only materialization cannot grade them');
+  }
   const intended = materializeIntendedGraph(blueprint);
   const rawViolations = diffIntendedVsObserved(intended, observed);
 

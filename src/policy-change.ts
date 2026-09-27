@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import { ConstraintSchema, StackSourceConfigSchema } from './schema.js';
 
 /** Semantic direction of a policy change. Unknown is fail-closed and blocks approval. */
 export type PolicyChangeClass = 'tightening' | 'neutral' | 'relaxation' | 'unknown-potential-relaxation';
@@ -25,9 +26,11 @@ interface StringSetValue { valid: boolean; present: boolean; values: Set<string>
 
 const SEVERITY = ['info', 'low', 'medium', 'high', 'critical'] as const;
 const ON_MISSING = ['warn', 'unknown', 'block'] as const;
+const STACK_CONSTRAINTS = new Set(['pinnedVersion', 'stackClosureMatch', 'forbiddenStackPackage', 'requirePinnedImages', 'allowedNodeVersions']);
 const ENFORCING_CONSTRAINTS = new Set([
   'requiredComponent', 'requiredDependency', 'forbiddenDependency', 'forbiddenPath',
   'forbiddenFile', 'forbiddenEgress', 'forbiddenPattern', 'behavioralInvariant',
+  'pinnedVersion', 'stackClosureMatch', 'forbiddenStackPackage', 'requirePinnedImages', 'allowedNodeVersions',
 ]);
 const CONSTRAINT_ARGUMENT_FIELDS = [
   'from', 'component', 'evidenceType', 'metric', 'minimum', 'policyRef', 'behaviorRef',
@@ -35,7 +38,7 @@ const CONSTRAINT_ARGUMENT_FIELDS = [
 ] as const;
 const CONSTRAINT_KNOWN_FIELDS = new Set([
   'id', 'type', 'severity', 'scopePaths', 'path', 'pattern', 'to', 'governedHosts',
-  'forbiddenEgressHosts', 'egressCallees', ...CONSTRAINT_ARGUMENT_FIELDS,
+  'forbiddenEgressHosts', 'egressCallees', 'stackTarget', 'expectedVersion', 'expectedStackDigest', 'packageName', 'versions', ...CONSTRAINT_ARGUMENT_FIELDS,
 ]);
 const REPORT_RANK: Record<PolicyChangeClass, number> = {
   neutral: 0,
@@ -62,6 +65,7 @@ function protectedSurface(rel: string): string | undefined {
     rel === 'src/mcp-server.ts' ||
     /^(?:integrations\/.*mcp.*|\.mcp\.json|\.cursor\/mcp\.json|\.codex\/config\.toml)$/i.test(rel)
   ) return 'MCP authority surface';
+  if (/^src\/stack\//.test(rel)) return 'policy evaluator';
   if (/^src\/(?:report|score|teeth|extractor-teeth|extractors|extractor-registry|python-extractor|graph|teeth-waiver|safe-regex|observations|runtime-identity|evidence-bundle|evidence-store|emit|materializer|recall-gate|violation-format|violation-rollup|portfolio-collect|portfolio-compile|lifecycle|policy-change|policy-history)\.ts$/.test(rel)) return 'policy evaluator';
   if (rel === 'src/index.ts') return 'public policy authority surface';
   if (/^src\/(?:schema|gate|baseline|mode|pin|cli|review|review-contracts|review-render|scm-review|proposal-io|assistant-adapter)\.ts$/.test(rel)) return 'policy enforcement';
@@ -314,6 +318,13 @@ function compareConstraint(result: Evidence, before: JsonObject, after: JsonObje
   for (const field of CONSTRAINT_ARGUMENT_FIELDS) {
     if (!equal(before[field], after[field])) add(result, 'unknown', `constraint argument changed: ${id}.${field}`);
   }
+  for (const field of ['stackTarget', 'expectedVersion', 'expectedStackDigest', 'packageName'] as const) {
+    if (!equal(before[field], after[field])) add(result, 'unknown', `stack constraint argument changed: ${id}.${field}`);
+  }
+  if (before.type === 'allowedNodeVersions' && after.type === 'allowedNodeVersions') {
+    if (!ConstraintSchema.safeParse(before).success || !ConstraintSchema.safeParse(after).success) add(result, 'unknown', `invalid runtime allowlist: ${id}`);
+    else compareOrdinarySet(result, before, after, 'versions', 'tightening', 'relaxation', `runtime allowlist ${id}`);
+  } else if (!equal(before.versions, after.versions)) add(result, 'unknown', `constraint versions changed: ${id}`);
   changedUnknownFields(result, before, after, CONSTRAINT_KNOWN_FIELDS, `constraint ${id}`);
 }
 
@@ -326,6 +337,11 @@ function compareConstraints(result: Evidence, before: JsonObject, after: JsonObj
   if (removed.length > 0) add(result, 'relaxation', `constraint removed: ${removed.join(', ')}`);
   for (const id of addedIds) {
     const constraint = newConstraints.get(id);
+    if (constraint && STACK_CONSTRAINTS.has(String(constraint.type)) &&
+        (!ConstraintSchema.safeParse(constraint).success || !StackSourceConfigSchema.safeParse(after.stack).success || !equal(before.stack, after.stack))) {
+      add(result, 'unknown', `stack constraint added without proven well-formed unchanged source scope: ${id}`);
+      continue;
+    }
     add(
       result,
       constraint && ENFORCING_CONSTRAINTS.has(String(constraint.type)) ? 'tightening' : 'unknown',
@@ -531,6 +547,25 @@ function compareMetadata(result: Evidence, before: JsonObject, after: JsonObject
   changedUnknownFields(result, oldMetadata, newMetadata, new Set(['id', 'status', 'ownerRole', 'stewardRole', 'name', 'version']), 'blueprint metadata');
 }
 
+function compareStackSources(result: Evidence, before: JsonObject, after: JsonObject): void {
+  if (equal(before.stack, after.stack)) return;
+  if (before.stack !== undefined && after.stack === undefined) {
+    add(result, 'relaxation', 'declared-stack source selection removed');
+    return;
+  }
+  if (!isObject(before.stack) || !isObject(after.stack)) {
+    add(result, 'unknown', 'declared-stack source selection added or malformed');
+    return;
+  }
+  for (const field of ['source', 'lockfile', 'packageManifest']) {
+    if (!equal(before.stack[field], after.stack[field])) add(result, 'unknown', `declared-stack source identity changed: ${field}`);
+  }
+  for (const field of ['imageFiles', 'runtimeFiles']) {
+    compareOrdinarySet(result, before.stack, after.stack, field, 'relaxation', 'unknown', `declared-stack selected ${field}`);
+  }
+  changedUnknownFields(result, before.stack, after.stack, new Set(['source', 'lockfile', 'packageManifest', 'imageFiles', 'runtimeFiles']), 'declared-stack source selection');
+}
+
 function blueprintDirection(before: ParsedJson, after: ParsedJson): Evidence {
   const result = evidence();
   if (before.state === 'missing') {
@@ -554,6 +589,7 @@ function blueprintDirection(before: ParsedJson, after: ParsedJson): Evidence {
   compareEvidenceRequirements(result, before.value, after.value);
   compareApprovals(result, before.value, after.value);
   compareExtraction(result, before.value, after.value);
+  compareStackSources(result, before.value, after.value);
   compareMinimumEngine(result, before.value.minEngineVersion, after.value.minEngineVersion);
   for (const key of ['apiVersion', 'kind', 'intentRefs', 'architecture', 'evolution'] as const) {
     if (!equal(before.value[key], after.value[key])) add(result, 'unknown', `blueprint ${key} changed`);
@@ -564,7 +600,7 @@ function blueprintDirection(before: ParsedJson, after: ParsedJson): Evidence {
     after.value,
     new Set([
       'apiVersion', 'kind', 'metadata', 'intentRefs', 'scope', 'architecture', 'constraints',
-      'evidenceRequirements', 'approvals', 'extraction', 'minEngineVersion', 'evolution',
+      'evidenceRequirements', 'approvals', 'extraction', 'minEngineVersion', 'evolution', 'stack',
     ]),
     'blueprint',
   );

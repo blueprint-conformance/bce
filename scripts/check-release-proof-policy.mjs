@@ -49,6 +49,7 @@ const signingRequirements = [
   ['canonical npm pack result parsing', /verify-release-payload\.mjs --pack-json release-pack-output\.txt --print-filename/],
   ['exact npm tarball verification', /verify-release-payload\.mjs[\s\\]*\n\s*--pack-json release-pack-output\.txt[\s\\]*\n\s*--tarball "\$tarball"[\s\\]*\n\s*--out release-payload-manifest\.json/],
   ['fresh consumer proof of the exact publish tarball', /- name: Exercise the exact publish tarball as a fresh consumer\n\s*id: route_consumer\n\s*run: node scripts\/route-consumer-proof\.mjs --tarball "\$GITHUB_WORKSPACE\/\$RELEASE_TARBALL" --out release-route-consumer-proof\.json --evidence-dir release-route-consumer-evidence/],
+  ['declared-stack proof of the exact publish tarball', /- name: Exercise declared-stack contracts from the exact publish tarball\n\s*run: node scripts\/package-consumer-proof\.mjs --tarball "\$GITHUB_WORKSPACE\/\$RELEASE_TARBALL"/],
   ['durable exact-artifact consumer evidence', /- name: Preserve exact-artifact consumer evidence[\s\S]*?uses: actions\/upload-artifact@[0-9a-f]{40}[\s\S]*?path: release-route-consumer-evidence\n\s*include-hidden-files: true\n\s*if-no-files-found: error/],
   ['publish of the verified npm tarball', /npm publish "\$RELEASE_TARBALL" --provenance --access public/],
   ['draft Release created before asset staging', /gh release create "\$tag" --verify-tag --draft/],
@@ -85,6 +86,7 @@ if (!/^\s*needs:\s*\[gate, model-evaluation-controller-macos\]\s*$/m.test(publis
 }
 
 const consumerIndex = publish.indexOf('node scripts/route-consumer-proof.mjs --tarball "$GITHUB_WORKSPACE/$RELEASE_TARBALL" --out release-route-consumer-proof.json');
+const declaredStackConsumerIndex = publish.indexOf('node scripts/package-consumer-proof.mjs --tarball "$GITHUB_WORKSPACE/$RELEASE_TARBALL"');
 const tarballIndex = publish.indexOf('echo "RELEASE_TARBALL=$tarball" >> "$GITHUB_ENV"');
 const generateIndex = publish.indexOf('Generate the evidence record of THIS release gate-run before publish');
 const verifyIndex = publish.indexOf('release evidence and payload-boundary signatures verify');
@@ -93,10 +95,10 @@ const npmPublishIndex = publish.indexOf('npm publish "$RELEASE_TARBALL" --proven
 const finalizerIndex = publish.indexOf('\n  finalize-github-release:\n');
 const freezeIndex = publish.indexOf('gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest');
 if (
-  [tarballIndex, consumerIndex, generateIndex, verifyIndex, stageIndex, npmPublishIndex, finalizerIndex, freezeIndex].some((index) => index < 0) ||
-  !(tarballIndex < consumerIndex && consumerIndex < generateIndex && generateIndex < verifyIndex && verifyIndex < stageIndex && stageIndex < npmPublishIndex && npmPublishIndex < finalizerIndex && finalizerIndex < freezeIndex)
+  [tarballIndex, consumerIndex, declaredStackConsumerIndex, generateIndex, verifyIndex, stageIndex, npmPublishIndex, finalizerIndex, freezeIndex].some((index) => index < 0) ||
+  !(tarballIndex < consumerIndex && consumerIndex < declaredStackConsumerIndex && declaredStackConsumerIndex < generateIndex && generateIndex < verifyIndex && verifyIndex < stageIndex && stageIndex < npmPublishIndex && npmPublishIndex < finalizerIndex && finalizerIndex < freezeIndex)
 ) {
-  missing.push('verified evidence and payload staged on a draft before exact-tarball npm publish and frozen only afterward; exact-tarball consumer proof must precede signing');
+  missing.push('verified evidence and payload staged on a draft before exact-tarball npm publish and frozen only afterward; exact-tarball route and declared-stack consumer proofs must precede signing');
 }
 
 if (missing.length > 0) {

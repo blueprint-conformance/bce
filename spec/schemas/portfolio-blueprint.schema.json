@@ -114,6 +114,13 @@
               "evidenceType": {
                 "type": "string"
               },
+              "expectedStackDigest": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "expectedVersion": {
+                "type": "string"
+              },
               "forbiddenEgressHosts": {
                 "items": {
                   "type": "string"
@@ -137,6 +144,10 @@
               },
               "minimum": {
                 "type": "number"
+              },
+              "packageName": {
+                "minLength": 1,
+                "type": "string"
               },
               "path": {
                 "type": "string"
@@ -167,6 +178,28 @@
                 ],
                 "type": "string"
               },
+              "stackTarget": {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "npm",
+                      "oci-image",
+                      "node-runtime"
+                    ],
+                    "type": "string"
+                  },
+                  "name": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              },
               "stimulusSetHash": {
                 "pattern": "^[0-9a-f]{64}$",
                 "type": "string"
@@ -186,9 +219,22 @@
                   "minimumMetric",
                   "customPolicy",
                   "behavioralInvariant",
-                  "forbiddenPattern"
+                  "forbiddenPattern",
+                  "pinnedVersion",
+                  "stackClosureMatch",
+                  "forbiddenStackPackage",
+                  "requirePinnedImages",
+                  "allowedNodeVersions"
                 ],
                 "type": "string"
+              },
+              "versions": {
+                "items": {
+                  "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$",
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               }
             },
             "required": [

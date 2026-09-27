@@ -288,6 +288,8 @@ function verifyProposal(proposal: BlueprintProposal): string[] {
   return failures;
 }
 
+const STACK_TYPES = new Set(['pinnedVersion', 'stackClosureMatch', 'forbiddenStackPackage', 'requirePinnedImages', 'allowedNodeVersions']);
+
 const IMPLEMENTED_TYPES = new Set([
   'requiredDependency',
   'requiredComponent',
@@ -363,6 +365,16 @@ function plainLanguage(constraint: Constraint): string {
       return `Forbid content matching /${constraint.pattern ?? ''}/${constraint.path ? ` under ${constraint.path}` : ''}.`;
     case 'behavioralInvariant':
       return `Require runtime behavior ${constraint.behaviorRef ?? '(unspecified)'} to vary with stimuli and satisfy its oracle.`;
+    case 'pinnedVersion':
+      return `Require every selected ${constraint.stackTarget?.kind ?? '(unspecified)'} declaration named ${constraint.stackTarget?.name ?? '(unspecified)'} to equal ${constraint.expectedVersion ?? '(unspecified)'}.`;
+    case 'stackClosureMatch':
+      return `Require the selected declared closure digest to equal ${constraint.expectedStackDigest ?? '(unspecified)'}.`;
+    case 'forbiddenStackPackage':
+      return `Forbid every modeled non-root npm package named ${constraint.packageName ?? '(unspecified)'} in selected declarations.`;
+    case 'requirePinnedImages':
+      return 'Require at least one selected external image and immutable sha256 digests on all selected images.';
+    case 'allowedNodeVersions':
+      return `Require the declared Node version to equal one of: ${(constraint.versions ?? []).join(', ')}.`;
     case 'requiredEvidence':
       return `Require evidence of type ${constraint.evidenceType ?? '(unspecified)'}.`;
     case 'minimumMetric':
@@ -382,7 +394,9 @@ export function explainConstraint(args: {
   knownBlindSpots?: string[];
 }): ConstraintReview {
   const { constraint, blueprint, graph } = args;
-  const matchedScope = matchedConstraintScope(
+  const stackConstraint = STACK_TYPES.has(constraint.type);
+  const selectedSources = blueprint.stack ? [blueprint.stack.lockfile, blueprint.stack.packageManifest, ...blueprint.stack.imageFiles, ...blueprint.stack.runtimeFiles] : [];
+  const matchedScope = stackConstraint ? sortedUnique(selectedSources) : matchedConstraintScope(
     constraint,
     args.matchedScope ?? graph?.coverage.scannedFiles ?? [],
   );
@@ -403,7 +417,7 @@ export function explainConstraint(args: {
     ...(constraint.type === 'behavioralInvariant'
       ? ['This clause requires served-runtime observations; a static source scan alone cannot prove it.']
       : []),
-    ...(!supported ? [`Constraint type or arguments are not implemented by this evaluator: ${constraint.type}.`] : []),
+    ...(stackConstraint ? ['Selected declarations are enforced by the declared-stack provider; this graph-only review does not supply those facts. Installed state and origin authenticity are not established.'] : !supported ? [`Constraint type or arguments are not implemented by this evaluator: ${constraint.type}.`] : []),
     ...(args.teethWitness?.verdict === ConstraintTeeth.EVALUATOR_REFUTABLE
       ? ['The mutation proves evaluator refutability only; it is not extractor-real evidence.']
       : []),
@@ -422,7 +436,7 @@ export function explainConstraint(args: {
     plainLanguage: language,
     promise: `${language.slice(0, -1)} as an enforceable ${constraint.severity}-severity architectural promise.`,
     lens: {
-      summary: `The ${blueprint.extraction?.profile ?? 'next-route-handler'} extractor observes ${scope.length > 0 ? scope.join(', ') : 'the declared repository surface'}.`,
+      summary: stackConstraint ? `The declared-stack provider observes explicitly selected sources: ${sortedUnique(selectedSources).join(', ') || '(none)'}.` : `The ${blueprint.extraction?.profile ?? 'next-route-handler'} extractor observes ${scope.length > 0 ? scope.join(', ') : 'the declared repository surface'}.`,
       matchedScope,
     },
     proof: {
@@ -797,6 +811,7 @@ export function buildReviewPacket(args: {
   resolvedScope?: { matchedFiles: string[]; excludedPaths?: string[]; excludedClasses?: string[] };
 }): BlueprintReviewPacket {
   const proposal = BlueprintProposalSchema.parse(detached(args.proposal));
+  if (proposal.candidate.constraints.some((constraint) => STACK_TYPES.has(constraint.type))) throw new Error('review packet refused: declared-stack constraints require versioned provider evidence; the graph-only review packet cannot certify them');
   const proposalFailures = verifyProposal(proposal);
   if (proposalFailures.length > 0) throw new Error(`invalid blueprint proposal: ${proposalFailures.join('; ')}`);
   const baseBlueprint = args.baseBlueprint === null ? null : parseBlueprint(detached(args.baseBlueprint));

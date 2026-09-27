@@ -19,8 +19,8 @@ export interface SubsystemScore {
   /** the blueprint id (subsystem) — one score per authored blueprint. */
   subsystem: string;
   blueprintRef: string;
-  score: number;
-  verdict: 'pass' | 'fail';
+  score: number | null;
+  verdict: 'pass' | 'fail' | 'indeterminate';
   violationCount: number;
   /** violation counts by severity, so a board can show the severity mix. */
   bySeverity: Record<Severity, number>;
@@ -28,7 +28,7 @@ export interface SubsystemScore {
 
 export interface ArchitectureScore {
   /** the mean score across subsystems (0-100), rounded to 1 dp — the fleet Architecture Score. */
-  overall: number;
+  overall: number | null;
   /** the count of subsystems whose verdict is pass. */
   passing: number;
   total: number;
@@ -70,7 +70,9 @@ export function architectureScore(reports: readonly ComplianceReport[]): Archite
     .map(subsystemScore)
     .sort((a, b) => cmp(a.subsystem, b.subsystem) || cmp(a.blueprintRef, b.blueprintRef) || cmp(a.verdict, b.verdict));
   const total = subsystems.length;
-  const overall = total === 0 ? 0 : Math.round((subsystems.reduce((s, x) => s + x.score, 0) / total) * 10) / 10;
+  const overall = subsystems.some((s) => s.score === null || s.verdict === 'indeterminate')
+    ? null
+    : total === 0 ? 0 : Math.round((subsystems.reduce((s, x) => s + (x.score as number), 0) / total) * 10) / 10;
   const passing = subsystems.filter((s) => s.verdict === 'pass').length;
   const bySeverity = { ...ZERO_SEVERITY };
   for (const s of subsystems) for (const k of Object.keys(bySeverity) as Severity[]) bySeverity[k] = (bySeverity[k] ?? 0) + (s.bySeverity[k] ?? 0);
@@ -85,8 +87,8 @@ export interface ScoreSample {
   /** the repo revision this sample was measured at — the determinism anchor (NOT wall-clock). */
   revision: string;
   subsystem: string;
-  score: number;
-  verdict: 'pass' | 'fail';
+  score: number | null;
+  verdict: 'pass' | 'fail' | 'indeterminate';
   violationCount: number;
 }
 
@@ -104,12 +106,12 @@ export function toScoreSample(report: ComplianceReport): ScoreSample {
 export interface TrendSummary {
   subsystem: string;
   samples: number;
-  first: number;
-  last: number;
+  first: number | null;
+  last: number | null;
   /** last − first: positive = improving, negative = drifting worse. */
-  delta: number;
-  min: number;
-  max: number;
+  delta: number | null;
+  min: number | null;
+  max: number | null;
 }
 
 /**
@@ -126,7 +128,10 @@ export function trendSummary(series: readonly ScoreSample[]): TrendSummary[] {
   }
   return [...bySub.keys()].sort().map((subsystem) => {
     const arr = bySub.get(subsystem)!;
-    const scores = arr.map((x) => x.score);
+    if (arr.some((x) => x.score === null || x.verdict === 'indeterminate')) {
+      return { subsystem, samples: arr.length, first: arr[0]!.score, last: arr[arr.length - 1]!.score, delta: null, min: null, max: null };
+    }
+    const scores = arr.map((x) => x.score as number);
     const first = scores[0]!;
     const last = scores[scores.length - 1]!;
     return { subsystem, samples: arr.length, first, last, delta: last - first, min: Math.min(...scores), max: Math.max(...scores) };
