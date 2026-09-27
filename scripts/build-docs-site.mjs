@@ -172,6 +172,7 @@ const PAGES = [
 
   { route: 'rfcs', kind: 'section-index', section: 'RFCs', nav: 'RFCs' },
   { route: 'rfcs/RFC-0001-process', source: 'rfcs/RFC-0001-process.md', section: 'RFCs' },
+  { route: 'rfcs/RFC-0002-declared-stack-contracts', source: 'rfcs/RFC-0002-declared-stack-contracts.md', section: 'RFCs' },
 
   { route: 'guides/faq', source: 'docs/faq.md', nav: 'FAQ', section: 'Guides' },
 
