@@ -109,12 +109,12 @@ advisory/baseline/graduation path, and CI invariants.
 Use the repository's existing package manager: `pnpm exec bce` or `yarn bce` replaces the npm runner.
 Do not fetch a package named `bce`, silently change package managers, or require a global install.
 
-Prefer local, version-matched package documentation. The v0.4.0 package includes
+Prefer local, version-matched package documentation. The v0.5.0 package includes
 `spec/SPEC.md`, offline `review prepare`, and solo-steward ratification. Use the installed local
 binary for those commands; a source checkout is not required. The immutable npm `0.3.0` tarball
 lacks those additions and omits `spec/SPEC.md`; when operating that version, use
 https://github.com/blueprint-conformance/bce/blob/v0.3.0/spec/SPEC.md if the local file is absent.
 Identify the existing artifact before installing anything. The current exact registry target is
-`bce-engine@0.4.0`; run `npm view bce-engine@0.4.0 version dist.integrity` and verify its release
+`bce-engine@0.5.0`; run `npm view bce-engine@0.5.0 version dist.integrity` and verify its release
 record before changing the selected artifact. Check the separately selected CI engine too;
 upgrading locally does not update an existing workflow.

@@ -28,8 +28,11 @@ The distinguishing mechanism is a fail-closed, local-first architecture gate tha
 
 ## Capabilities and Constraints
 
-- Node 22 or newer; the released package is `bce-engine@0.4.0`.
-- TypeScript/JavaScript framework AST extraction, direct TypeScript/JavaScript module graphs, the Python import-surface profile, and structured Python module graphs are released in v0.4.0.
+- Node 22 or newer; the released package is `bce-engine@0.5.0`.
+- TypeScript/JavaScript framework AST extraction, direct TypeScript/JavaScript module graphs, the Python import-surface profile, and structured Python module graphs are released in v0.5.0.
+- The v0.5.0 declared-stack contract enforces selected exact package pins, closure equality,
+  forbidden packages, digest-pinned images, and allowed Node versions; it does not prove installed
+  state or resolve/mutate declarations.
 - Validation, extraction, gating, MCP discovery, and evidence verification work without a hosted service after installation.
 - Critical unsupported analysis, missing rules, unsafe paths, and unknown constraints fail closed.
 - GitHub README rendering constrains the public surface to portable Markdown, HTML supported by GitHub, and repository-owned assets.

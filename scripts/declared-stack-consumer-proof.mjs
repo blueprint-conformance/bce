@@ -11,8 +11,10 @@ const root = process.argv[2] ? resolve(process.argv[2]) : resolve(dirname(fileUR
 const cli = join(root, 'dist/cli.js');
 const oldRoot = process.argv[3] ? resolve(process.argv[3]) : null;
 const oldCli = oldRoot ? join(oldRoot, 'dist/cli.js') : null;
+const oldVersion = oldRoot ? JSON.parse(readFileSync(join(oldRoot, 'package.json'), 'utf8')).version : null;
 assert.ok(existsSync(cli), 'Build first: installed dist/cli.js is required');
 if (oldCli) assert.ok(existsSync(oldCli), 'Published old-engine dist/cli.js is required');
+if (oldCli) assert.match(oldVersion, /^\d+\.\d+\.\d+$/, 'Published old-engine version is required');
 assert.ok(Number(process.versions.node.split('.')[0]) >= 22, 'Node 22 or newer required');
 const scratch = mkdtempSync(join(tmpdir(), 'bce-declared-consumer-'));
 const tree = join(scratch, 'consumer');
@@ -165,7 +167,7 @@ try {
     assert.equal(oldDoc.exitCode, 2);
     assert.equal(oldDoc.outcome, 'refusal');
     assert.equal(oldDoc.gateFailed, true);
-    assert.ok(JSON.stringify(oldDoc).includes('blueprint requires engine >= 0.5.0, gate is running 0.3.1'));
+    assert.ok(JSON.stringify(oldDoc).includes(`blueprint requires engine >= 0.5.0, gate is running ${oldVersion}`));
     cases.push({ name: 'published-old-engine-refusal', exit: old.status });
   }
   restore();

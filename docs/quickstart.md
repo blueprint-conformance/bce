@@ -36,8 +36,8 @@ After installation, all BCE operations are local.
 mkdir bce-quickstart
 cd bce-quickstart
 npm init -y
-npm view bce-engine@0.4.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.4.0
+npm view bce-engine@0.5.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.5.0
 node -e "require('node:fs').cpSync('node_modules/bce-engine/examples/quickstart', 'quickstart', {recursive:true})"
 ```
 
@@ -77,7 +77,7 @@ can — and that a green verdict therefore means something.
 ## Then
 
 - **Choose the boundary that must hold** — [`first-win.md`](first-win.md) runs the six packaged
-  recipes in the `v0.4.0` release across extension, route, egress, module, Python, and configuration
+  recipes in the `v0.5.0` release across extension, route, egress, module, Python, and configuration
   surfaces, then links six measured layout walkthroughs where you author the contract yourself.
 - **Gate your own repository** — [`adopt-existing-repo.md`](adopt-existing-repo.md) is the honest
   brownfield path: advisory → baseline → graduate → enforced.

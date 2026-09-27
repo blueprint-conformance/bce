@@ -2,10 +2,10 @@
 
 The stack plane pins the DECLARED dependency closure of a repository — every direct and transitive
 package, the declared node runtime, and selected Dockerfile/compose image references — as a
-content-addressed artifact. The 0.4.0 source foundation exposes standalone snapshot/diff commands.
-The local unpublished 0.5.0 candidate additionally lets an authored blueprint select exact stack
-sources, grade five declared-stack rule types through the ordinary gate/MCP path, and replay a v2
-report offline. See [`spec/SPEC.md` §§16–17](../spec/SPEC.md) for the normative formats and the
+content-addressed artifact. The 0.5.0 release exposes standalone snapshot/diff commands and lets an
+authored blueprint select exact stack sources, grade five declared-stack rule types through the
+ordinary gate/MCP path, and replay a v2 report offline. See
+[`spec/SPEC.md` §§16–17](../spec/SPEC.md) for the normative formats and the
 explicit evidence boundary: selected declarations are not installed-state or origin-authenticity.
 
 ## `bce stack snapshot` — the manifest
@@ -50,7 +50,7 @@ The measured seed table — `47a51f4 → a949557`/`e0f7344` (this repository's o
 removed names, top classification `removed` (the rank rule: 7 removed outranks 7 forward). The
 reverse direction is the mirror image and fails closed on 7 `backward` moves, exit 2.
 
-## What is [RUNS] as of 0.4.0
+## What is [RUNS] as of 0.5.0
 
 - The manifest verb, the npm and pnpm-lock v9 extractors, and the golden-pinned determinism suites
   (`tests/stack-determinism.test.ts`, `tests/stack-pnpm.test.ts`) run under the vitest suite on
@@ -76,7 +76,7 @@ reverse direction is the mirror image and fails closed on 7 `backward` moves, ex
 ## What is not built yet
 
 `stack reconcile` (a forward-only proposal to bring a blueprint's stack block in sync with the
-latest closure), yarn lockfiles, pnpm lockfiles other than v9, and image-tag resolution. The local
-0.5.0 candidate implements exact `pinnedVersion`, `stackClosureMatch`,
-`forbiddenStackPackage`, `requirePinnedImages`, and `allowedNodeVersions`; it does not resolve a
-registry, mutate declarations, or apply a repair inside `gate`/`run`.
+latest closure), yarn lockfiles, pnpm lockfiles other than v9, and image-tag resolution. The 0.5.0
+release implements exact `pinnedVersion`, `stackClosureMatch`, `forbiddenStackPackage`,
+`requirePinnedImages`, and `allowedNodeVersions`; it does not resolve a registry, mutate
+declarations, or apply a repair inside `gate`/`run`.
