@@ -1,7 +1,11 @@
 # RFC-0002: Declared-stack contracts and forward repair obligations
 
-Status: draft for public RFC discussion; local enforcement implementation accepted; reconciliation deferred
+Status: accepted; reconciliation deferred
 Author(s): BCE maintainer, with AI-assisted drafting
+
+Decision (2026-09-27): accepted because the five selected-source rule types are additive,
+preserve existing blueprint semantics and fail closed when evidence is insufficient;
+automatic repair and reconciliation remain deferred.
 
 This document follows [RFC-0001](RFC-0001-process.md). On 2026-09-20 the human
 maintainer explicitly accepted the enforcement contract and directed local implementation:
@@ -14,9 +18,9 @@ insufficient evidence, ordinary-gate integration and versioned offline replay. R
 reconciliation and cross-repository work are **deferred**. The reconciliation sections
 below remain proposals and create no implemented command or mutation authority.
 
-This is a local maintainer decision record, not a claim that the RFC was reviewed
-publicly, merged or released. This draft PR begins that separate public discussion;
-the RFC status must record its public decision before any follow-on implementation PR.
+The public RFC discussion and maintainer decision are recorded in the RFC pull request.
+Acceptance authorizes a follow-on implementation PR; it is not a claim that the engine
+change is merged or released.
 The local development engine uses the proposed `0.5.0` identity so real minimum-engine
 checks apply; this is not evidence of a published 0.5.0 package. Public distribution,
 pinning and self-adoption remain subject to the required release sequence.
