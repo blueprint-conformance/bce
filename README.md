@@ -183,6 +183,12 @@ self-blueprint mutants, deterministic reports,
 and cross-platform CI. Those are first-party proofs on author-controlled infrastructure;
 [independent witnesses remain 0](ATTESTATIONS.md).
 
+The [Stage D declared-stack replay record](https://blueprint-conformance.github.io/bce/trust/community-stage-d/)
+reports that an oracle-separated fresh-context agent run matched the recorded A–D matrix: pass,
+violation, structural refusal, and detached integrity verification. The raw evidence is not public,
+so this is an author-controlled record—not an independently verifiable community witness—and it
+does not change that zero count.
+
 Accelerated pilot v6 retained all 16 paired attempts in one exact local model/client cell. Its
 author-operated record contains useful directional observations, including 2/8 versus 3/8 safe
 successful completions, but it is permanently ineligible for a product decision. One baseline

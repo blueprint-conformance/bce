@@ -27,4 +27,6 @@ function run(script, args) {
 run('check-evidence-claims.mjs', ['--root', root]);
 run('verify-model-evaluation-bundle.mjs', ['--bundle', bundle, '--portable-inputs']);
 run('verify-model-evaluation-public.mjs', ['--bundle', bundle, '--results', `${bundle}/results`]);
-process.stdout.write('public-evidence: PASS (claim boundary + sealed inputs + public result replay)\n');
+run('verify-community-stage-d.selftest.mjs', []);
+run('verify-community-stage-d.mjs', []);
+process.stdout.write('public-evidence: PASS (claim boundary + sealed inputs + public result replay + Stage D record consistency)\n');

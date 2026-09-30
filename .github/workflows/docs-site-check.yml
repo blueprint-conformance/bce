@@ -56,6 +56,11 @@ on:
       - 'scripts/check-evidence-claims.mjs'
       - 'scripts/check-evidence-claims.selftest.mjs'
       - 'scripts/lib/evidence-claims.mjs'
+      - 'scripts/lib/community-stage-d.mjs'
+      - 'scripts/verify-community-stage-d.mjs'
+      - 'scripts/verify-community-stage-d.selftest.mjs'
+      - 'scripts/verify-public-evidence.mjs'
+      - 'evidence/community-stage-d/**'
       - 'research/claim-evidence-matrix.json'
       - 'research/model-evaluation/pilots/accelerated-v6/**'
       - 'scripts/gen-fleet-evidence.mjs'
@@ -147,6 +152,13 @@ jobs:
           require _site/rfcs/index.html
           require _site/paper/index.html
           require _site/trust/index.html
+          require _site/trust/community-stage-d/index.html
+          require _site/evidence/community-stage-d/record.json
+          if [ -e _site/evidence/community-stage-d/record.json ] &&
+             ! cmp -s evidence/community-stage-d/record.json _site/evidence/community-stage-d/record.json; then
+            echo "::error::published Stage D record differs from the tree"
+            missing=1
+          fi
           require _site/guides/live-self-adoption/index.html
           require _site/assets/self-adoption-status.mjs
 
@@ -171,17 +183,12 @@ jobs:
 
           # Every route the build produced is a real page, not an empty directory.
           #
-          # assets/ and schemas/ hold FILES, not routes, so they carry no index.html —
-          # and neither do their subdirectories. The two exclusions used to name only
-          # the top directory, which was correct while both were flat; the moment
-          # assets/ grew assets/badges/ the check demanded an index.html for a
-          # directory of images. Pruning the two SUBTREES restores the original intent
-          # exactly: every route directory is still required to be a real page (verified
-          # by diffing the directory list before and after this change — the only entry
-          # that disappears is _site/assets/badges).
+          # assets/, evidence/, schemas/, and source/ hold files, not routes, so they
+          # and their subdirectories carry no index.html. Prune those file-bearing
+          # subtrees; every remaining directory is a route and must be a real page.
           while IFS= read -r d; do
             require "${d}/index.html"
-          done < <(find _site \( -path _site/assets -o -path _site/schemas -o -path _site/source \) -prune -o -type d ! -path _site -print)
+          done < <(find _site \( -path _site/assets -o -path _site/evidence -o -path _site/schemas -o -path _site/source \) -prune -o -type d ! -path _site -print)
 
           if [ "$missing" -ne 0 ]; then
             echo "docs-site-check: FAIL — the assembled site is missing expected files."

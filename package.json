@@ -62,6 +62,8 @@
     "test:release-claims": "node scripts/check-release-claims.selftest.mjs && node scripts/check-release-claims.mjs",
     "test:evidence-claims": "node scripts/check-evidence-claims.selftest.mjs && node scripts/check-evidence-claims.mjs",
     "evidence:verify": "node scripts/verify-public-evidence.mjs",
+    "evidence:stage-d:verify": "node scripts/verify-community-stage-d.mjs",
+    "test:community-stage-d": "node scripts/verify-community-stage-d.selftest.mjs && node scripts/verify-community-stage-d.mjs",
     "test:contributor-operations": "node scripts/verify-contributor-operations.mjs",
     "test:public-release": "node scripts/verify-public-release.selftest.mjs && node scripts/verify-public-release.mjs",
     "test:release-payload": "node scripts/verify-release-payload.selftest.mjs && node scripts/verify-release-payload.mjs",
