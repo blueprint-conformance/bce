@@ -577,7 +577,7 @@ const PROBES = [
       fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace(/\*\*Count: \d+\.\*\*/, '**Count: several.**'));
     },
     exit: 2,
-    expect: 'derives its witness count',
+    expect: 'does not carry a readable independent-witness count',
   },
   {
     name: 'trust page refuses provisional citation identifiers',
