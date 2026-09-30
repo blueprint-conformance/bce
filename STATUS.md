@@ -1,6 +1,6 @@
 # Project status
 
-Last reviewed: 2026-09-27. This file is the authoritative public claim ledger for the current
+Last reviewed: 2026-09-30. This file is the authoritative public claim ledger for the current
 source tree.
 
 ## Released self-adoption changes
@@ -48,6 +48,13 @@ replication, or product efficacy is claimed.
   opaque, variable, conflicting, or integrity-invalid required evidence refuses. Offline v2 bundles
   bind the stack manifest and source facts; substitution and tamper controls refuse. A fresh public
   registry installation passed 90/90 bounded declared-stack cases against the released bytes.
+- An [author-reported Stage D replay](https://blueprint-conformance.github.io/bce/trust/community-stage-d/)
+  records a match with its A–D matrix: A passed, B reported one critical closure violation, C
+  refused one opaque declaration, and D reported integrity verification without established
+  authenticity. Oracle non-disclosure, one collector invocation, and byte-identical replicate
+  pairs are process attestations. The raw evidence and subject source are non-public, so this is
+  not an independently verifiable community replication and does not change the independent-witness
+  count.
 - Route-guard evidence requires symbol provenance from a blueprint-declared governed module.
   v0.5.0 inventories direct function and immutable const arrow/function-expression handlers for
   all seven HTTP verbs. Recognized unsupported exports, rebound handlers, CommonJS assignments,

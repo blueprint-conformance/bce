@@ -34,6 +34,7 @@ const V6_SUMMARY = 'research/model-evaluation/pilots/accelerated-v6/results/summ
 const CLAIM_MATRIX = 'research/claim-evidence-matrix.json';
 const FOUNDRY_REGISTRY = 'research/model-evaluation/studies/index.v3.json';
 const FOUNDRY_PROTOCOL = 'research/model-evaluation/studies/evidence-foundry-v3/protocol.json';
+const COMMUNITY_STAGE_D_RECORD = 'evidence/community-stage-d/record.json';
 const NO_EFFICACY_CLAIM = 'no-efficacy-claim';
 const PRIMARY_CLAIM = 'bounded-primary-causal-effect-exact-cell-release-and-task-population';
 const TRANSPORT_CLAIM = 'bounded-transportability-causal-effect-exact-cell-release-and-task-population';
@@ -287,11 +288,61 @@ const PROBES = [
     expect: '',
     verify: (dir) => {
       const page = fs.readFileSync(path.join(dir, '_site/trust/index.html'), 'utf8');
-      return page.includes('Independent witnesses: 3.')
+      const stageD = fs.readFileSync(path.join(dir, '_site/trust/community-stage-d/index.html'), 'utf8');
+      return page.includes('Independent witnesses: 3.') &&
+        stageD.includes('independent-witness ledger currently records <strong>3</strong>')
         ? null
-        : 'the staged ledger says Count: 3 but the built /trust page does not say ' +
-          '"Independent witnesses: 3." — the count is a second hand-written copy, not a derivation';
+        : 'the staged ledger says Count: 3 but one or more evidence pages did not derive that count';
     },
+  },
+  {
+    name: 'Stage D page renders the bounded author-reported matrix',
+    plant: () => {},
+    exit: 0,
+    expect: '',
+    verify: (dir) => {
+      const page = fs.readFileSync(path.join(dir, '_site/trust/community-stage-d/index.html'), 'utf8');
+      return page.includes('Recorded outcome: MATRIX_MATCHED.') &&
+        page.includes('<strong>Author-reported PASS</strong> — exit 0, score 100; zero findings') &&
+        page.includes('<strong>Author-reported FAIL</strong> — exit 1, score 60; one critical closure violation') &&
+        page.includes('<strong>Author-reported INDETERMINATE</strong> — exit 2; one opacity refusal') &&
+        page.includes('raw evidence is withheld')
+        ? null
+        : 'the Stage D page omitted or widened the bounded matrix or witness-count boundary';
+    },
+  },
+  {
+    name: 'Stage D page refuses a widened established-claim set',
+    plant: (dir) => {
+      const file = path.join(dir, COMMUNITY_STAGE_D_RECORD);
+      const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+      record.claimBoundary.established.push('Independent community replication established.');
+      fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
+    },
+    exit: 2,
+    expect: 'public claim boundary differs from the exact bounded record',
+  },
+  {
+    name: 'Stage D page refuses a changed execution chronology',
+    plant: (dir) => {
+      const file = path.join(dir, COMMUNITY_STAGE_D_RECORD);
+      const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+      record.attempts[1].returnedEvidenceChecksums = 0;
+      fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
+    },
+    exit: 2,
+    expect: 'attempt chronology is incomplete or widened',
+  },
+  {
+    name: 'Stage D page refuses an independent-witness reclassification',
+    plant: (dir) => {
+      const file = path.join(dir, COMMUNITY_STAGE_D_RECORD);
+      const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+      record.claimBoundary.independentWitnessLedgerContribution = true;
+      fs.writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
+    },
+    exit: 2,
+    expect: 'author-controlled replay cannot increment the independent-witness ledger',
   },
   {
     name: 'trust page derives the v6 observation from the sealed result index',

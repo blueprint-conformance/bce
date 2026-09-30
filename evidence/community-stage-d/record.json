@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "kind": "BceCommunityStageDReplayRecord",
+  "experimentId": "bce-community-stage-d-author-reported-replay-2026-09-29",
+  "recordedAt": "2026-09-29",
+  "classification": "author-controlled-fresh-context-replay",
+  "subject": {
+    "tool": "bce-engine@0.5.0",
+    "toolTarballSha256": "2002ca9a8ce3f95e96e9653720d2a7244baf090acf15bf4a0c8a1d45f2cd4b1d",
+    "sourceVisibility": "non-public"
+  },
+  "protocol": {
+    "participant": "fresh-context Codex agent",
+    "participantReceivedOracle": false,
+    "collectorInvocationsForResult": 1,
+    "replicatePairs": 4,
+    "executionsPerCell": 1,
+    "networkRequired": false,
+    "credentialsRequired": false,
+    "attestationStrength": "process-attestation-only",
+    "collectionDate": "2026-09-29",
+    "collectorCommand": "shasum -a 256 -c SHA256SUMS && bash run-stage-d.sh"
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "nodeVersion": "v20.20.2",
+      "outcome": "PREREQUISITE_FAILURE",
+      "collectorExitCode": 1,
+      "resultsCreated": false,
+      "reason": "Node 22+ required",
+      "rawStderrRetained": false
+    },
+    {
+      "attempt": 2,
+      "nodeVersion": "v22.22.2",
+      "outcome": "MATRIX_MATCHED",
+      "collectorExitCode": 0,
+      "resultsCreated": true,
+      "returnedEvidenceChecksums": 347,
+      "allReturnedEvidenceChecksumsPassed": true
+    }
+  ],
+  "matrix": [
+    {
+      "cell": "A",
+      "verdict": "PASS",
+      "exitCode": 0,
+      "score": 100,
+      "finding": "zero findings"
+    },
+    {
+      "cell": "B",
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "score": 60,
+      "finding": "one critical closure violation"
+    },
+    {
+      "cell": "C",
+      "verdict": "INDETERMINATE",
+      "exitCode": 2,
+      "score": null,
+      "finding": "one opacity refusal"
+    },
+    {
+      "cell": "D",
+      "verdict": "VALID",
+      "exitCode": 0,
+      "score": null,
+      "finding": "integrity verified; authenticity not established"
+    }
+  ],
+  "replicatesByteIdentical": true,
+  "reportedOracleVerdict": "REPRODUCED",
+  "sourceDelta": "one declared-stack lockfile mutation in B",
+  "integrity": {
+    "participantArchiveSha256": "eb989d04809553ced959c342773a425e0894c21ed920a4c2c6f7ffdca2eb81b9",
+    "resultsManifestSha256": "3e1152efbeda193fa8c36b52b3add854e150a47f852de5cd1fb98256e35e1071",
+    "resultsChecksumsSha256": "56fd689340988fcd6c85e0fa542854de3b8fb7420e8a024a228c566aae25fa88",
+    "resultsArchiveSha256": "fd3ecf2ef019ed6aaaba659719191a5915baf02cad717e9362829e96c721a8d8",
+    "oracleVerdictSha256": "0a44ba01a101fceb6c5c0f38d07e44a209495847aebcc3919812b5806d874b20",
+    "rawArchivePublished": false,
+    "rawArchiveReason": "The sealed archive contains non-public subject source; this public record carries hash commitments and the bounded outcome only."
+  },
+  "claimBoundary": {
+    "independentWitnessLedgerContribution": false,
+    "established": [
+      "The separate oracle reported a match with the recorded A-D outcome matrix from one fresh-context collection.",
+      "The author reports that all 347 returned-evidence checksums passed.",
+      "The author reports that each A-D replicate pair was byte-identical."
+    ],
+    "notEstablished": [
+      "external-human adoption",
+      "independent community replication",
+      "cross-platform portability",
+      "source origin authenticity",
+      "installed or deployed state",
+      "production behavior",
+      "ecosystem generality",
+      "security",
+      "performance",
+      "causal product efficacy"
+    ]
+  }
+}

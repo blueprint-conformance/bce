@@ -71,6 +71,12 @@ import { loadEvidenceClaims } from './lib/evidence-claims.mjs';
 import { selfAdoptionHtml } from './lib/self-adoption-site.mjs';
 import { publishAgentDocs } from './lib/agent-docs-site.mjs';
 import { loadFilms, filmFeature, filmLibrary, publishFilmFiles } from './lib/film-library.mjs';
+import {
+  COMMUNITY_STAGE_D_RECORD,
+  communityStageDMarkdown,
+  loadCommunityStageD,
+  readIndependentWitnessCount,
+} from './lib/community-stage-d.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let RELEASE_STATE;
@@ -180,6 +186,7 @@ const PAGES = [
 
   { route: 'paper', kind: 'paper', source: 'docs/paper.md', nav: 'Paper', section: null },
   { route: 'trust', kind: 'trust', nav: 'Trust', section: null },
+  { route: 'trust/community-stage-d', kind: 'community-stage-d', section: null },
 ];
 
 const PAPER = { file: 'assets/paper/blueprints-with-teeth-draft-2026-09-01.pdf', sha256: 'db93ac140e471bb186bb86dd874300374557841f4fbdc5ecc6aa15d7ba78ac26' };
@@ -286,17 +293,13 @@ function foundryLifecycleCopy(evidence) {
 
 function trustMd() {
   // Witness count: derived, never restated. The ledger's own headline is the
-  // one source; if its shape changes, refuse rather than guess (exit 2 — the
-  // page cannot be honestly rendered).
-  const ledger = readSource('ATTESTATIONS.md');
-  const m = /^>\s*\*\*Count:\s*(\d+)\.\*\*/m.exec(ledger);
-  if (!m) {
-    harness(
-      'ATTESTATIONS.md no longer carries the "> **Count: N.**" headline the trust page ' +
-      'derives its witness count from — re-point the derivation at the ledger\'s new shape.',
-    );
+  // one source shared by every public evidence page.
+  let count;
+  try {
+    count = readIndependentWitnessCount(repoRoot);
+  } catch (error) {
+    harness(error.message);
   }
-  const count = Number(m[1]);
 
   // Citation state: placeholders are forbidden. Absent paper identifiers are honest for a
   // software release; provisional identifiers are not.
@@ -439,6 +442,10 @@ ${unestablished}
   witness ledger, published at its honest count. The one-minute, offline
   procedure for adding a row — including a run that contradicts the
   documentation — is [docs/launch/witness-kit.md](docs/launch/witness-kit.md).
+- **Fresh-context replay record.** The
+  [Stage D declared-stack page](${SITE_ORIGIN}/trust/community-stage-d/) presents an
+  author-reported match with its bounded A–D matrix. The raw evidence is withheld and the record
+  does not change the independent-witness count.
 - **Citation metadata is software-only.** [CITATION.cff](CITATION.cff) carries
   no provisional paper, arXiv, or DOI identifier. A preferred paper citation
   is added only after a real manuscript and archival record exist;
@@ -1107,7 +1114,11 @@ function pageHtml({ route, title, bodyHtml, headings, sourceFile, wantToc }) {
   const faviconHref = `${'../'.repeat(depth) || './'}assets/bce-avatar.svg`;
   const homeHref = relativeUrl(route, '', true);
   const docTitle = route === '' ? `${SITE_NAME} — ${SITE_TAGLINE}` : `${title} — ${SITE_NAME}`;
-  const description = route === 'paper' ? 'Read the working draft of Blueprints with Teeth by Mitchell Tieleman: architecture conformance, checker validation, and early deployment experience.' : SITE_DESCRIPTION;
+  const description = route === 'paper'
+    ? 'Read the working draft of Blueprints with Teeth by Mitchell Tieleman: architecture conformance, checker validation, and early deployment experience.'
+    : route === 'trust/community-stage-d'
+      ? 'Inspect an author-reported A-D declared-stack replay, its hash commitments, and exact claim limits.'
+      : SITE_DESCRIPTION;
   const canonicalHref = route === '' ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}/${route}/`;
   // The README keeps its illustrated banner. The website starts with navigation
   // and a single semantic introduction, paired with the film inside main.
@@ -1161,7 +1172,7 @@ ${sourceFile ? `<link rel="alternate" type="text/markdown" href="${SITE_ORIGIN}/
 ${route===''||route==='films'?`<link rel="stylesheet" href="${'../'.repeat(depth)||'./'}assets/films/library.css"><script defer src="${'../'.repeat(depth)||'./'}assets/films/library.js"></script>`:''}
 ${livePipeline ? `<script type="module" src="${'../'.repeat(depth) || './'}assets/self-adoption-status.mjs"></script>` : ''}
 </head>
-<body${route === '' ? ' class="landing"' : route==='films'?' class="film-library-page"':route==='paper'?' class="paper-page"':''}>
+<body${route === '' ? ' class="landing"' : route==='films'?' class="film-library-page"':route==='paper'?' class="paper-page"':route==='trust/community-stage-d'?' class="stage-d-page"':''}>
 <a class="skip-link" href="#main-content">Skip to content</a>
 <header class="site-header">
   <a class="brand" href="${homeHref}"${route === '' ? ' aria-current="page"' : ''}><img src="${faviconHref}" alt="" width="28" height="28"><strong>${SITE_NAME}</strong> <span>${SITE_TAGLINE}</span></a>
@@ -1301,6 +1312,22 @@ blockquote > :last-child { margin-bottom: 0; }
 .paper-download a { display: inline-flex; align-items: center; min-height: 44px; }
 .paper-reader object { display: block; width: 100%; height: 80vh; min-height: 600px; border: 1px solid var(--line); }
 @media (max-width: 700px) { .paper-reader object { display: none; } }
+.stage-d-page main { max-width: 78rem; }
+.stage-d-page article > p, .stage-d-page article > blockquote,
+.stage-d-page article > ul, .stage-d-page article > pre { max-width: 72ch; }
+.stage-d-page article > blockquote:first-of-type {
+  border-left: 5px solid #43856b; padding: 1rem 1.2rem; background: #eef9f3;
+}
+.stage-d-page article > .table-wrap:first-of-type table { table-layout: fixed; min-width: 760px; }
+.stage-d-page article > .table-wrap:first-of-type th { background: #080919; color: #e8ebed; border-color: #29394a; }
+.stage-d-page article > .table-wrap:first-of-type td { padding: 1rem; border-top-width: 5px; }
+.stage-d-page article > .table-wrap:first-of-type td:nth-child(1),
+.stage-d-page article > .table-wrap:first-of-type td:nth-child(4) { border-top-color: #43856b; }
+.stage-d-page article > .table-wrap:first-of-type td:nth-child(2) { border-top-color: #b42335; }
+.stage-d-page article > .table-wrap:first-of-type td:nth-child(3) { border-top-color: #b38a16; }
+@media (prefers-color-scheme: dark) {
+  .stage-d-page article > blockquote:first-of-type { background: #14271f; }
+}
 /* The centred hero block. Images scale down on a narrow viewport rather than
    forcing the page to scroll sideways; the shields row wraps instead of
    overflowing. */
@@ -1418,7 +1445,11 @@ function main() {
   // ---- context: what maps to what -----------------------------------------
   const routeBySource = new Map();
   for (const p of PAGES) if (p.source) routeBySource.set(p.source, p.route);
-  const verbatimBySource = new Map([['llms.txt', 'llms.txt'], [PAPER.file, PAPER.file]]);
+  const verbatimBySource = new Map([
+    ['llms.txt', 'llms.txt'],
+    [PAPER.file, PAPER.file],
+    [COMMUNITY_STAGE_D_RECORD, COMMUNITY_STAGE_D_RECORD],
+  ]);
   let paperBytes;
   try { paperBytes = fs.readFileSync(path.join(repoRoot, PAPER.file)); }
   catch { harness('paper draft PDF is missing'); }
@@ -1426,7 +1457,11 @@ function main() {
   // Filled during rendering: every assets/*.svg a published page actually
   // references. Copying the whole directory instead would publish assets no
   // page uses and hide a typo'd src behind a file that happens to be there.
-  const ctx = { routeBySource, verbatimBySource, siteAssets: new Set([...BRAND_ASSETS, PAPER.file]) };
+  const ctx = {
+    routeBySource,
+    verbatimBySource,
+    siteAssets: new Set([...BRAND_ASSETS, PAPER.file, COMMUNITY_STAGE_D_RECORD]),
+  };
 
   for (const p of PAGES) {
     if (p.section && !SECTION_ORDER.includes(p.section)) {
@@ -1577,6 +1612,23 @@ if(menu){document.addEventListener('click',e=>{if(!menu.contains(e.target))menu.
       // links are written.
       const r = renderMarkdown(trustMd(), 'trust (generated)', p.route, ctx, hrefs);
       title = r.title ?? 'Trust and evidence';
+      bodyHtml = r.html;
+      headings = r.headings;
+    } else if (p.kind === 'community-stage-d') {
+      let record;
+      try {
+        record = loadCommunityStageD(repoRoot);
+      } catch (error) {
+        harness(error.message);
+      }
+      const r = renderMarkdown(
+        communityStageDMarkdown(record, readIndependentWitnessCount(repoRoot)),
+        'community-stage-d (generated)',
+        p.route,
+        ctx,
+        hrefs,
+      );
+      title = r.title ?? 'Stage D reproduction';
       bodyHtml = r.html;
       headings = r.headings;
     } else {
