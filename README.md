@@ -115,6 +115,16 @@ In `v0.5.0`, the AI-first review surface's `bce propose` writes an immutable dra
 packet to quarantine; the model cannot approve or land policy. [Read the review
 ceremony](docs/ai-first-review.md).
 
+## Experimental compiler slice — source checkout
+
+This source checkout routes `forbiddenDependency` through typed policy, fact, evaluation-plan and
+verdict IRs, with deterministic pass receipts and replayable proof links. Existing report formats
+remain unchanged; other constraint families retain their current evaluator.
+
+Build this checkout with `npm ci` and `npm run build` to use the experimental API. It is **not included
+in the released `bce-engine@0.5.0` npm package**. Read the [compiler readiness guide](docs/compiler-readiness.md)
+for the API, refusals, compatibility boundaries and deferred work.
+
 ## See the gate discriminate
 
 This excerpt is cut from a live engine run on every push. It keeps the decisive lines selectable
