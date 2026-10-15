@@ -6,7 +6,7 @@
 
 Every CI and release run builds the distributable server and executes `npm run test:mcp-compatibility`. That proof:
 
-1. starts `dist/mcp-server.js` through the exact `@modelcontextprotocol/inspector@2.5.0` version in `npm-shrinkwrap.json`;
+1. starts `dist/mcp-server.js` through the exact `@modelcontextprotocol/inspector@2.10.1` version in `npm-shrinkwrap.json`;
 2. uses Inspector strict mode to discover the complete eleven-tool surface;
 3. repeats a real initialize, initialized-notification, and tools/list session ten times; and
 4. fails when startup plus discovery p95 exceeds 2,000 ms.
