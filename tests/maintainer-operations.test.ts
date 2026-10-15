@@ -87,6 +87,16 @@ describe('solo-maintainer first-response SLO', () => {
     expect(result.overdue).toHaveLength(0);
   });
 
+  it('does not count bot-authored automation such as Dependabot as contributor intake', () => {
+    const result = evaluateTriageSlo(POLICY, [
+      item({ number: 42, kind: 'pull request', authorId: 49699333, authorType: 'Bot' }),
+      item({ number: 43, authorType: 'User' }),
+    ], '2026-09-20T00:00:00Z');
+    expect(result.ignored.map((entry) => entry.number)).toEqual([42]);
+    expect(result.overdue.map((entry) => entry.number)).toEqual([43]);
+    expect(renderTriageResult(result, POLICY)).not.toContain('#42');
+  });
+
   it('refuses malformed policy instead of silently disabling the window', () => {
     expect(() => parseTriagePolicy({ ...POLICY, maxFirstResponseHours: 0 })).toThrow('positive integer');
     expect(() => parseTriagePolicy({ ...POLICY, maintainerActorIds: [] })).toThrow('at least one positive maintainer actor ID');

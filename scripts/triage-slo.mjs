@@ -42,7 +42,9 @@ export function evaluateTriageSlo(policyInput, items, nowInput = new Date()) {
 
   for (const item of items) {
     const created = timestamp(item.createdAt, `#${item.number} createdAt`);
-    if (created < effective || maintainers.has(item.authorId)) {
+    // GitHub App and bot accounts (Dependabot, CI automation) are the project's own tooling, not
+    // contributor intake, so they never open a human first-response obligation.
+    if (created < effective || maintainers.has(item.authorId) || item.authorType === 'Bot') {
       result.ignored.push(item);
       continue;
     }
@@ -112,7 +114,8 @@ async function collectLiveItems(repository, token, policy) {
   const maintainers = new Set(policy.maintainerActorIds);
   const relevant = issues.filter((issue) => {
     const created = Date.parse(issue.created_at);
-    return created >= Date.parse(policy.effectiveFrom) && !maintainers.has(issue.user?.id);
+    return created >= Date.parse(policy.effectiveFrom) && !maintainers.has(issue.user?.id) &&
+      issue.user?.type !== 'Bot';
   });
   const items = [];
   for (const issue of relevant) {
@@ -128,6 +131,7 @@ async function collectLiveItems(repository, token, policy) {
       title: issue.title,
       url: issue.html_url,
       authorId: issue.user?.id,
+      authorType: issue.user?.type,
       createdAt: issue.created_at,
       comments: comments.map((comment) => ({ authorId: comment.user?.id, createdAt: comment.created_at })),
       reviews: reviews
