@@ -36,7 +36,10 @@ required.
 The standing target applies to issues and pull requests opened by someone outside the configured
 maintainer set after the policy activation time. A public issue comment or submitted pull-request
 review by a configured human maintainer counts as the first response. Automatic labels, bot comments,
-CI output, and the contributor's own follow-ups do not count.
+CI output, and the contributor's own follow-ups do not count. Items opened by bot accounts, such as
+Dependabot dependency updates, are the project's own automation rather than contributor intake, so
+they do not open a first-response obligation; required CI and the maintainer's merge decision govern
+them instead.
 
 The policy binds maintainers by GitHub's immutable numeric actor ID rather than a mutable login.
 An authenticated maintainer can resolve their own ID with `gh api user --jq .id`; changing the
