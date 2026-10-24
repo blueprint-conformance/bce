@@ -8,7 +8,7 @@
       "properties": {
         "approvals": {
           "items": {
-            "additionalProperties": true,
+            "additionalProperties": {},
             "properties": {
               "role": {
                 "type": "string"
@@ -26,11 +26,11 @@
           "type": "array"
         },
         "architecture": {
-          "additionalProperties": true,
+          "additionalProperties": {},
           "properties": {
             "components": {
               "items": {
-                "additionalProperties": true,
+                "additionalProperties": {},
                 "properties": {
                   "id": {
                     "type": "string"
@@ -52,7 +52,7 @@
             },
             "relationships": {
               "items": {
-                "additionalProperties": true,
+                "additionalProperties": {},
                 "properties": {
                   "allowed": {
                     "type": "boolean"
@@ -112,10 +112,12 @@
                           },
                           "lineEnd": {
                             "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991,
                             "type": "integer"
                           },
                           "lineStart": {
                             "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991,
                             "type": "integer"
                           },
                           "ref": {
@@ -194,7 +196,7 @@
                 "type": "array"
               },
               "constraint": {
-                "additionalProperties": true,
+                "additionalProperties": {},
                 "properties": {
                   "behaviorRef": {
                     "type": "string"
@@ -361,9 +363,11 @@
         },
         "evidenceRequirements": {
           "items": {
-            "additionalProperties": true,
+            "additionalProperties": {},
             "properties": {
               "freshnessSeconds": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
                 "type": "integer"
               },
               "minimumCoverage": {
@@ -424,6 +428,7 @@
             },
             "minFiles": {
               "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
               "type": "integer"
             },
             "paths": {
@@ -540,10 +545,12 @@
                         },
                         "lineEnd": {
                           "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991,
                           "type": "integer"
                         },
                         "lineStart": {
                           "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991,
                           "type": "integer"
                         },
                         "ref": {

@@ -5,7 +5,7 @@
  * authentication, rendering, and persistence belong to callers. The deterministic
  * core consumes already-bounded facts and produces content-addressed records.
  */
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import {
   ApprovalSchema,
   BlueprintArchitectureSchema,
@@ -27,13 +27,13 @@ export const ProposalIdSchema = z
 const RepoRelativePathSchema = NonEmptyString.superRefine((value, ctx) => {
   const normalized = value.replace(/\\/g, '/');
   if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'path must be repository-relative' });
+    ctx.addIssue({ code: 'custom', message: 'path must be repository-relative' });
   }
   if (normalized.split('/').includes('..')) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "path must not contain '..' traversal" });
+    ctx.addIssue({ code: 'custom', message: "path must not contain '..' traversal" });
   }
   if (normalized.includes('\0')) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'path must not contain NUL' });
+    ctx.addIssue({ code: 'custom', message: 'path must not contain NUL' });
   }
 });
 
@@ -93,14 +93,14 @@ export const DraftSourceAnchorSchema = z
   .strict()
   .superRefine((anchor, ctx) => {
     if (anchor.lineStart === undefined && anchor.lineEnd !== undefined) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['lineEnd'], message: 'lineEnd requires lineStart' });
+      ctx.addIssue({ code: 'custom', path: ['lineEnd'], message: 'lineEnd requires lineStart' });
     }
     if (
       anchor.lineStart !== undefined &&
       anchor.lineEnd !== undefined &&
       anchor.lineEnd < anchor.lineStart
     ) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['lineEnd'], message: 'lineEnd must be >= lineStart' });
+      ctx.addIssue({ code: 'custom', path: ['lineEnd'], message: 'lineEnd must be >= lineStart' });
     }
   });
 
@@ -170,7 +170,7 @@ export const BlueprintDraftPlanSchema = z
       const id = plan.clauses[index]!.constraint.id;
       if (seen.has(id)) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['clauses', index, 'constraint', 'id'],
           message: `duplicate constraint id '${id}'`,
         });
@@ -330,10 +330,10 @@ export const RepositoryPolicyDiffSchema = z
   .superRefine((value, ctx) => {
     const bindings = [value.baseRef, value.baseHeadRevision, value.baseRevision];
     if (value.complete && bindings.some((binding) => binding === null)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'a complete repository policy diff requires the base ref, base head revision, and merge-base revision' });
+      ctx.addIssue({ code: 'custom', message: 'a complete repository policy diff requires the base ref, base head revision, and merge-base revision' });
     }
     if (!value.complete && bindings.some((binding) => binding !== null)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'an incomplete repository policy diff must not claim partial base bindings' });
+      ctx.addIssue({ code: 'custom', message: 'an incomplete repository policy diff must not claim partial base bindings' });
     }
   });
 export type RepositoryPolicyDiff = z.infer<typeof RepositoryPolicyDiffSchema>;
@@ -520,7 +520,8 @@ export const AuthenticatedReviewerSchema = z
         issuer: NonEmptyString,
         subject: NonEmptyString,
         assertionDigest: ReviewDigestSchema,
-        reference: z.string().url().regex(/^https:\/\//, 'authentication reference must use HTTPS'),
+        // regex before url: Zod's JSON Schema export keeps `format: uri` only when the url check comes last.
+        reference: z.string().regex(/^https:\/\//, 'authentication reference must use HTTPS').url(),
       })
       .strict(),
   })

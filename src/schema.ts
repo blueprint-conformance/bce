@@ -15,7 +15,7 @@
  * This module is the SINGLE SOURCE OF TRUTH for the shape — never re-describe it from
  * a prose summary (the prompt summary omitted `intentRefs`, which the schema requires).
  */
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { safeCompilePattern, UnsafePatternError } from './safe-regex.js';
 
 /** Constraint kinds a blueprint can declare (json-schema `constraints[].type` enum). */
@@ -139,8 +139,8 @@ export type Relationship = z.infer<typeof RelationshipSchema>;
 /** Exact selected declaration scope; no implicit discovery or path aliases. */
 export const ExactStackVersionSchema = z.string().regex(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/);
 const sortedUniquePaths = z.array(z.string().min(1)).superRefine((items, ctx) => {
-  if (items.some((p, i) => i > 0 && p <= items[i - 1]!)) ctx.addIssue({code: z.ZodIssueCode.custom, message: 'must be sorted and unique'});
-  if (items.some(p => p.includes('\\') || p.includes('\0') || p.split('/').some(v => !v || v === '.' || v === '..') || /^[A-Za-z]:/.test(p))) ctx.addIssue({code: z.ZodIssueCode.custom, message: 'must use canonical repository-relative POSIX paths'});
+  if (items.some((p, i) => i > 0 && p <= items[i - 1]!)) ctx.addIssue({code: 'custom', message: 'must be sorted and unique'});
+  if (items.some(p => p.includes('\\') || p.includes('\0') || p.split('/').some(v => !v || v === '.' || v === '..') || /^[A-Za-z]:/.test(p))) ctx.addIssue({code: 'custom', message: 'must use canonical repository-relative POSIX paths'});
 });
 export const StackSourceConfigSchema = z.object({
   source: z.enum(['npm-lockfile-v3', 'pnpm-lockfile-v9']),
@@ -149,7 +149,7 @@ export const StackSourceConfigSchema = z.object({
   imageFiles: sortedUniquePaths,
   runtimeFiles: sortedUniquePaths,
 }).strict().superRefine((v, ctx) => {
-  const issue = (message: string) => ctx.addIssue({code: z.ZodIssueCode.custom, message});
+  const issue = (message: string) => ctx.addIssue({code: 'custom', message});
   if ((v.source === 'pnpm-lockfile-v9') !== (v.lockfile === 'pnpm-lock.yaml')) issue('lockfile must match selected package manager');
   if (v.runtimeFiles.some(p => !['.nvmrc', '.node-version', 'package.json'].includes(p))) issue('unsupported runtime source');
   if (v.imageFiles.some(p => !/^(?:Dockerfile(?:\..+)?|compose\.ya?ml|docker-compose\.ya?ml)$/.test(p.split('/').at(-1)!))) issue('unsupported image filename');
@@ -248,7 +248,7 @@ export const ConstraintSchema = z
    * untouched (widen-only: every existing authored blueprint parses byte-identically).
    */
   .superRefine((c, ctx) => {
-    const issue = (message: string) => ctx.addIssue({code: z.ZodIssueCode.custom, message});
+    const issue = (message: string) => ctx.addIssue({code: 'custom', message});
     const stackFields = ['stackTarget','expectedVersion','expectedStackDigest','packageName','versions'];
     const allowed: Record<string, string[]> = {pinnedVersion:['stackTarget','expectedVersion'], stackClosureMatch:['expectedStackDigest'], forbiddenStackPackage:['packageName'], requirePinnedImages:[], allowedNodeVersions:['versions']};
     if (STACK_CONSTRAINTS.has(c.type)) {
@@ -265,7 +265,7 @@ export const ConstraintSchema = z
     if (c.type !== 'forbiddenPattern') return;
     if (typeof c.pattern !== 'string' || c.pattern.length === 0) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['pattern'],
         message: `forbiddenPattern constraint '${c.id}' MUST declare a non-empty 'pattern' regex (fail-closed: a pattern-less content constraint can enforce nothing).`,
       });
@@ -281,7 +281,7 @@ export const ConstraintSchema = z
     } catch (e) {
       const detail = e instanceof UnsafePatternError ? e.message : (e as Error).message;
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['pattern'],
         message: `forbiddenPattern constraint '${c.id}' has an INVALID or UNSAFE regex ${JSON.stringify(c.pattern)}: ${detail} (fail-closed: an invalid/ReDoS-shaped regex is a hard validation error, never a silent evaluate-time skip).`,
       });
@@ -330,13 +330,13 @@ export type BlueprintMetadata = z.infer<typeof BlueprintMetadataSchema>;
 const RepoRelativePathPatternSchema = z.string().min(1).superRefine((value, ctx) => {
   const normalized = value.replace(/\\/g, '/');
   if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'path must be repository-relative' });
+    ctx.addIssue({ code: 'custom', message: 'path must be repository-relative' });
   }
   if (normalized.split('/').includes('..')) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "path must not contain '..' traversal" });
+    ctx.addIssue({ code: 'custom', message: "path must not contain '..' traversal" });
   }
   if (normalized.includes('\0')) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'path must not contain NUL' });
+    ctx.addIssue({ code: 'custom', message: 'path must not contain NUL' });
   }
 });
 
@@ -460,7 +460,7 @@ export const BlueprintExtractionSchema = z
      */
     tsconfig: RepoRelativePathPatternSchema.superRefine((value, ctx) => {
       if (/[*?]/.test(value)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'tsconfig must be one repository-relative file, not a glob' });
+        ctx.addIssue({ code: 'custom', message: 'tsconfig must be one repository-relative file, not a glob' });
       }
     }).optional(),
     /**
@@ -469,7 +469,7 @@ export const BlueprintExtractionSchema = z
      */
     pythonRoots: z.array(RepoRelativePathPatternSchema.superRefine((value, ctx) => {
       if (/[*?]/.test(value)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'pythonRoots entries are directories, not globs' });
+        ctx.addIssue({ code: 'custom', message: 'pythonRoots entries are directories, not globs' });
       }
     })).optional(),
   })
@@ -505,7 +505,7 @@ export function refineModuleGraphBlueprint(
 ): void {
   const extraction = value.extraction;
   const issue = (path: Array<string | number>, message: string): void => {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+    ctx.addIssue({ code: 'custom', path, message });
   };
   if (!extraction) return;
   const profile = extraction.profile;
@@ -649,7 +649,7 @@ export const EngineeringBlueprintSchema = z
 export const ValidatedEngineeringBlueprintSchema = EngineeringBlueprintSchema.superRefine((v, ctx) => {
   refineModuleGraphBlueprint(v, ctx);
   const rules = v.constraints.filter(c => STACK_CONSTRAINTS.has(c.type));
-  const issue = (message: string) => ctx.addIssue({code: z.ZodIssueCode.custom, message});
+  const issue = (message: string) => ctx.addIssue({code: 'custom', message});
   if (!rules.length) { if (v.stack) issue('stack without declaredStack constraints is inert'); return; }
   if (!v.stack) issue('declaredStack constraints require explicit stack sources');
   const version = v.minEngineVersion?.split('.').map(Number);
@@ -844,7 +844,7 @@ export const ValidatedPortfolioBlueprintSchema = PortfolioBlueprintSchema.superR
       });
       if (belowFloor) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['members', index, 'enginePin'],
           message: `${profile} requires member enginePin >=${floorVersion}`,
         });
