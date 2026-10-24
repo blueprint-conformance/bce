@@ -8,7 +8,7 @@
 
 # Check architectural boundaries in agent-written code
 
-> **Current registry release: v0.5.0.** Verify the exact public identity with
+> **Last activated registry release: v0.5.0.** Verify the exact public identity with
 > `npm view bce-engine@0.5.0 version dist.integrity` before installation. The same exact version is
 > active as the Lane-A trust anchor.
 
@@ -16,15 +16,18 @@ The release retains the stack foundation (`stack snapshot`, `stack diff`, cross-
 proof, and read-only MCP classification) and adds selected declared-stack enforcement to the
 ordinary gate, MCP, and offline v2 replay. It does not add automatic repair or registry resolution.
 
-**Source candidate: v0.6.0.** This stages the engine's schemas on native Zod 4 (`zod` 4.6.7, the
+**Source candidate: v0.6.1.** This compatible runtime patch updates `brace-expansion` to 5.0.12.
+It retains v0.6.0's schemas on native Zod 4 (`zod` 4.6.7, the
 patched line) instead of the `zod/v3` compatibility copy, and generates the published JSON Schemas
 with Zod's own `z.toJSONSchema`. Every committed artifact parses identically, and the behavioral
 changes are tightenings only: a decision timestamp must carry seconds and a `Z` or `±HH:MM` offset,
-and numeric fields refuse unsafe integers and `Infinity`. The registry release remains v0.5.0
-until the candidate passes the release workflow and the published artifact is verified. Check availability before choosing an install target:
+and numeric fields refuse unsafe integers and `Infinity`. Schema composition and validation errors
+use Zod 4 public types. The published v0.6.0 artifact is available; this patch candidate still needs
+its own release. The Lane-A trust anchor remains v0.5.0 until the separate activation ceremony.
+Check availability before choosing an install target:
 
 ```bash
-npm view bce-engine@0.6.0 version dist.integrity
+npm view bce-engine@0.6.1 version dist.integrity
 ```
 
 `bce` gives coding agents a local, deterministic architecture check. A versioned
@@ -246,7 +249,7 @@ digest-pinned images, and allowed Node versions. Missing, opaque, variable, or c
 declarations refuse instead of passing. These stack-plane capabilities remain absent from immutable
 v0.3.1, while the enforcement types are absent from immutable v0.4.0.
 
-**Current registry release: v0.5.0.** In addition to the stack plane above, it expands route-handler
+**Last activated registry release: v0.5.0.** In addition to the stack plane above, it expands route-handler
 inventory, refuses recognized unsupported or rebound handlers, and makes the call-site evidence
 limit visible in the terminal. A fresh registry installation passed all 52 route cases against the
 exact released archive, and a fresh public installation passed 90 declared-stack gate, CLI, MCP,
