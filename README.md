@@ -16,6 +16,17 @@ The release retains the stack foundation (`stack snapshot`, `stack diff`, cross-
 proof, and read-only MCP classification) and adds selected declared-stack enforcement to the
 ordinary gate, MCP, and offline v2 replay. It does not add automatic repair or registry resolution.
 
+**Source candidate: v0.6.0.** This stages the engine's schemas on native Zod 4 (`zod` 4.6.7, the
+patched line) instead of the `zod/v3` compatibility copy, and generates the published JSON Schemas
+with Zod's own `z.toJSONSchema`. Every committed artifact parses identically, and the behavioral
+changes are tightenings only: a decision timestamp must carry seconds and a `Z` or `±HH:MM` offset,
+and numeric fields refuse unsafe integers and `Infinity`. The registry release remains v0.5.0
+until the candidate passes the release workflow and the published artifact is verified. Check availability before choosing an install target:
+
+```bash
+npm view bce-engine@0.6.0 version dist.integrity
+```
+
 `bce` gives coding agents a local, deterministic architecture check. A versioned
 `EngineeringBlueprint` records the repository's structural rules. Agents draft those rules from
 your intent, inspect the code, and repair violations; the same engine checks every pull request.
@@ -36,7 +47,7 @@ verify realistic violations in your own repository.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 1415">
+  <img src="assets/badges/tests.svg" alt="tests: 1423">
 </p>
 
 [Watch BCE govern its own main branch](https://blueprint-conformance.github.io/bce/trust/#self-adoption-status): live GitHub stages, authenticated self-adoption, and explicit evidence boundaries.

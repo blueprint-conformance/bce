@@ -1,6 +1,6 @@
 {
   "name": "bce-engine",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "bce \u2014 the blueprint conformance engine. Author an EngineeringBlueprint and gate code against it with deterministic scores, fail-closed verdicts, and re-derivable evidence. TypeScript/JavaScript AST extraction covers framework surfaces and direct module boundaries; Python import extraction is an explicit MVP.",
   "license": "Apache-2.0",
   "author": "bce maintainers",
@@ -108,7 +108,7 @@
     "@lezer/common": "1.5.2",
     "@lezer/python": "1.1.19",
     "ts-morph": "28.0.0",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@modelcontextprotocol/inspector": "2.10.1",
@@ -119,8 +119,7 @@
     "tsup": "^8.3.0",
     "tsx": "^4.19.0",
     "typescript": "7.0.2",
-    "vitest": "^5.0.0",
-    "zod-to-json-schema": "^3.25.2"
+    "vitest": "^5.0.0"
   },
   "files": [
     "dist",

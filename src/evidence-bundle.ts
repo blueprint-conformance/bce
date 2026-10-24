@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { STACK_CONSTRAINTS } from './schema.js';
 import { resolveExtraction } from './extractors.js';
 import { resolveEngineVersion, semverLt } from './gate.js';

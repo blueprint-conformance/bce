@@ -43,7 +43,7 @@
                 "type": "string"
               },
               "operation": {
-                "anyOf": [
+                "oneOf": [
                   {
                     "additionalProperties": false,
                     "properties": {

@@ -65,6 +65,7 @@
             "additionalProperties": false,
             "properties": {
               "bytes": {
+                "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
               },

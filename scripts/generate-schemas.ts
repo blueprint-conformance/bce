@@ -6,7 +6,8 @@
  *
  *  1. ZOD-DERIVED — the authored artifacts (`EngineeringBlueprint`, `PortfolioBlueprint`) have
  *     Zod schemas in `src/schema.ts` as their single source of truth. These are converted
- *     mechanically via `zod-to-json-schema` (draft-07). NOTE (honest limit): Zod refinements
+ *     mechanically via Zod's native `z.toJSONSchema` (draft-07, input side, fail-closed on any
+ *     unrepresentable type). NOTE (honest limit): Zod refinements
  *     (`superRefine` — e.g. "a forbiddenPattern constraint MUST carry a compiling, non-ReDoS
  *     `pattern`" and profile-specific cross-field contracts) are NOT expressible in the mechanical conversion, so the JSON Schema is the
  *     STRUCTURAL floor; the Zod schema remains normative where the two diverge (see
@@ -33,7 +34,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from 'zod';
 import {
   EngineeringBlueprintSchema,
   PortfolioBlueprintSchema,
@@ -80,13 +81,26 @@ function envelope(
 /* 1. Zod-derived (authored artifacts)                                        */
 /* -------------------------------------------------------------------------- */
 
-function engineeringBlueprintSchema(): Record<string, unknown> {
-  const body = zodToJsonSchema(EngineeringBlueprintSchema, {
-    name: 'EngineeringBlueprint',
-    target: 'jsonSchema7',
-    $refStrategy: 'none',
+/**
+ * Convert one Zod schema to its published draft-07 body. `io: 'input'` publishes what an author may
+ * WRITE (a defaulted field is optional), `unrepresentable: 'throw'` refuses any type with no JSON
+ * Schema form instead of widening it to `{}`, and every subschema is inlined. The body is nested
+ * under `definitions.<name>` behind a top-level `$ref`, the published envelope shape.
+ */
+function zodDerivedBody(schema: z.ZodType, name: string): Record<string, unknown> {
+  const definition = z.toJSONSchema(schema, {
+    target: 'draft-7',
+    io: 'input',
+    unrepresentable: 'throw',
+    cycles: 'throw',
+    reused: 'inline',
   }) as Record<string, unknown>;
-  delete body.$schema;
+  delete definition.$schema;
+  return { $ref: `#/definitions/${name}`, definitions: { [name]: definition } };
+}
+
+function engineeringBlueprintSchema(): Record<string, unknown> {
+  const body = zodDerivedBody(EngineeringBlueprintSchema, 'EngineeringBlueprint');
   return envelope(
     'engineering-blueprint.schema.json',
     'EngineeringBlueprint',
@@ -100,12 +114,7 @@ function engineeringBlueprintSchema(): Record<string, unknown> {
 }
 
 function portfolioBlueprintSchema(): Record<string, unknown> {
-  const body = zodToJsonSchema(PortfolioBlueprintSchema, {
-    name: 'PortfolioBlueprint',
-    target: 'jsonSchema7',
-    $refStrategy: 'none',
-  }) as Record<string, unknown>;
-  delete body.$schema;
+  const body = zodDerivedBody(PortfolioBlueprintSchema, 'PortfolioBlueprint');
   return envelope(
     'portfolio-blueprint.schema.json',
     'PortfolioBlueprint',
@@ -119,12 +128,7 @@ function portfolioBlueprintSchema(): Record<string, unknown> {
 }
 
 function stackManifestSchema(): Record<string, unknown> {
-  const body = zodToJsonSchema(StackManifestSchema, {
-    name: 'StackManifest',
-    target: 'jsonSchema7',
-    $refStrategy: 'none',
-  }) as Record<string, unknown>;
-  delete body.$schema;
+  const body = zodDerivedBody(StackManifestSchema, 'StackManifest');
   return envelope(
     'stack-manifest.schema.json',
     'StackManifest',
@@ -141,12 +145,7 @@ function stackManifestSchema(): Record<string, unknown> {
 }
 
 function teethMutationManifestSchema(): Record<string, unknown> {
-  const body = zodToJsonSchema(TeethMutationManifestSchema, {
-    name: 'TeethMutationManifest',
-    target: 'jsonSchema7',
-    $refStrategy: 'none',
-  }) as Record<string, unknown>;
-  delete body.$schema;
+  const body = zodDerivedBody(TeethMutationManifestSchema, 'TeethMutationManifest');
   return envelope(
     'teeth-mutation-manifest.schema.json',
     'TeethMutationManifest',
@@ -159,11 +158,9 @@ function zodReviewArtifactSchema(
   file: string,
   title: string,
   description: string,
-  schema: Parameters<typeof zodToJsonSchema>[0],
+  schema: z.ZodType,
 ): Record<string, unknown> {
-  const body = zodToJsonSchema(schema, { name: title, target: 'jsonSchema7', $refStrategy: 'none' }) as Record<string, unknown>;
-  delete body.$schema;
-  return envelope(file, title, description, body);
+  return envelope(file, title, description, zodDerivedBody(schema, title));
 }
 
 /* -------------------------------------------------------------------------- */
