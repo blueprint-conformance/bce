@@ -5,12 +5,12 @@ source tree.
 
 ## Released self-adoption changes
 
-The v0.6.0 release supports an explicit base-authorized solo-steward GitHub ceremony,
+The v0.5.0 release added, and the current v0.6.0 release retains, an explicit base-authorized solo-steward GitHub ceremony,
 local authored review preparation, source-mutation proof replay and live landing re-execution,
 and coherent policy/adoption/graduation records. Doctor requires real teeth for every clause;
 the skill standard now has its own 13-case live-source mutation manifest alongside the engine
 manifest. Team review retains the non-author approval
-default. These additions are included in v0.6.0 and are absent from the immutable npm `v0.3.0` artifact. The project now
+default. These additions shipped in v0.5.0, remain in v0.6.0, and are absent from the immutable npm `v0.3.0` artifact. The project now
 has installed Agent Skills, its built MCP server configuration, and explicit enforced mode.
 The [real GitHub ceremony](evidence/self-adoption/README.md) amended the engine contract to
 `0.1.1` with all 47 constraints preserved. Authenticated history and adoption record agree on
@@ -34,7 +34,7 @@ replication, or product efficacy is claimed.
 
 - For supported extractor/constraint combinations, it can discriminate committed conformant and
   seeded-drift fixtures and produce deterministic reports.
-- The released `v0.6.0` First Win catalog executes six GREEN/named-RED architecture recipes
+- The First Win catalog (released in v0.5.0, retained in `v0.6.0`) executes six GREEN/named-RED architecture recipes
   across the mature TypeScript/JavaScript AST path, direct TypeScript/JavaScript and structured
   Python module graphs, and a real-source configuration pattern pair. The released Python
   import-surface MVP remains available unchanged. These are mechanism demonstrations; their
@@ -42,7 +42,7 @@ replication, or product efficacy is claimed.
 - Gate outcomes are three-state: pass (exit 0), violation (exit 1), and structural refusal
   (exit 2). A missing blueprint set, unsupported critical analysis, unknown constraint, unbound
   runtime constraint, unsafe evidence path, or unresolved allowlist destination cannot pass.
-- The v0.6.0 declared-stack contract selects exact npm/pnpm lockfiles, package manifests, image
+- The declared-stack contract (introduced in v0.5.0, retained in v0.6.0) selects exact npm/pnpm lockfiles, package manifests, image
   files, and Node runtime files, then enforces exact package pins, closure equality, forbidden
   packages, digest-pinned images, and allowed Node versions through `gate`, `run`, and MCP. Missing,
   opaque, variable, conflicting, or integrity-invalid required evidence refuses. Offline v2 bundles
@@ -56,7 +56,7 @@ replication, or product efficacy is claimed.
   not an independently verifiable community replication and does not change the independent-witness
   count.
 - Route-guard evidence requires symbol provenance from a blueprint-declared governed module.
-  v0.6.0 inventories direct function and immutable const arrow/function-expression handlers for
+  v0.6.0 (unchanged from v0.5.0) inventories direct function and immutable const arrow/function-expression handlers for
   all seven HTTP verbs. Recognized unsupported exports, rebound handlers, CommonJS assignments,
   and duplicate canonical handlers refuse with source evidence. A fresh registry installation
   passed 52/52 cases against the signed release archive. A governed call site still does not prove

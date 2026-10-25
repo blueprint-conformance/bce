@@ -9,8 +9,8 @@
 > evidence anyone can re-derive offline. TypeScript/JavaScript framework AST extraction is the
 > mature released path. The v0.3.0 release introduced direct TypeScript/JavaScript and structured Python
 > module graphs while preserving the Python import-surface profile. The immutable registry release
-> is v0.6.0; it enforces selected declared package/image/runtime contracts, expands route inventory,
-> and ships offline review preparation and solo-steward lifecycle support.
+> is v0.6.0; it retains the v0.5.0 declared package/image/runtime contracts, expanded route inventory,
+> offline review preparation and solo-steward lifecycle support (no new constraint type in v0.6.0).
 > Route evidence remains call-site presence, with authorization behavior unverified. The npm integrity is
 > `sha512-iSQcNPM8RZuuqCK/M/ehnVQ9n18GNPI9YPjd9epNGMHgCjqGjn26bTw0lCreoLlOenEGTwH36DCpNwo6VCvfGA==`;
 > verify registry metadata before installation. Compatibility remains pre-1.0.
