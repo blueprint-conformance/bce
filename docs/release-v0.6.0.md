@@ -16,9 +16,10 @@ fields refuse unsafe integers and `Infinity`. No constraint type was added, so b
 for v0.5.0 keep their `minEngineVersion` floors. The declared-stack contract, stack plane, route
 evidence, lifecycle, recipes, and local specification are retained from v0.5.0.
 
-The immutable archive is a preparation snapshot: its README, guides, `release-state.json`, and
-Lane-A pin still name v0.5.0 as current and v0.6.0 as the candidate. Those mutable install surfaces
-are corrected by the post-publication activation PR; the released archive itself is not rewritten.
+The immutable archive is a preparation snapshot: its README, guides, and `release-state.json`
+still name v0.5.0 as current and v0.6.0 as the candidate (the Lane-A pin, `.engine-pin.json`, is a
+repository file and is not in the archive). Those mutable install surfaces and the pin are corrected
+by the post-publication activation PR; the released archive itself is not rewritten.
 
 ## Published identity
 
