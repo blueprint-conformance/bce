@@ -54,7 +54,7 @@ reverse direction is the mirror image and fails closed on 7 `backward` moves, ex
 
 - The manifest verb, the npm and pnpm-lock v9 extractors, and the golden-pinned determinism suites
   (`tests/stack-determinism.test.ts`, `tests/stack-pnpm.test.ts`) run under the vitest suite on
-  every push.
+  every push to `main` and every pull request.
 - **Cross-OS golden-byte-identity** (`scripts/stack-cross-os-golden-proof.mjs`, wired into
   [`.github/workflows/portability.yml`](../.github/workflows/portability.yml)): `stack snapshot
   --no-pin` over the committed `fixtures/stack/a949557-tree/` fixture must reproduce
