@@ -14,7 +14,10 @@ name: self-gate
 # unpublished, but this repository's current pin is published and resolvable.
 
 on:
+  # push is main-only: a PR head runs once, under pull_request. An unfiltered push also ran every
+  # PR head a second time, so each required context carried two runs on the head.
   push:
+    branches: [main]
   pull_request:
 
 permissions:
