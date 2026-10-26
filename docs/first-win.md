@@ -4,15 +4,15 @@ Do not begin by learning the whole specification. Run the architecture failure c
 you need to prevent. Each recipe stays offline and runs one conforming tree plus one planted drift
 tree through the same engine used by the merge gate.
 
-**Release boundary:** the immutable `bce-engine@0.5.0` registry release contains both the original
+**Release boundary:** the immutable `bce-engine@0.6.0` registry release contains both the original
 zero-argument demo and the six named recipes below. Use the exact version; do not substitute a range
 or `latest` for a merge gate.
 
 Run the released proof:
 
 ```bash
-npm view bce-engine@0.5.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.5.0
+npm view bce-engine@0.6.0 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.6.0
 npx --no-install bce demo
 ```
 

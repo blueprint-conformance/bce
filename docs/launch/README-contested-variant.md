@@ -36,7 +36,7 @@ to use them instead. What this one offers is not primacy but
 
 Judge it on those three, side by side with anything comparable. Released extraction is
 TypeScript/JavaScript framework AST, direct TypeScript/JavaScript module graphs, a Python
-import-surface MVP, and structured Python module graphs. The `v0.5.0` stack plane snapshots and
+import-surface MVP, and structured Python module graphs. The `v0.6.0` stack plane snapshots and
 diffs declared dependency closures and enforces selected package, image, and Node declarations.
 It does not claim installed-state or origin authenticity, Python call, egress, transitive, or cycle
 analysis.
