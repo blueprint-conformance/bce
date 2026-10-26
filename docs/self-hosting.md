@@ -3,7 +3,7 @@
 `bce` grades repositories against an authored `EngineeringBlueprint`. This repository is
 itself a repository — so it carries its own blueprint
 ([`.blueprints/engine.blueprint.json`](../.blueprints/engine.blueprint.json)) and CI runs
-the engine over the engine on every push and pull request
+the engine over the engine on every push to `main` and every pull request
 ([`.github/workflows/self-gate.yml`](../.github/workflows/self-gate.yml)).
 
 Self-hosting is not a stunt. It is the cheapest continuous proof that:

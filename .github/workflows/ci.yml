@@ -20,7 +20,13 @@ name: ci
 #      drifted one. A gate that cannot go red is not a gate.
 
 on:
+  # push is main-only: a PR head runs once, under pull_request. An unfiltered push also ran every
+  # PR head a second time, so each required context carried two runs on the head. This file's jobs
+  # include the required build-test-prove and model-evaluation-controller-macos; measured on #125's
+  # head, every required context (all six come from ci, banned-phrase-gate, leakage-gate, self-gate)
+  # ran exactly once.
   push:
+    branches: [main]
   pull_request:
 
 permissions:
