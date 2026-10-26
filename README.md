@@ -19,6 +19,16 @@ tightenings only: a decision timestamp must carry seconds and a `Z` or `±HH:MM`
 fields refuse unsafe integers and `Infinity`. It retains the stack foundation and selected
 declared-stack enforcement from v0.5.0. It does not add automatic repair or registry resolution.
 
+**Source candidate: v0.6.1 (not published).** This compatible runtime patch updates the runtime
+dependency `brace-expansion` to 5.0.12 and adds no engine behavior. It is not on npm; install
+v0.6.0 above. The Lane-A trust anchor stays v0.6.0 until v0.6.1's own release and activation.
+The registry preflight below answers `E404` until that release exists; do not install the candidate
+before it returns a version and integrity:
+
+```bash
+npm view bce-engine@0.6.1 version dist.integrity
+```
+
 `bce` gives coding agents a local, deterministic architecture check. A versioned
 `EngineeringBlueprint` records the repository's structural rules. Agents draft those rules from
 your intent, inspect the code, and repair violations; the same engine checks every pull request.
