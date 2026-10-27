@@ -7,7 +7,7 @@ Application source is never rewritten.
 
 ## Use the experimental API
 
-**Availability: source checkout only.** The released `bce-engine@0.5.0` npm package does not contain
+**Availability: source checkout only.** The released `bce-engine@0.6.0` npm package does not contain
 this compiler slice or its experimental exports. From a checkout containing `src/compiler/`, run
 `npm ci` and `npm run build` with Node 22+ before importing the local build.
 

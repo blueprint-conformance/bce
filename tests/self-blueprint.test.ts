@@ -225,7 +225,7 @@ describe('self-blueprint: the engine gates its own architecture', () => {
         "import * as path from 'node:path';",
         "import { createHash } from 'node:crypto';",
         "import { stableStringify } from '../report.js';",
-        "import { z } from 'zod/v3';",
+        "import { z } from 'zod';",
         "const internet = 'net';",
         "// the network is never touched here",
       ]) expect(net.test(line), line).toBe(false);

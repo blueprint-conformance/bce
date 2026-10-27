@@ -49,7 +49,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/assistant-adapter.ts",
-        "preconditionSha256": "9d90cc36f290c37bed1a2f18ef783c0759dfe36e975d62a9861249afc2377f0c",
+        "preconditionSha256": "a3faeac4b1e486f5119209f9802cc702fc27683f42ce9f65589c358e392c5417",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/assistant-adapter.ts",
@@ -109,7 +109,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/evidence-bundle.ts",
-        "preconditionSha256": "c52491c013125420256709f6ffe5e4e59b77a4c53616d44f67864dcaa269484d",
+        "preconditionSha256": "2784837b53e61362a2b1d589f73a045f4cb46404a7267ba11ce489d8f0edb011",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/evidence-bundle.ts",
@@ -145,7 +145,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/extractor-teeth.ts",
-        "preconditionSha256": "116aeaaf11b4ad23c479a30d679c97cba8f6dfc09aa35b353ffcd7d910426bce",
+        "preconditionSha256": "ecd3868f56308f528446fa13d5700e978c1b2632635256fe8caca3bb06396082",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/extractor-teeth.ts",
@@ -289,7 +289,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/portfolio-collect.ts",
-        "preconditionSha256": "fce0fe1c1f8b1328554f5aa8e1479e30942656db45357300a8f5b48aa470496c",
+        "preconditionSha256": "cce80e2d7f8c719c8c0a3fddd84e5f95a28155a4ee81ae0c4332d01197fec496",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/portfolio-collect.ts",
@@ -385,7 +385,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/review-contracts.ts",
-        "preconditionSha256": "5b95e2673258bcd5535f1e318b8b69c263f0c31e841c4c664d5a698b793e37d3",
+        "preconditionSha256": "25472aacadd662e7349baf7e3d9ec736dc741191e09fb971d1bdbdf84c6c8f91",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/review-contracts.ts",
@@ -433,7 +433,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/schema.ts",
-        "preconditionSha256": "b09101be602ab56acaf319492f2a8f847454a8cfc1462782adef6429f29c7359",
+        "preconditionSha256": "aaa5d4c128c8b634e7e317fa611e6e224c47262d0feb6e1f64970bad1c032394",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/schema.ts",
@@ -577,7 +577,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/schema.ts",
-        "preconditionSha256": "b09101be602ab56acaf319492f2a8f847454a8cfc1462782adef6429f29c7359",
+        "preconditionSha256": "aaa5d4c128c8b634e7e317fa611e6e224c47262d0feb6e1f64970bad1c032394",
         "content": "\nimport __bceMutationSchemaDependency from 'ajv';\n"
       },
       "expectedEvidencePath": "src/schema.ts",

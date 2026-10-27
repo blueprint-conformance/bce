@@ -35,7 +35,7 @@
  * `stableStringify` (sorted keys, 2-space indent, LF, one trailing newline) is the only serializer.
  */
 import { createHash } from 'node:crypto';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { stableStringify } from '../report.js';
 
 /* -------------------------------------------------------------------------- */

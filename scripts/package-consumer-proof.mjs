@@ -28,10 +28,62 @@ if (tarballArg >= 0) {
   tarball = join(scratch, packed[0].filename);
 }
 npm(['init', '-y'], { cwd: scratch, stdio: 'ignore' });
-npm(['install', '--ignore-scripts', tarball], { cwd: scratch, stdio: 'inherit' });
+const zodVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dependencies.zod;
+npm(['install', '--ignore-scripts', tarball, `zod@${zodVersion}`], { cwd: scratch, stdio: 'inherit' });
 const installedRoot = join(scratch, 'node_modules', 'bce-engine');
 const installedCli = join(installedRoot, 'dist', 'cli.js');
 const installedMcp = join(installedRoot, 'dist', 'mcp-server.js');
+// Compile a real installed consumer: exported schemas must compose with native
+// Zod, including their inferred parse results, rather than only work at runtime.
+const schemaConsumer = join(scratch, 'schema-consumer.mts');
+writeFileSync(schemaConsumer, `
+import { z } from 'zod';
+import { EngineeringBlueprintSchema, BlueprintDecisionRecordSchema } from 'bce-engine';
+const extended = EngineeringBlueprintSchema.extend({ label: z.string() });
+const composed = z.object({ blueprint: extended, decision: BlueprintDecisionRecordSchema });
+export function parse(input: unknown): z.infer<typeof composed> { return composed.parse(input); }
+// @ts-expect-error the extended schema must retain its string inference.
+const invalidLabel: z.infer<typeof extended>['label'] = 123;
+void invalidLabel;
+// @ts-expect-error the composed object must carry the extension's inference through composition.
+const invalidComposedLabel: z.infer<typeof composed>['blueprint']['label'] = 123;
+void invalidComposedLabel;
+export { composed };
+`);
+execFileSync(process.execPath, [join(root, 'node_modules', 'typescript', 'bin', 'tsc'),
+  '--noEmit', '--strict', '--target', 'ES2022', '--module', 'NodeNext',
+  '--moduleResolution', 'NodeNext', '--types', 'node',
+  '--typeRoots', join(root, 'node_modules', '@types'), schemaConsumer,
+], { cwd: scratch, stdio: 'inherit' });
+process.stdout.write('installed native schema TypeScript composition: PASS\n');
+// Runtime composition: the installed schemas must be the consumer's own Zod (a second Zod copy would
+// fail instanceof and refuse to compose), and the composed schema must refuse a bad nested value.
+const runtimeConsumer = join(scratch, 'schema-runtime.mjs');
+writeFileSync(runtimeConsumer, `
+import { z } from 'zod';
+import { EngineeringBlueprintSchema, BlueprintDecisionRecordSchema } from 'bce-engine';
+if (!(EngineeringBlueprintSchema instanceof z.ZodType) || !(BlueprintDecisionRecordSchema instanceof z.ZodType)) {
+  throw new Error('installed bce-engine schemas are not instances of the consumer zod');
+}
+const composed = z.object({ blueprint: EngineeringBlueprintSchema.extend({ label: z.string() }), decision: BlueprintDecisionRecordSchema });
+const bad = composed.safeParse({ blueprint: { label: 123 }, decision: {} });
+if (bad.success) throw new Error('composed schema accepted an invalid nested value');
+if (!bad.error.issues.some((issue) => issue.path[0] === 'blueprint' && issue.path[1] === 'label')) {
+  throw new Error('composed schema did not report the nested label issue');
+}
+`);
+execFileSync(process.execPath, [runtimeConsumer], { cwd: scratch, stdio: 'inherit' });
+process.stdout.write('installed native schema runtime composition: PASS\n');
+// The published npm-shrinkwrap.json binds the installed runtime tree: the consumer must get the
+// brace-expansion version this package's shrinkwrap pins.
+const pinnedBrace = JSON.parse(readFileSync(join(root, 'npm-shrinkwrap.json'), 'utf8')).packages['node_modules/brace-expansion']?.version;
+const installedBrace = [join(installedRoot, 'node_modules', 'brace-expansion'), join(scratch, 'node_modules', 'brace-expansion')]
+  .map((dir) => join(dir, 'package.json')).filter((file) => existsSync(file))
+  .map((file) => JSON.parse(readFileSync(file, 'utf8')).version);
+if (!pinnedBrace || installedBrace.length === 0 || installedBrace.some((version) => version !== pinnedBrace)) {
+  throw new Error(`installed brace-expansion ${installedBrace.join(',') || 'missing'} does not match the shrinkwrap pin ${pinnedBrace}`);
+}
+process.stdout.write(`installed brace-expansion matches the shrinkwrap pin ${pinnedBrace}: PASS\n`);
 const oldConsumer = join(scratch, 'old-engine-consumer');
 mkdirSync(oldConsumer, { recursive: true });
 npm(['init', '-y'], { cwd: oldConsumer, stdio: 'ignore' });

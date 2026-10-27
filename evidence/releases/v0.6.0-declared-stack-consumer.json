@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1",
+  "kind": "declared-stack-registry-consumer-result-summary",
+  "package": "bce-engine",
+  "version": "0.6.0",
+  "predecessorVersion": "0.4.0",
+  "sourceCommit": "0f33f4c00f7d4adc37cd4379fd7a6e86b65ec7de",
+  "releaseUrl": "https://github.com/blueprint-conformance/bce/releases/tag/v0.6.0",
+  "provenanceRunUrl": "https://github.com/blueprint-conformance/bce/actions/runs/40139236963/attempts/1",
+  "tarballSha256": "00402da4120288abd6d97557bc643d40facad3b86fcc727fc5ec452cb0a6780a",
+  "npmIntegrity": "sha512-iSQcNPM8RZuuqCK/M/ehnVQ9n18GNPI9YPjd9epNGMHgCjqGjn26bTw0lCreoLlOenEGTwH36DCpNwo6VCvfGA==",
+  "npmShasum": "8d9f4fa22ffdb60d77ad00bb1f8fdd72399fd1e0",
+  "passed": true,
+  "caseCount": 90,
+  "claims": [
+    "selected-declarations",
+    "offline-integrity-replay"
+  ],
+  "originAuthenticity": "not-established",
+  "environment": {
+    "node": "v22.22.2",
+    "npm": "10.9.7",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "predecessorNote": "The predecessor-refusal leg needs a public engine below the declaredStack minimum engine 0.5.0, so it installs public 0.4.0 exactly as scripts/package-consumer-proof.mjs does; 0.6.0 adds no constraint vocabulary.",
+  "evidenceBoundary": "First-party synthetic installed-byte verification across gate, run, MCP, offline replay, tamper, substitution, and refusal paths; not installed-state, origin-authenticity, independent-adoption, or efficacy evidence.",
+  "rawLocalProofSha256": "47495cf9640a84a668fb169b9ef666ef55623b1aea07c9a5dfa6c5a452c9c6e2"
+}

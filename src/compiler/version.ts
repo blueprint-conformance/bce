@@ -1,5 +1,5 @@
 /** Pure reader identity; a package-version sync test prevents a stale compatibility floor. */
-export const COMPILER_ENGINE_VERSION = '0.5.0';
+export const COMPILER_ENGINE_VERSION = '0.6.1';
 
 /** Numeric x.y.z compare (no deps): is `a` strictly below `b`? Missing parts read as 0. */
 export function semverLt(a: string, b: string): boolean {
