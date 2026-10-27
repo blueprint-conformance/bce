@@ -55,6 +55,7 @@
             },
             "minFiles": {
               "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
               "type": "integer"
             },
             "paths": {
@@ -93,7 +94,7 @@
         },
         "fleetConstraints": {
           "items": {
-            "additionalProperties": true,
+            "additionalProperties": {},
             "properties": {
               "behaviorRef": {
                 "type": "string"
@@ -252,9 +253,11 @@
           "properties": {
             "minMembers": {
               "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
               "type": "integer"
             },
             "skewGraceDays": {
+              "maximum": 9007199254740991,
               "minimum": 0,
               "type": "integer"
             },
@@ -330,7 +333,7 @@
           "type": "array"
         },
         "metadata": {
-          "additionalProperties": true,
+          "additionalProperties": {},
           "properties": {
             "id": {
               "minLength": 1,

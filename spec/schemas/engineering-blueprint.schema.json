@@ -12,7 +12,7 @@
         },
         "approvals": {
           "items": {
-            "additionalProperties": true,
+            "additionalProperties": {},
             "properties": {
               "role": {
                 "type": "string"
@@ -30,11 +30,11 @@
           "type": "array"
         },
         "architecture": {
-          "additionalProperties": true,
+          "additionalProperties": {},
           "properties": {
             "components": {
               "items": {
-                "additionalProperties": true,
+                "additionalProperties": {},
                 "properties": {
                   "id": {
                     "type": "string"
@@ -56,7 +56,7 @@
             },
             "relationships": {
               "items": {
-                "additionalProperties": true,
+                "additionalProperties": {},
                 "properties": {
                   "allowed": {
                     "type": "boolean"
@@ -90,7 +90,7 @@
         },
         "constraints": {
           "items": {
-            "additionalProperties": true,
+            "additionalProperties": {},
             "properties": {
               "behaviorRef": {
                 "type": "string"
@@ -246,9 +246,11 @@
         },
         "evidenceRequirements": {
           "items": {
-            "additionalProperties": true,
+            "additionalProperties": {},
             "properties": {
               "freshnessSeconds": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
                 "type": "integer"
               },
               "minimumCoverage": {
@@ -282,6 +284,9 @@
         },
         "evolution": {
           "additionalProperties": {},
+          "propertyNames": {
+            "type": "string"
+          },
           "type": "object"
         },
         "extraction": {
@@ -313,6 +318,7 @@
             },
             "minFiles": {
               "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
               "type": "integer"
             },
             "paths": {
@@ -361,7 +367,7 @@
           "type": "string"
         },
         "metadata": {
-          "additionalProperties": true,
+          "additionalProperties": {},
           "properties": {
             "id": {
               "minLength": 1,
@@ -403,7 +409,7 @@
           "type": "string"
         },
         "scope": {
-          "additionalProperties": true,
+          "additionalProperties": {},
           "properties": {
             "environments": {
               "items": {

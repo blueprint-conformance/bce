@@ -118,6 +118,7 @@
             "inputTokens": {
               "anyOf": [
                 {
+                  "maximum": 9007199254740991,
                   "minimum": 0,
                   "type": "integer"
                 },
@@ -128,12 +129,14 @@
               ]
             },
             "latencyMs": {
+              "maximum": 9007199254740991,
               "minimum": 0,
               "type": "integer"
             },
             "outputTokens": {
               "anyOf": [
                 {
+                  "maximum": 9007199254740991,
                   "minimum": 0,
                   "type": "integer"
                 },
@@ -146,6 +149,7 @@
             "totalTokens": {
               "anyOf": [
                 {
+                  "maximum": 9007199254740991,
                   "minimum": 0,
                   "type": "integer"
                 },

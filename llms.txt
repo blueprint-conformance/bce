@@ -9,10 +9,10 @@
 > evidence anyone can re-derive offline. TypeScript/JavaScript framework AST extraction is the
 > mature released path. The v0.3.0 release introduced direct TypeScript/JavaScript and structured Python
 > module graphs while preserving the Python import-surface profile. The immutable registry release
-> is v0.5.0; it enforces selected declared package/image/runtime contracts, expands route inventory,
-> and ships offline review preparation and solo-steward lifecycle support.
+> is v0.6.0; it retains the v0.5.0 declared package/image/runtime contracts, expanded route inventory,
+> offline review preparation and solo-steward lifecycle support (no new constraint type in v0.6.0).
 > Route evidence remains call-site presence, with authorization behavior unverified. The npm integrity is
-> `sha512-Uq1nWo6SR/xJUDCCiDXdoK+1RrnDm4/0z++brj5gsJlBOwpHdISxSH/p21ZqSFmaggXp7DB53AJpZKT2I9Xd9A==`;
+> `sha512-iSQcNPM8RZuuqCK/M/ehnVQ9n18GNPI9YPjd9epNGMHgCjqGjn26bTw0lCreoLlOenEGTwH36DCpNwo6VCvfGA==`;
 > verify registry metadata before installation. Compatibility remains pre-1.0.
 
 Core rules for an agent working in a bce-gated repo: (1) the gate is the done-check — a change is not
@@ -25,7 +25,7 @@ no skip flags — a refusal is a red, not a pass.
 - [Agent start guide](docs/agent-start.md): choose existing-gate repair, new-repository adoption, human inspection, or contribution; use the current coding agent without requiring a second model account.
 - [Quickstart (offline RED→fix→GREEN)](examples/quickstart/README.md): the guaranteed path, no API keys, five minutes.
 - [Quickstart summary](docs/quickstart.md): the one-screen version.
-- [Executable recipe catalog](docs/first-win.md): install v0.5.0, run `npx --no-install bce demo --list`, then a real GREEN/named-RED proof for extension contracts, tenant route guards, governed egress, TypeScript or Python module layering, or configuration allowlists.
+- [Executable recipe catalog](docs/first-win.md): install v0.6.0, run `npx --no-install bce demo --list`, then a real GREEN/named-RED proof for extension contracts, tenant route guards, governed egress, TypeScript or Python module layering, or configuration allowlists.
 - [Authoring matrix](examples/first-win/README.md): adapt a recipe to one of six starting layouts (empty repo, plain JavaScript, TypeScript, monorepo, TypeScript layering, Python layering); each `bce author` loop is timed under 120s in CI.
 - [README](README.md): what bce is, in a paragraph.
 - [AI-first proposal and review](docs/ai-first-review.md): bounded disclosure, draft-only generation,
@@ -70,7 +70,7 @@ no skip flags — a refusal is a red, not a pass.
 
 ## Project
 
-- [Current release verification](docs/release-v0.5.0.md): exact npm/source identities, signed release assets, installed consumer checks, and explicit limits.
+- [Current release verification](docs/release-v0.6.0.md): exact npm/source identities, signed release assets, installed consumer checks, and explicit limits.
 
 - [Contributing](CONTRIBUTING.md): DCO sign-off, agent-authored-PR conventions, the violation-message style guide.
 - [Governance](GOVERNANCE.md): solo maintainer, AI-driven operations, no board, no SLA, Apache-2.0 open core.
