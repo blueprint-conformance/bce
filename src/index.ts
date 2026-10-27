@@ -369,3 +369,11 @@ export type {
 export * from './stack/stack-evaluation.js';
 export * from './stack/selected-stack.js';
 export { renderReportMarkdown, renderReportJUnit, renderReportSarif } from './report.js';
+
+// Experimental policy/evidence compiler; existing blueprint/report formats are unchanged.
+export { compileBlueprint, verifyCompilerProof, COMPILER_PASSES } from './compiler/compile.js';
+export { validatePassPipeline } from './compiler/pass-manager.js';
+export { COMPILER_IR_VERSION } from './compiler/ir.js';
+export type { PolicySourceAST, PolicyIR, FactIR, EvaluationPlanIR, VerdictIR, ProofIR, CompileResult,
+  CompilerOptions, CompilerRefusal, Capability, SourceLink, CompilerPass, CompilerPassDescriptor,
+  CompileManifest, PassReceipt, DiagnosticIR, ConstraintOutcomeIR, ObservationEvidence } from './compiler/ir.js';

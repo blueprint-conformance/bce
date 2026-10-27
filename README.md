@@ -49,7 +49,7 @@ verify realistic violations in your own repository.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 1423">
+  <img src="assets/badges/tests.svg" alt="tests: 1437">
   <a href="https://github.com/blueprint-conformance/bce/releases/latest"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/release.yml/badge.svg" alt="release workflow status"></a>
   <a href="https://blueprint-conformance.github.io/bce/"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/docs-site-check.yml/badge.svg" alt="documentation site check status"></a>
   <a href="LICENSE"><img src="assets/badges/license.svg" alt="license: Apache-2.0"></a>
@@ -131,6 +131,16 @@ reserved types—[open the C1–C4 visual guide](docs/constraint-guide.md) or
 In `v0.6.0`, the AI-first review surface's `bce propose` writes an immutable draft
 packet to quarantine; the model cannot approve or land policy. [Read the review
 ceremony](docs/ai-first-review.md).
+
+## Experimental compiler slice — source checkout
+
+This source checkout routes `forbiddenDependency` through typed policy, fact, evaluation-plan and
+verdict IRs, with deterministic pass receipts and replayable proof links. Existing report formats
+remain unchanged; other constraint families retain their current evaluator.
+
+Build this checkout with `npm ci` and `npm run build` to use the experimental API. It is **not included
+in the released `bce-engine@0.6.0` npm package**. Read the [compiler readiness guide](docs/compiler-readiness.md)
+for the API, refusals, compatibility boundaries and deferred work.
 
 ## See the gate discriminate
 

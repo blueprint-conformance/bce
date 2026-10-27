@@ -136,6 +136,7 @@ const PAGES = [
   { route: 'guides/adoption-lifecycle', source: 'docs/adoption-lifecycle.md', section: 'Guides' },
   { route: 'guides/agent-loop', source: 'docs/agent-loop.md', section: 'Guides' },
   { route: 'guides/constraint-guide', source: 'docs/constraint-guide.md', section: 'Guides' },
+  { route: 'guides/compiler-readiness', source: 'docs/compiler-readiness.md', section: 'Guides' },
   { route: 'guides/typescript-module-graph', source: 'docs/typescript-module-graph.md', section: 'Guides' },
   { route: 'guides/python-module-graph', source: 'docs/python-module-graph.md', section: 'Guides' },
   { route: 'guides/live-self-adoption', source: 'docs/live-self-adoption.md', section: 'Guides' },

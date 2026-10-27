@@ -29,6 +29,8 @@ import { evaluate, type ComplianceReport } from './report.js';
 import { resolveFiles } from './extractors.js';
 import { resolveMode, exitCodeForGate, type GateMode, type ResolvedMode } from './mode.js';
 import { readBaseline, partitionAgainstBaseline, type BaselineFile } from './baseline.js';
+import { semverLt } from './compiler/version.js';
+export { semverLt } from './compiler/version.js';
 
 const POLICY_TRANSITION_LOCK_BASENAME = '.bce-policy-transition.lock';
 
@@ -128,16 +130,6 @@ export function resolveEngineVersion(): string {
     dir = parent;
   }
   return '0.0.0';
-}
-
-/** Numeric x.y.z compare (no deps): is `a` strictly below `b`? Missing parts read as 0. */
-export function semverLt(a: string, b: string): boolean {
-  const parts = (s: string): number[] => s.split('.').map((x) => Number.parseInt(x, 10) || 0);
-  const [a0 = 0, a1 = 0, a2 = 0] = parts(a);
-  const [b0 = 0, b1 = 0, b2 = 0] = parts(b);
-  if (a0 !== b0) return a0 < b0;
-  if (a1 !== b1) return a1 < b1;
-  return a2 < b2;
 }
 
 /**

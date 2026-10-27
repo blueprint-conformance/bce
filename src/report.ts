@@ -1,7 +1,7 @@
 /**
  * The intended-vs-observed conformance diff + the deterministic ComplianceReport.
  *
- * This is the conformance ENGINE (not a compiler): a policy-evaluation pass over the
+ * This is the conformance engine: a policy-evaluation pass over the
  * observed architecture graph, checking each authored blueprint constraint and emitting
  * a graded verdict with evidence. Pure + deterministic — same (blueprint, graph) in →
  * byte-identical report out.
@@ -11,6 +11,9 @@ import type { ArchitectureGraph } from './graph.js';
 import type { EngineeringBlueprint, ExtractionProfile, Severity } from './schema.js';
 import { STACK_CONSTRAINTS } from './schema.js';
 import { isGovernedHost } from './extractors.js';
+import { compileLegacyDependencies } from './compiler/compile.js';
+import { stableStringify, pathGlobToRe, moduleTargetMatches } from './compiler/canonical.js';
+export { stableStringify, pathGlobToRe, moduleTargetMatches } from './compiler/canonical.js';
 
 /** Shared renderer contract: keep CLI and JSON consumers honest about route evidence. */
 export function routeGuardEvidenceLimit(coverage: { unsupported: string[] }): string | undefined {
@@ -93,30 +96,6 @@ export const SEVERITY_WEIGHT: Record<Severity, number> = {
   info: 0,
 };
 
-/** Deterministic, sorted-key JSON serializer + trailing newline (byte-stable). */
-export function stableStringify(value: unknown): string {
-  // Track the active recursion path, not every object ever visited. Repeated
-  // references are valid JSON values (they serialize as repeated content);
-  // only an ancestor reference is a true cycle.
-  const ancestors = new WeakSet();
-  const sort = (v: unknown): unknown => {
-    if (v === null || typeof v !== 'object') return v;
-    if (ancestors.has(v as object)) throw new Error('cannot serialize a cycle');
-    ancestors.add(v as object);
-    try {
-      if (Array.isArray(v)) return v.map(sort);
-      const out: Record<string, unknown> = {};
-      for (const k of Object.keys(v as Record<string, unknown>).sort()) {
-        out[k] = sort((v as Record<string, unknown>)[k]);
-      }
-      return out;
-    } finally {
-      ancestors.delete(v as object);
-    }
-  };
-  return `${JSON.stringify(sort(value), null, 2)}\n`;
-}
-
 function sha256(s: string): string {
   return createHash('sha256').update(s).digest('hex');
 }
@@ -126,46 +105,6 @@ function compareViolations(a: Violation, b: Violation): number {
   const ka = k(a);
   const kb = k(b);
   return ka < kb ? -1 : ka > kb ? 1 : 0;
-}
-
-/** Anchored RegExp for a `forbiddenPath` glob (repo-relative, simple `**`/`*`). */
-export function pathGlobToRe(glob: string): RegExp {
-  glob = glob.replace(/\\/g, '/');
-  let re = '';
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    if (c === '*') {
-      if (glob[i + 1] === '*') {
-        // `**/` anchors to a path boundary → `(?:.*/)?`; bare `**` → `.*`.
-        i++;
-        if (glob[i + 1] === '/') {
-          re += '(?:.*/)?';
-          i++;
-        } else {
-          re += '.*';
-        }
-      } else {
-        re += '[^/]*';
-      }
-    } else if (c === '?') {
-      re += '[^/]';
-    } else if ('\\^$.|+()[]{}'.includes(c as string)) {
-      re += `\\${c}`;
-    } else {
-      re += c;
-    }
-  }
-  return new RegExp(`^${re}$`);
-}
-
-/** Match a canonical module-graph edge target against an authored target selector. */
-export function moduleTargetMatches(target: string, selector: string | undefined): boolean {
-  if (!selector) return false;
-  if (selector.startsWith('module:')) {
-    if (!target.startsWith('module:')) return false;
-    return pathGlobToRe(selector.slice('module:'.length)).test(target.slice('module:'.length));
-  }
-  return target === selector;
 }
 
 /**
@@ -223,10 +162,15 @@ export function evaluate(
       ? 'pythonModule'
       : null;
 
+  // One compilation per report; legacy aggregation retains its public bytes and semantics.
+  const dependencyCompilation = blueprint.constraints.some(c => c.type === 'forbiddenDependency' && c.to)
+    ? compileLegacyDependencies(blueprint, graph, profile) : null;
+  if (dependencyCompilation?.status === 'refused') throw new Error(dependencyCompilation.refusals.map(r => r.reason).join('; '));
+
   let skipped = 0;
   let implemented = 0; // count of ENFORCING (non-skipped) constraints that actually ran
 
-  for (const c of blueprint.constraints) {
+  for (const [constraintIndex, c] of blueprint.constraints.entries()) {
     if (c.type === 'requiredDependency') {
       implemented += 1;
       if (moduleGraphComponentType) {
@@ -318,92 +262,11 @@ export function evaluate(
       }
     } else if (c.type === 'forbiddenDependency' && c.to) {
       implemented += 1;
-      if (moduleGraphComponentType) {
-        const scopeMatchers = (c.scopePaths ?? []).map(pathGlobToRe);
-        const sources = componentsByType(moduleGraphComponentType).filter((component) =>
-          scopeMatchers.some((matcher) => matcher.test(component.path)),
-        );
-        if (sources.length === 0) {
-          violations.push({
-            constraintId: c.id,
-            severity: c.severity,
-            component: moduleGraphComponentType,
-            evidenceType: 'staticAst',
-            evidenceRef: (c.scopePaths ?? []).join(','),
-            observed: `no ${moduleGraphComponentType} component matched the forbidden dependency source scope`,
-            expected: `at least one source module matching ${(c.scopePaths ?? []).join('|')} so the boundary can be graded`,
-          });
-        }
-        const sourceIds = new Set(sources.map((component) => component.id));
-        for (const edge of graph.guardEdges.filter(
-          (candidate) =>
-            candidate.type === 'imports' &&
-            sourceIds.has(candidate.from) &&
-            moduleTargetMatches(candidate.to, c.to),
-        )) {
-          violations.push({
-            constraintId: c.id,
-            severity: c.severity,
-            component: edge.from,
-            evidenceType: 'staticAst',
-            evidenceRef: edge.evidenceRef,
-            observed: `forbidden direct import ${edge.from} -> ${edge.to} is present`,
-            expected: `no direct imports edge from ${(c.scopePaths ?? []).join('|')} to ${c.to}`,
-          });
-        }
-        for (const unresolved of (graph.coverage.unresolvedImports ?? []).filter((item) => sourceIds.has(item.from))) {
-          violations.push({
-            constraintId: c.id,
-            severity: c.severity,
-            component: unresolved.from,
-            evidenceType: 'staticAst',
-            evidenceRef: unresolved.ref,
-            observed: `${unresolved.kind} ${unresolved.specifier} is unresolved (${unresolved.reason}); absence of a forbidden target cannot be proven`,
-            expected: `every direct import from the governed source scope resolves and none targets ${c.to}`,
-          });
-        }
-        continue;
-      }
-      // `from` may be an explicit component id, or '*'/undefined = any component.
-      const anyFrom = !c.from || c.from === '*';
-      // A forbidden import in an UNATTRIBUTABLE file (a `file:` pseudo-id — no recognized factory)
-      // must NEVER be silently dropped by a from-specific filter (latent security gap): treat a
-      // `file:` edge as matching ANY named `from`. A forbidden provider import is drift regardless
-      // of whether the file names a recognized component.
-      //
-      // 0.9.0 scopePaths: when set, ADDITIONALLY require the edge's from-FILE to glob-match one of
-      // the scope globs. Absent/empty → unchanged (every importer counts). The from-file is derived
-      // from the edge's evidenceRef (`<relPath>#L<line>`) — robust across BOTH edge `from` shapes
-      // (`file:<relPath>` unattributable AND `extension:<base>` factory), where a bare `file:`-strip
-      // would miss the factory-file case. Fail-closed: an evidenceRef with no `#L` yields the whole
-      // string as the relPath (still a deterministic, matchable value), never a silent skip.
-      const scopeGlobs = c.scopePaths;
-      const scopeRes =
-        scopeGlobs && scopeGlobs.length > 0 ? scopeGlobs.map((g) => pathGlobToRe(g)) : null;
-      const edgeRelPath = (e: (typeof graph.guardEdges)[number]): string => {
-        const ref = e.evidenceRef ?? '';
-        const hash = ref.indexOf('#L');
-        return hash >= 0 ? ref.slice(0, hash) : ref;
-      };
-      const inScope = (e: (typeof graph.guardEdges)[number]): boolean =>
-        scopeRes === null || scopeRes.some((re) => re.test(edgeRelPath(e)));
-      const hits = graph.guardEdges.filter(
-        (e) =>
-          e.to === c.to &&
-          (anyFrom || e.from === c.from || e.from.startsWith('file:')) &&
-          inScope(e),
-      );
-      for (const hit of hits) {
-        violations.push({
-          constraintId: c.id,
-          severity: c.severity,
-          component: hit.from,
-          evidenceType: 'staticAst',
-          evidenceRef: hit.evidenceRef,
-          observed: `forbidden edge ${hit.from} -> ${c.to} is present`,
-          expected: `no ${anyFrom ? '' : `${c.from} -> `}${c.to} edge`,
-        });
-      }
+      const outcome = dependencyCompilation?.status === 'compiled'
+        ? dependencyCompilation.verdict.outcomes.find(item => item.constraintIndex === constraintIndex) : undefined;
+      if (!outcome || outcome.status === 'refused') throw new Error('forbiddenDependency compiler could not grade the constraint');
+      // Located uncertainty stays an exact legacy violation; the experimental IR labels it separately.
+      violations.push(...outcome.diagnostics.map(diagnostic => ({ ...diagnostic.legacyViolation })));
     } else if (c.type === 'forbiddenEgress') {
       // RECONCILED (blocklist ∪ allowlist designs) — the extractor (extractors.ts#extractEgress) is
       // now a PURE detector: it emits a `type:'egress'` edge for EVERY resolved host, governed or
