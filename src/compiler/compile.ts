@@ -1,7 +1,7 @@
 /** Experimental policy/evidence compiler. Acquisition and public rendering stay outside. */
 import type { EngineeringBlueprint, ExtractionProfile } from '../schema.js';
 import { constraintEvidenceClass, ExtractionProfileSchema, ValidatedEngineeringBlueprintSchema } from '../schema.js';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import type { ArchitectureGraph } from '../graph.js';
 import { compilerDigest, stableStringify } from './canonical.js';
 import { evaluateNoEdge } from './dependency.js';

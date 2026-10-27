@@ -242,7 +242,7 @@ describe('fixed pure compiler passes', () => {
       const text = readFileSync(join(directory, file), 'utf8');
       expect(text, relative(directory, file)).not.toMatch(/\b(?:Date\.now|Math\.random|process\.env|process\.exit|fetch\s*\(|execFile|readFile|writeFile)\b/);
       const imports = [...text.matchAll(/^import(?!\s+type\b).*?from\s+['"]([^'"]+)['"]/gm)].map(match => match[1]);
-      expect(imports.every(specifier => specifier === 'node:crypto' || specifier === 'zod/v3' || specifier === '../schema.js' || specifier?.startsWith('./'))).toBe(true);
+      expect(imports.every(specifier => specifier === 'node:crypto' || specifier === 'zod' || specifier === '../schema.js' || specifier?.startsWith('./'))).toBe(true);
     }
   });
   it('binds the pure reader identity to the actual package version and retains numeric comparison semantics', () => {
