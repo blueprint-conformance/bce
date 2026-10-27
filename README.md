@@ -50,10 +50,10 @@ verify realistic violations in your own repository.
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
   <img src="assets/badges/tests.svg" alt="tests: 1423">
-  <a href="https://github.com/blueprint-conformance/bce/releases/latest"><img src="https://img.shields.io/github/v/release/blueprint-conformance/bce?sort=semver&color=brightgreen&label=release" alt="latest GitHub release"></a>
-  <a href="https://www.npmjs.com/package/bce-engine"><img src="https://img.shields.io/npm/v/bce-engine?color=brightgreen&label=npm" alt="bce-engine on npm"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/blueprint-conformance/bce?color=brightgreen" alt="license: Apache-2.0"></a>
+  <a href="https://github.com/blueprint-conformance/bce/releases/latest"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/release.yml/badge.svg" alt="release workflow status"></a>
   <a href="https://blueprint-conformance.github.io/bce/"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/docs-site-check.yml/badge.svg" alt="documentation site check status"></a>
+  <a href="LICENSE"><img src="assets/badges/license.svg" alt="license: Apache-2.0"></a>
+  <img src="assets/badges/node.svg" alt="node: >=22">
 </p>
 
 [Watch BCE govern its own main branch](https://blueprint-conformance.github.io/bce/trust/#self-adoption-status): live GitHub stages, authenticated self-adoption, and explicit evidence boundaries.
