@@ -9,7 +9,7 @@
       "version": "0.6.1",
       "license": "Apache-2.0",
       "dependencies": {
-        "@lezer/common": "1.5.2",
+        "@lezer/common": "1.5.4",
         "@lezer/python": "1.1.19",
         "ts-morph": "28.0.0",
         "zod": "4.6.7"
@@ -552,9 +552,9 @@
       }
     },
     "node_modules/@lezer/common": {
-      "version": "1.5.2",
-      "resolved": "https://registry.npmjs.org/@lezer/common/-/common-1.5.2.tgz",
-      "integrity": "sha512-sxQE460fPZyU3sdc8lafxiPwJHBzZRy/udNFynGQky1SePYBdhkBl1kOagA9uT3pxR8K09bOrmTUqA9wb/PjSQ==",
+      "version": "1.5.4",
+      "resolved": "https://registry.npmjs.org/@lezer/common/-/common-1.5.4.tgz",
+      "integrity": "sha512-xt3Q4z64xM+xhg4M7NXqw1N//1O74bUFo5kz6fwMeC4qwxSuRdwkYSmjcqCEEKYkNw5e67f2hcNqBoNERAEU0w==",
       "license": "MIT"
     },
     "node_modules/@lezer/highlight": {
@@ -2157,9 +2157,9 @@
       "license": "MIT"
     },
     "node_modules/@types/node": {
-      "version": "22.20.2",
-      "resolved": "https://registry.npmjs.org/@types/node/-/node-22.20.2.tgz",
-      "integrity": "sha512-xlvWf4Vs9n1PEVYwP1n4vvG07M6y8WgvJ2t0vbrWTmijsIHp1cS+uJ2kMIRdY3nHZK0nCYKrPeD171+SzF4/zw==",
+      "version": "22.20.5",
+      "resolved": "https://registry.npmjs.org/@types/node/-/node-22.20.5.tgz",
+      "integrity": "sha512-U2+DNr+wSjpsTS/wZGYHq7GcwfuSmKiKvoPvK22zwTlRhU91yOniN4qRR5KhIjvif7ysw/dz/hKmfDH0Ris4aA==",
       "dev": true,
       "license": "MIT",
       "dependencies": {
