@@ -62,7 +62,9 @@ function validate(capture, admission) {
     if (!equal([...graph.coverage.scannedFiles].sort(), expected) || graph.coverage.filesScanned !== expected.length ||
         expected.length < Math.max(1, bp.extraction.minFiles ?? 1) || !equal(graph.components.map(component => component.path).sort(), expected) ||
         graph.components.some(component => component.type !== 'typescriptModule' || component.id !== `module:${component.path}`)) failures.push('incomplete module inventory');
-    if (graph.coverage.unresolvedImports?.length) failures.push('unresolved evidence');
+    // Schema-1 producers omit empty lists; a present value must be an array.
+    if (graph.coverage.unresolvedImports !== undefined && !Array.isArray(graph.coverage.unresolvedImports)) failures.push('malformed unresolved-import coverage');
+    else if (graph.coverage.unresolvedImports?.length) failures.push('unresolved evidence');
     const ids = new Set(graph.components.map(component => component.id));
     if (!Array.isArray(graph.guardEdges) || graph.guardEdges.some(edge => edge.type !== 'imports' || !ids.has(edge.from) ||
         typeof edge.to !== 'string' || typeof edge.evidenceRef !== 'string')) failures.push('malformed dependency inventory');

@@ -67,8 +67,9 @@ node "$RECIPE/capture.mjs" capture candidate.identity.json "$FIXTURE" "$REVISION
 Each command copies the canonical commit/tree/blob objects into a fresh hook-free repository,
 verifying each object ID. It copies no local configuration, attributes or hooks and performs no
 clone, fetch or checkout. That installed artifact's CLI independently materializes and extracts
-this isolated immutable commit, including when an older verifier has weaker archive controls. Policy bytes are read from the commit, so uncommitted edits are not
-inputs. No prebuilt graph is shared. Capture retains raw `report.json`, `bundle.json`, and the
+this isolated immutable commit, including when an older verifier has weaker archive controls. Policy content is read from the committed `policy.json`, parsed, and serialized as canonical
+JSON for the verifier. The receipt retains both the committed-byte hash and canonical policy digest;
+uncommitted policy edits are not inputs. No prebuilt graph is shared. Capture retains raw `report.json`, `bundle.json`, and the
 process/configuration stdout, stderr, exit and signal in `capture.json`, together with before/after
 pinned source-object and artifact inventories and resolved acquisition settings. Output is created exclusively;
 a capture never overwrites a previous attempt.
@@ -106,6 +107,8 @@ A removed finding is not automatically an improvement. A missing module cannot d
 an unchanged verdict or file count. Unsupported schema/profile, changed acquisition, unresolved
 imports, timeout, crash and missing output never become “unchanged.” Local capture records and
 bundle hashes remain integrity evidence, not origin authentication.
+Schema-1 producers may omit an empty unresolved-import list. A present list must be an array;
+null, other malformed values, and any nonempty unresolved-import list make the captures incomparable.
 
 Do **not** validate the old report by calling the candidate's `verifyEvidenceBundle`: that API
 re-evaluates the old graph with the current evaluator, so an intentional evaluator change could

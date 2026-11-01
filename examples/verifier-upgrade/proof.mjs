@@ -73,6 +73,24 @@ try {
   refuse('unsupported profile', value => { value.bundle.invocation.extractionProfile = 'python-module-graph'; rehash(value); });
   refuse('missing bundle', value => { delete value.bundle; });
   refuse('malformed report', value => { value.bundle.artifacts.report.violations = null; rehash(value); });
+  // Schema-1 producers omit the empty unresolved-import list. Preserve that
+  // historical representation while refusing malformed or unresolved coverage.
+  for (const representation of ['omitted', 'empty-array']) {
+    const complete = structuredClone(candidate);
+    for (const artifact of ['graph', 'report']) {
+      if (representation === 'omitted') delete complete.bundle.artifacts[artifact].coverage.unresolvedImports;
+      else complete.bundle.artifacts[artifact].coverage.unresolvedImports = [];
+    }
+    rehash(complete);
+    assert.equal(compare(complete, complete, admission, admission).status, 'equivalent-observations', representation); controls++;
+  }
+  for (const unresolved of [null, {}, '', 0, [{ from: 'module:packages/app/api.ts', specifier: 'unknown', kind: 'import', ref: 'packages/app/api.ts#L1', reason: 'unresolved' }]]) {
+    refuse('invalid or unresolved import coverage: ' + JSON.stringify(unresolved), value => {
+      value.bundle.artifacts.graph.coverage.unresolvedImports = unresolved;
+      value.bundle.artifacts.report.coverage.unresolvedImports = unresolved;
+      rehash(value);
+    });
+  }
   refuse('acquisition changed', value => { value.receipt.resolvedExtraction.minFiles++; });
   refuse('missing process receipt fields', value => { value.receipt.process = { exit: 1 }; });
   refuse('crash', value => { value.receipt.process.exit = 7; });
