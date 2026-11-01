@@ -76,7 +76,8 @@ a capture never overwrites a previous attempt.
 Each child process has a 60-second limit and a combined 1-MiB stdout/stderr limit. On exceeding
 either, the process group is terminated on POSIX, or `taskkill /T` is used on Windows. Capture uses
 a neutral working directory, disables Git replacement objects and global/system attributes, and removes inherited
-`NODE_OPTIONS`, `NODE_PATH` and Git override variables. These are bounded execution controls, not
+`NODE_OPTIONS`, `NODE_PATH`, `TAR_OPTIONS` and Git override variables. Git configuration and global
+attributes use a temporary regular empty file, cleaned after the operation. These are bounded execution controls, not
 resource isolation or protection from malicious admitted code. Capture executes trusted code on
 your host; do not use it to inspect an unknown package safely.
 

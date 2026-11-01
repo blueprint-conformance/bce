@@ -75,5 +75,29 @@ try {
   const timeout = await boundedRun([process.execPath, '-e', 'setInterval(()=>{},1000)'], scratch, { timeoutMs: 100 });
   const overflow = await boundedRun([process.execPath, '-e', 'process.stdout.write("x".repeat(100000))'], scratch, { limitBytes: 1024 });
   assert.equal(crash.exit, 7); assert.equal(timeout.timeout, true); assert.equal(overflow.outputLimit, true); controls += 3;
+  const gitEnvironmentProbe = `
+    const fs = require('node:fs'), cp = require('node:child_process');
+    const file = process.env.GIT_CONFIG_GLOBAL;
+    if (!fs.statSync(file).isFile() || fs.readFileSync(file, 'utf8') !== '' || process.env.GIT_CONFIG_VALUE_0 !== file) throw new Error('Git isolation requires a real empty file');
+    if (Object.keys(process.env).some(key => /^(NODE_OPTIONS|NODE_PATH|TAR_OPTIONS)$/i.test(key))) throw new Error('ambient execution options were retained');
+    cp.execFileSync('git', ['config', '--file', file, '--list']);
+    process.stdout.write(JSON.stringify({ file }) + '\\n');
+  `;
+  const previousTarOptions = process.env.TAR_OPTIONS;
+  let environment;
+  try {
+    process.env.TAR_OPTIONS = '--invalid-ambient-option';
+    environment = await boundedRun([process.execPath, '-e', gitEnvironmentProbe], scratch);
+  } finally {
+    if (previousTarOptions === undefined) delete process.env.TAR_OPTIONS;
+    else process.env.TAR_OPTIONS = previousTarOptions;
+  }
+  assert.equal(environment.exit, 0, environment.stderr);
+  assert.equal(fs.existsSync(path.dirname(JSON.parse(environment.stdout).file)), false); controls++;
+  const timedEnvironment = await boundedRun([process.execPath, '-e', gitEnvironmentProbe + 'setInterval(()=>{},1000);'], scratch, { timeoutMs: 5000 });
+  assert.equal(timedEnvironment.timeout, true);
+  assert.equal(fs.existsSync(path.dirname(JSON.parse(timedEnvironment.stdout).file)), false); controls++;
+  const missingCommand = await boundedRun([path.join(scratch, 'missing-executable')], scratch);
+  assert.ok(missingCommand.error); assert.equal(missingCommand.timeout, false); controls++;
   console.log(`verifier upgrade recipe: independent frozen captures, ${controls} controls, data-only comparison PASS`);
 } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
