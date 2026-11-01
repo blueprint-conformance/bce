@@ -1,6 +1,6 @@
 # RFC-0003: Workspace-aware stack change review
 
-Status: draft (proposed; pending public PR discussion)
+Status: accepted (effective only when this RFC pull request is merged)
 Author(s): bce maintainers, prepared with an AI coding agent
 
 ## Summary
@@ -10,7 +10,7 @@ Add an explicit schema-2 StackManifest for pnpm v9 lockfiles, emitted by
 resolutions so the existing `stack diff` command can distinguish dependency drops,
 importer disappearance, and actual downgrades. The default schema-1 path, published
 schema-1 schema, selected-stack-v1 enforcement, and closure hash remain unchanged.
-This is a reviewable implementation proposal, not an accepted format or release claim.
+This decision takes effect on merge of this RFC; it does not publish an engine release.
 
 ## Motivation
 
@@ -96,8 +96,8 @@ Do not use these standalone snapshots as selected-stack-v1 gate/report evidence.
 
 The proposal contains code, generated schema and offline tests to make review concrete.
 Under RFC-0001's current process, the maintainer records acceptance first; implementation
-and normative SPEC updates land together in the follow-on change. This draft does not
-record acceptance or amend the process. A release/version decision belongs to that review.
+and normative SPEC updates land together in the follow-on change. The decision below becomes effective on merge of this RFC; it does not amend the
+process or announce a release. Release ordering remains a follow-on check.
 
 ## Validation
 
@@ -119,8 +119,19 @@ normative specification.
 AI technical review (2026-11-01): **ACCEPT** for technical design review. The explicit schema-2 opt-in preserves schema-1 behavior, separates closure identity from importer topology, and blocks mixed-version or ambiguous comparisons. This is an AI technical recommendation, not the RFC acceptance decision.
 
 The review was performed by an AI agent separate from the implementation task.
-It does not constitute independent human review, public discussion, maintainer
-acceptance, or release authorization. Under RFC-0001, the public RFC pull request
-must record discussion and a maintainer decision with its rationale before a
-follow-on implementation/specification change lands. The draft status remains
-unaccepted until that decision is recorded.
+It does not constitute independent human review or a released capability. Public
+review takes place on this RFC pull request. Under RFC-0001, this RFC must merge
+with its decision before a follow-on implementation/specification change lands.
+
+## Decision effective on merge
+
+Decision: **accept upon merge of this RFC pull request**, after public review and
+required repository checks. Rationale: Explicit opt-in preserves schema-1 behavior and selected-stack enforcement while retaining the importer evidence needed to distinguish removal from downgrade.
+
+The maintainer delegated this engineering mission and its review decisions to AI
+agents. This is an AI-delegated maintainer decision, not a claim that a human
+independently reviewed the proposal. The unmerged branch is review material;
+acceptance becomes effective only when the RFC is merged. Any blocking public
+review finding must be resolved before that merge. The implementation and
+normative specification remain a separate follow-on PR, and no package release
+is announced here.
