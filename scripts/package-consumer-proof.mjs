@@ -49,6 +49,14 @@ void invalidLabel;
 const invalidComposedLabel: z.infer<typeof composed>['blueprint']['label'] = 123;
 void invalidComposedLabel;
 export { composed };
+import { reviewArchitectureChange, captureRepairEvidence, buildRepairBriefs, DependencyPathRefusal,
+  type ArchitectureChangeReview, type RepairEvidence, type RepairBriefBundle, type WorkspaceStackManifest, type Constraint } from 'bce-engine';
+export const architecture: (...args: Parameters<typeof reviewArchitectureChange>) => ArchitectureChangeReview = reviewArchitectureChange;
+export const capture: (...args: Parameters<typeof captureRepairEvidence>) => RepairEvidence = captureRepairEvidence;
+export const repair: (...args: Parameters<typeof buildRepairBriefs>) => RepairBriefBundle = buildRepairBriefs;
+export function workspace(manifest: WorkspaceStackManifest): '2' { manifest.importers.map(i => i.dependencies.map(d => d.to)); return manifest.schemaVersion; }
+export const bounded = { id: 'bounded', type: 'forbiddenDependencyPath', severity: 'critical', maxHops: 2, scopePaths: ['src/**'], to: 'module:app/**' } satisfies Constraint;
+export const refusal: string | undefined = new DependencyPathRefusal('incomplete', 'bounded').constraintId;
 `);
 execFileSync(process.execPath, [join(root, 'node_modules', 'typescript', 'bin', 'tsc'),
   '--noEmit', '--strict', '--target', 'ES2022', '--module', 'NodeNext',
@@ -94,6 +102,35 @@ const oldInstalledRoot = join(oldConsumer, 'node_modules', 'bce-engine');
 execFileSync(process.execPath, [join(root, 'scripts/declared-stack-consumer-proof.mjs'), installedRoot, oldInstalledRoot], {
   cwd: scratch, stdio: 'inherit',
 });
+
+// 0.6.0 is the published predecessor of the bounded-path vocabulary. Keep the
+// separate 0.4.0 declared-stack floor control above: these guards prove different contracts.
+const previousConsumer = join(scratch, 'previous-engine-consumer');
+mkdirSync(previousConsumer);
+npm(['init', '-y'], { cwd: previousConsumer, stdio: 'ignore' });
+npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--save-exact', 'bce-engine@0.6.0'], { cwd: previousConsumer, stdio: 'inherit' });
+// Execute from the consumer directory: a public import resolves relative to
+// the helper's file, not its process cwd. Both modes run the same full scenarios.
+const featureConsumer = join(scratch, 'release-feature-consumer-proof.mjs');
+writeFileSync(featureConsumer, readFileSync(join(root, 'scripts/release-feature-consumer-proof.mjs')));
+for (const mode of ['esm', 'cjs']) {
+  execFileSync(process.execPath, [featureConsumer,
+    installedRoot, join(previousConsumer, 'node_modules', 'bce-engine'), mode], { cwd: scratch, stdio: 'inherit' });
+}
+// Also exercise npm's generated launcher, rather than only the declared JS
+// target. Windows installs a .cmd shim; use its command interpreter explicitly.
+const binShim = join(scratch, 'node_modules', '.bin', process.platform === 'win32' ? 'bce.cmd' : 'bce');
+if (!existsSync(binShim)) throw new Error('installed npm bce launcher is missing');
+const binOutput = process.platform === 'win32'
+  ? execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', '""%BCE_PROOF_BIN%" demo"'], {
+    cwd: scratch, encoding: 'utf8', windowsVerbatimArguments: true,
+    env: { ...process.env, BCE_PROOF_BIN: binShim },
+  })
+  : execFileSync(binShim, ['demo'], { cwd: scratch, encoding: 'utf8' });
+for (const marker of ['GREEN conformant: score 100, exit 0', 'RED drift-forbidden-import:', 'violation no-direct-provider-sdk']) {
+  if (!binOutput.includes(marker)) throw new Error(`installed npm bce launcher missing marker: ${marker}`);
+}
+process.stdout.write('installed npm bce launcher: GREEN/RED PASS\n');
 
 function callInstalledRunGate(repoDir, blueprintDir) {
   const input = [

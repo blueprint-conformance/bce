@@ -506,6 +506,23 @@ export function evaluate(
         const obs = graph.components
           .filter((x) => x.type === 'behaviorObservation' && x.id.startsWith(prefix))
           .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        // Public evaluate() also accepts graphs that did not pass observation ingestion.
+        // Repeated identities cannot establish distinct stimuli or manufacture variation.
+        const seenObservationIds = new Set<string>();
+        for (const observation of obs) {
+          if (seenObservationIds.has(observation.id)) {
+            violations.push({
+              constraintId: c.id,
+              severity: c.severity,
+              component: observation.id,
+              evidenceType: 'runtimeProbe',
+              evidenceRef: observation.id,
+              observed: `duplicate observation ID ${observation.id} — cannot prove distinct stimuli`,
+              expected: 'one served-runtime observation per distinct stimulus',
+            });
+          }
+          seenObservationIds.add(observation.id);
+        }
         if (obs.length < 2) {
           violations.push({
             constraintId: c.id,

@@ -11,7 +11,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/report.ts",
-        "preconditionSha256": "8139c6bb144f3603b0f4f6c2fdcd184716a1b33dc7247f6a0b2e99a3724d2fd8",
+        "preconditionSha256": "eb70ffe5e58ac35c312ce569baee7c5c06a580aa8cb6be44d68f5978f37548c8",
         "content": "\nimport __bceMutationReportDependency from 'ajv';\n"
       },
       "expectedEvidencePath": "src/report.ts",
@@ -361,7 +361,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/report.ts",
-        "preconditionSha256": "8139c6bb144f3603b0f4f6c2fdcd184716a1b33dc7247f6a0b2e99a3724d2fd8",
+        "preconditionSha256": "eb70ffe5e58ac35c312ce569baee7c5c06a580aa8cb6be44d68f5978f37548c8",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/report.ts",
