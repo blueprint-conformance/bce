@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import Ajv from 'ajv';
 import { startAttempt, recordUse, finishAttempt, summarizeAttempts } from '../scripts/adoption-attempts.mjs';
 import { parseBlueprint, evaluate, stableStringify } from '../src/index.js';
 import { assembleGateReportDoc } from '../src/gate.js';
@@ -60,6 +61,44 @@ describe('local adoption attempts (all fixtures are synthetic, not independent p
     expect(summary.canonicalProgram.outcomes.acceptedIndependent).toBe(JSON.parse(before.toString('utf8')).outcomes.acceptedIndependent);
     expect(fs.existsSync(f.store)).toBe(false);
     expect(fs.readFileSync(path.join(ROOT, 'research/adoption-program.json'))).toEqual(before);
+  });
+
+  it('records supported local runtimes without widening canonical Node 22 witness eligibility', () => {
+    const f = fixture();
+    const canonicalPaths = ['research/adoption-record.schema.json', 'research/adoption-program.json',
+      'scripts/validate-adoption-program.mjs', 'docs/launch/witness-kit.md', 'release-state.json', 'ATTESTATIONS.md'];
+    const before = canonicalPaths.map(file => digest(fs.readFileSync(path.join(ROOT, file))));
+    const canonical = JSON.parse(fs.readFileSync(path.join(ROOT, 'research/adoption-record.schema.json'), 'utf8'));
+    const eligibleEnvironment = new Ajv({ strict: true }).compile(canonical.properties.environment);
+    for (const node of ['v22.22.2', 'v24.15.0']) {
+      const input = { ...f.input, attemptId: `runtime-${node.slice(1).replaceAll('.', '-')}`,
+        environment: { ...f.input.environment, node } };
+      const event = startAttempt({ store: f.store, input });
+      const persisted = JSON.parse(fs.readFileSync(path.join(f.store, input.attemptId, '000001.json'), 'utf8'));
+      expect(event.payload.environment.node).toBe(node);
+      expect(persisted.payload.environment).toEqual(input.environment);
+      expect(eligibleEnvironment(input.environment)).toBe(node.startsWith('v22.'));
+    }
+    const summary = summarizeAttempts({ store: f.store });
+    expect(summary.localClaims).toMatchObject({ started: 2, unfinished: 2, claimedRepeatUses: 0 });
+    expect(summary.acceptedIndependentAdded).toBe(0);
+    expect(summary.canonicalProgram.outcomes).toEqual(JSON.parse(fs.readFileSync(path.join(ROOT, 'research/adoption-program.json'), 'utf8')).outcomes);
+    expect(canonicalPaths.map(file => digest(fs.readFileSync(path.join(ROOT, file))))).toEqual(before);
+  });
+
+  it('rejects below-floor or malformed runtime disclosures and preserves strict environment fields', () => {
+    const f = fixture();
+    for (const node of ['v20.20.2', 'v21.7.3', '24.15.0', 'v24', 'v24.15', 'v24.15.0-extra', 'v022.1.0']) {
+      expect(() => startAttempt({ store: f.store, input: { ...f.input, environment: { ...f.input.environment, node } } })).toThrow(/invalid attempt event/);
+    }
+    for (const environment of [
+      { ...f.input.environment, os: '' },
+      { ...f.input.environment, architecture: '' },
+      { ...f.input.environment, installSource: 'unknown' },
+      { ...f.input.environment, extra: true },
+      { node: 'v24.15.0' },
+    ]) expect(() => startAttempt({ store: f.store, input: { ...f.input, environment } })).toThrow(/invalid attempt event/);
+    expect(fs.existsSync(f.store)).toBe(false);
   });
 
   it('retains unfinished, failed, and abandoned attempts in the denominator', () => {
@@ -207,6 +246,9 @@ describe('local adoption attempts (all fixtures are synthetic, not independent p
     fs.writeFileSync(startFile, JSON.stringify(f.input));
     const started = cli('start', '--store', f.store, '--input', startFile);
     expect(started.status, started.stderr).toBe(0);
+    expect(JSON.parse(started.stdout).payload.environment.node).toBe(process.version);
+    const persistedStart = JSON.parse(fs.readFileSync(path.join(f.store, f.input.attemptId, '000001.json'), 'utf8'));
+    expect(persistedStart.payload.environment.node).toBe(process.version);
     for (let index = 0; index < 2; index++) {
       if (index) { fs.appendFileSync(path.join(repo, 'src/test.js'), 'export const next = 2;\n'); commit(); }
       const gateFile = path.join(f.root, `actual-gate-${index}.json`);
