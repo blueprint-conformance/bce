@@ -1994,13 +1994,19 @@ describe('stack diff — H: the CLI takes manifests, refuses everything else, an
   it('a schema refusal names the FIRST failing path behind a fixed prefix', () => {
     const dir = tmp('schema-path');
     const bad = JSON.parse(fs.readFileSync(FILE.head, 'utf8')) as Record<string, unknown>;
-    bad.schemaVersion = '2';
+    bad.schemaVersion = '99'; // schema 2 is the explicit workspace format; 99 remains unsupported
     const file = path.join(dir, 'bad.stack.json');
     fs.writeFileSync(file, JSON.stringify(bad));
     const out = path.join(dir, 'diff.json');
     const r = runCli(['stack', 'diff', '--from', FILE.base, '--to', file, '--out', out], ROOT);
     expect(r.status).toBe(2);
     expect(r.stderr).toContain(`--to ${file} is not a valid StackManifest: at 'schemaVersion': `);
+    expect(fs.existsSync(out)).toBe(false);
+    bad.schemaVersion = '2';
+    fs.writeFileSync(file, JSON.stringify(bad));
+    const missingTopology = runCli(['stack', 'diff', '--from', FILE.base, '--to', file, '--out', out], ROOT);
+    expect(missingTopology.status).toBe(2);
+    expect(missingTopology.stderr).toContain("at 'importers':");
     expect(fs.existsSync(out)).toBe(false);
     const nested = JSON.parse(fs.readFileSync(FILE.head, 'utf8')) as { nodes: Record<string, unknown>[] };
     (nested.nodes[3] as Record<string, unknown>).dev = 'yes';

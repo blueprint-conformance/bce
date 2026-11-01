@@ -185,6 +185,7 @@ export function extractSelectedStack(repoDir: string, revision: string, input: S
 /** Offline internal consistency, never source provenance. No filesystem access. */
 export function validateSelectedStack(input: StackSourceConfig, manifestInput: StackManifest, factsInput: DeclaredStackFacts): string[] {
   const errors: string[] = [];
+  if (manifestInput.schemaVersion === '2') return ['selected-stack-v1 requires a schema-1 manifest; workspace-aware snapshots support standalone stack review only'];
   const c = StackSourceConfigSchema.safeParse(input), m = StackManifestSchema.safeParse(manifestInput), f = DeclaredStackFactsSchema.safeParse(factsInput);
   if (!c.success || !m.success || !f.success) return ['invalid strict selected-stack artifact shape'];
   const config = c.data, manifest = m.data, facts = f.data;

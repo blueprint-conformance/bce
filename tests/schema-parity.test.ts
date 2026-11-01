@@ -39,6 +39,8 @@ import { emitRun, verifyEvidenceChain } from '../src/emit.js';
 import type { ArchitectureGraph } from '../src/graph.js';
 import { BlueprintProposalSchema } from '../src/review-contracts.js';
 import { makeProposalFixture } from './review-fixture.js';
+import { extractStackManifest } from '../src/stack/stack-extractor.js';
+import { parseStackManifest, StackManifestSchema } from '../src/stack/stack-manifest.js';
 
 const ROOT = path.join(__dirname, '..');
 const SCHEMA_DIR = path.join(ROOT, 'spec', 'schemas');
@@ -267,6 +269,59 @@ describe('output conformance — real engine output validates against the publis
     for (const order of emission.workOrders) {
       expect(wo(order), ajv.errorsText(wo.errors)).toBe(true);
       expect(order.approvalState).toBe('PROPOSED');
+    }
+  });
+});
+
+
+describe('RFC-0003 workspace structural floor and normative topology refinements', () => {
+  const snapshot = () => {
+    const result = extractStackManifest(path.join(ROOT, 'fixtures/stack/pnpm-v9-workspace-review'), 'fixture', 'npm-lockfile', undefined, true);
+    if (!result.manifest || result.manifest.schemaVersion !== '2') throw new Error('workspace extraction refused');
+    return result.manifest;
+  };
+  const workspaceValidate = compiled['workspace-stack-manifest.schema.json']!;
+  it('validates real schema-2 output while preserving strict schema-1 rejection', () => {
+    const manifest = snapshot();
+    expect(workspaceValidate(manifest), ajv.errorsText(workspaceValidate.errors)).toBe(true);
+    expect(() => parseStackManifest(manifest)).not.toThrow();
+    expect(StackManifestSchema.safeParse(manifest).success).toBe(false);
+    expect(compiled['stack-manifest.schema.json']!(manifest)).toBe(false);
+    const legacy = { ...manifest, schemaVersion: '1' };
+    expect(StackManifestSchema.safeParse(legacy).success).toBe(false);
+    expect(compiled['stack-manifest.schema.json']!(legacy)).toBe(false); // importers stays forbidden
+  });
+  it('both validators reject structural errors', () => {
+    const original = snapshot();
+    for (const mutant of [
+      { ...original, importers: [] },
+      { ...original, unknownField: true },
+      { ...original, importers: [{ path: '/absolute', dependencies: [] }] },
+      { ...original, importers: [{ path: '.', dependencies: [{ name: 'x', group: 'peerDependencies', spec: '*', to: 'npm:x@1.0.0' }] }] },
+    ]) {
+      expect(workspaceValidate(mutant)).toBe(false);
+      expect(() => parseStackManifest(mutant)).toThrow();
+    }
+  });
+  it('PINNED DIVERGENCE: topology refinements reject structurally valid unknown/ambiguous evidence', () => {
+    const original = snapshot();
+    const owner = original.importers.find(i => i.dependencies.length)!;
+    const dependency = owner.dependencies[0]!;
+    const target = original.nodes.find(n => n.id === dependency.to)!;
+    const mutateOwner = (replacement: typeof owner) => original.importers.map(i => i.path === owner.path ? replacement : i);
+    const mutants = [
+      { ...original, importers: [...original.importers, owner] },
+      { ...original, importers: original.importers.filter(i => i.path !== '.') },
+      { ...original, importers: mutateOwner({ ...owner, path: '../outside' }) },
+      { ...original, importers: mutateOwner({ ...owner, dependencies: [...owner.dependencies, dependency] }) },
+      { ...original, importers: mutateOwner({ ...owner, dependencies: owner.dependencies.map(d => ({ ...d, to: 'npm:missing@1.0.0' })) }) },
+      { ...original, nodes: [...original.nodes, target] },
+      { ...original, importers: original.importers.map(i => ({ ...i, dependencies: [] })) },
+      { ...original, sources: original.sources.filter(s => s.parser !== 'pnpm-lockfile-v9') },
+    ];
+    for (const mutant of mutants) {
+      expect(workspaceValidate(mutant), ajv.errorsText(workspaceValidate.errors)).toBe(true);
+      expect(() => parseStackManifest(mutant)).toThrow();
     }
   });
 });

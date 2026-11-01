@@ -80,3 +80,17 @@ latest closure), yarn lockfiles, pnpm lockfiles other than v9, and image-tag res
 release implements exact `pinnedVersion`, `stackClosureMatch`, `forbiddenStackPackage`,
 `requirePinnedImages`, and `allowedNodeVersions`; it does not resolve a registry, mutate
 declarations, or apply a repair inside `gate`/`run`.
+
+## Proposed workspace-aware review (RFC-0003)
+
+The review implementation of [RFC-0003](../rfcs/RFC-0003-workspace-stack-review.md)
+adds an explicit `stack snapshot --workspace-aware` option for pnpm-lock v9 trees.
+It writes schema 2 with importer paths and direct resolutions. Re-extract both revisions
+with that option, then use ordinary `stack diff`: importer removal/dependency drop can
+be distinguished from a downgrade, including moves between retained closure versions.
+A schema-1/schema-2 pair refuses; old artifacts cannot be upgraded without the source trees.
+
+This is a proposed format pending the RFC decision. Default snapshots remain schema 1;
+selected-stack-v1 gate/report evidence refuses schema 2. Closure `stackDigest`/`stackId`
+keep their existing meaning; importer assignment is covered by the full manifest digest.
+Links remain opaque, paths define importer identity, and a rename is removal plus addition.

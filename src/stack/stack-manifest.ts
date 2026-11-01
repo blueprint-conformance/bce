@@ -222,10 +222,28 @@ export const StackManifestSchema = z
     manifestDigest: Hex64,
   })
   .strict();
-export type StackManifest = z.infer<typeof StackManifestSchema>;
+/** Proposed RFC-0003 format: v1 remains strict and byte-compatible. */
+export const StackImporterSchema = z.object({
+  path: z.string().regex(/^(?:\.|[^/\\]+(?:\/[^/\\]+)*)$/),
+  dependencies: z.array(z.object({
+    name: z.string().min(1),
+    group: z.enum(['dependencies', 'devDependencies', 'optionalDependencies']),
+    spec: z.string(),
+    to: z.string().min(1),
+  }).strict()),
+}).strict();
+export type StackImporter = z.infer<typeof StackImporterSchema>;
+export const WorkspaceStackManifestSchema = StackManifestSchema.extend({
+  schemaVersion: z.literal('2'),
+  importers: z.array(StackImporterSchema).min(1),
+}).strict();
+export const AnyStackManifestSchema = z.union([StackManifestSchema, WorkspaceStackManifestSchema]);
+export type StackManifest = z.infer<typeof AnyStackManifestSchema>;
+export type WorkspaceStackManifest = z.infer<typeof WorkspaceStackManifestSchema>;
 
 /** The manifest before its digests are derived (what an extractor hands to `finalizeStackManifest`). */
-export type StackManifestBody = Omit<StackManifest, 'stackDigest' | 'stackId' | 'manifestDigest'>;
+type WithoutDigests<T> = T extends unknown ? Omit<T, 'stackDigest' | 'stackId' | 'manifestDigest'> : never;
+export type StackManifestBody = WithoutDigests<StackManifest>;
 
 /** The exact key set that is hashed. Exported so a test can assert the quarantine list, not trust it. */
 export const STACK_HASHED_VIEW_KEYS = Object.freeze(['schemaVersion', 'kind', 'nodes', 'runtime', 'images', 'unmodeled'] as const);
@@ -366,6 +384,7 @@ export function computeManifestDigest(manifest: Omit<StackManifest, 'manifestDig
 function canonicalStackManifestBody(body: StackManifestBody): StackManifestBody {
   return {
     ...body,
+    ...(body.schemaVersion === '2' ? { importers: body.importers.map(i => ({ ...i, dependencies: [...i.dependencies].sort((a, b) => cmp(stableStringify(a), stableStringify(b))) })).sort((a, b) => cmp(a.path, b.path)) } : {}),
     sources: [...body.sources].sort(compareStackSources),
     nodes: [...body.nodes].sort(compareStackNodes).map((n) => ({ ...n, layout: [...n.layout].sort() })),
     edges: [...body.edges].sort(compareStackEdges),
@@ -403,12 +422,50 @@ export function finalizeStackManifest(body: StackManifestBody): StackManifest {
   const stackDigest = computeStackDigest(sorted);
   const withoutManifestDigest = { ...sorted, stackDigest, stackId: stackIdFor(stackDigest) };
   const manifestDigest = computeManifestDigest(withoutManifestDigest);
-  return StackManifestSchema.parse({ ...withoutManifestDigest, manifestDigest });
+  return parseStackManifest({ ...withoutManifestDigest, manifestDigest });
 }
 
 /** Parse + strictly validate an untrusted StackManifest document (a committed file, a tool result). */
 export function parseStackManifest(raw: unknown): StackManifest {
-  return StackManifestSchema.parse(raw);
+  const manifest = (typeof raw === 'object' && raw !== null && 'schemaVersion' in raw && raw.schemaVersion === '2' ? WorkspaceStackManifestSchema : StackManifestSchema).parse(raw);
+  const errors = workspaceTopologyErrors(manifest);
+  if (errors.length > 0) throw new Error(`invalid workspace topology: ${errors.join('; ')}`);
+  return manifest;
+}
+
+/** Cross-field validation complements the published structural schema. */
+export function workspaceTopologyErrors(manifest: StackManifest): string[] {
+  if (manifest.schemaVersion !== '2') return [];
+  const errors: string[] = [];
+  if (!manifest.sources.some(s => s.parser === 'pnpm-lockfile-v9') || manifest.sources.some(s => s.parser === 'npm-lockfile-v3')) errors.push('schema 2 requires a pnpm-lock v9 source');
+  const paths = new Set<string>();
+  const roots = manifest.nodes.filter(n => n.root && n.kind === 'npm');
+  if (roots.length !== 1) errors.push('exactly one npm root required');
+  const projected = new Set<string>();
+  const targetsById = new Map<string, StackNode[]>();
+  for (const node of manifest.nodes) {
+    if (node.kind !== 'npm' || node.root) continue;
+    const targets = targetsById.get(node.id) ?? [];
+    targets.push(node); targetsById.set(node.id, targets);
+  }
+  for (const importer of manifest.importers) {
+    if (paths.has(importer.path)) errors.push(`duplicate importer ${importer.path}`);
+    paths.add(importer.path);
+    if (importer.path !== '.' && importer.path.split('/').some(s => s === '.' || s === '..' || s.includes(':'))) errors.push(`noncanonical importer path ${importer.path}`);
+    const names = new Set<string>();
+    for (const dep of importer.dependencies) {
+      const key = `${dep.group}\0${dep.name}`;
+      if (names.has(key)) errors.push(`duplicate dependency ${importer.path}:${dep.group}:${dep.name}`);
+      names.add(key);
+      const targets = targetsById.get(dep.to) ?? [];
+      if (targets.length !== 1) errors.push(`unresolved or ambiguous importer target ${dep.to}`);
+      projected.add(stableStringify({ from: roots[0]?.id ?? '', to: dep.to, spec: dep.spec, dev: dep.group === 'devDependencies', optional: dep.group === 'optionalDependencies', peer: false }));
+    }
+  }
+  if (!paths.has('.')) errors.push('root importer required');
+  const actual = new Set(manifest.edges.filter(e => e.from === roots[0]?.id).map(e => stableStringify(e)));
+  if (projected.size !== actual.size || [...projected].some(e => !actual.has(e))) errors.push('importer resolutions do not match root edges');
+  return errors;
 }
 
 export interface StackManifestVerification {
@@ -430,5 +487,5 @@ export function verifyStackManifest(manifest: StackManifest): StackManifestVerif
   const stackIdOk = stackIdFor(manifest.stackDigest) === manifest.stackId;
   const { manifestDigest, ...rest } = manifest;
   const manifestDigestOk = computeManifestDigest(rest) === manifestDigest;
-  return { stackDigestOk, stackIdOk, manifestDigestOk, valid: stackDigestOk && stackIdOk && manifestDigestOk };
+  return { stackDigestOk, stackIdOk, manifestDigestOk, valid: stackDigestOk && stackIdOk && manifestDigestOk && workspaceTopologyErrors(manifest).length === 0 };
 }

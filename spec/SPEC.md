@@ -675,9 +675,12 @@ family is pinned by an explicit test assertion so it can never silently widen.
 
 ## 16. Stack manifest (slice 1 — the declared closure as a content-addressed artifact)
 
-`bce stack snapshot` emits a **StackManifest** (`stack-manifest.schema.json`): the DECLARED dependency
+`bce stack snapshot` defaults to a schema-1 **StackManifest** (`stack-manifest.schema.json`): the DECLARED dependency
 closure of a repository at a revision. It is a sibling artifact to the observed graph and the
-compliance report. Snapshot behavior remains defined here; the explicitly selected enforcement provider in §17 reuses this manifest without changing its v1 identity.
+compliance report. The opt-in schema-2 workspace snapshot is defined in §16.3. Schema 1 MUST
+remain strict: its schema MUST reject schema 2 and the `importers` field. Snapshot behavior remains
+defined here; the explicitly selected enforcement provider in §17 reuses schema 1 without changing
+its identity.
 
 **Inputs** (read from the pinned tree, nothing else): `npm-shrinkwrap.json` or `package-lock.json`
 with `lockfileVersion` **3 only** — when both exist **`npm-shrinkwrap.json` wins** (npm's own rule)
@@ -1019,7 +1022,8 @@ strict StackManifest (the message names the first failing path: `… is not a va
 `manifestDigest` do not re-derive. `--out` is refused when it resolves to either input. The digest
 re-derivation is a consistency check, not an authenticity check: the digests are unkeyed.
 
-**Join key and set matching.** npm rows join on `(kind, name)` — never on the node id
+**Join key and set matching.** The importer-aware override for two schema-2 inputs is defined
+in §16.3; the root-set rules below remain the unchanged schema-1 behavior. npm rows join on `(kind, name)` — never on the node id
 `name@version`. A lockfile routinely holds several copies of one name. Per name, the versions present
 on both sides are **retained** and produce no row unless their identity differs. **The root's own
 resolution comes first, as a comparison of SETS, before the retained / one-sided split.** Per name,
@@ -1055,13 +1059,13 @@ root versions of a name ANY drop of that name blocks — even a pure upgrade abo
 because `5` sits below the retained `9`, while its sibling with nothing dropped (`{5,9} → {5,9,12}`,
 a new importer joining at `12`) is an `added` copy, exit **0**. In a workspace that keeps one name
 at two versions, every bump of a third importer therefore blocks until acknowledged: an accepted
-fail-closed cost, never a wrong pass, and the comparison is deliberately not narrowed. The manifest
-cannot tell the two apart; importer identity in the manifest is the real
-fix and is a follow-on (WO-BSTACK-09, extractor work). **The false-pass half of the same limitation,
+fail-closed cost, never a wrong pass, and the comparison is deliberately not narrowed. A schema-1 manifest
+cannot tell the two apart; the opt-in schema-2 importer identity in §16.3 addresses this
+limitation without changing the schema-1 classifier. **The false-pass half of the same limitation,
 stated just as plainly:** an importer moving between two versions the root still reaches from other
 importers (`app 9 / lib 9 / svc 2` → `app 9 / lib 2 / svc 2`) changes no root set, no node and no
-edge — edges collapse duplicates — so the diff is `identical`, exit **0**, until importer identity
-lands (WO-BSTACK-09). It is not made `unknown`: that would block every lockfile-only touch with zero
+edge — edges collapse duplicates — so the schema-1 diff is `identical`, exit **0**. Schema 2 records the importer change
+explicitly (§16.3). It is not made `unknown`: that would block every lockfile-only touch with zero
 modeled difference. Instead, an `identical` report whose two manifests differ carries both
 `manifestDigest`s as `manifestDigest: {from, to}` (absent on every other report), so a reader can
 see that the lockfile changed even though nothing modeled moved. Both values are RE-DERIVED from
@@ -1166,6 +1170,72 @@ reconcile` remains unspecified; the released 0.5.0 declared-stack constraint con
 separately in §17 and does not imply reconciliation or automatic repair.
 
 ---
+
+### 16.3 Workspace-aware stack snapshots and review
+
+This section adopts [RFC-0003](../rfcs/RFC-0003-workspace-stack-review.md). The reference
+CLI MUST emit schema 2 only on explicit `stack snapshot --workspace-aware`; without the option
+it MUST retain schema-1 output and behavior. The new structural schema is separately published
+as `workspace-stack-manifest.schema.json`; it MUST NOT widen `stack-manifest.schema.json`.
+The authored-artifact `apiVersion` remains `blueprint-conformance/v1alpha1`.
+
+**Shape and validation.** A schema-2 manifest MUST retain the schema-1 body with
+`schemaVersion: "2"` and a REQUIRED nonempty `importers` array. Each strict importer object
+contains `path` and `dependencies`; each strict dependency object contains `name` (nonempty),
+`group` (`dependencies`, `devDependencies`, or `optionalDependencies`), `spec` (string), and
+`to` (nonempty target node id). Empty dependency arrays are valid. Every importer, including
+an empty one, MUST appear once, and the root importer `.` MUST appear. Non-root paths MUST be
+repository-relative POSIX paths with no absolute prefix, backslash, empty segment, `.`/`..`
+segment or colon. Importer paths and each importer's `(group, name)` pairs MUST be unique.
+
+There MUST be a pnpm-v9 source, no npm-v3 source, and exactly one npm root node. Each `to`
+MUST identify exactly one non-root npm node. Projecting every importer dependency to an edge
+from that root, preserving `to` and `spec`, setting `dev` only for `devDependencies`,
+`optional` only for `optionalDependencies`, and `peer: false`, MUST reproduce the SET of
+root edges exactly. Unknown fields, missing or ambiguous targets, duplicate identities,
+noncanonical paths and inconsistent projections MUST refuse. These cross-field checks are
+normative engine refinements beyond the published structural schema (§14.2).
+
+**Same-tree evidence.** Extraction MUST satisfy §16.1's pnpm-v9 parsing and completeness
+checks and additionally prove every non-root importer belongs to the package boundaries in
+`pnpm-workspace.yaml`. A workspace package still present with its importer omitted MUST
+refuse; removal of both package and importer is a legitimate membership change. An npm
+snapshot requested with this option MUST refuse. Opaque aliases, links and other unsupported
+entries retain their existing opaque hashes and limitations: this format MUST NOT claim
+local package byte identity or general workspace dependency enforcement.
+
+**Identity and canonicalization.** Importers MUST serialize sorted by `path`; each dependency
+array MUST serialize sorted by the complete stable serialization of its records. The closure
+hashed view in §16 MUST retain literal `schemaVersion: "1"` even for a schema-2 manifest;
+`importers` MUST NOT enter that view. `stackDigest` and `stackId` remain closure identities.
+`manifestDigest` MUST cover the full schema-2 manifest minus itself, including importer
+topology and source byte hashes. Equal closure digests MUST NOT be treated as proof of equal
+importer assignments. Reordering equivalent lockfile bytes may change the source hashes and
+manifest digest while leaving canonical importer arrays and closure digests unchanged.
+Verification proves internal consistency, not source authenticity.
+
+**Diff.** For two valid schema-2 inputs, direct resolutions MUST join by `(importer path,
+dependency name)` within each package `(kind, name)`, including when other importers retain
+both versions. Groups MUST remain declaration metadata in this join, so moving a dependency
+between production and development groups cannot conceal a downgrade. Equal resolved version
+sets with changed grouped specifiers produce `spec-changed`. A unique before/after version is
+classified by the existing strict SemVer comparator; a changed pair whose direction cannot be
+proved (including multiple distinct resolutions or precedence ties) is `unknown`. New
+orderable direct resolutions are `added`; disappeared direct resolutions are `removed`, even
+when the same version remains elsewhere. Non-orderable additions are `unknown`. Each direct
+row MUST identify `declaredBy` as `importer:` followed by the JSON tuple `[path,name]`.
+Membership additions/removals MUST also produce source rows with `name: importer:<path>`.
+Paths are identities: a rename is removal plus addition, never inferred continuity. Remaining
+closure copies retain §16.2's classifier, row ranking and blocking rules. A dependency drop
+or importer removal alone MUST NOT be relabeled as a downgrade by schema-1 ambiguity rules.
+
+**Migration and consumer limits.** A mixed schema-1/schema-2 comparison MUST produce an
+`unknown` blocking migration row even when closure digests match. Both revisions MUST be
+re-extracted with the option to compare importer topology; missing identities MUST NOT be
+inferred from schema 1. The ordinary `stack diff` CLI and read-only MCP reader use this same
+version-aware contract. `selected-stack-v1` MUST explicitly refuse schema-2 snapshots as
+report/gate evidence; §17's inventory and replay contract remain unchanged. This option is
+standalone stack review, not an extension of declared-stack enforcement.
 
 ## 17. Declared-stack enforcement
 

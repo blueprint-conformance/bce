@@ -109,6 +109,10 @@ export { resolveRevision, materializeAtRevision, listTreeKnowledge } from './pin
 // A SEPARATE seam from RepositoryFactsExtractor — a lockfile is not an ArchitectureGraph.
 export {
   StackManifestSchema,
+  WorkspaceStackManifestSchema,
+  AnyStackManifestSchema,
+  StackImporterSchema,
+  workspaceTopologyErrors,
   StackNodeSchema,
   StackEdgeSchema,
   StackImageSchema,
@@ -133,6 +137,8 @@ export {
 export type {
   StackManifest,
   StackManifestBody,
+  WorkspaceStackManifest,
+  StackImporter,
   StackNode,
   StackNodeKind,
   StackEdge,
