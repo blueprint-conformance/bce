@@ -389,4 +389,5 @@ export type { PolicySourceAST, PolicyIR, FactIR, EvaluationPlanIR, VerdictIR, Pr
 // Observed architectural change under one frozen TypeScript module contract.
 export { compareArchitectureSnapshots, architectureReviewExitCode } from './review.js';
 export type { ArchitectureReviewSnapshot, ArchitectureChangeReview, ArchitectureDelta } from './review.js';
-export { reviewArchitectureChange } from './proposal-io.js';
+export type { PolicyImpactReview } from './review.js';
+export { reviewArchitectureChange, reviewPolicyImpact } from './proposal-io.js';

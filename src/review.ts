@@ -1,3 +1,5 @@
+import { resolveExtraction, type ResolvedExtraction } from './extractors.js';
+import { semverLt } from './compiler/version.js';
 import type { ToolchainIdentity } from './runtime-identity.js';
 import { ReviewSourceProofSchema, type ReviewSourceProof } from './review-contracts.js';
 /** Pure, deterministic implementation of the AI-first blueprint review core. */
@@ -5,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import type { ArchitectureGraph, ObservedComponent, ObservedEdge } from './graph.js';
 import { classifyPolicyChanges, type FileChange } from './policy-change.js';
-import { evaluate, stableStringify, pathGlobToRe, type Violation } from './report.js';
+import { evaluate, stableStringify, pathGlobToRe, type Violation, type LegacyComplianceReport } from './report.js';
 import {
   TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION,
   type Approval,
@@ -1154,6 +1156,33 @@ function delta<T>(base: T[], head: T[], key: (item: T) => string): ArchitectureD
   return result;
 }
 
+function architectureSnapshotRefusals(snapshot: ArchitectureReviewSnapshot, side: string): string[] {
+  const refusals: string[] = [];
+  const { graph, toolchain } = snapshot;
+  const bp = parseBlueprint(snapshot.blueprint);
+  if (!/^[0-9a-f]{64}$/.test(snapshot.resolverInputsDigest)) refusals.push(`${side}: resolver input digest unavailable`);
+  if (!/^[0-9a-f]{40}$/.test(graph.ctRepoRevision)) refusals.push(`${side}: immutable commit SHA required`);
+  if (bp.extraction?.profile !== 'typescript-module-graph' || toolchain.extractor.profile !== 'typescript-module-graph' ||
+      toolchain.extractor.kind !== 'ast' || toolchain.extractor.provider !== 'typescript-ts-morph' || graph.coverage.extractor !== 'ast') {
+    refusals.push(`${side}: only the TypeScript AST module-graph provider is supported`);
+  }
+  if (!bp.constraints.length || bp.constraints.some(c => !supported.has(c.type) || !constraintShapeSupported(c, graph) ||
+      ((c.type === 'forbiddenPath' || c.type === 'forbiddenFile') && !c.path))) refusals.push(`${side}: unsupported constraint; this slice supports module dependencies, components and paths/files only`);
+  const scanned = graph.coverage.scannedFiles;
+  const scope = (bp.extraction?.paths ?? []).map(pathGlobToRe);
+  const expectedFiles = snapshot.trackedFiles.filter(file => scope.some(pattern => pattern.test(file))).sort();
+  if (scanned && !same([...scanned].sort(), expectedFiles)) refusals.push(`${side}: coverage loss against the tracked extraction scope`);
+  if (!scanned || scanned.length !== graph.coverage.filesScanned || new Set(scanned).size !== scanned.length ||
+      graph.coverage.filesScanned < Math.max(1, bp.extraction?.minFiles ?? 1)) refusals.push(`${side}: incomplete or empty scanned-file coverage`);
+  if (graph.coverage.unresolvedImports?.length) refusals.push(`${side}: unresolved imports prevent a complete dependency comparison`);
+  if (scanned && (scanned.some(file => !snapshot.trackedFiles.includes(file)) ||
+      !same([...scanned].sort(), graph.components.map(c => c.path).sort()) ||
+      graph.components.some(c => c.type !== 'typescriptModule' || c.id !== `module:${c.path}`))) refusals.push(`${side}: module identity or tracked-file coverage is inconsistent`);
+  const ids = new Set(graph.components.map(c => c.id));
+  if (graph.guardEdges.some(e => e.type !== 'imports' || !ids.has(e.from) || sourcePath(e.evidenceRef) !== e.from.slice('module:'.length))) refusals.push(`${side}: dependency identity is inconsistent`);
+  return refusals;
+}
+
 /** Pure replay over caller-supplied snapshots. Digests prove integrity, not source authenticity. */
 export function compareArchitectureSnapshots(baseInput: ArchitectureReviewSnapshot, headInput: ArchitectureReviewSnapshot): ArchitectureChangeReview {
   const base = structuredClone(baseInput), head = structuredClone(headInput);
@@ -1161,30 +1190,7 @@ export function compareArchitectureSnapshots(baseInput: ArchitectureReviewSnapsh
   if (!same(base.blueprint, head.blueprint)) refusals.push('blueprint mismatch: policy changes require a separate policy review');
   if (!same(base.toolchain, head.toolchain)) refusals.push('engine, provider, dependency lock or runtime identity mismatch');
   if (base.resolverInputsDigest !== head.resolverInputsDigest) refusals.push('resolver inputs changed: identical resolution configuration is required');
-  for (const [side, snapshot] of [['base', base], ['head', head]] as const) {
-    const { graph, toolchain } = snapshot;
-    const bp = parseBlueprint(snapshot.blueprint);
-    if (!/^[0-9a-f]{64}$/.test(snapshot.resolverInputsDigest)) refusals.push(`${side}: resolver input digest unavailable`);
-    if (!/^[0-9a-f]{40}$/.test(graph.ctRepoRevision)) refusals.push(`${side}: immutable commit SHA required`);
-    if (bp.extraction?.profile !== 'typescript-module-graph' || toolchain.extractor.profile !== 'typescript-module-graph' ||
-        toolchain.extractor.kind !== 'ast' || toolchain.extractor.provider !== 'typescript-ts-morph' || graph.coverage.extractor !== 'ast') {
-      refusals.push(`${side}: only the TypeScript AST module-graph provider is supported`);
-    }
-    if (!bp.constraints.length || bp.constraints.some(c => !supported.has(c.type) || !constraintShapeSupported(c, graph) ||
-        ((c.type === 'forbiddenPath' || c.type === 'forbiddenFile') && !c.path))) refusals.push(`${side}: unsupported constraint; this slice supports module dependencies, components and paths/files only`);
-    const scanned = graph.coverage.scannedFiles;
-    const scope = (bp.extraction?.paths ?? []).map(pathGlobToRe);
-    const expectedFiles = snapshot.trackedFiles.filter(file => scope.some(pattern => pattern.test(file))).sort();
-    if (scanned && !same([...scanned].sort(), expectedFiles)) refusals.push(`${side}: coverage loss against the tracked extraction scope`);
-    if (!scanned || scanned.length !== graph.coverage.filesScanned || new Set(scanned).size !== scanned.length ||
-        graph.coverage.filesScanned < Math.max(1, bp.extraction?.minFiles ?? 1)) refusals.push(`${side}: incomplete or empty scanned-file coverage`);
-    if (graph.coverage.unresolvedImports?.length) refusals.push(`${side}: unresolved imports prevent a complete dependency comparison`);
-    if (scanned && (scanned.some(file => !snapshot.trackedFiles.includes(file)) ||
-        !same([...scanned].sort(), graph.components.map(c => c.path).sort()) ||
-        graph.components.some(c => c.type !== 'typescriptModule' || c.id !== `module:${c.path}`))) refusals.push(`${side}: module identity or tracked-file coverage is inconsistent`);
-    const ids = new Set(graph.components.map(c => c.id));
-    if (graph.guardEdges.some(e => e.type !== 'imports' || !ids.has(e.from) || sourcePath(e.evidenceRef) !== e.from.slice('module:'.length))) refusals.push(`${side}: dependency identity is inconsistent`);
-  }
+  refusals.push(...architectureSnapshotRefusals(base, 'base'), ...architectureSnapshotRefusals(head, 'head'));
   if (!same([...base.graph.coverage.unsupported].sort(), [...head.graph.coverage.unsupported].sort())) refusals.push('provider coverage limitations changed');
   for (const [before, after] of [[base, head], [head, base]] as const) {
     for (const file of before.graph.coverage.scannedFiles ?? []) {
@@ -1226,4 +1232,102 @@ export function compareArchitectureSnapshots(baseInput: ArchitectureReviewSnapsh
 /** A comparison succeeds only if acquisition/matching succeeds and the head conforms. */
 export function architectureReviewExitCode(review: ArchitectureChangeReview): 0 | 1 | 2 {
   return review.status === 'refused' || !review.delta ? 2 : review.delta.headVerdict === 'fail' ? 1 : 0;
+}
+
+/** Diagnostic policy change on one frozen source acquisition; never an approval. */
+export interface PolicyImpactReview {
+  schemaVersion: '1';
+  kind: 'PolicyImpactReview';
+  status: 'compared' | 'refused';
+  revision: string;
+  repo: string;
+  policyDigests: { base: string; candidate: string };
+  toolchain: ToolchainIdentity;
+  acquisition: { base: ResolvedExtraction; candidate: ResolvedExtraction; digest: string };
+  source: null | { graphDigest: string; inputDigest: string; resolverInputsDigest: string; trackedFiles: string[]; coverage: ArchitectureGraph['coverage'] };
+  semanticDiff: PolicyComparison;
+  reports: null | { base: LegacyComplianceReport; candidate: LegacyComplianceReport };
+  delta: null | { introduced: Violation[]; removed: Violation[]; retained: Array<{ base: Violation; candidate: Violation }> };
+  refusals: string[];
+  limitations: string[];
+  digest: string;
+}
+
+function policyImpactConstraintSupported(c: Constraint): boolean {
+  const fields: Record<string, string[]> = {
+    requiredComponent: ['component'], requiredDependency: ['component', 'to', 'scopePaths'],
+    forbiddenDependency: ['from', 'to', 'scopePaths'], forbiddenPath: ['path'], forbiddenFile: ['path'],
+  };
+  const allowed = fields[c.type];
+  if (!allowed || Object.keys(c).some(key => !['id', 'type', 'severity', 'policyRef', ...allowed].includes(key))) return false;
+  if (c.type === 'requiredComponent') return c.component === 'typescriptModule';
+  if (c.type === 'requiredDependency' || c.type === 'forbiddenDependency') {
+    return typeof c.to === 'string' && /^(module:|package:|builtin:)/.test(c.to) &&
+      (c.type !== 'requiredDependency' || (c.component === 'typescriptModule' && !!c.scopePaths?.length));
+  }
+  return typeof c.path === 'string' && c.path.length > 0;
+}
+
+/** Internal admission shared with the frozen I/O shell; not a public replay API. */
+export function policyImpactAdmissionRefusals(base: EngineeringBlueprint, candidate: EngineeringBlueprint, repo: string, toolchain: ToolchainIdentity): string[] {
+  const refusals: string[] = [];
+  if (!same(resolveExtraction(base.extraction, base.constraints), resolveExtraction(candidate.extraction, candidate.constraints))) refusals.push('resolved acquisition settings differ; graph reuse is refused');
+  if (!same(base.scope, candidate.scope)) refusals.push('scope changed; this slice requires identical complete scope');
+  if (!same(base.evidenceRequirements, candidate.evidenceRequirements)) refusals.push('evidence requirements changed');
+  const identity = (value: string) => value.replace(/^github\.com\//, '').toLowerCase();
+  for (const [side, bp] of [['base', base], ['candidate', candidate]] as const) {
+    if (new Set(bp.constraints.map(c => c.id)).size !== bp.constraints.length) refusals.push(`${side}: duplicate constraint identities are unsupported`);
+    if (!repo || !bp.scope.repositories.some(value => identity(value) === identity(repo))) refusals.push(`${side}: repository is excluded from policy scope`);
+    if (bp.minEngineVersion && semverLt(toolchain.engine.version, bp.minEngineVersion)) refusals.push(`${side}: blueprint requires engine >= ${bp.minEngineVersion}`);
+    if (bp.extraction?.profile !== 'typescript-module-graph') refusals.push(`${side}: only typescript-module-graph is supported`);
+    if (!bp.constraints.length || bp.constraints.some(c => !policyImpactConstraintSupported(c))) refusals.push(`${side}: unsupported constraint; direct module dependencies, components and paths/files only`);
+    if (bp.evidenceRequirements.length !== 1 || !same(bp.evidenceRequirements[0], { type: 'staticAst', required: true, onMissing: 'block' })) refusals.push(`${side}: only unqualified required staticAst evidence with onMissing:block is supported`);
+  }
+  return refusals;
+}
+
+/** Internal pure projection over the single snapshot acquired by reviewPolicyImpact. */
+export function buildPolicyImpactReview(args: {
+  baseBlueprint: EngineeringBlueprint; candidateBlueprint: EngineeringBlueprint; repo: string;
+  revision: string; toolchain: ToolchainIdentity; snapshot: ArchitectureReviewSnapshot | null; acquisitionRefusals: string[];
+}): PolicyImpactReview {
+  const base = parseBlueprint(detached(args.baseBlueprint)), candidate = parseBlueprint(detached(args.candidateBlueprint));
+  const snapshot = args.snapshot === null ? null : structuredClone(args.snapshot);
+  const refusals = [...args.acquisitionRefusals, ...policyImpactAdmissionRefusals(base, candidate, args.repo, args.toolchain)];
+  let reports: PolicyImpactReview['reports'] = null, changes: PolicyImpactReview['delta'] = null;
+  if (snapshot) {
+    if (snapshot.graph.ctRepoRevision !== args.revision || !same(snapshot.blueprint, base) || !same(snapshot.toolchain, args.toolchain)) refusals.push('source snapshot identity mismatch');
+    refusals.push(...architectureSnapshotRefusals(snapshot, 'base'), ...architectureSnapshotRefusals({ ...snapshot, blueprint: candidate }, 'candidate'));
+  } else if (!refusals.length) refusals.push('source acquisition unavailable');
+  if (snapshot && !refusals.length) {
+    try {
+      const a = evaluate(base, snapshot.graph, 'typescript-module-graph', args.repo);
+      const b = evaluate(candidate, snapshot.graph, 'typescript-module-graph', args.repo);
+      const findings = delta(a.violations, b.violations, violationKey);
+      reports = { base: a, candidate: b };
+      changes = { introduced: findings.added, removed: findings.removed, retained: findings.retained.map(({ base: before, head }) => ({ base: before, candidate: head })) };
+    } catch (error) { refusals.push((error as Error).message); }
+  }
+  const acquisition = { base: resolveExtraction(base.extraction, base.constraints), candidate: resolveExtraction(candidate.extraction, candidate.constraints) };
+  const body: Omit<PolicyImpactReview, 'digest'> = {
+    schemaVersion: '1', kind: 'PolicyImpactReview', status: refusals.length ? 'refused' : 'compared',
+    revision: args.revision, repo: args.repo, policyDigests: { base: reviewDigest(base), candidate: reviewDigest(candidate) }, toolchain: structuredClone(args.toolchain),
+    acquisition: { ...acquisition, digest: reviewDigest(acquisition) },
+    source: snapshot ? { graphDigest: reviewDigest(snapshot.graph), inputDigest: reviewDigest({ graph: snapshot.graph, toolchain: snapshot.toolchain, trackedFiles: snapshot.trackedFiles, resolverInputsDigest: snapshot.resolverInputsDigest }), resolverInputsDigest: snapshot.resolverInputsDigest, trackedFiles: snapshot.trackedFiles, coverage: snapshot.graph.coverage } : null,
+    semanticDiff: compareBlueprintPolicy({ baseBlueprint: base, candidateBlueprint: candidate }),
+    reports: refusals.length ? null : reports, delta: refusals.length ? null : changes, refusals: [...new Set(refusals)].sort(),
+    limitations: [
+      'One immutable source commit, one acquisition, direct TypeScript static module constraints only.',
+      'Complete resolved acquisition and scope must match; even constraint-derived settings that the provider does not use can cause refusal.',
+      'Raw conformance excludes baseline filtering and advisory mode. Removed findings reflect policy changes, not source repairs.',
+      'Constraint identity and severity changes remain removal plus introduction; no automatic rename matching.',
+      'This diagnostic does not approve policy, replace bce gate, or authenticate the supplied repository name.',
+      'Digests establish integrity, not origin authenticity. Runtime, transitive and cycle claims are outside this slice.',
+    ],
+  };
+  return { ...body, digest: reviewDigest(body) };
+}
+
+export function policyImpactExitCode(review: PolicyImpactReview): 0 | 1 | 2 {
+  return review.status === 'refused' || !review.reports || !review.delta ? 2 : review.reports.candidate.verdict === 'fail' ? 1 : 0;
 }

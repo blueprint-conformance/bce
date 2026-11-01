@@ -31,7 +31,7 @@ const require = createRequire(import.meta.url);
 const entry = mode === 'esm' ? fileURLToPath(import.meta.resolve('bce-engine')) : require.resolve('bce-engine');
 assert.equal(realpathSync(entry), realpathSync(join(installedRoot, mode === 'esm' ? 'dist/index.js' : 'dist/index.cjs')));
 const api = mode === 'esm' ? await import('bce-engine') : require('bce-engine');
-for (const name of ['reviewArchitectureChange', 'captureRepairEvidence', 'buildRepairBriefs',
+for (const name of ['reviewArchitectureChange', 'reviewPolicyImpact', 'captureRepairEvidence', 'buildRepairBriefs',
   'extractStackManifest', 'diffStackManifests', 'computeGateReport', 'DependencyPathRefusal']) {
   assert.equal(typeof api[name], 'function', `${mode} export ${name}`);
 }
@@ -111,6 +111,22 @@ try {
   const reviewInput = { repoDir: tree, baseRevision: base, headRevision: head, blueprint: bp };
   const review = api.reviewArchitectureChange(reviewInput);
   assert.equal(review.status, 'compared'); assert.equal(review.delta.violations.added.length, 1);
+  const basePolicy = structuredClone(bp);
+  basePolicy.constraints[1].scopePaths = ['packages/app/**'];
+  const policyInput = { repoDir: tree, revision: head, repoName: 'example-org/storefront', baseBlueprint: basePolicy, candidateBlueprint: bp };
+  const impact = api.reviewPolicyImpact(policyInput);
+  assert.equal(impact.status, 'compared'); assert.equal(impact.delta.introduced.length, 1);
+  assert.equal(impact.reports.base.verdict, 'pass'); assert.equal(impact.reports.candidate.verdict, 'fail');
+  write('.bce/base-policy.json', json(basePolicy));
+  const impactArgs = ['policy-impact', '--repo', tree, '--repo-name', 'example-org/storefront', '--revision', head,
+    '--base-blueprint', '.bce/base-policy.json', '--candidate-blueprint', policy];
+  assert.deepEqual(JSON.parse(run('policy impact CLI', 1, impactArgs).stdout), impact);
+  const incompatible = structuredClone(bp); incompatible.extraction.minFiles += 1;
+  assert.equal(api.reviewPolicyImpact({ ...policyInput, candidateBlueprint: incompatible }).status, 'refused');
+  write('.bce/incompatible-policy.json', json(incompatible));
+  const rejectedImpact = run('incompatible policy impact', 2, [...impactArgs.slice(0, -1), '.bce/incompatible-policy.json']);
+  assert.equal(JSON.parse(rejectedImpact.stdout).delta, null);
+  process.stdout.write(`packed public ${mode} policy impact: frozen source, raw findings and incompatible acquisition refusal PASS\n`);
   const evidence = api.captureRepairEvidence(input);
   const briefs = api.buildRepairBriefs({ ...input, evidence });
   assert.equal(briefs.briefs.length, 1);

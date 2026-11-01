@@ -94,6 +94,8 @@ describe('materializeAtRevision — streams the archive (ENOBUFS regression guar
     // the intermediate tar must be gone (sibling `${dest}.tar`) and must not have been
     // extracted into the tree the scanner grades.
     expect(existsSync(`${dest}.tar`)).toBe(false);
+    expect(existsSync(`${dest}.config`)).toBe(false);
+    expect(existsSync(`${dest}.git`)).toBe(false);
     expect(readdirSync(dest).filter((f) => f.endsWith('.tar'))).toEqual([]);
   });
 

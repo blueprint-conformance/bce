@@ -1,5 +1,5 @@
-import { reviewArchitectureChange } from './proposal-io.js';
-import { architectureReviewExitCode } from './review.js';
+import { reviewArchitectureChange, reviewPolicyImpact } from './proposal-io.js';
+import { architectureReviewExitCode, policyImpactExitCode } from './review.js';
 import { hasStackConstraints, prepareDeclaredEvidence, evaluatePreparedEvidence } from './stack/stack-evaluation.js';
 import { createDeclaredStackBundle } from './evidence-bundle.js';
 /**
@@ -954,6 +954,7 @@ async function main(): Promise<void> {
     return;
   }
   const allowedByCommand: Record<string, readonly string[]> = {
+    'policy-impact': ['repo', 'repo-name', 'revision', 'base-blueprint', 'candidate-blueprint', 'out'],
     'architecture-review': ['repo', 'blueprint', 'base', 'head', 'out'],
     demo: ['list', 'recipe'],
     doctor: ['repo', 'blueprint-dir', 'out'],
@@ -1769,6 +1770,20 @@ async function main(): Promise<void> {
           `(${graph.components.length} component(s) observed)\n`,
       );
     }
+    return;
+  }
+
+  if (cmd === 'policy-impact') {
+    if (args._.length !== 1 || ['repo', 'repo-name', 'revision', 'base-blueprint', 'candidate-blueprint'].some(key => typeof args[key] !== 'string' || !args[key])) {
+      die('usage: bce policy-impact --repo <dir> --repo-name <owner/repo> --revision <commit-sha> --base-blueprint <path> --candidate-blueprint <path> [--out <json>]', 2);
+    }
+    if (args.out !== undefined && (typeof args.out !== 'string' || !args.out)) die('--out requires a path', 2);
+    const review = reviewPolicyImpact({ repoDir: args.repo as string, repoName: args['repo-name'] as string, revision: args.revision as string,
+      baseBlueprint: readBlueprint(args['base-blueprint'] as string), candidateBlueprint: readBlueprint(args['candidate-blueprint'] as string) });
+    if (typeof args.out === 'string') fs.writeFileSync(args.out, stableStringify(review), { flag: 'wx' });
+    else process.stdout.write(stableStringify(review));
+    process.stderr.write(`policy impact: ${review.status}; ${review.refusals.join('; ') || `candidate ${review.reports?.candidate.verdict}`}\n`);
+    process.exitCode = policyImpactExitCode(review);
     return;
   }
 
@@ -2673,6 +2688,7 @@ async function main(): Promise<void> {
       `       Stack constraints require --stack-sources <JSON file> (source, lockfile, packageManifest, imageFiles, runtimeFiles).\n` +
       `       optional trailing :<severity> = info|low|medium|high|critical (default high)\n` +
       `  bce validate --blueprint <path>\n` +
+      `  bce policy-impact --repo <dir> --repo-name <owner/repo> --revision <commit-sha> --base-blueprint <path> --candidate-blueprint <path> [--out <json>]\n` +
       `  bce architecture-review --repo <dir> --blueprint <path> --base <commit-sha> --head <commit-sha> [--out <json>]\n` +
       `       Frozen TypeScript module graph comparison; exit 0 head conforms, 1 head violations, 2 unknown/refused.\n` +
       `       Raw new/resolved/retained violations and dependency deltas; never baseline filtering or policy approval.\n` +
