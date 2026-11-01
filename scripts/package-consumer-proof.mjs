@@ -49,6 +49,14 @@ void invalidLabel;
 const invalidComposedLabel: z.infer<typeof composed>['blueprint']['label'] = 123;
 void invalidComposedLabel;
 export { composed };
+import { reviewArchitectureChange, captureRepairEvidence, buildRepairBriefs, DependencyPathRefusal,
+  type ArchitectureChangeReview, type RepairEvidence, type RepairBriefBundle, type WorkspaceStackManifest, type Constraint } from 'bce-engine';
+export const architecture: (...args: Parameters<typeof reviewArchitectureChange>) => ArchitectureChangeReview = reviewArchitectureChange;
+export const capture: (...args: Parameters<typeof captureRepairEvidence>) => RepairEvidence = captureRepairEvidence;
+export const repair: (...args: Parameters<typeof buildRepairBriefs>) => RepairBriefBundle = buildRepairBriefs;
+export function workspace(manifest: WorkspaceStackManifest): '2' { manifest.importers.map(i => i.dependencies.map(d => d.to)); return manifest.schemaVersion; }
+export const bounded = { id: 'bounded', type: 'forbiddenDependencyPath', severity: 'critical', maxHops: 2, scopePaths: ['src/**'], to: 'module:app/**' } satisfies Constraint;
+export const refusal: string | undefined = new DependencyPathRefusal('incomplete', 'bounded').constraintId;
 `);
 execFileSync(process.execPath, [join(root, 'node_modules', 'typescript', 'bin', 'tsc'),
   '--noEmit', '--strict', '--target', 'ES2022', '--module', 'NodeNext',
@@ -94,6 +102,15 @@ const oldInstalledRoot = join(oldConsumer, 'node_modules', 'bce-engine');
 execFileSync(process.execPath, [join(root, 'scripts/declared-stack-consumer-proof.mjs'), installedRoot, oldInstalledRoot], {
   cwd: scratch, stdio: 'inherit',
 });
+
+// 0.6.0 is the published predecessor of the bounded-path vocabulary. Keep the
+// separate 0.4.0 declared-stack floor control above: these guards prove different contracts.
+const previousConsumer = join(scratch, 'previous-engine-consumer');
+mkdirSync(previousConsumer);
+npm(['init', '-y'], { cwd: previousConsumer, stdio: 'ignore' });
+npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--save-exact', 'bce-engine@0.6.0'], { cwd: previousConsumer, stdio: 'inherit' });
+execFileSync(process.execPath, [join(root, 'scripts/release-feature-consumer-proof.mjs'),
+  installedRoot, join(previousConsumer, 'node_modules', 'bce-engine')], { cwd: scratch, stdio: 'inherit' });
 
 function callInstalledRunGate(repoDir, blueprintDir) {
   const input = [
