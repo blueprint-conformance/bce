@@ -247,7 +247,7 @@ candidateBlueprint })`. Its `PolicyImpactReview` result records both policy dige
 resolved acquisition settings, source and resolver-input digests, tracked inventory, exact coverage,
 toolchain identity and an artifact digest. Digests prove integrity, not origin authenticity; the
 supplied repository name must be applicable to both policies but is not authenticated by this call.
-Uncommitted source changes and Git replacement objects do not alter the pinned acquisition.
+Uncommitted source changes, Git replacement objects, mutable Git attributes and caller Git configuration do not alter the pinned acquisition. Committed `.gitattributes` remain part of the immutable input.
 Policy inputs are supplied documents, not implicitly loaded from the commit.
 
 This first slice admits direct TypeScript module dependency constraints, required module components,

@@ -10,6 +10,7 @@ import { makeExtractor } from '../src/extractor-registry.js';
 import { resolveExtraction } from '../src/extractors.js';
 import { resolveToolchainIdentity } from '../src/runtime-identity.js';
 import { resolveEngineVersion } from '../src/gate.js';
+import { canonicalGitEnvironment } from '../src/pin.js';
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
@@ -94,6 +95,62 @@ describe('frozen-source policy impact', () => {
     f.git('replace', f.revision, different);
     expect(compare(f, base, candidate)).toEqual(before);
     expect(architecture()).toEqual(architectureBefore);
+  });
+
+  it('removes mixed-case Git and tar environment overrides without changing the caller environment', () => {
+    const keys = ['GiT_CONFIG_COUNT', 'TaR_OpTiOnS'] as const;
+    const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+    try {
+      process.env[keys[0]] = '1'; process.env[keys[1]] = '--exclude=*';
+      const env = canonicalGitEnvironment();
+      expect(Object.keys(env).filter(key => key.toUpperCase() === 'GIT_CONFIG_COUNT' || key.toUpperCase() === 'TAR_OPTIONS')).toEqual([]);
+      expect(env.HOME).toBe(process.env.HOME);
+      expect(process.env[keys[0]]).toBe('1'); expect(process.env[keys[1]]).toBe('--exclude=*');
+    } finally {
+      for (const key of keys) { if (saved[key] === undefined) delete process.env[key]; else process.env[key] = saved[key]; }
+    }
+  });
+
+  it('ignores mutable local/global attributes and injected Git configuration at a fixed SHA', () => {
+    const f = fixture(), bp = policy();
+    f.write('packages/domain/model.ts', "import { api } from '../app/$Format:%s$';\nexport const model = api;\n");
+    f.git('add', '.'); f.git('commit', '-qm', 'api'); const revision = f.git('rev-parse', 'HEAD');
+    const preview = () => compare(f, bp, bp, revision);
+    const architecture = () => reviewArchitectureChange({ repoDir: f.root, blueprint: bp, baseRevision: revision, headRevision: revision });
+    const before = preview(), architectureBefore = architecture();
+    expect(before.status).toBe('refused'); expect(before.refusals.join(' ')).toMatch(/unresolved imports/);
+    f.write('.git/info/attributes', 'packages/domain/model.ts export-subst\n');
+    expect(preview()).toEqual(before); expect(architecture()).toEqual(architectureBefore);
+    fs.unlinkSync(path.join(f.root, '.git/info/attributes'));
+    f.write('outside.attributes', 'packages/domain/model.ts export-subst\n');
+    f.git('config', 'core.attributesFile', path.join(f.root, 'outside.attributes'));
+    expect(preview()).toEqual(before); expect(architecture()).toEqual(architectureBefore);
+    f.git('config', '--unset', 'core.attributesFile');
+    f.write('global.gitconfig', `[core]\nattributesFile = ${path.join(f.root, 'outside.attributes').replaceAll('\\', '/')}\n`);
+    const keys = ['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0', 'TAR_OPTIONS'] as const;
+    const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+    try {
+      process.env.GIT_CONFIG_GLOBAL = path.join(f.root, 'global.gitconfig');
+      expect(preview()).toEqual(before); expect(architecture()).toEqual(architectureBefore);
+      process.env.GIT_CONFIG_COUNT = '1'; process.env.GIT_CONFIG_KEY_0 = 'core.attributesFile';
+      process.env.GIT_CONFIG_VALUE_0 = path.join(f.root, 'outside.attributes');
+      expect(preview()).toEqual(before); expect(architecture()).toEqual(architectureBefore);
+      process.env.TAR_OPTIONS = '--exclude=packages/**';
+      expect(preview()).toEqual(before); expect(architecture()).toEqual(architectureBefore);
+    } finally {
+      for (const key of keys) { if (saved[key] === undefined) delete process.env[key]; else process.env[key] = saved[key]; }
+    }
+  });
+
+  it('honors immutable committed attributes while excluding mutable overrides', () => {
+    const f = fixture(), bp = policy();
+    f.write('packages/domain/model.ts', "import { api } from '../app/$Format:%s$';\nexport const model = api;\n");
+    f.write('.gitattributes', 'packages/domain/model.ts export-subst\n');
+    f.git('add', '.'); f.git('commit', '-qm', 'api'); const revision = f.git('rev-parse', 'HEAD');
+    const before = compare(f, bp, bp, revision);
+    expect(before.status).toBe('compared'); expect(before.reports?.candidate.verdict).toBe('fail');
+    f.write('.git/info/attributes', 'packages/domain/model.ts -export-subst\n');
+    expect(compare(f, bp, bp, revision)).toEqual(before);
   });
 
   it('refuses equally unsupported evidence and repository exclusions', () => {

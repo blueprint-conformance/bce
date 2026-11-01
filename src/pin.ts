@@ -10,6 +10,13 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+/** Internal environment for canonical object reads, independent of caller Git overrides. */
+export function canonicalGitEnvironment(): NodeJS.ProcessEnv {
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('GIT_') && key.toUpperCase() !== 'TAR_OPTIONS'));
+  return { ...env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: os.devNull,
+    GIT_ATTR_NOSYSTEM: '1', GIT_NO_REPLACE_OBJECTS: '1' };
+}
+
 function git(repoDir: string, args: string[]): string {
   return execFileSync('git', ['-C', repoDir, ...args], { encoding: 'utf8' }).trim();
 }
@@ -67,14 +74,25 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
   // Sibling to dest (NOT inside it — the tar must never appear in the materialized
   // tree the scanner grades). mkdtemp guarantees dest is unique, so `${dest}.tar` is too.
   const tarPath = `${dest}.tar`;
+  const objectView = `${dest}.git`;
+  const env = canonicalGitEnvironment();
   try {
+    // `git archive` otherwise reads mutable .git/info/attributes and global/local
+    // configuration. A bare view has only canonical objects, no caller refs,
+    // templates or attributes; committed .gitattributes remain part of the input.
+    const objects = fs.realpathSync(execFileSync('git', ['-C', repoDir, 'rev-parse', '--path-format=absolute', '--git-path', 'objects'],
+      { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] }).trim());
+    if (/[\r\n]/.test(objects)) throw new Error('canonical object directory cannot contain a newline');
+    execFileSync('git', ['init', '--bare', '--quiet', '--template=', objectView], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    fs.writeFileSync(path.join(objectView, 'objects', 'info', 'alternates'), `${objects}\n`);
+
     // Hop 1: git archive <sha> → temp file, stdout streamed to the fd (no Node buffer).
     const outFd = fs.openSync(tarPath, 'w');
     let archive;
     try {
-      archive = spawnSync('git', ['-C', repoDir, 'archive', sha], {
+      archive = spawnSync('git', ['-C', objectView, '-c', `core.attributesFile=${os.devNull}`, 'archive', '--format=tar', sha], {
         stdio: ['ignore', outFd, 'pipe'],
-        env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' },
+        env,
       });
     } finally {
       fs.closeSync(outFd);
@@ -91,6 +109,7 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
     try {
       extract = spawnSync('tar', ['-x', '-C', dest], {
         stdio: [inFd, 'ignore', 'pipe'],
+        env,
       });
     } finally {
       fs.closeSync(inFd);
@@ -106,6 +125,7 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
     throw error;
   } finally {
     fs.rmSync(tarPath, { force: true });
+    fs.rmSync(objectView, { recursive: true, force: true });
   }
   return dest;
 }
@@ -128,7 +148,7 @@ export function listTreeKnowledge(repoDir: string, sha?: string): { tracked: Set
       errFd = fs.openSync(err, 'w');
       const result = spawnSync('git', ['-C', repoDir, ...args], {
         stdio: ['ignore', outFd, errFd],
-        env: { ...process.env, LC_ALL: 'C', GIT_NO_REPLACE_OBJECTS: '1' },
+        env: { ...(sha ? canonicalGitEnvironment() : process.env), LC_ALL: 'C', GIT_NO_REPLACE_OBJECTS: '1' },
       });
       if (result.error) throw result.error;
       return {

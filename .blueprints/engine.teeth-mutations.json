@@ -253,7 +253,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/pin.ts",
-        "preconditionSha256": "a2cd5d4d4c44da1ac51e958bd7928a719cdef6fae250235f46217c1f223f1ef7",
+        "preconditionSha256": "40a8269ceef89273ff18e32939a8ede72048da1a66d700da80b9cb0631d037f6",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/pin.ts",
@@ -313,7 +313,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/proposal-io.ts",
-        "preconditionSha256": "30f3896f37f5988c3a0650750c84435516a012c0134de2d085d743fec5ed729f",
+        "preconditionSha256": "179141aff0565176d751367984620b0e524bc223b386fb1f2db6fc1337c6c030",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/proposal-io.ts",

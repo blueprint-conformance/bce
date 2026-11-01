@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { evaluate, stableStringify, type LegacyComplianceReport } from './report.js';
 import { buildProposalContext, explainConstraint, reviewDigest, compareArchitectureSnapshots, buildPolicyImpactReview, policyImpactAdmissionRefusals, type PolicyImpactReview, type ArchitectureChangeReview, type ArchitectureReviewSnapshot } from './review.js';
-import { materializeAtRevision, listTreeKnowledge } from './pin.js';
+import { materializeAtRevision, listTreeKnowledge, canonicalGitEnvironment } from './pin.js';
 import { isProtectedPolicyPath } from './policy-change.js';
 import type { ProposalContext, RepositoryPolicyDiff, ConstraintReview } from './review-contracts.js';
 import { fileURLToPath } from 'node:url';
@@ -478,7 +478,7 @@ export function writeProposalFile(target: string, content: string): void {
 function acquireArchitectureSnapshot(repoDir: string, revision: string, blueprint: EngineeringBlueprint, toolchain: ToolchainIdentity): ArchitectureReviewSnapshot {
   const cfg = resolveExtraction(blueprint.extraction, blueprint.constraints);
   if (!/^[0-9a-f]{40}$/.test(revision)) throw new Error('architecture review requires full immutable 40-character commit SHAs');
-  const type = execFileSync('git', ['-C', repoDir, 'cat-file', '-t', revision], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } }).trim();
+  const type = execFileSync('git', ['-C', repoDir, 'cat-file', '-t', revision], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: canonicalGitEnvironment() }).trim();
   if (type !== 'commit') throw new Error('architecture review revision must identify a commit');
   const knowledge = listTreeKnowledge(repoDir, revision);
   if (!knowledge || knowledge.gitlinks.length) throw new Error('incomplete tree coverage: submodules are not supported by architecture review');
