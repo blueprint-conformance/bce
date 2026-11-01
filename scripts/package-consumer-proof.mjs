@@ -109,8 +109,28 @@ const previousConsumer = join(scratch, 'previous-engine-consumer');
 mkdirSync(previousConsumer);
 npm(['init', '-y'], { cwd: previousConsumer, stdio: 'ignore' });
 npm(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--save-exact', 'bce-engine@0.6.0'], { cwd: previousConsumer, stdio: 'inherit' });
-execFileSync(process.execPath, [join(root, 'scripts/release-feature-consumer-proof.mjs'),
-  installedRoot, join(previousConsumer, 'node_modules', 'bce-engine')], { cwd: scratch, stdio: 'inherit' });
+// Execute from the consumer directory: a public import resolves relative to
+// the helper's file, not its process cwd. Both modes run the same full scenarios.
+const featureConsumer = join(scratch, 'release-feature-consumer-proof.mjs');
+writeFileSync(featureConsumer, readFileSync(join(root, 'scripts/release-feature-consumer-proof.mjs')));
+for (const mode of ['esm', 'cjs']) {
+  execFileSync(process.execPath, [featureConsumer,
+    installedRoot, join(previousConsumer, 'node_modules', 'bce-engine'), mode], { cwd: scratch, stdio: 'inherit' });
+}
+// Also exercise npm's generated launcher, rather than only the declared JS
+// target. Windows installs a .cmd shim; use its command interpreter explicitly.
+const binShim = join(scratch, 'node_modules', '.bin', process.platform === 'win32' ? 'bce.cmd' : 'bce');
+if (!existsSync(binShim)) throw new Error('installed npm bce launcher is missing');
+const binOutput = process.platform === 'win32'
+  ? execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', '""%BCE_PROOF_BIN%" demo"'], {
+    cwd: scratch, encoding: 'utf8', windowsVerbatimArguments: true,
+    env: { ...process.env, BCE_PROOF_BIN: binShim },
+  })
+  : execFileSync(binShim, ['demo'], { cwd: scratch, encoding: 'utf8' });
+for (const marker of ['GREEN conformant: score 100, exit 0', 'RED drift-forbidden-import:', 'violation no-direct-provider-sdk']) {
+  if (!binOutput.includes(marker)) throw new Error(`installed npm bce launcher missing marker: ${marker}`);
+}
+process.stdout.write('installed npm bce launcher: GREEN/RED PASS\n');
 
 function callInstalledRunGate(repoDir, blueprintDir) {
   const input = [

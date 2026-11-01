@@ -5,25 +5,38 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-if (!process.argv[2] || !process.argv[3]) throw new Error('Usage: release-feature-consumer-proof.mjs <installed-root> <published-0.6.0-root>');
+if (!process.argv[2] || !process.argv[3] || !['esm', 'cjs'].includes(process.argv[4])) {
+  throw new Error('Usage: release-feature-consumer-proof.mjs <installed-root> <published-0.6.0-root> <esm|cjs> (run from the installed consumer)');
+}
 const installedRoot = resolve(process.argv[2]);
 const oldRoot = resolve(process.argv[3]);
+const mode = process.argv[4];
 assert.equal(JSON.parse(readFileSync(join(oldRoot, 'package.json'), 'utf8')).version, '0.6.0');
-const cli = join(installedRoot, 'dist/cli.js');
-// Resolve the package from its consumer directory, including the public require export.
-const require = createRequire(join(dirname(dirname(installedRoot)), 'feature-consumer.cjs'));
-assert.equal(realpathSync(require.resolve('bce-engine')), realpathSync(join(installedRoot, 'dist/index.cjs')));
-const cjs = require('bce-engine');
-const api = await import(pathToFileURL(join(installedRoot, 'dist/index.js')).href);
+function installedCli(root) {
+  const target = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).bin?.bce;
+  assert.equal(typeof target, 'string', 'installed package must declare bin.bce');
+  assert.ok(target.length > 0, 'installed bin.bce must not be empty');
+  const executable = realpathSync(resolve(root, target));
+  const local = relative(realpathSync(root), executable);
+  assert.ok(local && !local.startsWith('..') && !isAbsolute(local), 'bin.bce must remain inside the installed package');
+  return executable;
+}
+const cli = installedCli(installedRoot);
+// The parent copies this helper into the installed consumer so both public
+// conditions resolve there, not against this source checkout's own package.
+const require = createRequire(import.meta.url);
+const entry = mode === 'esm' ? fileURLToPath(import.meta.resolve('bce-engine')) : require.resolve('bce-engine');
+assert.equal(realpathSync(entry), realpathSync(join(installedRoot, mode === 'esm' ? 'dist/index.js' : 'dist/index.cjs')));
+const api = mode === 'esm' ? await import('bce-engine') : require('bce-engine');
 for (const name of ['reviewArchitectureChange', 'captureRepairEvidence', 'buildRepairBriefs',
   'extractStackManifest', 'diffStackManifests', 'computeGateReport', 'DependencyPathRefusal']) {
-  assert.equal(typeof api[name], 'function', `ESM export ${name}`);
-  assert.equal(typeof cjs[name], 'function', `CommonJS export ${name}`);
+  assert.equal(typeof api[name], 'function', `${mode} export ${name}`);
 }
-assert.equal(new cjs.DependencyPathRefusal('incomplete', 'bounded').constraintId, 'bounded');
+assert.equal(new api.DependencyPathRefusal('incomplete', 'bounded').constraintId, 'bounded');
+process.stdout.write(`packed public ${mode} feature scenarios: START\n`);
 const scratch = mkdtempSync(join(tmpdir(), 'bce-release-features-'));
 const tree = join(scratch, 'consumer');
 const policy = '.blueprints/policy.blueprint.json';
@@ -56,6 +69,37 @@ try {
   git('init', '-q'); git('config', 'user.name', 'Fixture'); git('config', 'user.email', 'fixture@example.test');
   const bp = read(join(installedRoot, 'fixtures/typescript-module-layering.blueprint.json'));
   bp.extraction.paths = ['packages/**/*.mjs']; bp.scope.paths = ['packages/**/*.mjs'];
+  const runtimePolicy = api.parseBlueprint({ ...bp,
+    constraints: [{ id: 'runtime-distinct', type: 'behavioralInvariant', severity: 'critical', behaviorRef: 'runtime' }],
+    evidenceRequirements: [{ type: 'runtimeProbe', required: true, onMissing: 'block' }],
+  });
+  const observation = (id, hash, ok = true, ref = 'runtime') => ({
+    id: `behavior:${ref}:${id}`, type: 'behaviorObservation', path: `${hash}|${ok ? '1' : '0'}`, line: 1,
+  });
+  const runtime = components => api.evaluate(runtimePolicy, {
+    schemaVersion: '1', ctRepoRevision: 'fixture', components, guardEdges: [],
+    coverage: { extractor: 'ast', filesScanned: 2, unsupported: [] },
+  }, 'plugin-surface');
+  assert.equal(runtime([observation('a', 'one'), observation('b', 'two')]).verdict, 'pass');
+  for (const components of [
+    [observation('a', 'one'), observation('a', 'two')],
+    [observation('a', 'one'), observation('b', 'one'), observation('a', 'two')],
+  ]) {
+    const report = runtime(components);
+    assert.equal(report.verdict, 'fail');
+    assert.ok(report.violations.some(v => /duplicate/.test(v.observed)));
+  }
+  for (const duplicates of [[observation('a', 'one'), observation('a', 'one', false)],
+    [observation('a', 'one', false), observation('a', 'one')]]) {
+    const report = runtime([...duplicates, observation('b', 'two')]);
+    assert.equal(report.verdict, 'fail');
+    assert.ok(report.violations.some(v => /duplicate/.test(v.observed)));
+    assert.ok(report.violations.some(v => /oracle/.test(v.observed)));
+  }
+  assert.equal(runtime([observation('a', 'one'), observation('b', 'two'),
+    observation('x', 'one', true, 'other'), observation('x', 'two', false, 'other')]).verdict, 'pass');
+  process.stdout.write(`packed public ${mode} runtime: distinct-ID control, duplicate refusals and oracle preservation PASS\n`);
+
   write('.gitignore', '.bce/\n');
   write(policy, json(bp));
   write('packages/app/api.mjs', 'export const twice = n => n * 2;\n');
@@ -100,7 +144,9 @@ try {
   const unsupported = api.reviewArchitectureChange({ ...reviewInput, blueprint: bp, baseRevision: boundedHead, headRevision: boundedHead });
   assert.equal(unsupported.status, 'refused'); assert.equal(unsupported.delta, null);
   assert.match(unsupported.refusals.join(' '), /unsupported constraint/);
-  run('bounded architecture refusal', 2, ['architecture-review', '--repo', tree, '--blueprint', join(tree, policy), '--base', boundedHead, '--head', boundedHead]);
+  const refused = run('bounded architecture refusal', 2, ['architecture-review', '--repo', tree, '--blueprint', join(tree, policy), '--base', boundedHead, '--head', boundedHead]);
+  assert.deepEqual(JSON.parse(refused.stdout), unsupported, 'CLI must preserve the API unsupported-constraint refusal');
+  assert.match(refused.stderr, /unsupported constraint/);
   const boundedEvidence = api.captureRepairEvidence(input);
   const boundedBriefs = api.buildRepairBriefs({ ...input, evidence: boundedEvidence }).briefs;
   assert.equal(boundedBriefs.length, 2);
@@ -110,7 +156,7 @@ try {
     assert.equal(brief.context.path, 'packages/bridge.mjs'); assert.equal(brief.proposedScope.authority, 'NONE');
   }
   run('bounded RED', 1, ['gate', '--repo', tree]);
-  const old = run('published predecessor refuses new floor', 2, ['gate', '--repo', tree], join(oldRoot, 'dist/cli.js'));
+  const old = run('published predecessor refuses new floor', 2, ['gate', '--repo', tree], installedCli(oldRoot));
   assert.match(old.stderr, /0\.6\.1/);
   assert.match(old.stderr, /requires|upgrade|minimum/i);
   const policyBytes = readFileSync(join(tree, policy), 'utf8');
@@ -191,7 +237,7 @@ try {
   process.stdout.write('packed workspace stack: importer downgrade/removal, closure identity, opt-in and mixed-schema refusal PASS\n');
   assert.equal(existsSync(join(installedRoot, 'scripts/adoption-attempts.mjs')), false);
   assert.match(readFileSync(join(installedRoot, 'docs/adoption-lifecycle.md'), 'utf8'), /opt-in source-checkout workflow/);
-  process.stdout.write('packed release features: PASS (adoption collection remains source-checkout-only)\n');
+  process.stdout.write(`packed public ${mode} release features: PASS (adoption collection remains source-checkout-only)\n`);
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }
