@@ -185,6 +185,8 @@ const PAGES = [
   { route: 'rfcs/RFC-0002-declared-stack-contracts', source: 'rfcs/RFC-0002-declared-stack-contracts.md', section: 'RFCs' },
   { route: 'rfcs/RFC-0003-workspace-stack-review', source: 'rfcs/RFC-0003-workspace-stack-review.md', section: 'RFCs' },
 
+  { route: 'rfcs/RFC-0004-bounded-dependency-path', source: 'rfcs/RFC-0004-bounded-dependency-path.md', section: 'RFCs' },
+
   { route: 'guides/faq', source: 'docs/faq.md', nav: 'FAQ', section: 'Guides' },
 
   { route: 'paper', kind: 'paper', source: 'docs/paper.md', nav: 'Paper', section: null },
