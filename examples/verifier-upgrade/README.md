@@ -130,7 +130,9 @@ exit code alone cannot establish compatibility.
 The installed example's offline proof captures the fixture twice and exercises changed historical
 diagnostics without current-engine replay, lost inventory, altered identities, malformed/missing
 output, incompatible evidence, moving revisions, output overwrite refusal, and actual
-crash/timeout/output-limit controls:
+crash/timeout/output-limit controls. It also invokes both CLI entry points through a directory
+symlink (a junction on Windows), checks their JSON output, and verifies that importing either
+module does not execute its CLI:
 
 ```sh
 node "$RECIPE/proof.mjs" /absolute/admitted-consumer/node_modules/bce-engine /absolute/admitted.tgz

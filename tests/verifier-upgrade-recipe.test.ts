@@ -14,7 +14,7 @@ describe('installed verifier qualification recipe', () => {
       execFileSync('tar', ['-czf', tarball, '-C', process.cwd(), 'package.json', 'npm-shrinkwrap.json', 'dist']);
       const result = spawnSync(process.execPath, ['examples/verifier-upgrade/proof.mjs', process.cwd(), tarball], { encoding: 'utf8', timeout: 60_000 });
       expect(result.status, result.stderr).toBe(0);
-      expect(result.stdout).toContain('27 controls, data-only comparison PASS');
+      expect(result.stdout).toContain('32 controls, data-only comparison PASS');
     } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
   }, 90_000);
 });

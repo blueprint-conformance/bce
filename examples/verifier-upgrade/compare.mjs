@@ -89,7 +89,11 @@ export function compare(base, candidate, baseAdmission, candidateAdmission) {
     artifactIdentityChanged: !equal(base.receipt.artifact, candidate.receipt.artifact), baseExit: base.receipt.process.exit, candidateExit: candidate.receipt.process.exit,
     claim: 'Captured fixture observations only; no origin authentication, upgrade approval or compatibility guarantee.' };
 }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+function isMain() {
+  try { return Boolean(process.argv[1]) && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); }
+  catch { return false; } // Imports need not have an existing filesystem entry point.
+}
+if (isMain()) {
   let result;
   try {
     const [base, candidate, baseAdmission, candidateAdmission, ...extra] = process.argv.slice(2);

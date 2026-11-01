@@ -23,17 +23,35 @@ try {
   fs.writeFileSync(path.join(repo, '.git/info/attributes'), 'packages/** export-ignore\n');
   const admission = { ...identify(packageRoot, tarball), provenance: 'Test operator explicitly admitted the package under test; this local record is not authenticated provenance.' };
   const identityFile = path.join(scratch, 'identity.json'); fs.writeFileSync(identityFile, stable(admission));
+  let controls = 0;
+  // Junctions exercise the same alias on Windows without requiring symlink privileges.
+  const recipeAlias = path.join(scratch, 'recipe-alias');
+  fs.symlinkSync(fileURLToPath(new URL('.', import.meta.url)), recipeAlias, process.platform === 'win32' ? 'junction' : 'dir');
+  const identified = await boundedRun([process.execPath, path.join(recipeAlias, 'capture.mjs'), 'identify', packageRoot, tarball], scratch);
+  assert.equal(identified.exit, 0, identified.stderr);
+  assert.deepEqual(JSON.parse(identified.stdout), identify(packageRoot, tarball)); controls++;
+  const importDriver = path.join(scratch, 'import-driver.mjs');
+  fs.writeFileSync(importDriver, "import { pathToFileURL } from 'node:url'; await import(pathToFileURL(process.argv[2])); process.stdout.write('import-only\\n');\n");
+  for (const module of ['capture.mjs', 'compare.mjs']) {
+    const imported = await boundedRun([process.execPath, importDriver, path.join(recipeAlias, module)], scratch);
+    assert.equal(imported.exit, 0, imported.stderr);
+    assert.equal(imported.stdout, 'import-only\n'); assert.equal(imported.stderr, ''); controls++;
+  }
   // Working-tree content must not affect either immutable extraction.
   fs.appendFileSync(path.join(repo, 'packages/domain/model.ts'), '\nvoid import(unresolvedName);\n');
   await capture(identityFile, repo, revision, path.join(scratch, 'base'));
-  await capture(identityFile, repo, revision, path.join(scratch, 'candidate'));
+  const captured = await boundedRun([process.execPath, path.join(recipeAlias, 'capture.mjs'), 'capture', identityFile, repo, revision, path.join(scratch, 'candidate')], scratch);
+  assert.equal(captured.exit, 0, captured.stderr);
+  assert.equal(JSON.parse(captured.stdout).exit, 1); controls++;
   const base = loadCapture(path.join(scratch, 'base')), candidate = loadCapture(path.join(scratch, 'candidate'));
   const result = compare(base, candidate, admission, admission);
   assert.equal(result.status, 'equivalent-observations', JSON.stringify(result));
+  const compared = await boundedRun([process.execPath, path.join(recipeAlias, 'compare.mjs'), path.join(scratch, 'base'), path.join(scratch, 'candidate'), identityFile, identityFile], scratch);
+  assert.equal(compared.exit, 0, compared.stderr);
+  assert.deepEqual(JSON.parse(compared.stdout), result); controls++;
   assert.equal(result.baseExit, 1); assert.equal(result.candidateExit, 1);
   assert.equal(base.report.violations.length, 1);
   assert.equal(candidate.bundle.artifacts.graph.ctRepoRevision, revision);
-  let controls = 0;
   const rehash = value => {
     for (const key of ['blueprint', 'graph', 'report']) value.bundle.hashes[key] = digest(value.bundle.artifacts[key]);
     const { bundle: ignored, ...hashes } = value.bundle.hashes; void ignored;
