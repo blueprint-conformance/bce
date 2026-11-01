@@ -1,6 +1,6 @@
 # RFC-0004: Explicit bounded dependency paths
 
-Status: draft (proposed; pending public PR discussion)
+Status: accepted (effective only when this RFC pull request is merged)
 Author(s): bce maintainers, prepared with an AI coding agent
 
 ## Summary
@@ -8,8 +8,8 @@ Author(s): bce maintainers, prepared with an AI coding agent
 Add `forbiddenDependencyPath`, an explicit TypeScript module boundary over one or two
 observed import edges. Require `maxHops: 2`, a nonempty source scope, and a resolved
 module/package/builtin target selector. Keep `forbiddenDependency` direct. Reuse the
-existing graph and compliance-report shapes; this is a reviewable candidate implementation,
-not an accepted specification or a released capability.
+existing graph and compliance-report shapes. This decision takes effect on merge of this
+RFC; the candidate implementation remains unreleased.
 
 ## Motivation
 
@@ -116,9 +116,8 @@ arm fields, legal-arm restrictions, profile, path, and engine-floor conditions r
 engine-enforced cross-field checks, as with existing module-profile refinements.
 
 RFC-0001 currently requires maintainer acceptance followed by an implementation/spec
-change. This draft and implementation make that review concrete; neither records
-acceptance. The normative specification must be updated with the accepted contract in
-that follow-on landing. Release ordering must retain the unknown-constraint version guard.
+change. The decision below becomes effective on merge of this RFC. The normative specification
+must be updated with the accepted contract in the follow-on implementation landing. Release ordering must retain the unknown-constraint version guard.
 
 ## Validation
 
@@ -141,11 +140,9 @@ normative specification.
 AI technical review (2026-11-01): **CHANGES REQUIRED** for the implementation candidate; the proposed bounded semantics are suitable for public design review. The mixed declared-stack/path dispatcher must translate DependencyPathRefusal into structured indeterminate evidence instead of letting it escape the gate report path. The follow-on implementation must include a regression for that combination. Existing direct-edge semantics, explicit hop bound, and candidate engine floor are otherwise preserved.
 
 The review was performed by an AI agent separate from the implementation task.
-It does not constitute independent human review, public discussion, maintainer
-acceptance, or release authorization. Under RFC-0001, the public RFC pull request
-must record discussion and a maintainer decision with its rationale before a
-follow-on implementation/specification change lands. The draft status remains
-unaccepted until that decision is recorded.
+It does not constitute independent human review or a released capability. Public
+review takes place on this RFC pull request. Under RFC-0001, this RFC must merge
+with its decision before a follow-on implementation/specification change lands.
 
 ### Implementation finding resolution (2026-11-01)
 
@@ -162,5 +159,18 @@ accepted that correction.
 The combined source candidate `90c3e54323091515420e225d3cfa5dc5686ae413`
 passed build/typecheck, 1,493 tests with four skips, self-gates, and 50 real-source
 mutation checks. These are local implementation results, not public adoption,
-a released package, or this RFC's acceptance decision. The proposal remains draft
-for public discussion.
+a released package, or independent human acceptance. Public review remains on the
+RFC pull request; the decision below is effective only on merge.
+
+## Decision effective on merge
+
+Decision: **accept upon merge of this RFC pull request**, after public review and
+required repository checks. Rationale: A separate constraint name, explicit two-edge bound, complete local coverage, and minimum-engine guard add expressive power without changing direct constraints or treating unknown evidence as a pass.
+
+The maintainer delegated this engineering mission and its review decisions to AI
+agents. This is an AI-delegated maintainer decision, not a claim that a human
+independently reviewed the proposal. The unmerged branch is review material;
+acceptance becomes effective only when the RFC is merged. Any blocking public
+review finding must be resolved before that merge. The implementation and
+normative specification remain a separate follow-on PR, and no package release
+is announced here.
