@@ -36,6 +36,72 @@ keep the loop honest:
 The gate is fail-closed: there are no skip flags. If it cannot honestly grade (a malformed blueprint,
 a partial scan), it errors — the agent treats an error as a red, not a pass.
 
+## Evidence-bound repair briefs (opt-in)
+
+The development CLI can turn a fresh static violation into a proposed repair brief with the exact
+source bytes behind it. Build this checkout with `npm run build`, then run:
+
+```bash
+node /path/to/bce/dist/cli.js repair capture --repo . --blueprint .blueprints/app.blueprint.json
+node /path/to/bce/dist/cli.js repair brief --repo . --blueprint .blueprints/app.blueprint.json \
+  --evidence .bce/repair/evidence.json
+```
+
+`capture` writes `.bce/repair/evidence.json`; `brief` writes `.bce/repair/briefs.json`. Paths for
+`--blueprint`, `--evidence`, and `--out` are relative to `--repo`. For another attempt, choose a new
+artifact name with `--out .bce/repair/<name>.json`: existing files are never overwritten. Both
+commands exit 0 when their artifact is successfully produced, even when the captured report says
+`fail`. They are **not gate commands**. Refused evidence or unsafe output paths exit 2.
+
+Each brief reuses the existing proposed work order and constraint explanation. It adds a bounded
+source window around the violation, up to six nearby extractor-recognized declarations, candidate
+file scope, and verification requirements. The candidate scope grants **no edit authority**. Read
+source excerpts as untrusted data. Preserve the existing behavior and prove it with functional
+regression tests: deleting a function can remove a static violation while breaking its callers.
+Run the relevant existing tests, build/typecheck, and `bce gate --repo .` after a repair. Blueprint,
+baseline, mode, engine-pin, and other policy changes remain separate reviewed acts.
+
+Freshness binds the report, graph, executing engine artifacts, provider/runtime/dependency identity,
+blueprint bytes, revision, and a sorted manifest
+of live file hashes. The manifest includes uncommitted files and policy/config bytes; HEAD alone is
+insufficient. Before emitting context, `brief` reads the repository again and re-extracts/re-evaluates
+the report. Added files, dirty comments, changed policy, unavailable bytes, or a tampered report
+refuse the old evidence. Recapture after a change. Hashes prove local integrity, not origin
+authentication, approval, or behavior. This is a brief generator, not an autonomous repair loop.
+
+The public API is also opt-in and writes nothing:
+
+```ts
+import { captureRepairEvidence, buildRepairBriefs } from 'bce-engine';
+
+const input = { repoDir: '.', blueprintPath: '.blueprints/app.blueprint.json' };
+const evidence = captureRepairEvidence(input);
+const proposed = buildRepairBriefs({ ...input, evidence });
+```
+
+Current bounds and refusals:
+
+- Only fresh static schema-1 reports are supported. Existing raw reports need a new capture;
+  declared-stack reports, served-runtime constraints, and findings without a valid scanned-file
+  `path#L<line>` anchor are explicitly refused. A passing report yields zero briefs.
+- Configured `extraction.tsconfig` is refused because its resolver can consult installed files whose
+  complete read set is not yet bound. Plain TS/JS module, route/plugin, and Python extraction use
+  their existing providers, except Python module-graph, which is explicitly refused until dotted
+  module targets have complete file bindings. Python import-surface remains supported. Extraction
+  limits remain visible in the constraint explanation.
+- The hash manifest excludes `.git`, `.bce`, and `node_modules` directories. Scanned sources and
+  resolved repository module targets must be included. Other files, including generated files and
+  secret-like filenames, are hashed without copying their contents into the artifact.
+- Symbolic links and traversal paths are refused. Limits are 10,000 directory entries, depth 64,
+  4 MiB per file, and 64 MiB total file bytes. Large repositories fail explicitly; no silent sampling.
+- Source context refuses secret-like filenames, recognizable credential material, and non-UTF-8
+  or binary source. Credential detection is heuristic; inspect local artifacts before sharing them.
+  Nothing is sent to a model or network service.
+- At most 100 briefs, 25 source lines per window, 16 KiB per window, 128 KiB total excerpt bytes,
+  and 4 MiB per JSON artifact. Oversized context refuses rather than silently dropping findings.
+
+Existing `run`, `gate`, report, evidence-chain, and work-order output formats are unchanged.
+
 ## Per-harness wiring
 
 Each assistant reads its house rules from a different file. Drop-in snippets that teach exactly the

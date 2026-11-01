@@ -156,3 +156,49 @@ and use a tsconfig when aliases matter.
 
 Next: [choose another executable boundary](first-win.md), [read C1–C4](constraint-guide.md), or
 [install the gate in advisory mode](adopt-existing-repo.md).
+
+## Review architecture changes between commits
+
+`bce architecture-review` compares observed architecture at two full immutable Git commit SHAs
+under one supplied blueprint and the same engine, dependency lock, runtime, and TypeScript AST
+provider. It reads archived commits, so dirty working-tree changes do not contaminate either scan.
+The supplied blueprint is frozen once for both revisions; it need not be the blueprint committed at
+either revision. Policy amendment review remains a separate workflow.
+
+```sh
+node dist/cli.js architecture-review --repo . --blueprint boundary.blueprint.json \
+  --base <40-character-base-commit-sha> --head <40-character-head-commit-sha> \
+  --out architecture-review.json
+```
+
+Without `--out`, JSON goes to stdout. An output path must not exist; the command never overwrites a
+source, policy, baseline, or earlier report. Exit 0 means the head conforms, 1 means it has raw
+violations (including retained debt), and 2 means the comparison was refused or acquisition failed.
+Comparison refusals carry `status: "refused"`, reasons, and `delta: null`; acquisition errors print a
+reason to stderr and produce no report. This review does not replace `bce gate`, apply a baseline,
+change policy, or authorize a merge.
+
+The report includes added, removed, and retained modules, direct dependencies, and raw violations,
+plus both revisions, input digests, the frozen blueprint digest, toolchain identity, provider coverage,
+and a report digest. For violations, added means newly observed, removed means resolved under this
+contract, and retained means still present. Evidence retains the base and head source anchors.
+Module identity is its path/type; dependency identity is source, target, and kind. Line-only changes
+do not invent additions or fixes. Renames are removal plus addition, with no claim of symbol identity.
+Repeated indistinguishable edges or violations refuse the whole comparison rather than matching
+individual occurrences by source line.
+
+This first slice supports `typescript-module-graph` and `forbiddenDependency`, `requiredDependency`,
+`requiredComponent`, `forbiddenPath`, and `forbiddenFile` constraints. Other constraints, unresolved
+imports, changed provider limitations, missing coverage, symlinks, submodules, and a tracked module
+vanishing from extraction refuse comparison. A genuinely deleted module is reported as removed.
+Resolver inputs are conservatively frozen: all tracked JSON files must remain byte-identical,
+including unrelated JSON; all files actually read in the tsconfig extends chain are frozen as well,
+even without a JSON suffix. This restriction avoids attributing resolution-setting changes to code.
+The static provider's direct-import limits still apply; there are no runtime, cycle, or transitive
+claims.
+
+The public API is `reviewArchitectureChange({ repoDir, baseRevision, headRevision, blueprint })`.
+`compareArchitectureSnapshots(base, head)` provides deterministic replay for callers that already
+have graphs, tracked-file manifests, the complete blueprint, resolver-input digests, and toolchain
+identities. Caller-supplied snapshots are assertions: their digests prove integrity, not authenticity.
+`architectureReviewExitCode(report)` implements the same 0/1/2 result as the CLI.
