@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { evaluate, stableStringify, type LegacyComplianceReport } from './report.js';
-import { buildProposalContext, explainConstraint, reviewDigest, compareArchitectureSnapshots, type ArchitectureChangeReview, type ArchitectureReviewSnapshot } from './review.js';
+import { buildProposalContext, explainConstraint, reviewDigest, compareArchitectureSnapshots, buildPolicyImpactReview, policyImpactAdmissionRefusals, type PolicyImpactReview, type ArchitectureChangeReview, type ArchitectureReviewSnapshot } from './review.js';
 import { materializeAtRevision, listTreeKnowledge } from './pin.js';
 import { isProtectedPolicyPath } from './policy-change.js';
 import type { ProposalContext, RepositoryPolicyDiff, ConstraintReview } from './review-contracts.js';
@@ -475,6 +475,32 @@ export function writeProposalFile(target: string, content: string): void {
   finally { fs.closeSync(fd); }
 }
 
+function acquireArchitectureSnapshot(repoDir: string, revision: string, blueprint: EngineeringBlueprint, toolchain: ToolchainIdentity): ArchitectureReviewSnapshot {
+  const cfg = resolveExtraction(blueprint.extraction, blueprint.constraints);
+  if (!/^[0-9a-f]{40}$/.test(revision)) throw new Error('architecture review requires full immutable 40-character commit SHAs');
+  const type = execFileSync('git', ['-C', repoDir, 'cat-file', '-t', revision], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } }).trim();
+  if (type !== 'commit') throw new Error('architecture review revision must identify a commit');
+  const knowledge = listTreeKnowledge(repoDir, revision);
+  if (!knowledge || knowledge.gitlinks.length) throw new Error('incomplete tree coverage: submodules are not supported by architecture review');
+  const tree = materializeAtRevision(repoDir, revision);
+  try {
+    // A symlink can change acquisition without changing a glob or nominal file count.
+    for (const file of knowledge.tracked) {
+      if (!fs.existsSync(path.join(tree, file)) || fs.lstatSync(path.join(tree, file)).isSymbolicLink()) throw new Error(`incomplete tree coverage: missing or symlinked tracked file ${file}`);
+    }
+    const extractor = makeExtractor('ast', cfg) as TypeScriptModuleGraphExtractor;
+    const graph = extractor.extract(tree, revision);
+    const resolverPaths = new Set([...knowledge.tracked].filter(file => /\.json$/i.test(file)));
+    for (const file of extractor.getResolutionInputPaths()) resolverPaths.add(file);
+    const resolverInputs = [...resolverPaths].sort()
+      .map(file => ({ path: file, content: fs.readFileSync(path.join(tree, file), 'utf8') }));
+    return {
+      blueprint, toolchain, graph,
+      trackedFiles: [...knowledge.tracked].sort(), resolverInputsDigest: reviewDigest(resolverInputs),
+    };
+  } finally { fs.rmSync(tree, { recursive: true, force: true }); }
+}
+
 /** Frozen Git acquisition for observed architecture review. */
 /** Accept full commit IDs only: symbolic refs cannot move between the two acquisitions. */
 export function reviewArchitectureChange(args: {
@@ -486,31 +512,25 @@ export function reviewArchitectureChange(args: {
   const cfg = resolveExtraction(blueprint.extraction, blueprint.constraints);
   if (cfg.profile !== 'typescript-module-graph') throw new Error('architecture review requires typescript-module-graph');
   const toolchain = resolveToolchainIdentity({ engineVersion, extractorKind: 'ast', extractionProfile: cfg.profile });
-  const acquire = (revision: string): ArchitectureReviewSnapshot => {
-    if (!/^[0-9a-f]{40}$/.test(revision)) throw new Error('architecture review requires full immutable 40-character commit SHAs');
-    const type = execFileSync('git', ['-C', args.repoDir, 'cat-file', '-t', revision], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-    if (type !== 'commit') throw new Error('architecture review revision must identify a commit');
-    const knowledge = listTreeKnowledge(args.repoDir, revision);
-    if (!knowledge || knowledge.gitlinks.length) throw new Error('incomplete tree coverage: submodules are not supported by architecture review');
-    const tree = materializeAtRevision(args.repoDir, revision);
-    try {
-      // A symlink can change acquisition without changing a glob or nominal file count.
-      for (const file of knowledge.tracked) {
-        if (!fs.existsSync(path.join(tree, file)) || fs.lstatSync(path.join(tree, file)).isSymbolicLink()) throw new Error(`incomplete tree coverage: missing or symlinked tracked file ${file}`);
-      }
-      const extractor = makeExtractor('ast', cfg) as TypeScriptModuleGraphExtractor;
-      const graph = extractor.extract(tree, revision);
-      const resolverPaths = new Set([...knowledge.tracked].filter(file => /\.json$/i.test(file)));
-      for (const file of extractor.getResolutionInputPaths()) resolverPaths.add(file);
-      const resolverInputs = [...resolverPaths].sort()
-        .map(file => ({ path: file, content: fs.readFileSync(path.join(tree, file), 'utf8') }));
-      return {
-        blueprint, toolchain, graph,
-        trackedFiles: [...knowledge.tracked].sort(), resolverInputsDigest: reviewDigest(resolverInputs),
-      };
-    } finally { fs.rmSync(tree, { recursive: true, force: true }); }
-  };
-  return compareArchitectureSnapshots(acquire(args.baseRevision), acquire(args.headRevision));
+  return compareArchitectureSnapshots(acquireArchitectureSnapshot(args.repoDir, args.baseRevision, blueprint, toolchain), acquireArchitectureSnapshot(args.repoDir, args.headRevision, blueprint, toolchain));
+}
+
+/** Compare two supplied policies against one immutable source commit. No source or policy writes. */
+export function reviewPolicyImpact(args: {
+  repoDir: string; revision: string; repoName: string;
+  baseBlueprint: EngineeringBlueprint; candidateBlueprint: EngineeringBlueprint;
+}): PolicyImpactReview {
+  const baseBlueprint = parseBlueprint(JSON.parse(JSON.stringify(args.baseBlueprint)));
+  const candidateBlueprint = parseBlueprint(JSON.parse(JSON.stringify(args.candidateBlueprint)));
+  const cfg = resolveExtraction(baseBlueprint.extraction, baseBlueprint.constraints);
+  const toolchain = resolveToolchainIdentity({ engineVersion: resolveEngineVersion(), extractorKind: 'ast', extractionProfile: cfg.profile });
+  const acquisitionRefusals = policyImpactAdmissionRefusals(baseBlueprint, candidateBlueprint, args.repoName, toolchain);
+  let snapshot: ArchitectureReviewSnapshot | null = null;
+  if (!acquisitionRefusals.length) {
+    try { snapshot = acquireArchitectureSnapshot(args.repoDir, args.revision, baseBlueprint, toolchain); }
+    catch (error) { acquisitionRefusals.push((error as Error).message); }
+  }
+  return buildPolicyImpactReview({ baseBlueprint, candidateBlueprint, repo: args.repoName, revision: args.revision, toolchain, snapshot, acquisitionRefusals });
 }
 
 /* Read-only evidence-bound repair proposals: integrity is not authority. */

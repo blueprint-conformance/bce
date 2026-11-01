@@ -227,3 +227,49 @@ it is outside the governed source scope. The ordinary CLI/API/MCP gate then repo
 complete anchored one/two-edge witness. An unresolved or unscanned intermediate, a
 missing coverage inventory, or zero matching source roots refuses with exit 2. Paths
 of three or more edges and external package internals are outside the explicit bound.
+
+## Preview a policy change on frozen source
+
+`bce policy-impact` evaluates two supplied policies against **one extraction of one immutable
+Git commit**. It returns both raw reports, the existing semantic policy classification, and
+introduced, removed and retained findings. A removed finding means the policy stopped reporting it;
+it does not mean the source was repaired. Neither this result nor its exit code approves a policy.
+
+```sh
+bce policy-impact --repo . --repo-name example-org/storefront \
+  --revision <full-commit-sha> \
+  --base-blueprint base.blueprint.json --candidate-blueprint candidate.blueprint.json \
+  --out policy-impact.json
+```
+
+The installed API is `reviewPolicyImpact({ repoDir, repoName, revision, baseBlueprint,
+candidateBlueprint })`. Its `PolicyImpactReview` result records both policy digests, complete
+resolved acquisition settings, source and resolver-input digests, tracked inventory, exact coverage,
+toolchain identity and an artifact digest. Digests prove integrity, not origin authenticity; the
+supplied repository name must be applicable to both policies but is not authenticated by this call.
+Uncommitted source changes and Git replacement objects do not alter the pinned acquisition.
+Policy inputs are supplied documents, not implicitly loaded from the commit.
+
+This first slice admits direct TypeScript module dependency constraints, required module components,
+and forbidden paths/files, with explicitly supported constraint fields. It requires identical
+complete policy scope and resolved extraction settings, including constraint-derived settings.
+Changing a dependency target can therefore be refused even when the provider would not use the
+changed setting. The only admitted evidence requirement is exactly one
+`{ "type": "staticAst", "required": true, "onMissing": "block" }` entry. Other evidence classes,
+freshness or coverage qualifiers, unknown fields, duplicate constraint identities and unsupported
+constraint shapes are refused. Each policy's engine minimum must be satisfied.
+
+Missing or inconsistent scanned coverage, unresolved imports, invalid source, submodules, tracked
+symlinks and ambiguous repeated finding identities also refuse comparison. Refusals contain reasons and
+`delta: null`; they never mean unchanged. Constraint-ID renames and severity changes remain visible
+as removal plus introduction. Raw results exclude baseline filtering and advisory-mode overrides:
+exit **0** means comparable with candidate pass, **1** comparable with candidate fail, and **2**
+refused or unavailable. Output creation is exclusive: an existing artifact or input cannot be
+overwritten. Continue using `bce gate` and the policy review process for their separate decisions.
+
+For a small reproducible example, use the layering fixture with a committed import from
+`packages/domain/model.ts` to `packages/app/api.ts`. Keep both policies' extraction settings fixed.
+Set the base constraint `domain-cannot-import-app` to `scopePaths: ["packages/app/**"]` and retain
+`scopePaths: ["packages/domain/**"]` in the candidate. The unchanged source produces one introduced
+finding under the candidate; reversing the policies removes that finding without repairing code.
+This exercises a policy selector change, not a complete application or runtime guarantee.

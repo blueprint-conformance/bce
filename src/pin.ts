@@ -74,6 +74,7 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
     try {
       archive = spawnSync('git', ['-C', repoDir, 'archive', sha], {
         stdio: ['ignore', outFd, 'pipe'],
+        env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' },
       });
     } finally {
       fs.closeSync(outFd);
@@ -127,7 +128,7 @@ export function listTreeKnowledge(repoDir: string, sha?: string): { tracked: Set
       errFd = fs.openSync(err, 'w');
       const result = spawnSync('git', ['-C', repoDir, ...args], {
         stdio: ['ignore', outFd, errFd],
-        env: { ...process.env, LC_ALL: 'C' },
+        env: { ...process.env, LC_ALL: 'C', GIT_NO_REPLACE_OBJECTS: '1' },
       });
       if (result.error) throw result.error;
       return {
