@@ -52,7 +52,7 @@ import {
   ProposalContextSchema,
 } from '../src/review-contracts.js';
 import { AssistantGenerationRecordSchema } from '../src/assistant-adapter.js';
-import { StackManifestSchema } from '../src/stack/stack-manifest.js';
+import { StackManifestSchema, WorkspaceStackManifestSchema } from '../src/stack/stack-manifest.js';
 
 export const SCHEMA_ID_BASE = 'https://blueprint-conformance.github.io/bce/schemas/';
 const DRAFT = 'http://json-schema.org/draft-07/schema#';
@@ -556,6 +556,7 @@ export function generateSchemas(): Record<string, Record<string, unknown>> {
     'remediation-work-order.schema.json': remediationWorkOrderSchema(),
     'teeth-mutation-manifest.schema.json': teethMutationManifestSchema(),
     'stack-manifest.schema.json': stackManifestSchema(),
+    'workspace-stack-manifest.schema.json': envelope('workspace-stack-manifest.schema.json', 'WorkspaceStackManifest', 'RFC-0003 schema-2 pnpm importer topology. Closure hashing retains the schema-1 projection; importer topology is covered by manifestDigest. Cross-field target and edge consistency is validated by the engine.', zodDerivedBody(WorkspaceStackManifestSchema, 'WorkspaceStackManifest')),
     'proposal-context.schema.json': zodReviewArtifactSchema(
       'proposal-context.schema.json', 'ProposalContext',
       'The bounded, disclosed, content-addressed repository and intent context supplied to an untrusted proposal assistant.',

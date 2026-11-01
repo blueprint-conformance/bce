@@ -24,7 +24,7 @@
  *   - the declared range of a transitive dependency ⇒ those edge specs are `''`.
  */
 import { createHash } from 'node:crypto';
-import { stackNodeId, type StackEdge, type StackNode, type StackRootDeclared, type StackUnmodeled } from './stack-manifest.js';
+import { stackNodeId, type StackImporter, type StackEdge, type StackNode, type StackRootDeclared, type StackUnmodeled } from './stack-manifest.js';
 
 /* -------------------------------------------------------------------------- */
 /* Fixed refusal / coverage strings (verbatim contract — tests pin these)       */
@@ -471,6 +471,7 @@ export type PnpmStackNode = StackNode;
 export interface PnpmDerived {
   nodes: PnpmStackNode[];
   edges: StackEdge[];
+  workspaceImporters: StackImporter[];
   /** sorted by key */
   unmodeled: PnpmUnmodeled[];
   /** importer '.' only: the ranges the root declares — QUARANTINED, never hashed */
@@ -886,6 +887,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity, o
   const seedsProd: string[] = [];
   const seedsAll: string[] = [];
   const importerFacts: PnpmImporterFacts[] = [];
+  const workspaceImporters: StackImporter[] = [];
   for (const imp of sortedKeys(importers)) {
     const impMap = importers.get(imp);
     if (!isMap(impMap)) {
@@ -894,6 +896,8 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity, o
       continue;
     }
     if (imp !== '.') warn(STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS);
+    const workspaceImporter: StackImporter = { path: imp, dependencies: [] };
+    workspaceImporters.push(workspaceImporter);
     const names = new Set<string>();
     const selfLinks: string[] = [];
     importerFacts.push({ path: imp, names: [], selfLinks: [] });
@@ -971,6 +975,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity, o
           warn(`npm: alias ${imp}:${dep} -> ${version}: the real package is a node; the alias name is hashed as an opaque entry`, 'opaque-package-entry');
           opaque(depKey, 'npm-alias', version, { name: dep, version }); // alias name + resolved target; the range is quarantined
         }
+        workspaceImporter.dependencies.push({ name: dep, group: bucket.key, spec: specifier, to: target.id });
         seedsAll.push(snapKey);
         if (!bucket.dev) seedsProd.push(snapKey);
         addEdge({ from: rootNode.id, to: target.id, spec: specifier, dev: bucket.dev, optional: bucket.optional, peer: false });
@@ -1107,6 +1112,7 @@ export function deriveFromPnpmLockV9(doc: PnpmYamlMap, root: PnpmRootIdentity, o
     malformed: malformed.sort(),
     hollow,
     importers: importerFacts,
+    workspaceImporters,
     excludeLinksFromLockfile,
   };
 }

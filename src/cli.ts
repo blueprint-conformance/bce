@@ -68,7 +68,7 @@ import { assessExtractorTeethCorpus, buildSourceReviewProof } from './extractor-
 import { readTeethWaiver, TeethWaiverError, TEETH_WAIVER_RELPATH } from './teeth-waiver.js';
 import { resolveRevision, materializeAtRevision, listTreeKnowledge } from './pin.js';
 import { extractStackManifest } from './stack/stack-extractor.js';
-import { StackManifestSchema, verifyStackManifest, type StackManifest } from './stack/stack-manifest.js';
+import { StackManifestSchema, WorkspaceStackManifestSchema, workspaceTopologyErrors, verifyStackManifest, type StackManifest } from './stack/stack-manifest.js';
 import { diffStackManifests, stackDiffExitCode } from './stack/stack-diff.js';
 import { discoverBlueprints, runGate, assembleGateReportDoc } from './gate.js';
 import {
@@ -980,7 +980,7 @@ async function main(): Promise<void> {
     baseline: ['repo', 'ct-repo', 'blueprint-dir', 'changed', 'extractor', 'repo-name', 'dry-run', 'check', 'out', 'patch-out'],
     graduate: ['repo', 'ct-repo', 'downgrade', 'rationale'],
     portfolio: args._[1] === 'compile' ? ['portfolio', 'out-dir'] : ['registry', 'reports-dir'],
-    stack: args._[1] === 'diff' ? ['from', 'to', 'out'] : ['ct-repo', 'ref', 'no-pin', 'out'],
+    stack: args._[1] === 'diff' ? ['from', 'to', 'out'] : ['ct-repo', 'ref', 'no-pin', 'out', 'workspace-aware'],
   };
   if (cmd && allowedByCommand[cmd]) {
     const allowed = new Set([...allowedByCommand[cmd], 'help', 'version']);
@@ -2394,7 +2394,7 @@ async function main(): Promise<void> {
   }
 
   if (cmd === 'stack') {
-    // bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]
+    // bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--workspace-aware] [--out <path>]
     //   Extract the DECLARED dependency closure (npm lockfile v3 / shrinkwrap or pnpm-lock v9, Dockerfile FROM,
     //   compose image:, node runtime) of a pinned tree into a content-addressed StackManifest.
     //   No network, node_modules never read. Refusal (no supported lockfile, malformed or
@@ -2422,13 +2422,15 @@ async function main(): Promise<void> {
         } catch (e) {
           die(`--${flag} ${file} is not a valid StackManifest: not JSON (${(e as Error).message.split('\n')[0]})`, 2);
         }
-        const parsed = StackManifestSchema.safeParse(raw);
+        const parsed = (typeof raw === 'object' && raw !== null && 'schemaVersion' in raw && raw.schemaVersion === '2' ? WorkspaceStackManifestSchema : StackManifestSchema).safeParse(raw);
         if (!parsed.success) {
           const issue = parsed.error.issues[0];
           const where = issue && issue.path.length > 0 ? issue.path.map(String).join('.') : '(document root)';
           die(`--${flag} ${file} is not a valid StackManifest: at '${where}': ${issue?.message ?? 'schema violation'} (${parsed.error.issues.length} issue(s))`, 2);
         }
         const manifest: StackManifest = parsed.data;
+        const topologyErrors = workspaceTopologyErrors(manifest);
+        if (topologyErrors.length > 0) die(`--${flag} ${file} REFUSED: invalid workspace topology: ${topologyErrors.join('; ')}`, 2);
         const check = verifyStackManifest(manifest);
         if (!check.valid) {
           die(`--${flag} ${file} REFUSED: recorded digests do not re-derive (stackDigest ${check.stackDigestOk ? 'ok' : 'MISMATCH'}, stackId ${check.stackIdOk ? 'ok' : 'MISMATCH'}, manifestDigest ${check.manifestDigestOk ? 'ok' : 'MISMATCH'}) — the manifest was edited after extraction`, 2);
@@ -2489,9 +2491,11 @@ async function main(): Promise<void> {
       return;
     }
     if (sub !== 'snapshot') die(`unknown stack subcommand: ${String(sub)} (expected snapshot | diff)`, 1);
-    if (args._.length !== 2) die(`unexpected stack argument '${args._[2]}'; usage: bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]`, 1);
+    if (args._.length !== 2) die(`unexpected stack argument '${args._[2]}'; usage: bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--workspace-aware] [--out <path>]`, 1);
     const ctRepo = args['ct-repo'] as string;
     if (!ctRepo || typeof ctRepo !== 'string' || !fs.existsSync(ctRepo)) die(`--ct-repo not found: ${String(ctRepo)}`);
+    const workspaceAware = args['workspace-aware'] === true || args['workspace-aware'] === 'true';
+    if (args['workspace-aware'] !== undefined && !workspaceAware) die('--workspace-aware is an opt-in boolean flag (omit it for schema 1)', 1);
     const ref = typeof args.ref === 'string' ? args.ref : undefined;
     let tree: string;
     let revision: string;
@@ -2517,7 +2521,7 @@ async function main(): Promise<void> {
         knowledge = listTreeKnowledge(ctRepo, sha);
       }
       // link:-protocol values are re-relativised from the CHECKOUT (where pnpm ran), never from a materialization
-      const { manifest, refusals } = extractStackManifest(tree, revision, 'npm-lockfile', knowledge === null ? undefined : { ...knowledge, linkAnchor: path.resolve(ctRepo).split(path.sep).join('/') });
+      const { manifest, refusals } = extractStackManifest(tree, revision, 'npm-lockfile', knowledge === null ? undefined : { ...knowledge, linkAnchor: path.resolve(ctRepo).split(path.sep).join('/') }, workspaceAware);
       if (refusals.length > 0) {
         for (const r of refusals) process.stderr.write(`::error::${r}\n`);
         dieAfterCleanup(`stack snapshot REFUSED: ${refusals.length} refusal(s) — no manifest written (revision ${revision})`, 2);
@@ -2699,7 +2703,7 @@ async function main(): Promise<void> {
       `       (enforced → advisory is REFUSED without a recorded rationale — never a silent relax).\n` +
       `  bce portfolio compile --portfolio <file> [--out-dir <dir>]\n` +
       `  bce portfolio collect --registry <file> --reports-dir <dir>\n` +
-      `  bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--out <path>]\n` +
+      `  bce stack snapshot --ct-repo <dir> [--ref <sha|ref>] [--no-pin] [--workspace-aware] [--out <path>]\n` +
       `       Content-addressed StackManifest of the DECLARED closure (npm lockfile v3 / shrinkwrap or pnpm-lock v9,\n` +
       `       Dockerfile FROM, compose image:, node runtime). No network; node_modules never read. When package.json\n` +
       `       packageManager starts with pnpm@ and a pnpm-lock.yaml exists, it IS the closure (an npm lockfile beside it\n` +

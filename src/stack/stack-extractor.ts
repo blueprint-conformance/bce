@@ -32,6 +32,7 @@ import { stableStringify } from '../report.js';
 import {
   finalizeStackManifest,
   stackNodeId,
+  type StackImporter,
   type StackEdge,
   type StackImage,
   type StackManifest,
@@ -43,6 +44,7 @@ import {
   type StackUnmodeled,
 } from './stack-manifest.js';
 import {
+  STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS,
   isPnpmWorkspaceDir,
   pnpmWorkspaceGlobMayMatchBelow,
   readPnpmLock,
@@ -136,7 +138,7 @@ export interface StackTreeKnowledge {
 
 export interface StackFactsExtractor {
   readonly source: 'npm-lockfile';
-  extract(repoDir: string, revision: string, knowledge?: StackTreeKnowledge): StackExtractionResult;
+  extract(repoDir: string, revision: string, knowledge?: StackTreeKnowledge, workspaceAware?: boolean): StackExtractionResult;
 }
 
 export interface StackExtractionResult {
@@ -257,6 +259,7 @@ export function checkPnpmLockCoversTree(
   derived: Pick<PnpmDerived, 'importers' | 'excludeLinksFromLockfile'>,
   read: (rel: string) => Buffer | null,
   knowledge?: StackTreeKnowledge,
+  workspaceAware = false,
 ): string[] {
   const lost: string[] = [];
   const importerPaths = new Set(derived.importers.map((i) => i.path));
@@ -326,6 +329,9 @@ export function checkPnpmLockCoversTree(
     if (typeof patterns === 'string') {
       lost.push(patterns);
     } else {
+      if (workspaceAware) for (const importer of importerPaths) {
+        if (importer !== '.' && !isPnpmWorkspaceDir(patterns, importer)) lost.push(`importer '${importer}' is outside the pnpm-workspace.yaml package boundaries`);
+      }
       if (!importerPaths.has('.') && read('package.json') !== null) lost.push("pnpm-workspace.yaml: the root package is always a workspace package but the lockfile has no importer '.'");
       for (const dir of findPackageJsonDirs(repoDir, patterns.maxDepth)) {
         if (isPnpmWorkspaceDir(patterns, dir) && !importerPaths.has(dir)) lost.push(`pnpm-workspace.yaml names package '${dir}' but the lockfile has no importer for it`);
@@ -964,10 +970,11 @@ function normalizeRuntime(raw: string): string {
 export class NpmLockfileStackExtractor implements StackFactsExtractor {
   readonly source = 'npm-lockfile' as const;
 
-  extract(repoDir: string, revision: string, knowledge?: StackTreeKnowledge): StackExtractionResult {
+  extract(repoDir: string, revision: string, knowledge?: StackTreeKnowledge, workspaceAware?: boolean): StackExtractionResult {
     const sources: StackSource[] = [];
     const nodes: StackNode[] = [];
     const edges: StackEdge[] = [];
+    let importers: StackImporter[] | null = null;
     const images: StackImage[] = [];
     const unmodeled: StackUnmodeled[] = [];
     const rootDeclared: StackRootDeclared[] = [];
@@ -1073,12 +1080,13 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
         sources.push({ path: 'pnpm-lock.yaml', sha256: sha256(pnpmBytes), parser: 'pnpm-lockfile-v9' });
         const pnpm = readPnpmLock(pnpmBytes.toString('utf8'), { name: asString(pkg?.name), version: asString(pkg?.version), linkAnchor: knowledge?.linkAnchor ?? path.resolve(repoDir).split(path.sep).join('/') });
         // the lockfile reads cleanly — now the TREE has its say (truncation guards c + d)
-        const lost = pnpm.refusals.length === 0 && pnpm.derived !== null ? checkPnpmLockCoversTree(repoDir, pnpm.derived, read, knowledge) : [];
+        const lost = pnpm.refusals.length === 0 && pnpm.derived !== null ? checkPnpmLockCoversTree(repoDir, pnpm.derived, read, knowledge, workspaceAware) : [];
         if (pnpm.refusals.length > 0 || pnpm.derived === null) {
           for (const msg of pnpm.refusals) refuse(msg);
         } else if (lost.length > 0) {
           for (const what of lost) refuse(stackRefusalPnpmLostClosure(what));
         } else {
+          importers = pnpm.derived.workspaceImporters;
           // loops, never spread: a very large lockfile must not overflow the call stack
           for (const n of pnpm.derived.nodes) nodes.push(n);
           for (const e of pnpm.derived.edges) edges.push(e);
@@ -1201,8 +1209,10 @@ export class NpmLockfileStackExtractor implements StackFactsExtractor {
     }
     if (dockerfiles.length === 0 && composeFiles.length === 0) unsupported.add(STACK_COVERAGE_NO_IMAGES);
 
+    if (workspaceAware && importers !== null) unsupported.delete(STACK_COVERAGE_PNPM_WORKSPACE_IMPORTERS);
+    if (workspaceAware && importers === null) refuse('workspace-aware snapshots require a validated pnpm-lock v9 workspace');
     const body: StackManifestBody = {
-      schemaVersion: '1',
+      ...(workspaceAware && importers !== null ? { schemaVersion: '2' as const, importers } : { schemaVersion: '1' as const }),
       kind: 'StackManifest',
       ctRepoRevision: revision,
       sources,
@@ -1234,10 +1244,11 @@ export function extractStackManifest(
   revision: string,
   source: StackFactsExtractor['source'] = 'npm-lockfile',
   knowledge?: StackTreeKnowledge,
+  workspaceAware = false,
 ): StackExtractionResult {
   const provider = STACK_EXTRACTOR_PROVIDERS.find((p) => p.source === source);
   if (!provider) {
     throw new Error(`no stack extractor provider registered for source '${source}' — STACK_EXTRACTOR_PROVIDERS (stack-extractor.ts) is widen-only`);
   }
-  return provider.make().extract(repoDir, revision, knowledge);
+  return provider.make().extract(repoDir, revision, knowledge, workspaceAware);
 }

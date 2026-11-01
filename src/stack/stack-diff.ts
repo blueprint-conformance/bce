@@ -42,7 +42,7 @@
  *     carry no importer identity; at least one assignment of importers to versions is a downgrade").
  *   D non-empty, rootB empty: the root stopped reaching the name -> no root row.
  *   Non-semver or precedence-equal root versions -> unknown.
- * ACCEPTED COST: the legitimate control — one importer drops its dependency while a sibling stays on
+ * SCHEMA-1 ACCEPTED COST: the legitimate control — one importer drops its dependency while a sibling stays on
  * an older version — is the SAME manifest pair as an importer moving down onto the sibling's
  * version (same nodes, edges, rootDeclared, stackDigest), so it blocks too. Importer identity in
  * the manifest is the real fix (WO-BSTACK-09, extractor work). For npm manifests root edges equal
@@ -54,6 +54,11 @@
  * versions are `added` copies. So a patch bump of a non-max copy beside a retained max is one
  * `forward` row, and a new lower copy beside a retained max is an `added` copy — neither is a
  * downgrade of the retained version.
+ *
+ * Proposed RFC-0003 schema-2 snapshots instead join direct resolutions by (importer path,
+ * dependency name), preserving dependency-group moves and identifying membership changes.
+ * Mixed manifest versions fail closed; re-extract both revisions to migrate. The closure
+ * hash stays schema-1; the full manifest digest covers topology.
  *
  * FOUR HASHED SUB-VIEWS, EACH EXPLAINED BY ITS OWN ROWS: `nodes`, `runtime`, `images`, `unmodeled`.
  * `images[]` moves (joined on the image name) and `runtime` moves get real rows; the `oci-image` /
@@ -91,6 +96,7 @@ import {
   computeStackDigest,
   stackHashedView,
   stackIdFor,
+  workspaceTopologyErrors,
   type HashedStackNode,
   type StackManifest,
   type StackUnmodeled,
@@ -246,7 +252,7 @@ export interface StackMove {
   retained: string[];
   /** true when the repository root declares this name directly on either side */
   rootDeclared: boolean;
-  /** `spec-changed` only: the node id that declares the range (the root as version-free `root:<name>`); null otherwise */
+  /** `spec-changed`: the declaring node; schema-2 direct moves: importer:[path,name]; null otherwise */
   declaredBy: string | null;
   /**
    * The range(s) the repository ROOT declares for this name on each side (null when it declares none).
@@ -595,6 +601,26 @@ function hashedNodeKey(h: HashedStackNode): string {
  * (in any `nodes[]`/`edges[]`/`images[]`/`unmodeled[]` array order) yields a byte-identical
  * `stableStringify(report)`.
  */
+/** Group direct resolutions once; path+dependency name survives dependency-group moves. */
+function importerResolutions(manifest: StackManifest): Map<string, Map<string, { version: string; spec: string }>> {
+  const result = new Map<string, Map<string, { version: string; spec: string }>>();
+  if (manifest.schemaVersion !== '2') return result;
+  const nodes = new Map(manifest.nodes.filter(n => !n.root).map(n => [n.id, n]));
+  for (const importer of manifest.importers) for (const dep of importer.dependencies) {
+    const target = nodes.get(dep.to);
+    if (!target) continue;
+    const key = `${target.kind}${SEP}${target.name}`;
+    const group = result.get(key) ?? new Map<string, { version: string; spec: string }>();
+    const identity = JSON.stringify([importer.path, dep.name]);
+    const prior = group.get(identity);
+    const versions = [...new Set([...(prior?.version.split(', ') ?? []), target.version])].sort();
+    const specs = [...(prior?.spec.split('\n') ?? []), `${dep.group}: ${dep.spec}`].sort();
+    group.set(identity, { version: versions.join(', '), spec: specs.join('\n') });
+    result.set(key, group);
+  }
+  return result;
+}
+
 export function diffStackManifests(a: StackManifest, b: StackManifest): StackDiffReport {
   // npm nodes are joined on (kind, name). ROOT nodes are compared apart (their own version is
   // quarantined). `oci-image` / `node-runtime` nodes are PROJECTIONS of `images[]` / `runtime` and are
@@ -604,11 +630,14 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
   const groupsB = groupByName(b.nodes.filter(isNpmDep));
   const rootDeclA = rootDeclarations(a);
   const rootDeclB = rootDeclarations(b);
+  const importerResolvedA = importerResolutions(a);
+  const importerResolvedB = importerResolutions(b);
   const rootResolvedA = rootResolvedVersions(a);
   const rootResolvedB = rootResolvedVersions(b);
   const rootKeys = new Set([...rootDeclA.keys(), ...rootDeclB.keys()]);
   const rootSpecOf = (key: string): StackMove['rootSpec'] => ({ from: rootDeclA.get(key)?.spec ?? null, to: rootDeclB.get(key)?.spec ?? null });
   const moves: StackMove[] = [];
+  const workspaceAware = a.schemaVersion === '2' && b.schemaVersion === '2';
   /** `<view>SEP<key>` of every hashed item a DIGEST-BEARING row names */
   const explained = new Set<string>();
   /** node ids whose identity is NOT the same on both sides — a `spec-changed` row needs unchanged endpoints */
@@ -661,6 +690,18 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
     );
   };
 
+  if (a.schemaVersion !== b.schemaVersion || workspaceTopologyErrors(a).length || workspaceTopologyErrors(b).length) {
+    row({ class: 'unknown', view: 'sources', kind: 'unsupported', name: 'workspace-topology', from: a.schemaVersion, to: b.schemaVersion, scope: 'name', reasons: ['workspace topology requires two valid schema-2 snapshots; re-extract both revisions with --workspace-aware (never infer importer identities from schema 1)'] }, []);
+  }
+
+  if (workspaceAware && a.schemaVersion === '2' && b.schemaVersion === '2') {
+    const left = new Set(a.importers.map(i => i.path)), right = new Set(b.importers.map(i => i.path));
+    for (const importer of [...new Set([...left, ...right])].sort()) {
+      if (left.has(importer) === right.has(importer)) continue;
+      row({ class: left.has(importer) ? 'removed' : 'added', view: 'sources', kind: 'unsupported', name: `importer:${importer}`, from: left.has(importer) ? importer : null, to: right.has(importer) ? importer : null, scope: 'name', declaredBy: `importer:${importer}`, reasons: ['workspace importer membership changed; paths are identities, a rename is removal plus addition'] }, []);
+    }
+  }
+
   for (const key of [...new Set([...groupsA.keys(), ...groupsB.keys()])].sort()) {
     const ga = groupsA.get(key);
     const gb = groupsB.get(key);
@@ -668,13 +709,20 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
     // ---- name present on one side only ----
     if (!ga && gb) {
       for (const v of [...gb.byVersion.keys()].sort()) {
-        if (parseSemverLite(v)) pushNode(gb, key, 'added', null, v, 'name', ['name present on the head side only']);
-        else pushNode(gb, key, 'unknown', null, v, 'name', [`added node has a non-semver version '${v}': what entered the closure cannot be characterized`]);
+        const owners = workspaceAware ? [...(importerResolvedB.get(key) ?? [])].filter(([, r]) => r.version === v).map(([identity]) => identity) : [];
+        for (const owner of owners.length ? owners : [null]) {
+          const extra = owner === null ? {} : { declaredBy: `importer:${owner}` };
+          if (parseSemverLite(v)) pushNode(gb, key, 'added', null, v, 'name', ['name present on the head side only'], extra);
+          else pushNode(gb, key, 'unknown', null, v, 'name', [`added node has a non-semver version '${v}': what entered the closure cannot be characterized`], extra);
+        }
       }
       continue;
     }
     if (ga && !gb) {
-      for (const v of [...ga.byVersion.keys()].sort()) pushNode(ga, key, 'removed', v, null, 'name', ['name present on the base side only']);
+      for (const v of [...ga.byVersion.keys()].sort()) {
+        const owners = workspaceAware ? [...(importerResolvedA.get(key) ?? [])].filter(([, r]) => r.version === v).map(([identity]) => identity) : [];
+        for (const owner of owners.length ? owners : [null]) pushNode(ga, key, 'removed', v, null, 'name', ['name present on the base side only'], owner === null ? {} : { declaredBy: `importer:${owner}` });
+      }
       continue;
     }
     if (!ga || !gb) continue;
@@ -750,7 +798,30 @@ export function diffStackManifests(a: StackManifest, b: StackManifest): StackDif
     const droppedByRoot = rootA.filter((v) => !rootB.includes(v));
     const newToRoot = rootB.filter((v) => !rootA.includes(v));
     const consumed = new Set<string>();
-    if (droppedByRoot.length > 0 || newToRoot.length > 0) {
+    if (workspaceAware && a.schemaVersion === '2' && b.schemaVersion === '2') {
+      const left = importerResolvedA.get(key) ?? new Map<string, { version: string; spec: string }>(), right = importerResolvedB.get(key) ?? new Map<string, { version: string; spec: string }>();
+      for (const identity of [...new Set([...left.keys(), ...right.keys()])].sort()) {
+        const old = left.get(identity), next = right.get(identity);
+        const from = old?.version ?? null, to = next?.version ?? null;
+        if (from === to && old?.spec === next?.spec) continue;
+        let cls: StackMoveClass;
+        if (from === to) cls = 'spec-changed';
+        else if (from === null) cls = to !== null && parseSemverLite(to) ? 'added' : 'unknown';
+        else if (to === null) cls = 'removed';
+        else {
+          const x = parseSemverLite(from), y = parseSemverLite(to);
+          const direction = x && y ? compareSemverLite(y, x) : 0;
+          cls = direction > 0 ? 'forward' : direction < 0 ? 'backward' : 'unknown';
+        }
+        pushNode(gb, key, cls, from, to, 'version', [`importer ${identity}: ${from ?? '(absent)'} -> ${to ?? '(absent)'}${cls === 'unknown' ? '; semver direction cannot be proven' : ''}`], {
+          declaredBy: `importer:${identity}`, retained: sortedRetained,
+          ...(cls === 'spec-changed' ? { view: 'edges' as const, from: old?.spec ?? null, to: next?.spec ?? null } : {}),
+          flagsChanged: from !== null && to !== null && ga.byVersion.get(from)?.length === 1 && gb.byVersion.get(to)?.length === 1 ? flagChanges(ga.byVersion.get(from)![0]!, gb.byVersion.get(to)![0]!) : [],
+        });
+        if (from !== null) consumed.add(from);
+        if (to !== null) consumed.add(to);
+      }
+    } else if (droppedByRoot.length > 0 || newToRoot.length > 0) {
       const involved = [...new Set([...rootA, ...rootB])];
       const orderable = involved.every((v) => parseSemverLite(v) !== null) && precedenceTies(involved).length === 0;
       const show = (vs: readonly string[]): string | null => (vs.length === 0 ? null : [...vs].sort().join(', '));
