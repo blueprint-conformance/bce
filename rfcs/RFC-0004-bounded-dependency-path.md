@@ -60,9 +60,14 @@ Unrelated uncertainty and uncertainty strictly beyond the two-edge boundary do n
 prevent grading this bounded rule. A known violation beside relevant uncertainty does
 not turn a refusal into a gradeable report.
 
-The public API raises `DependencyPathRefusal`. The gate translates it into its existing
-structural refusal envelope, which bypasses advisory/baseline pass logic and exits 2.
-The read-only MCP gate uses the same gate implementation. The existing compiler keeps
+The `evaluate` API raises `DependencyPathRefusal`. For code-only policies, the gate
+translates it into the existing structural gate refusal envelope without fabricating a
+gradeable compliance report. For mixed declared-stack policies, `evaluatePreparedEvidence`
+translates it into an attributed schema-2 `staticAst` refusal with code
+`dependency-path-incomplete`, retains provider coverage, and continues stack evaluation.
+The mixed report has verdict `indeterminate` and score `null`; `gate --report-json` and
+`run --out` persist it. Both paths bypass advisory/baseline pass logic and exit 2.
+The read-only MCP gate and bound-evidence replay use the same applicable evaluator. The existing compiler keeps
 its direct-edge semantic owner; its existing deferred-family seam leaves this new arm
 with the evaluator.
 
