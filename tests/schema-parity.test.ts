@@ -24,6 +24,10 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { tmpdir } from 'node:os';
+import { makeExtractor } from '../src/extractor-registry.js';
+import { resolveExtraction } from '../src/extractors.js';
+import { prepareDeclaredEvidence, evaluatePreparedEvidence } from '../src/stack/stack-evaluation.js';
 import { Ajv, type ValidateFunction } from 'ajv';
 import { generateSchemas, serializeSchema, SCHEMA_ID_BASE } from '../scripts/generate-schemas.js';
 import {
@@ -323,5 +327,76 @@ describe('RFC-0003 workspace structural floor and normative topology refinements
       expect(workspaceValidate(mutant), ajv.errorsText(workspaceValidate.errors)).toBe(true);
       expect(() => parseStackManifest(mutant)).toThrow();
     }
+  });
+});
+
+
+describe('RFC-0004 bounded-path structural floor and normative refinements', () => {
+  const bounded = () => ({
+    ...(readJson(path.join(ROOT, 'fixtures/typescript-module-layering.blueprint.json')) as Record<string, unknown>),
+    minEngineVersion: '0.6.1',
+    extraction: { profile: 'typescript-module-graph', paths: ['src/**/*.ts'], minFiles: 1 },
+    constraints: [{ id: 'bounded', type: 'forbiddenDependencyPath', severity: 'critical', maxHops: 2, scopePaths: ['src/domain/**'], to: 'module:src/app/**' }],
+  });
+  it('both validators accept the explicit arm and reject an unsupported hop bound', () => {
+    const original = bounded();
+    expect(() => parseBlueprint(original)).not.toThrow();
+    expect(ebValidate(original), ajv.errorsText(ebValidate.errors)).toBe(true);
+    const mutant = { ...original, constraints: [{ ...original.constraints[0], maxHops: 3 }] };
+    expect(() => parseBlueprint(mutant)).toThrow();
+    expect(ebValidate(mutant)).toBe(false);
+  });
+  it('PINNED DIVERGENCE: required fields, arm legality, provider and floor are engine refinements', () => {
+    const original = bounded();
+    const c = original.constraints[0]!;
+    const { maxHops, ...withoutBound } = c;
+    void maxHops;
+    for (const mutant of [
+      { ...original, constraints: [withoutBound] },
+      { ...original, constraints: [{ ...c, scopePaths: [] }] },
+      { ...original, constraints: [{ ...c, scopePaths: ['../outside/**'] }] },
+      { ...original, constraints: [{ ...c, to: 'unqualified' }] },
+      { ...original, constraints: [{ ...c, from: '*' }] },
+      { ...original, constraints: [{ ...c, type: 'forbiddenDependency' }] },
+      { ...original, extraction: { ...original.extraction, profile: 'plugin-surface' } },
+      { ...original, minEngineVersion: '0.6.0' },
+    ]) {
+      expect(ebValidate(mutant), ajv.errorsText(ebValidate.errors)).toBe(true);
+      expect(() => parseBlueprint(mutant)).toThrow();
+    }
+    const portfolio = readJson(path.join(ROOT, 'fixtures/portfolio/demo-fleet.portfolio-blueprint.json')) as Record<string, unknown>;
+    const members = portfolio.members as Array<Record<string, unknown>>;
+    const valid = { ...portfolio, fleetConstraints: original.constraints, extraction: original.extraction, members: members.map(m => ({ ...m, enginePin: '0.6.1' })) };
+    expect(pbValidate(valid)).toBe(true);
+    expect(() => parsePortfolioBlueprint(valid)).not.toThrow();
+    const old = { ...valid, members: valid.members.map(m => ({ ...m, enginePin: '0.6.0' })) };
+    expect(pbValidate(old)).toBe(true);
+    expect(() => parsePortfolioBlueprint(old)).toThrow(/enginePin >=0\.6\.1/);
+  });
+  it('validates real two-hop report output and a mixed-policy refusal against the published report schema', () => {
+    const dir = fs.mkdtempSync(path.join(tmpdir(), 'bce-path-parity-'));
+    try {
+      fs.mkdirSync(path.join(dir, 'src/domain'), { recursive: true });
+      fs.mkdirSync(path.join(dir, 'src/app'));
+      fs.writeFileSync(path.join(dir, 'src/domain/order.ts'), "import '../bridge.js';\n");
+      fs.writeFileSync(path.join(dir, 'src/bridge.ts'), "export { value } from './app/view.js';\n");
+      fs.writeFileSync(path.join(dir, 'src/app/view.ts'), 'export const value = 1;\n');
+      const bp = parseBlueprint(bounded());
+      const graph = makeExtractor('ast', resolveExtraction(bp.extraction, bp.constraints)).extract(dir, 'fixture');
+      const report = evaluate(bp, graph, 'typescript-module-graph');
+      expect(report.schemaVersion).toBe('1');
+      expect(report.violations).toHaveLength(1);
+      expect(compiled['compliance-report.schema.json']!(report)).toBe(true);
+      fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"mixed","version":"1.0.0"}');
+      fs.writeFileSync(path.join(dir, 'package-lock.json'), JSON.stringify({ name: 'mixed', version: '1.0.0', lockfileVersion: 3, packages: { '': { name: 'mixed', version: '1.0.0' } } }));
+      const mixed = parseBlueprint({ ...bp,
+        constraints: [{ ...bp.constraints[0], scopePaths: ['src/missing/**'] }, { id: 'stack', type: 'forbiddenStackPackage', severity: 'critical', packageName: 'legacy' }],
+        evidenceRequirements: [{ type: 'staticAst', required: true, onMissing: 'block' }, { type: 'declaredStack', required: true, onMissing: 'block' }],
+        stack: { source: 'npm-lockfile-v3', lockfile: 'package-lock.json', packageManifest: 'package.json', imageFiles: [], runtimeFiles: [] },
+      });
+      const refused = evaluatePreparedEvidence(mixed, prepareDeclaredEvidence(mixed, dir, 'fixture'));
+      expect(refused).toMatchObject({ schemaVersion: '2', score: null, verdict: 'indeterminate' });
+      expect(compiled['compliance-report.schema.json']!(refused)).toBe(true);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

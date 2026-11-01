@@ -202,3 +202,28 @@ The public API is `reviewArchitectureChange({ repoDir, baseRevision, headRevisio
 have graphs, tracked-file manifests, the complete blueprint, resolver-input digests, and toolchain
 identities. Caller-supplied snapshots are assertions: their digests prove integrity, not authenticity.
 `architectureReviewExitCode(report)` implements the same 0/1/2 result as the CLI.
+
+## Proposed bounded paths (RFC-0004)
+
+The candidate implementation of [RFC-0004](../rfcs/RFC-0004-bounded-dependency-path.md)
+adds an explicit `forbiddenDependencyPath` arm with `maxHops: 2`. Existing
+`forbiddenDependency` remains direct. This proposed format is pending the RFC decision,
+not part of the released 0.6.0 profile described above.
+
+```json
+{
+  "id": "domain-cannot-reach-app",
+  "type": "forbiddenDependencyPath",
+  "severity": "critical",
+  "scopePaths": ["src/domain/**"],
+  "to": "module:src/app/**",
+  "maxHops": 2
+}
+```
+
+Use `minEngineVersion: "0.6.1"` with the current candidate and scan a superset such as
+`extraction.paths: ["src/**/*.ts"]`: the intermediate module must be scanned even when
+it is outside the governed source scope. The ordinary CLI/API/MCP gate then reports a
+complete anchored one/two-edge witness. An unresolved or unscanned intermediate, a
+missing coverage inventory, or zero matching source roots refuses with exit 2. Paths
+of three or more edges and external package internals are outside the explicit bound.

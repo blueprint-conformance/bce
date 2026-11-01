@@ -98,6 +98,19 @@ describe('work-order emission (the scan→WO arrow)', () => {
     expect(toWorkOrders(passReport)).toHaveLength(0);
   });
 
+  it('preserves legacy IDs and disambiguates distinct witnesses sharing an anchor independent of order', () => {
+    const original = toWorkOrders(failReport);
+    const first = failReport.violations[0]!;
+    const collision = { ...first, observed: first.observed + ' through a different intermediate edge' };
+    const report = { ...failReport, violations: [...failReport.violations, collision] };
+    const orders = toWorkOrders(report);
+    expect(new Set(orders.map(order => order.id)).size).toBe(3);
+    expect(orders[1]!.id).toBe(original[1]!.id);
+    expect(toWorkOrders({ ...report, violations: [...report.violations].reverse() }).map(order => order.id))
+      .toEqual([...orders].reverse().map(order => order.id));
+    expect(toWorkOrders(failReport)).toEqual(original);
+  });
+
   it('a failing report emits one PROPOSED WO per violation, deterministic ids', () => {
     const wos = toWorkOrders(failReport);
     expect(wos).toHaveLength(2);

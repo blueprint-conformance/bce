@@ -49,7 +49,7 @@ verify realistic violations in your own repository.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 1483">
+  <img src="assets/badges/tests.svg" alt="tests: 1503">
   <a href="https://github.com/blueprint-conformance/bce/releases/latest"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/release.yml/badge.svg" alt="release workflow status"></a>
   <a href="https://blueprint-conformance.github.io/bce/"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/docs-site-check.yml/badge.svg" alt="documentation site check status"></a>
   <a href="LICENSE"><img src="assets/badges/license.svg" alt="license: Apache-2.0"></a>
@@ -126,7 +126,7 @@ real `pluginSurface`; **C2 `requiredDependency`** requires its governed registra
 **C3 `forbiddenDependency`** rejects the `axios` import; and **C4 `forbiddenPath`** keeps extracted
 components out of `src/legacy/**`. The taxonomy has four more enforcing types and three explicit
 reserved types—[open the C1–C4 visual guide](docs/constraint-guide.md) or
-[read the exact semantics](spec/SPEC.md#3-constraint-taxonomy--16-types).
+[read the exact semantics](spec/SPEC.md#3-constraint-taxonomy--17-types).
 
 In `v0.6.0`, the AI-first review surface's `bce propose` writes an immutable draft
 packet to quarantine; the model cannot approve or land policy. [Read the review

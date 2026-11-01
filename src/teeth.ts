@@ -41,7 +41,7 @@
 
 import type { EngineeringBlueprint, Constraint, ConstraintType, ExtractionProfile } from './schema.js';
 import type { ArchitectureGraph, ObservedComponent, ObservedEdge } from './graph.js';
-import { evaluate, moduleTargetMatches, pathGlobToRe } from './report.js';
+import { evaluate, DependencyPathRefusal, moduleTargetMatches, pathGlobToRe } from './report.js';
 
 /** Per-constraint refutability verdict. */
 export enum ConstraintTeeth {
@@ -228,6 +228,17 @@ function reddeningMutation(
         mutation: `remove all ${satisfying.length} '${edgeType}' edge(s) — dropping the governed registration reddens this required-dependency`,
       };
     }
+    case 'forbiddenDependencyPath': {
+      const root = g.components.find(n => n.type === 'typescriptModule' && (c.scopePaths ?? []).some(p => pathGlobToRe(p).test(n.path)));
+      if (!root || !c.to) return null;
+      const target = c.to.startsWith('module:') ? `module:${concretePathForGlob(c.to.slice('module:'.length))}` : c.to;
+      const intermediate = g.components.find(n => n.type === 'typescriptModule' && n.id !== root.id && g.coverage.scannedFiles?.includes(n.path) && !(g.coverage.unresolvedImports ?? []).some(i => i.from === n.id));
+      if (!intermediate) return null;
+      return { g2: withGraph(g, { guardEdges: [...g.guardEdges,
+        { from: root.id, to: intermediate.id, type: 'imports', evidenceRef: `${root.path}#L1` },
+        { from: intermediate.id, to: target, type: 'imports', evidenceRef: `${intermediate.path}#L1` },
+      ] }), mutation: `inject a synthetic two-hop dependency path ${root.id} -> ${intermediate.id} -> ${target}` };
+    }
     case 'forbiddenDependency': {
       // Reddens by ADDING the exact forbidden edge a bad PR would introduce.
       const to = c.to;
@@ -397,7 +408,11 @@ function assessConstraint(
   }
 
   // (2) already-red? A constraint that fires on the authored graph as-is is enforcing → TOOTHED.
-  const baseline = evalOne(blueprint, c, g, profile);
+  let baseline: number;
+  try { baseline = evalOne(blueprint, c, g, profile); } catch (e) {
+    if (!(e instanceof DependencyPathRefusal)) throw e;
+    return { constraintId: c.id, type: c.type, verdict: ConstraintTeeth.INDETERMINATE, mutation: e.message };
+  }
   if (baseline > 0) {
     return {
       constraintId: c.id,
@@ -417,7 +432,11 @@ function assessConstraint(
       mutation: 'TRIVIALLY_GREEN: no realistic graph mutation reddens this constraint in the authored frame',
     };
   }
-  const mutated = evalOne(blueprint, c, red.g2, profile);
+  let mutated: number;
+  try { mutated = evalOne(blueprint, c, red.g2, profile); } catch (e) {
+    if (!(e instanceof DependencyPathRefusal)) throw e;
+    return { constraintId: c.id, type: c.type, verdict: ConstraintTeeth.INDETERMINATE, mutation: e.message };
+  }
   if (mutated > 0) {
     // THE HONESTY SPLIT (measured Class-A defect, 2026-08-23): for `forbiddenPattern` and
     // `forbiddenDependency` the mutation MANUFACTURES its own evidence — the injected
@@ -427,7 +446,7 @@ function assessConstraint(
     // EVALUATOR can refute the constraint if such evidence appears. These two classes grade
     // EVALUATOR_REFUTABLE: explicitly not evidence. A TRUE TOOTHED for them remains available
     // ONLY through the extractor-real path — already-red (handled above, before any mutation).
-    if (c.type === 'forbiddenPattern' || c.type === 'forbiddenDependency') {
+    if (c.type === 'forbiddenPattern' || c.type === 'forbiddenDependency' || c.type === 'forbiddenDependencyPath') {
       return {
         constraintId: c.id,
         type: c.type,

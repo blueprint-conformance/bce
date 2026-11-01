@@ -25,6 +25,7 @@
 import {
   PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION,
   TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION,
+  DEPENDENCY_PATH_MIN_ENGINE_VERSION,
   parseBlueprint,
   type EngineeringBlueprint,
   type PortfolioBlueprint,
@@ -105,7 +106,7 @@ export function compilePortfolio(portfolio: PortfolioBlueprint): CompiledOverlay
       evidenceRequirements: [{ type: 'staticAst', required: true, onMissing: 'block' }],
       approvals: [{ role: 'blueprint-steward', stage: 'ratify' }],
       extraction: { ...portfolio.extraction },
-      ...(portfolio.extraction.profile === 'typescript-module-graph'
+      ...(portfolio.fleetConstraints.some(c => c.type === 'forbiddenDependencyPath') ? { minEngineVersion: DEPENDENCY_PATH_MIN_ENGINE_VERSION } : portfolio.extraction.profile === 'typescript-module-graph'
         ? { minEngineVersion: TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION }
         : portfolio.extraction.profile === 'python-module-graph'
           ? { minEngineVersion: PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION }

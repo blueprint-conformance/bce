@@ -93,7 +93,7 @@ export {
   readUtf8PythonSource,
 } from './python-module-graph.js';
 
-export { evaluate, stableStringify, SEVERITY_WEIGHT } from './report.js';
+export { evaluate, DependencyPathRefusal, stableStringify, SEVERITY_WEIGHT } from './report.js';
 export type { ComplianceReport, LegacyComplianceReport, DeclaredStackReport, EvidenceRefusal, Violation } from './report.js';
 
 export { assessTeeth, ConstraintTeeth } from './teeth.js';

@@ -89,6 +89,19 @@ this profile and MUST be rejected at authoring time rather than evaluated agains
 module-profile `requiredComponent` MUST declare `component: "typescriptModule"`. Portfolio members
 using this profile MUST each pin an engine version of at least `0.3.0`.
 
+A `forbiddenDependencyPath` constraint, adopted by
+[RFC-0004](../rfcs/RFC-0004-bounded-dependency-path.md), MUST use
+`extraction.profile: "typescript-module-graph"` with AST extraction and the explicit paths
+and positive scan floor above. It MUST carry `maxHops: 2`, nonempty repository-relative
+POSIX `scopePaths` without traversal segments, and a canonical `module:`, `package:`, or
+`builtin:` target. Its only legal fields are `id`, `type`, `severity`, `to`, `scopePaths`,
+and `maxHops`. `maxHops` MUST be absent on every other arm; it has no default. The authored
+blueprint MUST pin `minEngineVersion >= 0.6.1`; every portfolio member using this arm MUST
+pin `enginePin >= 0.6.1`. Portfolio compilation MUST preserve this floor. This floor is the
+unreleased candidate floor and MUST be rechecked against release ordering before publication;
+it does not announce a release. The earlier `0.3.0` floor remains unchanged for direct module
+constraints. No existing constraint gains transitive semantics.
+
 For `extraction.profile: "python-module-graph"`, `minEngineVersion` MUST be at least `0.3.0`,
 `extraction.paths` plus an explicit positive `extraction.minFiles` are REQUIRED, and
 `extraction.pythonRoots` MUST contain at least one repository-relative, non-glob import-root
@@ -114,9 +127,9 @@ A `PortfolioBlueprint` additionally:
 
 ---
 
-## 3. Constraint taxonomy — 16 types
+## 3. Constraint taxonomy — 17 types
 
-The taxonomy has **sixteen** constraint types: **thirteen enforcing** and **three reserved
+The taxonomy has **seventeen** constraint types: **fourteen enforcing** and **three reserved
 (explicit-skip)**. The enum is **widen-only** (§10): it only ever gains members.
 
 | # | Type | Class | Evidence class | Graded against |
@@ -137,6 +150,7 @@ The taxonomy has **sixteen** constraint types: **thirteen enforcing** and **thre
 | 14 | `forbiddenStackPackage` | ENFORCING | declaredStack | all selected modeled non-root package identities |
 | 15 | `requirePinnedImages` | ENFORCING | declaredStack | every selected external image declaration |
 | 16 | `allowedNodeVersions` | ENFORCING | declaredStack | selected exact Node declaration |
+| 17 | `forbiddenDependencyPath` | ENFORCING | staticAst | one or two observed TypeScript module import edges |
 
 ### 3.1 Enforcing semantics (normative)
 
@@ -163,6 +177,47 @@ Under a module-graph profile, only `imports` edges are graded; `scopePaths` sele
 and `to` uses that profile's canonical selector grammar above. A selected source with an unresolved
 or computed import produces a fail-closed violation because absence of the forbidden target cannot
 be proven.
+
+**forbiddenDependencyPath** — source `scopePaths` select real scanned `typescriptModule`
+roots. For each root, the engine MUST examine every outgoing `imports` edge and, for every
+local first-hop module, every outgoing `imports` edge of that module. Each distinct ordered
+witness ending at the canonical `to` selector after one or two edges is a violation.
+Type-only imports and re-exports participate when the provider emits them. Package and
+builtin endpoints terminate traversal; their internals are not local graph evidence.
+Third-hop-only reachability is outside this contract. The evaluator MUST reuse the provider's
+resolved edges, not infer another resolver, runtime call graph or external package adjacency.
+`forbiddenDependency` remains a direct-edge constraint with its existing semantics.
+
+The graph MUST carry a nonempty `coverage.scannedFiles` inventory whose distinct file count
+equals `coverage.filesScanned`. At least one source module MUST match. Every matching scanned
+source file MUST have its module component, and every root and reachable local first-hop
+module MUST have canonical identity `module:<path>` and be present in the scanned inventory.
+A missing component, missing inventory, zero roots, relevant unresolved import, or examined
+edge target outside `module:`, `package:`, and `builtin:` MUST cause structural refusal,
+not a clean result. Root and first-hop coverage is REQUIRED even when another examined edge
+already proves a violation. A deleted intermediate with a remaining import therefore refuses.
+The second-hop endpoint's outgoing edges and unrelated uncertainty are outside the bound;
+no requirement to scan a resolved terminal endpoint's outgoing edges is implied.
+
+Violations MUST use the root module id as `component`, the final edge's source anchor as
+`evidenceRef`, and the complete ordered path with every edge anchor in `observed`. Identical
+witnesses MUST be deduplicated; graph iteration order MUST NOT change canonical results.
+Distinct paths sharing a root and final anchor MUST remain distinguishable in remediation
+work orders. Existing baseline identity (blueprint, constraint, component) remains unchanged;
+line churn changes evidence, not that baseline identity.
+
+The reference `evaluate` API MUST raise `DependencyPathRefusal` when this rule cannot grade.
+For ordinary code-only policies, `gate` MUST translate it into the existing structural gate
+refusal envelope, with no fabricated gradeable compliance report. For mixed declared-stack
+policies, `evaluatePreparedEvidence` MUST translate it into a schema-2 refusal attributed to
+the constraint, with `evidenceClass: staticAst`, `code: dependency-path-incomplete`, the
+reason, and configured extraction sources; it MUST retain provider coverage and continue
+stack evaluation. The mixed report MUST be `indeterminate` with `score: null`; it MUST remain
+persistable by ordinary `gate --report-json` and `run --out`. In both paths refusal MUST take
+precedence over baselines, advisory mode and known violations, and the CLI MUST exit 2.
+Read-only MCP gating and bound-evidence replay MUST use the same applicable evaluator.
+Gradeable code-only reports retain schema 1; mixed policies retain §17's schema 2. No new
+report shape or general all-depth reachability claim is introduced.
 
 **forbiddenPath** — one violation for each *extracted component* whose path matches the
 constraint's `path` glob.
@@ -595,7 +650,9 @@ A run MAY auto-generate one structured remediation object per violation
 
 Nothing auto-advances past `PROPOSED`: a violation becomes a governed proposal, never an
 auto-applied change. Object ids are deterministic (derived from constraint, component, and
-evidence anchor), so identical runs yield identical proposals.
+evidence anchor). When distinct violations share those fields, ids MUST additionally bind the
+complete violation witness so the proposals remain distinct. Unambiguous anchors MUST retain
+their existing ids; identical runs and reordered violations yield identical proposal identities.
 
 ---
 
@@ -667,8 +724,9 @@ an accept/reject matrix, and validation of real engine output against the publis
 **Known, pinned divergence class**: engine-side *refinements* exceed the mechanical conversion.
 This includes §2.1's compile-and-safety check on `forbiddenPattern.pattern` and the
 module-graph cross-field rules (minimum engine, supported constraints, canonical targets/scopes,
-extractor configuration, Python roots, and portfolio member pins). The published JSON Schema is
-the STRUCTURAL floor, and **the engine parser is normative where the two diverge**. Each refinement
+extractor configuration, Python roots, and portfolio member pins), including
+`forbiddenDependencyPath` arm legality, required scope/bound, provider and candidate engine floor.
+The published JSON Schema is the STRUCTURAL floor, and **the engine parser is normative where the two diverge**. Each refinement
 family is pinned by an explicit test assertion so it can never silently widen.
 
 ---
@@ -1298,7 +1356,7 @@ select the policy. No schema arm may be registered without executable enforcemen
 An independent implementation conforms to this specification iff:
 
 1. it validates authored artifacts per §2 (structural floor + the §2.1 refinements);
-2. it implements the 11-type taxonomy per §3 — all eight enforcing semantics, explicit skips
+2. it implements the 17-type taxonomy per §3 — all fourteen enforcing semantics, explicit skips
    for the three reserved types, and the malformed-constraint rule;
 3. its reports satisfy §6 (weights, formula, zero-violations-pass, empty-evaluation floor)
    and §11 (determinism, canonical serialization, content-addressed evidence);

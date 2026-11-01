@@ -295,6 +295,7 @@ const IMPLEMENTED_TYPES = new Set([
   'requiredDependency',
   'requiredComponent',
   'forbiddenDependency',
+  'forbiddenDependencyPath',
   'forbiddenEgress',
   'forbiddenPath',
   'forbiddenFile',
@@ -305,6 +306,7 @@ const IMPLEMENTED_TYPES = new Set([
 function constraintShapeSupported(constraint: Constraint, graph?: ArchitectureGraph): boolean {
   if (!IMPLEMENTED_TYPES.has(constraint.type)) return false;
   if (constraint.type === 'requiredComponent') return typeof constraint.component === 'string';
+  if (constraint.type === 'forbiddenDependencyPath') return constraint.maxHops === 2 && typeof constraint.to === 'string' && (graph === undefined || graph.coverage.scannedFiles !== undefined);
   if (constraint.type === 'forbiddenDependency') return typeof constraint.to === 'string';
   if (constraint.type === 'forbiddenPath') return typeof constraint.path === 'string';
   if (constraint.type === 'forbiddenFile') {
@@ -352,6 +354,8 @@ function plainLanguage(constraint: Constraint): string {
       return `Require at least one ${constraint.component ?? '(unspecified)'} component.`;
     case 'requiredDependency':
       return `Require ${constraint.component ?? 'governed'} components to use the governed dependency path.`;
+    case 'forbiddenDependencyPath':
+      return `Forbid imports paths of one or two edges from ${(constraint.scopePaths ?? []).join('|')} to ${constraint.to ?? '(unspecified)'}.`;
     case 'forbiddenDependency':
       return `Forbid ${constraint.from ?? 'any component'} from importing ${constraint.to ?? '(unspecified dependency)'}.`;
     case 'forbiddenEgress':
@@ -558,7 +562,7 @@ function compareOptionalScope(
 const KNOWN_CONSTRAINT_KEYS = new Set([
   'id', 'type', 'severity', 'from', 'to', 'component', 'path', 'scopePaths', 'evidenceType', 'metric',
   'minimum', 'policyRef', 'governedHosts', 'egressCallees', 'forbiddenEgressHosts', 'behaviorRef',
-  'probeDefinitionHash', 'stimulusSetHash', 'environmentId', 'pattern',
+  'probeDefinitionHash', 'stimulusSetHash', 'environmentId', 'pattern', 'maxHops',
 ]);
 
 function compareConstraint(changes: Change[], before: Constraint, after: Constraint): void {
@@ -583,7 +587,7 @@ function compareConstraint(changes: Change[], before: Constraint, after: Constra
     compareStringSets(changes, `${root}/governedHosts`, before.governedHosts ?? [], after.governedHosts ?? [], 'tightening', 'relaxation');
     compareStringSets(changes, `${root}/forbiddenEgressHosts`, before.forbiddenEgressHosts ?? [], after.forbiddenEgressHosts ?? [], 'relaxation', 'tightening');
   }
-  if (before.type === 'forbiddenDependency') {
+  if (before.type === 'forbiddenDependency' || before.type === 'forbiddenDependencyPath') {
     compareOptionalScope(changes, `${root}/scopePaths`, before.scopePaths, after.scopePaths);
   }
   const handled = new Set(['id', 'type', 'severity']);
@@ -591,7 +595,7 @@ function compareConstraint(changes: Change[], before: Constraint, after: Constra
     handled.add('governedHosts');
     handled.add('forbiddenEgressHosts');
   }
-  if (before.type === 'forbiddenDependency') handled.add('scopePaths');
+  if (before.type === 'forbiddenDependency' || before.type === 'forbiddenDependencyPath') handled.add('scopePaths');
   const keys = sortedUnique([...Object.keys(before), ...Object.keys(after)]);
   for (const key of keys) {
     if (handled.has(key) || same(before[key], after[key])) continue;

@@ -109,6 +109,18 @@ describe('bce author — model-agnostic scaffold generator', () => {
     expect(bp.constraints).toHaveLength(specs.length);
     // every enum member is present at least once
     const authoredTypes = new Set(bp.constraints.map((c) => c.type));
+    // This arm requires the TS module profile, which cannot share the framework/egress
+    // fixture above. Author it separately and include its real result in the exhaustive set.
+    const boundedOut = join(tmp, 'all-bounded.json');
+    const bounded = runCli(['author', '--id', 'bounded-type', '--intent-ref', 'intent-a',
+      '--repository', 'example-org/example', '--scope-paths', 'src/**',
+      '--extraction-profile', 'typescript-module-graph',
+      '--constraint', 'forbiddenDependencyPath:module:src/app/**:critical', '--out', boundedOut]);
+    expect(bounded.code, bounded.stderr).toBe(0);
+    const boundedBlueprint = parseBlueprint(JSON.parse(readFileSync(boundedOut, 'utf8')));
+    expect(boundedBlueprint.constraints[0]).toMatchObject({ type: 'forbiddenDependencyPath', maxHops: 2, to: 'module:src/app/**', scopePaths: ['src/**'] });
+    expect(boundedBlueprint.minEngineVersion).toBe('0.6.1');
+    for (const constraint of boundedBlueprint.constraints) authoredTypes.add(constraint.type);
     for (const t of ConstraintTypeSchema.options) expect(authoredTypes.has(t)).toBe(true);
     // spot-check type-specific field mapping + the severity grammar
     const byType = (t: string) => bp.constraints.filter((c) => c.type === t);

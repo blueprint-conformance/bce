@@ -7,8 +7,8 @@
  * byte-identical report out.
  */
 import { createHash } from 'node:crypto';
-import type { ArchitectureGraph } from './graph.js';
-import type { EngineeringBlueprint, ExtractionProfile, Severity } from './schema.js';
+import type { ArchitectureGraph, ObservedEdge } from './graph.js';
+import type { EngineeringBlueprint, ExtractionProfile, Severity, Constraint } from './schema.js';
 import { STACK_CONSTRAINTS } from './schema.js';
 import { isGovernedHost } from './extractors.js';
 import { compileLegacyDependencies } from './compiler/compile.js';
@@ -107,6 +107,62 @@ function compareViolations(a: Violation, b: Violation): number {
   return ka < kb ? -1 : ka > kb ? 1 : 0;
 }
 
+/** A bounded path cannot be graded without complete local evidence. */
+export class DependencyPathRefusal extends Error {
+  constructor(message: string, readonly constraintId?: string) { super(message); }
+}
+
+/** RFC-0004: evaluate one/two direct imports edges; the provider remains policy-independent. */
+function evaluateDependencyPaths(c: Constraint, graph: ArchitectureGraph, profile: ExtractionProfile): Violation[] {
+  const refuse = (reason: string): never => { throw new DependencyPathRefusal(`forbiddenDependencyPath ${c.id} refused: ${reason}`, c.id); };
+  if (profile !== 'typescript-module-graph' || graph.coverage.extractor !== 'ast' || c.maxHops !== 2 || !c.to || !c.scopePaths?.length) refuse('requires the TypeScript module AST graph, a target, source scope and explicit maxHops: 2');
+  if (!graph.coverage.scannedFiles) refuse('scannedFiles coverage is absent');
+  const scanned = new Set(graph.coverage.scannedFiles);
+  if (graph.coverage.filesScanned !== scanned.size || scanned.size === 0) refuse('scannedFiles inventory does not match the scan count');
+  const modules = new Map(graph.components.filter(n => n.type === 'typescriptModule').map(n => [n.id, n]));
+  const matchers = (c.scopePaths ?? []).map(pathGlobToRe);
+  const roots = [...modules.values()].filter(n => matchers.some(m => m.test(n.path))).sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  for (const file of scanned) if (matchers.some(m => m.test(file)) && !modules.has(`module:${file}`)) refuse(`source file ${file} has no TypeScript module component`);
+  if (roots.length === 0) refuse(`no source modules match ${(c.scopePaths ?? []).join('|')}`);
+  const edges = new Map<string, ObservedEdge[]>();
+  for (const edge of graph.guardEdges) {
+    if (edge.type !== 'imports') continue;
+    const outgoing = edges.get(edge.from) ?? [];
+    outgoing.push(edge); edges.set(edge.from, outgoing);
+  }
+  for (const outgoing of edges.values()) outgoing.sort((a, b) => stableStringify(a) < stableStringify(b) ? -1 : stableStringify(a) > stableStringify(b) ? 1 : 0);
+  const check = (id: string): void => {
+    const node = modules.get(id);
+    if (!node || node.id !== `module:${node.path}` || !scanned.has(node.path)) refuse(`reachable module ${id} is not a scanned TypeScript module`);
+    const unknown = (graph.coverage.unresolvedImports ?? []).filter(i => i.from === id).sort((a, b) => stableStringify(a) < stableStringify(b) ? -1 : stableStringify(a) > stableStringify(b) ? 1 : 0);
+    if (unknown.length) refuse(`${id} has unresolved imports: ${unknown.map(i => `${i.ref} ${i.kind} ${i.specifier} (${i.reason})`).join('; ')}`);
+  };
+  const violations = new Map<string, Violation>();
+  const record = (root: string, witness: ObservedEdge[]): void => {
+    const last = witness[witness.length - 1]!;
+    if (!moduleTargetMatches(last.to, c.to)) return;
+    const observed = `forbidden dependency path (${witness.length} hop${witness.length === 1 ? '' : 's'}): ${root}${witness.map(e => ` --[${e.evidenceRef}]--> ${e.to}`).join('')}`;
+    const violation: Violation = { constraintId: c.id, severity: c.severity, component: root, evidenceType: 'staticAst', evidenceRef: last.evidenceRef, observed, expected: `no imports path of 1 or 2 edges from ${(c.scopePaths ?? []).join('|')} to ${c.to}` };
+    violations.set(stableStringify(violation), violation);
+  };
+  for (const root of roots) {
+    check(root.id);
+    for (const first of edges.get(root.id) ?? []) {
+      record(root.id, [first]);
+      if (!first.to.startsWith('module:')) {
+        if (!first.to.startsWith('package:') && !first.to.startsWith('builtin:')) refuse(`unclassified first-hop target ${first.to}`);
+        continue; // external endpoints have no local adjacency; package internals are outside scope
+      }
+      check(first.to);
+      for (const second of edges.get(first.to) ?? []) {
+        if (!/^(module:|package:|builtin:)/.test(second.to)) refuse(`unclassified second-hop target ${second.to}`);
+        record(root.id, [first, second]);
+      }
+    }
+  }
+  return [...violations.values()];
+}
+
 /**
  * Evaluate one blueprint against one observed graph → a deterministic ComplianceReport.
  *
@@ -171,7 +227,10 @@ export function evaluate(
   let implemented = 0; // count of ENFORCING (non-skipped) constraints that actually ran
 
   for (const [constraintIndex, c] of blueprint.constraints.entries()) {
-    if (c.type === 'requiredDependency') {
+    if (c.type === 'forbiddenDependencyPath') {
+      implemented += 1;
+      violations.push(...evaluateDependencyPaths(c, graph, profile));
+    } else if (c.type === 'requiredDependency') {
       implemented += 1;
       if (moduleGraphComponentType) {
         const scopeMatchers = (c.scopePaths ?? []).map(pathGlobToRe);
@@ -531,6 +590,8 @@ export function evaluate(
   // legibility (finding): an all-info violation set yields score 100 but verdict fail — make the
   // fail reason explicit so `score 100` is never read as a pass.
   if (score === 100 && verdict === 'fail') summaryParts.push('FAIL despite score 100 (info-only or floor violations)');
+
+  if (blueprint.constraints.some(c => c.type === 'forbiddenDependencyPath')) summaryParts.push('bounded dependency paths cover 1 or 2 observed import edges; external package internals are outside the bound');
 
   const routeLimit = routeGuardEvidenceLimit(graph.coverage);
   if (routeLimit) summaryParts.push(routeLimit);

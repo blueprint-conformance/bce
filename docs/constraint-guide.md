@@ -3,7 +3,7 @@
 The first four enforcing constraint types answer four different questions about the observed
 architecture graph: does a component exist, does it use the governed edge, does a prohibited import
 exist, and does an extracted component live under a prohibited path? This is a visual reading aid;
-the [constraint taxonomy in the specification](../spec/SPEC.md#3-constraint-taxonomy--16-types) is
+the [constraint taxonomy in the specification](../spec/SPEC.md#3-constraint-taxonomy--17-types) is
 normative.
 
 The module-graph notes on C2 and C3 describe profiles released in `bce-engine@0.3.0`, alongside the

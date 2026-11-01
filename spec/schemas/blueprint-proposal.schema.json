@@ -139,6 +139,10 @@
                   "id": {
                     "type": "string"
                   },
+                  "maxHops": {
+                    "const": 2,
+                    "type": "number"
+                  },
                   "metric": {
                     "type": "string"
                   },
@@ -210,6 +214,7 @@
                   "type": {
                     "enum": [
                       "forbiddenDependency",
+                      "forbiddenDependencyPath",
                       "requiredDependency",
                       "requiredComponent",
                       "forbiddenPath",
@@ -915,6 +920,10 @@
                       "id": {
                         "type": "string"
                       },
+                      "maxHops": {
+                        "const": 2,
+                        "type": "number"
+                      },
                       "metric": {
                         "type": "string"
                       },
@@ -986,6 +995,7 @@
                       "type": {
                         "enum": [
                           "forbiddenDependency",
+                          "forbiddenDependencyPath",
                           "requiredDependency",
                           "requiredComponent",
                           "forbiddenPath",
