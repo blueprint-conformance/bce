@@ -1,3 +1,5 @@
+import { reviewArchitectureChange } from './proposal-io.js';
+import { architectureReviewExitCode } from './review.js';
 import { hasStackConstraints, prepareDeclaredEvidence, evaluatePreparedEvidence } from './stack/stack-evaluation.js';
 import { createDeclaredStackBundle } from './evidence-bundle.js';
 /**
@@ -949,6 +951,7 @@ async function main(): Promise<void> {
     return;
   }
   const allowedByCommand: Record<string, readonly string[]> = {
+    'architecture-review': ['repo', 'blueprint', 'base', 'head', 'out'],
     demo: ['list', 'recipe'],
     doctor: ['repo', 'blueprint-dir', 'out'],
     'verify-bundle': ['bundle'],
@@ -1736,6 +1739,22 @@ async function main(): Promise<void> {
           `(${graph.components.length} component(s) observed)\n`,
       );
     }
+    return;
+  }
+
+  if (cmd === 'architecture-review') {
+    if (args._.length !== 1 || ['repo', 'blueprint', 'base', 'head'].some(key => typeof args[key] !== 'string' || !args[key])) {
+      die('usage: bce architecture-review --repo <dir> --blueprint <path> --base <commit-sha> --head <commit-sha> [--out <json>]', 2);
+    }
+    const review = reviewArchitectureChange({ repoDir: args.repo as string, blueprint: readBlueprint(args.blueprint as string),
+      baseRevision: args.base as string, headRevision: args.head as string });
+    if (args.out !== undefined && (typeof args.out !== 'string' || !args.out)) die('--out requires a path', 2);
+    if (typeof args.out === 'string') {
+      // A review never overwrites a blueprint, baseline, source file, or an earlier review.
+      fs.writeFileSync(args.out, stableStringify(review), { flag: 'wx' });
+    } else process.stdout.write(stableStringify(review));
+    process.stderr.write(`architecture review: ${review.status}; ${review.refusals.join('; ') || `head ${review.delta?.headVerdict}`}\n`);
+    process.exitCode = architectureReviewExitCode(review);
     return;
   }
 
@@ -2618,6 +2637,9 @@ async function main(): Promise<void> {
       `       Stack constraints require --stack-sources <JSON file> (source, lockfile, packageManifest, imageFiles, runtimeFiles).\n` +
       `       optional trailing :<severity> = info|low|medium|high|critical (default high)\n` +
       `  bce validate --blueprint <path>\n` +
+      `  bce architecture-review --repo <dir> --blueprint <path> --base <commit-sha> --head <commit-sha> [--out <json>]\n` +
+      `       Frozen TypeScript module graph comparison; exit 0 head conforms, 1 head violations, 2 unknown/refused.\n` +
+      `       Raw new/resolved/retained violations and dependency deltas; never baseline filtering or policy approval.\n` +
       `  bce scan  --ct-repo <dir> [--blueprint <path>] [--ref <sha|ref>] [--extractor ast|line-scan] --out <path>\n` +
       `  bce run   --blueprint <path> --ct-repo <dir> [--ref <sha|ref>] [--extractor ast|line-scan] --out <path> [--emit-bundle <json>]\n` +
       `  bce teeth --blueprint <path> --ct-repo <dir> [--require-extractor-real] [--reviewed-waiver] [--out <path>]\n` +

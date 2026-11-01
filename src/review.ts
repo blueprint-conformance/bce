@@ -1,10 +1,11 @@
+import type { ToolchainIdentity } from './runtime-identity.js';
 import { ReviewSourceProofSchema, type ReviewSourceProof } from './review-contracts.js';
 /** Pure, deterministic implementation of the AI-first blueprint review core. */
 import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
-import type { ArchitectureGraph } from './graph.js';
+import type { ArchitectureGraph, ObservedComponent, ObservedEdge } from './graph.js';
 import { classifyPolicyChanges, type FileChange } from './policy-change.js';
-import { evaluate, stableStringify } from './report.js';
+import { evaluate, stableStringify, pathGlobToRe, type Violation } from './report.js';
 import {
   TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION,
   type Approval,
@@ -1083,4 +1084,142 @@ export function recordReviewDecision(args: {
     decidedAt: args.decidedAt,
   };
   return BlueprintDecisionRecordSchema.parse({ ...body, decisionDigest: reviewDigest(body) });
+}
+
+/** Observed architectural change under one frozen contract. */
+export interface ArchitectureReviewSnapshot {
+  blueprint: EngineeringBlueprint;
+  toolchain: ToolchainIdentity;
+  graph: ArchitectureGraph;
+  /** Tracked files at the same immutable revision, including files outside extraction scope. */
+  trackedFiles: string[];
+  /** Content digest of repository JSON resolver inputs (conservatively all tracked JSON). */
+  resolverInputsDigest: string;
+}
+export interface ArchitectureDelta<T> {
+  added: T[];
+  removed: T[];
+  retained: Array<{ base: T; head: T }>;
+}
+export interface ArchitectureChangeReview {
+  schemaVersion: '1';
+  kind: 'ArchitectureChangeReview';
+  status: 'compared' | 'refused';
+  baseRevision: string;
+  headRevision: string;
+  blueprintDigest: string;
+  toolchain: ToolchainIdentity;
+  inputDigests: { base: string; head: string };
+  coverage: { base: ArchitectureGraph['coverage']; head: ArchitectureGraph['coverage'] };
+  limitations: string[];
+  refusals: string[];
+  delta: null | {
+    components: ArchitectureDelta<ObservedComponent>;
+    dependencies: ArchitectureDelta<ObservedEdge>;
+    violations: ArchitectureDelta<Violation>;
+    baseVerdict: 'pass' | 'fail';
+    headVerdict: 'pass' | 'fail';
+  };
+  digest: string;
+}
+const supported = new Set(['forbiddenDependency', 'requiredDependency', 'requiredComponent', 'forbiddenPath', 'forbiddenFile']);
+const sourcePath = (anchor: string): string => anchor.replace(/#L\d+$/, '');
+const edgeKey = (edge: ObservedEdge): string => stableStringify([edge.from, edge.to, edge.type]);
+const componentKey = (component: ObservedComponent): string => stableStringify([component.id, component.type, component.path]);
+const violationKey = ({ evidenceRef, ...violation }: Violation): string =>
+  stableStringify({ ...violation, sourcePath: sourcePath(evidenceRef) });
+
+function delta<T>(base: T[], head: T[], key: (item: T) => string): ArchitectureDelta<T> {
+  const index = (items: T[]): Map<string, T> => {
+    const result = new Map<string, T>();
+    for (const item of items) {
+      const identity = key(item);
+      if (result.has(identity)) throw new Error('ambiguous repeated semantic identity; individual occurrences cannot be matched across revisions');
+      result.set(identity, item);
+    }
+    return result;
+  };
+  const a = index(base), b = index(head);
+  const result: ArchitectureDelta<T> = { added: [], removed: [], retained: [] };
+  for (const identity of [...new Set([...a.keys(), ...b.keys()])].sort()) {
+    const before = a.get(identity), after = b.get(identity);
+    if (before !== undefined && after !== undefined) result.retained.push({ base: before, head: after });
+    else if (before !== undefined) result.removed.push(before);
+    else if (after !== undefined) result.added.push(after);
+  }
+  return result;
+}
+
+/** Pure replay over caller-supplied snapshots. Digests prove integrity, not source authenticity. */
+export function compareArchitectureSnapshots(baseInput: ArchitectureReviewSnapshot, headInput: ArchitectureReviewSnapshot): ArchitectureChangeReview {
+  const base = structuredClone(baseInput), head = structuredClone(headInput);
+  const refusals: string[] = [];
+  if (!same(base.blueprint, head.blueprint)) refusals.push('blueprint mismatch: policy changes require a separate policy review');
+  if (!same(base.toolchain, head.toolchain)) refusals.push('engine, provider, dependency lock or runtime identity mismatch');
+  if (base.resolverInputsDigest !== head.resolverInputsDigest) refusals.push('resolver inputs changed: identical resolution configuration is required');
+  for (const [side, snapshot] of [['base', base], ['head', head]] as const) {
+    const { graph, toolchain } = snapshot;
+    const bp = parseBlueprint(snapshot.blueprint);
+    if (!/^[0-9a-f]{64}$/.test(snapshot.resolverInputsDigest)) refusals.push(`${side}: resolver input digest unavailable`);
+    if (!/^[0-9a-f]{40}$/.test(graph.ctRepoRevision)) refusals.push(`${side}: immutable commit SHA required`);
+    if (bp.extraction?.profile !== 'typescript-module-graph' || toolchain.extractor.profile !== 'typescript-module-graph' ||
+        toolchain.extractor.kind !== 'ast' || toolchain.extractor.provider !== 'typescript-ts-morph' || graph.coverage.extractor !== 'ast') {
+      refusals.push(`${side}: only the TypeScript AST module-graph provider is supported`);
+    }
+    if (!bp.constraints.length || bp.constraints.some(c => !supported.has(c.type) || !constraintShapeSupported(c, graph) ||
+        ((c.type === 'forbiddenPath' || c.type === 'forbiddenFile') && !c.path))) refusals.push(`${side}: unsupported constraint; this slice supports module dependencies, components and paths/files only`);
+    const scanned = graph.coverage.scannedFiles;
+    const scope = (bp.extraction?.paths ?? []).map(pathGlobToRe);
+    const expectedFiles = snapshot.trackedFiles.filter(file => scope.some(pattern => pattern.test(file))).sort();
+    if (scanned && !same([...scanned].sort(), expectedFiles)) refusals.push(`${side}: coverage loss against the tracked extraction scope`);
+    if (!scanned || scanned.length !== graph.coverage.filesScanned || new Set(scanned).size !== scanned.length ||
+        graph.coverage.filesScanned < Math.max(1, bp.extraction?.minFiles ?? 1)) refusals.push(`${side}: incomplete or empty scanned-file coverage`);
+    if (graph.coverage.unresolvedImports?.length) refusals.push(`${side}: unresolved imports prevent a complete dependency comparison`);
+    if (scanned && (scanned.some(file => !snapshot.trackedFiles.includes(file)) ||
+        !same([...scanned].sort(), graph.components.map(c => c.path).sort()) ||
+        graph.components.some(c => c.type !== 'typescriptModule' || c.id !== `module:${c.path}`))) refusals.push(`${side}: module identity or tracked-file coverage is inconsistent`);
+    const ids = new Set(graph.components.map(c => c.id));
+    if (graph.guardEdges.some(e => e.type !== 'imports' || !ids.has(e.from) || sourcePath(e.evidenceRef) !== e.from.slice('module:'.length))) refusals.push(`${side}: dependency identity is inconsistent`);
+  }
+  if (!same([...base.graph.coverage.unsupported].sort(), [...head.graph.coverage.unsupported].sort())) refusals.push('provider coverage limitations changed');
+  for (const [before, after] of [[base, head], [head, base]] as const) {
+    for (const file of before.graph.coverage.scannedFiles ?? []) {
+      if (after.trackedFiles.includes(file) && !after.graph.coverage.scannedFiles?.includes(file)) refusals.push(`coverage loss: tracked module ${file} disappeared from extraction`);
+    }
+  }
+  let changes: ArchitectureChangeReview['delta'] = null;
+  if (refusals.length === 0) {
+    try {
+      const a = evaluate(base.blueprint, base.graph, 'typescript-module-graph');
+      const b = evaluate(head.blueprint, head.graph, 'typescript-module-graph');
+      changes = {
+        components: delta(base.graph.components, head.graph.components, componentKey),
+        dependencies: delta(base.graph.guardEdges, head.graph.guardEdges, edgeKey),
+        violations: delta(a.violations, b.violations, violationKey),
+        baseVerdict: a.verdict, headVerdict: b.verdict,
+      };
+    } catch (error) { refusals.push((error as Error).message); }
+  }
+  const body: Omit<ArchitectureChangeReview, 'digest'> = {
+    schemaVersion: '1', kind: 'ArchitectureChangeReview', status: refusals.length ? 'refused' : 'compared',
+    baseRevision: base.graph.ctRepoRevision, headRevision: head.graph.ctRepoRevision,
+    blueprintDigest: reviewDigest(base.blueprint), toolchain: base.toolchain,
+    inputDigests: { base: reviewDigest(base), head: reviewDigest(head) },
+    coverage: { base: base.graph.coverage, head: head.graph.coverage },
+    limitations: [
+      'Direct static module dependencies only; no runtime, transitive or cycle claims.',
+      'Identity is module path/type and dependency source/target/kind, never source line; renames are removal plus addition.',
+      'Repeated indistinguishable dependencies or violations are refused, not paired by line.',
+      'All tracked JSON and actual tsconfig-chain inputs must be identical; this conservatively refuses unrelated JSON changes.',
+      'Raw violations are compared without baseline filtering; this review does not replace bce gate or approve policy.',
+      'Caller-supplied snapshot digests prove integrity only, not authenticity.',
+    ],
+    refusals: [...new Set(refusals)].sort(), delta: refusals.length ? null : changes,
+  };
+  return { ...body, digest: reviewDigest(body) };
+}
+
+/** A comparison succeeds only if acquisition/matching succeeds and the head conforms. */
+export function architectureReviewExitCode(review: ArchitectureChangeReview): 0 | 1 | 2 {
+  return review.status === 'refused' || !review.delta ? 2 : review.delta.headVerdict === 'fail' ? 1 : 0;
 }
