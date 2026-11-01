@@ -154,10 +154,21 @@ export interface RemediationWorkOrder {
  */
 export function toWorkOrders(report: ComplianceReport): RemediationWorkOrder[] {
   const traceId = report.blueprintRef.split('@')[0] ?? report.blueprintRef;
+  const legacyKey = (v: Violation): string => `${v.constraintId}:${v.component}:${v.evidenceRef}`;
+  const witnesses = new Map<string, Set<string>>();
+  for (const violation of report.violations) {
+    const key = legacyKey(violation);
+    const group = witnesses.get(key) ?? new Set<string>();
+    group.add(stableStringify(violation));
+    witnesses.set(key, group);
+  }
   return report.violations.map((v: Violation) => {
-    // include evidenceRef in the id key so two violations sharing (constraintId, component) but at
-    // different lines get DISTINCT, non-colliding WO ids (finding: id-collision seam).
-    const key = `${v.constraintId}:${v.component}:${v.evidenceRef}`;
+    // Preserve existing IDs for unambiguous anchors. Distinct path witnesses can
+    // share a final edge, so only colliding identities bind the complete violation.
+    const priorKey = legacyKey(v);
+    const key = witnesses.get(priorKey)!.size > 1
+      ? stableStringify([priorKey, v])
+      : priorKey;
     const id = `wo:${report.blueprintRef}:${sha256(key).slice(0, 16)}`;
     return {
       schemaVersion: '1' as const,

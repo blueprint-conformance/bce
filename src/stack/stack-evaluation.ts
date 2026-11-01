@@ -1,7 +1,7 @@
 import { resolveEngineVersion, semverLt } from '../gate.js';
 /** Shared declared-evidence dispatcher. Live evaluation and offline replay use these same facts. */
 import { createHash } from 'node:crypto';
-import { evaluate, stableStringify, SEVERITY_WEIGHT, type ComplianceReport, type DeclaredStackReport, type EvidenceRefusal, type Violation } from '../report.js';
+import { evaluate, DependencyPathRefusal, stableStringify, SEVERITY_WEIGHT, type ComplianceReport, type DeclaredStackReport, type EvidenceRefusal, type Violation } from '../report.js';
 import { STACK_CONSTRAINTS, constraintEvidenceClass, type EngineeringBlueprint, type ExtractionProfile } from '../schema.js';
 import type { ArchitectureGraph } from '../graph.js';
 import { resolveExtraction } from '../extractors.js';
@@ -74,9 +74,17 @@ export function evaluatePreparedEvidence(bp: EngineeringBlueprint, evidence: Pre
       const observations=evidence.graph.components.filter(n=>n.type==='behaviorObservation' && n.id.startsWith(`behavior:${c.behaviorRef}:`));
       if(observations.length < 2) refusals.push({constraintId:c.id,evidenceClass:'behaviorObservation',code:'missing-runtime-observations',reason:'bound runtime observations are required',sources:[]});
     }
-    const legacy = evaluate({...bp,constraints:code},evidence.graph,profile,repoName);
-    violations.push(...legacy.violations);
-    providers.push({evidenceClass:'staticAst',...legacy.coverage});
+    try {
+      const legacy = evaluate({...bp,constraints:code},evidence.graph,profile ?? cfg.profile,repoName);
+      violations.push(...legacy.violations);
+      providers.push({evidenceClass:'staticAst',...legacy.coverage});
+    } catch (error) {
+      if (!(error instanceof DependencyPathRefusal) || !error.constraintId) throw error;
+      refusals.push({constraintId:error.constraintId,evidenceClass:'staticAst',code:'dependency-path-incomplete',reason:error.message,sources:[...cfg.paths].sort()});
+      const coverage = evidence.graph.coverage;
+      providers.push({evidenceClass:'staticAst',extractor:coverage.extractor,filesScanned:coverage.filesScanned,unsupported:coverage.unsupported,
+        ...(coverage.unresolvedImports?.length ? {unresolvedImports:coverage.unresolvedImports} : {})});
+    }
   } else if(code.length && !refusals.some(r=>r.evidenceClass!=='declaredStack')) {
     for(const c of code) refusals.push({constraintId:c.id,evidenceClass:constraintEvidenceClass(c.type),code:'missing-code-evidence',reason:'required graph evidence is absent',sources:[]});
   }

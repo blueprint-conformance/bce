@@ -25,7 +25,7 @@ import { execFileSync } from 'node:child_process';
 import { constraintEvidenceClass, parseBlueprintTolerant, type EngineeringBlueprint } from './schema.js';
 import { resolveExtraction } from './extractors.js';
 import { makeExtractor } from './extractor-registry.js';
-import { evaluate, type ComplianceReport } from './report.js';
+import { evaluate, DependencyPathRefusal, type ComplianceReport } from './report.js';
 import { resolveFiles } from './extractors.js';
 import { resolveMode, exitCodeForGate, type GateMode, type ResolvedMode } from './mode.js';
 import { readBaseline, partitionAgainstBaseline, type BaselineFile } from './baseline.js';
@@ -481,7 +481,13 @@ export function runGate(
     // run-only/unknown constraints were skipped, the report SUMMARY names the counts — the skip is
     // legible on the per-blueprint artifact, not only in the GateResult warnings.
     const staticBp: EngineeringBlueprint = { ...bp, constraints: staticConstraints };
-    const report = evaluate(staticBp, graph, cfg.profile, repoName);
+    let report: ComplianceReport;
+    try { report = evaluate(staticBp, graph, cfg.profile, repoName); }
+    catch (e) {
+      if (!(e instanceof DependencyPathRefusal)) throw e;
+      refusals.push(e.message);
+      continue;
+    }
     if (runOnly.length > 0) {
       report.summary += `; ${runOnly.length} run-only constraint(s) skipped in gate mode (graded only by bce run --observations)`;
     }

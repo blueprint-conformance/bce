@@ -28,13 +28,13 @@ const SEVERITY = ['info', 'low', 'medium', 'high', 'critical'] as const;
 const ON_MISSING = ['warn', 'unknown', 'block'] as const;
 const STACK_CONSTRAINTS = new Set(['pinnedVersion', 'stackClosureMatch', 'forbiddenStackPackage', 'requirePinnedImages', 'allowedNodeVersions']);
 const ENFORCING_CONSTRAINTS = new Set([
-  'requiredComponent', 'requiredDependency', 'forbiddenDependency', 'forbiddenPath',
+  'requiredComponent', 'requiredDependency', 'forbiddenDependency', 'forbiddenDependencyPath', 'forbiddenPath',
   'forbiddenFile', 'forbiddenEgress', 'forbiddenPattern', 'behavioralInvariant',
   'pinnedVersion', 'stackClosureMatch', 'forbiddenStackPackage', 'requirePinnedImages', 'allowedNodeVersions',
 ]);
 const CONSTRAINT_ARGUMENT_FIELDS = [
   'from', 'component', 'evidenceType', 'metric', 'minimum', 'policyRef', 'behaviorRef',
-  'probeDefinitionHash', 'stimulusSetHash', 'environmentId',
+  'probeDefinitionHash', 'stimulusSetHash', 'environmentId', 'maxHops',
 ] as const;
 const CONSTRAINT_KNOWN_FIELDS = new Set([
   'id', 'type', 'severity', 'scopePaths', 'path', 'pattern', 'to', 'governedHosts',
@@ -304,7 +304,7 @@ function compareConstraint(result: Evidence, before: JsonObject, after: JsonObje
     }
   }
 
-  if (before.type === after.type && before.type === 'forbiddenDependency') {
+  if (before.type === after.type && (before.type === 'forbiddenDependency' || before.type === 'forbiddenDependencyPath')) {
     compareRestrictingScope(result, before, after, 'scopePaths', `constraint scope ${id}`);
   } else if (!equal(before.scopePaths, after.scopePaths)) add(result, 'unknown', `constraint path scope changed: ${id}.scopePaths`);
 

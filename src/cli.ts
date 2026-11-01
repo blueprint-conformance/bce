@@ -47,6 +47,7 @@ import {
   ConstraintTypeSchema,
   StackSourceConfigSchema,
   constraintEvidenceClass,
+  DEPENDENCY_PATH_MIN_ENGINE_VERSION,
   SeveritySchema,
   ExtractionProfileSchema,
   PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION,
@@ -518,6 +519,7 @@ function parseConstraintSpec(spec: string, index: number): Constraint {
     if (!match) die(`--constraint '${spec}': pinnedVersion requires '<npm|oci-image|node-runtime>:<name>=<exact-version-or-digest>'.`);
     return { id: id(arg), type, severity, stackTarget: { kind: match[1] as 'npm'|'oci-image'|'node-runtime', name: match[2]! }, expectedVersion: match[3]! };
   }
+  if (type === 'forbiddenDependencyPath') return { id: id(arg), type, severity, to: arg, maxHops: 2 };
   if (type === 'forbiddenDependency') return { id: id(arg), type, severity, from: '*', to: arg };
   if (type === 'requiredDependency') {
     const arrow = arg.indexOf('->');
@@ -1670,7 +1672,7 @@ async function main(): Promise<void> {
         profileParsed.data === 'typescript-module-graph' || profileParsed.data === 'python-module-graph';
       if (isModuleGraph) {
         for (const constraint of constraints) {
-          if (constraint.type !== 'requiredDependency' && constraint.type !== 'forbiddenDependency') continue;
+          if (constraint.type !== 'requiredDependency' && constraint.type !== 'forbiddenDependency' && constraint.type !== 'forbiddenDependencyPath') continue;
           constraint.scopePaths = [...(scopePaths ?? [])];
           if (constraint.type === 'requiredDependency' && !constraint.to) {
             die(
@@ -1719,7 +1721,7 @@ async function main(): Promise<void> {
         : [{ type: 'staticAst', required: true, onMissing: 'block' }],
       approvals: [{ role: 'blueprint-steward', stage: 'ratify' }],
       ...(extraction ? { extraction } : {}),
-      ...(stack ? { stack, minEngineVersion: '0.5.0' } : extraction?.profile === 'typescript-module-graph'
+      ...(constraints.some(c => c.type === 'forbiddenDependencyPath') ? { ...(stack ? { stack } : {}), minEngineVersion: DEPENDENCY_PATH_MIN_ENGINE_VERSION } : stack ? { stack, minEngineVersion: '0.5.0' } : extraction?.profile === 'typescript-module-graph'
         ? { minEngineVersion: TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION }
         : extraction?.profile === 'python-module-graph'
           ? { minEngineVersion: PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION }
@@ -2217,7 +2219,9 @@ async function main(): Promise<void> {
       gateFailed,
     });
     for (const refusal of result.refusals ?? []) {
-      process.stderr.write(`::error::${refusal}. Author one with 'bce author', or point --blueprint-dir at the right directory.\n`);
+      process.stderr.write(refusal.startsWith('forbiddenDependencyPath ')
+        ? `::error::${refusal}. Fix the imports or include required local modules in the scan; amend the boundary through review if its intent is wrong.\n`
+        : `::error::${refusal}. Author one with 'bce author', or point --blueprint-dir at the right directory.\n`);
     }
     const reportJsonPath = typeof args['report-json'] === 'string' ? (args['report-json'] as string) : undefined;
     if (reportJsonPath) {

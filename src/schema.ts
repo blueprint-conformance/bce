@@ -21,6 +21,7 @@ import { safeCompilePattern, UnsafePatternError } from './safe-regex.js';
 /** Constraint kinds a blueprint can declare (json-schema `constraints[].type` enum). */
 export const ConstraintTypeSchema = z.enum([
   'forbiddenDependency',
+  'forbiddenDependencyPath',
   'requiredDependency',
   'requiredComponent',
   'forbiddenPath',
@@ -85,6 +86,8 @@ export const ConstraintTypeSchema = z.enum([
   'pinnedVersion', 'stackClosureMatch', 'forbiddenStackPackage', 'requirePinnedImages', 'allowedNodeVersions',
 ]);
 export type ConstraintType = z.infer<typeof ConstraintTypeSchema>;
+/** Proposed RFC-0004 candidate floor; prevents older tolerant gates from skipping the new arm. */
+export const DEPENDENCY_PATH_MIN_ENGINE_VERSION = '0.6.1';
 
 /**
  * Constraint types whose facts come from a RUNTIME observer (the `served-runtime` probe writing
@@ -185,6 +188,8 @@ export const ConstraintSchema = z
      * the `file:` catch-all).
      */
     scopePaths: z.array(z.string()).optional(),
+    /** RFC-0004: bounded dependency paths are explicit, never a change to direct-edge semantics. */
+    maxHops: z.literal(2).optional(),
     evidenceType: z.string().optional(),
     metric: z.string().optional(),
     minimum: z.number().optional(),
@@ -262,6 +267,13 @@ export const ConstraintSchema = z
       if (c.versions && c.versions.some(v=>!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(v))) issue('Node versions must be exact x.y.z');
       if (c.versions && c.versions.some((v, i) => i > 0 && v <= c.versions![i-1]!)) issue('versions must be sorted and unique');
     } else for (const field of stackFields) if (c[field] !== undefined) issue(`${field} is only legal on its stack rule arm`);
+    if (c.type === 'forbiddenDependencyPath') {
+      const allowedFields = new Set(['id', 'type', 'severity', 'to', 'scopePaths', 'maxHops']);
+      for (const key of Object.keys(c)) if (!allowedFields.has(key)) issue(`field ${key} is not legal for forbiddenDependencyPath`);
+      if (c.maxHops !== 2) issue('forbiddenDependencyPath requires explicit maxHops: 2');
+      if (!validModuleTargetSelector(c.to)) issue('forbiddenDependencyPath requires a module:, package:, or builtin: target');
+      if (!c.scopePaths?.length || c.scopePaths.some(p => !RepoRelativePathPatternSchema.safeParse(p).success || p.includes('\\'))) issue('forbiddenDependencyPath requires nonempty repository-relative POSIX scopePaths');
+    } else if (c.maxHops !== undefined) issue('maxHops is only legal on forbiddenDependencyPath; forbiddenDependency remains direct');
     if (c.type !== 'forbiddenPattern') return;
     if (typeof c.pattern !== 'string' || c.pattern.length === 0) {
       ctx.addIssue({
@@ -507,6 +519,7 @@ export function refineModuleGraphBlueprint(
   const issue = (path: Array<string | number>, message: string): void => {
     ctx.addIssue({ code: 'custom', path, message });
   };
+  if (value.constraints.some(c => c.type === 'forbiddenDependencyPath') && extraction?.profile !== 'typescript-module-graph') issue(['extraction', 'profile'], 'forbiddenDependencyPath requires typescript-module-graph');
   if (!extraction) return;
   const profile = extraction.profile;
   const isTypeScript = profile === 'typescript-module-graph';
@@ -538,7 +551,7 @@ export function refineModuleGraphBlueprint(
   }
   if (requireMinimumEngineVersion) {
     const actual = value.minEngineVersion?.split('.').map(Number);
-    const floorVersion = isPython
+    const floorVersion = value.constraints.some(c => c.type === 'forbiddenDependencyPath') ? DEPENDENCY_PATH_MIN_ENGINE_VERSION : isPython
       ? PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION
       : TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION;
     const floor = floorVersion.split('.').map(Number);
@@ -832,7 +845,7 @@ export const ValidatedPortfolioBlueprintSchema = PortfolioBlueprintSchema.superR
     );
     const profile = value.extraction.profile;
     if (profile !== 'typescript-module-graph' && profile !== 'python-module-graph') return;
-    const floorVersion = profile === 'python-module-graph'
+    const floorVersion = value.fleetConstraints.some(c => c.type === 'forbiddenDependencyPath') ? DEPENDENCY_PATH_MIN_ENGINE_VERSION : profile === 'python-module-graph'
       ? PYTHON_MODULE_GRAPH_MIN_ENGINE_VERSION
       : TYPESCRIPT_MODULE_GRAPH_MIN_ENGINE_VERSION;
     value.members.forEach((member, index) => {
