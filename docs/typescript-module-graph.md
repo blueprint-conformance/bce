@@ -244,7 +244,8 @@ bce policy-impact --repo . --repo-name example-org/storefront \
 
 The installed API is `reviewPolicyImpact({ repoDir, repoName, revision, baseBlueprint,
 candidateBlueprint })`. Its `PolicyImpactReview` result records both policy digests, complete
-resolved acquisition settings, source and resolver-input digests, tracked inventory, exact coverage,
+resolved acquisition settings, a policy-independent source-acquisition digest (graph, toolchain,
+tracked inventory and resolver inputs), exact coverage,
 toolchain identity and an artifact digest. Digests prove integrity, not origin authenticity; the
 supplied repository name must be applicable to both policies but is not authenticated by this call.
 Uncommitted source changes, Git replacement objects, mutable Git attributes and caller Git configuration do not alter the pinned acquisition. Committed `.gitattributes` remain part of the immutable input.
@@ -273,3 +274,8 @@ Set the base constraint `domain-cannot-import-app` to `scopePaths: ["packages/ap
 `scopePaths: ["packages/domain/**"]` in the candidate. The unchanged source produces one introduced
 finding under the candidate; reversing the policies removes that finding without repairing code.
 This exercises a policy selector change, not a complete application or runtime guarantee.
+
+The repository test `tests/policy-impact.test.ts` also runs a diagnostic projection of the actual
+`only-extractors-may-import-ts-morph` rule against the current immutable BCE commit. Broadening its
+source selector to include the permitted extractor introduces the anchored `ts-morph` import finding;
+this does not claim that the full plugin-profile self-blueprint is supported by policy impact.

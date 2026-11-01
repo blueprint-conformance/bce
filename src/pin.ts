@@ -11,9 +11,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 /** Internal environment for canonical object reads, independent of caller Git overrides. */
-export function canonicalGitEnvironment(): NodeJS.ProcessEnv {
+export function canonicalGitEnvironment(emptyConfigFile: string): NodeJS.ProcessEnv {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('GIT_') && key.toUpperCase() !== 'TAR_OPTIONS'));
-  return { ...env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: os.devNull,
+  return { ...env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: emptyConfigFile,
     GIT_ATTR_NOSYSTEM: '1', GIT_NO_REPLACE_OBJECTS: '1' };
 }
 
@@ -75,8 +75,11 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
   // tree the scanner grades). mkdtemp guarantees dest is unique, so `${dest}.tar` is too.
   const tarPath = `${dest}.tar`;
   const objectView = `${dest}.git`;
-  const env = canonicalGitEnvironment();
+  const emptyConfig = `${dest}.config`;
+  const env = canonicalGitEnvironment(emptyConfig);
   try {
+    // Git for Windows cannot open Node's device namespace (os.devNull) as a config.
+    fs.writeFileSync(emptyConfig, '', { flag: 'wx' });
     // `git archive` otherwise reads mutable .git/info/attributes and global/local
     // configuration. A bare view has only canonical objects, no caller refs,
     // templates or attributes; committed .gitattributes remain part of the input.
@@ -90,7 +93,7 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
     const outFd = fs.openSync(tarPath, 'w');
     let archive;
     try {
-      archive = spawnSync('git', ['-C', objectView, '-c', `core.attributesFile=${os.devNull}`, 'archive', '--format=tar', sha], {
+      archive = spawnSync('git', ['-C', objectView, '-c', `core.attributesFile=${emptyConfig}`, 'archive', '--format=tar', sha], {
         stdio: ['ignore', outFd, 'pipe'],
         env,
       });
@@ -125,6 +128,7 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
     throw error;
   } finally {
     fs.rmSync(tarPath, { force: true });
+    fs.rmSync(emptyConfig, { force: true });
     fs.rmSync(objectView, { recursive: true, force: true });
   }
   return dest;
@@ -139,6 +143,7 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
 export function listTreeKnowledge(repoDir: string, sha?: string): { tracked: Set<string>; gitlinks: string[] } | null {
   // Use file descriptors for Git output: large indexes must not hit a pipe capture limit.
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-git-knowledge-'));
+  const emptyConfig = path.join(scratch, 'empty.config');
   function query(args: string[]): { status: number | null; stdout: string; stderr: string } {
     const out = path.join(scratch, 'out');
     const err = path.join(scratch, 'err');
@@ -148,7 +153,7 @@ export function listTreeKnowledge(repoDir: string, sha?: string): { tracked: Set
       errFd = fs.openSync(err, 'w');
       const result = spawnSync('git', ['-C', repoDir, ...args], {
         stdio: ['ignore', outFd, errFd],
-        env: { ...(sha ? canonicalGitEnvironment() : process.env), LC_ALL: 'C', GIT_NO_REPLACE_OBJECTS: '1' },
+        env: { ...(sha ? canonicalGitEnvironment(emptyConfig) : process.env), LC_ALL: 'C', GIT_NO_REPLACE_OBJECTS: '1' },
       });
       if (result.error) throw result.error;
       return {
@@ -163,6 +168,7 @@ export function listTreeKnowledge(repoDir: string, sha?: string): { tracked: Set
   }
   let output: string;
   try {
+    if (sha) fs.writeFileSync(emptyConfig, '', { flag: 'wx' });
     const probe = query(['rev-parse', '--is-inside-work-tree']);
     if (probe.status !== 0) {
       // Only a verified plain directory gets the filesystem fallback. A broken

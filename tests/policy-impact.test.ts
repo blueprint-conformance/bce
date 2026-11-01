@@ -44,12 +44,44 @@ describe('frozen-source policy impact', () => {
     expect(result.semanticDiff.changes.length).toBeGreaterThan(0); expect(policyImpactExitCode(result)).toBe(1);
     const reverse = compare(f, candidate, base);
     expect(reverse.delta?.removed).toHaveLength(1); expect(policyImpactExitCode(reverse)).toBe(0);
+    expect(reverse.source).toEqual(result.source);
+    expect(reverse.policyDigests).toEqual({ base: result.policyDigests.candidate, candidate: result.policyDigests.base });
     expect(compare(f, candidate, candidate).delta?.retained).toHaveLength(1);
     expect(compare(f, base, candidate)).toEqual(result);
     expect(result.source?.coverage.scannedFiles).toEqual(['packages/app/api.ts', 'packages/domain/model.ts']);
     expect(result.policyDigests.base).not.toBe(result.policyDigests.candidate);
     f.write('packages/domain/model.ts', 'void import(unknownTarget);\n');
     expect(compare(f, base, candidate)).toEqual(result);
+  });
+
+
+  it('projects the real extractor ownership policy onto the current immutable BCE source', () => {
+    const repoDir = process.cwd();
+    const revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    const atRevision = (file: string) => execFileSync('git', ['show', `${revision}:${file}`], { encoding: 'utf8' });
+    const selfBlueprint = parseBlueprint(JSON.parse(atRevision('.blueprints/engine.blueprint.json')));
+    const ownership = selfBlueprint.constraints.find(c => c.id === 'only-extractors-may-import-ts-morph')!;
+    expect(ownership.scopePaths).toContain('src/report.ts');
+    expect(ownership.scopePaths).not.toContain('src/extractors.ts');
+    expect(ownership.to).toBe('ts-morph');
+    // This is a module-profile projection of the actual ownership rule, not the full plugin-profile self-blueprint.
+    const base = policy();
+    base.metadata.id = 'diagnostic-extractor-ownership';
+    base.scope = { repositories: ['blueprint-conformance/bce'], paths: ['src/report.ts', 'src/extractors.ts'] };
+    base.extraction = { profile: 'typescript-module-graph', paths: ['src/report.ts', 'src/extractors.ts'], minFiles: 2 };
+    base.constraints = [{ ...ownership, to: `package:${ownership.to}`, scopePaths: ['src/report.ts'] }];
+    const candidate = structuredClone(base);
+    candidate.constraints[0]!.scopePaths = ['src/report.ts', 'src/extractors.ts'];
+    const result = reviewPolicyImpact({ repoDir, revision, repoName: 'blueprint-conformance/bce', baseBlueprint: base, candidateBlueprint: candidate });
+    expect(result.status, result.refusals.join('; ')).toBe('compared');
+    expect(result.reports?.base.verdict).toBe('pass'); expect(result.reports?.candidate.verdict).toBe('fail');
+    expect(result.delta?.introduced).toHaveLength(1);
+    const finding = result.delta!.introduced[0]!;
+    expect(finding.component).toBe('module:src/extractors.ts');
+    expect(finding.constraintId).toBe(ownership.id);
+    const line = Number(/^src\/extractors\.ts#L(\d+)$/.exec(finding.evidenceRef)?.[1]);
+    const declaration = atRevision('src/extractors.ts').split('\n').slice(line - 1).join('\n').split(';')[0]!;
+    expect(declaration).toMatch(/^import\b[\s\S]*from ['"]ts-morph['"]/);
   });
 
   it.each(['id', 'severity'] as const)('preserves %s changes as removed and introduced findings', field => {
@@ -98,11 +130,17 @@ describe('frozen-source policy impact', () => {
   });
 
   it('removes mixed-case Git and tar environment overrides without changing the caller environment', () => {
+    const f = fixture();
+    const emptyConfig = path.join(f.root, 'empty.config');
+    fs.writeFileSync(emptyConfig, '');
     const keys = ['GiT_CONFIG_COUNT', 'TaR_OpTiOnS'] as const;
     const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
     try {
       process.env[keys[0]] = '1'; process.env[keys[1]] = '--exclude=*';
-      const env = canonicalGitEnvironment();
+      const env = canonicalGitEnvironment(emptyConfig);
+      expect(env.GIT_CONFIG_GLOBAL).toBe(emptyConfig);
+      expect(fs.lstatSync(env.GIT_CONFIG_GLOBAL!).isFile()).toBe(true);
+      expect(execFileSync('git', ['-C', f.root, 'config', '--global', '--list'], { env, encoding: 'utf8' })).toBe('');
       expect(Object.keys(env).filter(key => key.toUpperCase() === 'GIT_CONFIG_COUNT' || key.toUpperCase() === 'TAR_OPTIONS')).toEqual([]);
       expect(env.HOME).toBe(process.env.HOME);
       expect(process.env[keys[0]]).toBe('1'); expect(process.env[keys[1]]).toBe('--exclude=*');

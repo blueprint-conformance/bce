@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import { evaluate, stableStringify, type LegacyComplianceReport } from './report.js';
 import { buildProposalContext, explainConstraint, reviewDigest, compareArchitectureSnapshots, buildPolicyImpactReview, policyImpactAdmissionRefusals, type PolicyImpactReview, type ArchitectureChangeReview, type ArchitectureReviewSnapshot } from './review.js';
 import { materializeAtRevision, listTreeKnowledge, canonicalGitEnvironment } from './pin.js';
@@ -478,8 +479,13 @@ export function writeProposalFile(target: string, content: string): void {
 function acquireArchitectureSnapshot(repoDir: string, revision: string, blueprint: EngineeringBlueprint, toolchain: ToolchainIdentity): ArchitectureReviewSnapshot {
   const cfg = resolveExtraction(blueprint.extraction, blueprint.constraints);
   if (!/^[0-9a-f]{40}$/.test(revision)) throw new Error('architecture review requires full immutable 40-character commit SHAs');
-  const type = execFileSync('git', ['-C', repoDir, 'cat-file', '-t', revision], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: canonicalGitEnvironment() }).trim();
-  if (type !== 'commit') throw new Error('architecture review revision must identify a commit');
+  const probe = fs.mkdtempSync(path.join(os.tmpdir(), 'bce-object-probe-'));
+  try {
+    const emptyConfig = path.join(probe, 'empty.config');
+    fs.writeFileSync(emptyConfig, '', { flag: 'wx' });
+    const type = execFileSync('git', ['-C', repoDir, 'cat-file', '-t', revision], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: canonicalGitEnvironment(emptyConfig) }).trim();
+    if (type !== 'commit') throw new Error('architecture review revision must identify a commit');
+  } finally { fs.rmSync(probe, { recursive: true, force: true }); }
   const knowledge = listTreeKnowledge(repoDir, revision);
   if (!knowledge || knowledge.gitlinks.length) throw new Error('incomplete tree coverage: submodules are not supported by architecture review');
   const tree = materializeAtRevision(repoDir, revision);

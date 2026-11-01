@@ -1313,7 +1313,7 @@ export function buildPolicyImpactReview(args: {
     schemaVersion: '1', kind: 'PolicyImpactReview', status: refusals.length ? 'refused' : 'compared',
     revision: args.revision, repo: args.repo, policyDigests: { base: reviewDigest(base), candidate: reviewDigest(candidate) }, toolchain: structuredClone(args.toolchain),
     acquisition: { ...acquisition, digest: reviewDigest(acquisition) },
-    source: snapshot ? { graphDigest: reviewDigest(snapshot.graph), inputDigest: reviewDigest(snapshot), resolverInputsDigest: snapshot.resolverInputsDigest, trackedFiles: snapshot.trackedFiles, coverage: snapshot.graph.coverage } : null,
+    source: snapshot ? { graphDigest: reviewDigest(snapshot.graph), inputDigest: reviewDigest({ graph: snapshot.graph, toolchain: snapshot.toolchain, trackedFiles: snapshot.trackedFiles, resolverInputsDigest: snapshot.resolverInputsDigest }), resolverInputsDigest: snapshot.resolverInputsDigest, trackedFiles: snapshot.trackedFiles, coverage: snapshot.graph.coverage } : null,
     semanticDiff: compareBlueprintPolicy({ baseBlueprint: base, candidateBlueprint: candidate }),
     reports: refusals.length ? null : reports, delta: refusals.length ? null : changes, refusals: [...new Set(refusals)].sort(),
     limitations: [
