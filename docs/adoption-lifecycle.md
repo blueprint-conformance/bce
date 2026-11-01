@@ -59,7 +59,7 @@ pseudonymous participant ID and the facts disclosed by that participant:
   "source": { "kind": "git-commit", "identity": "<exact 40-character BCE source commit>" },
   "environment": {
     "os": "<participant OS>", "architecture": "<participant architecture>",
-    "node": "<participant v22.x version>", "installSource": "source"
+    "node": "<actual participant Node version, vMAJOR.MINOR.PATCH>", "installSource": "source"
   },
   "consent": { "storeLocally": true, "publishRecord": false }
 }
@@ -68,6 +68,10 @@ pseudonymous participant ID and the facts disclosed by that participant:
 Replace the placeholders and relationship flags with the actual disclosed facts; this example is
 not a participant record. `npm-exact` and `github-action-commit` are also supported install-source
 values from the existing [adoption-record schema](../research/adoption-record.schema.json).
+Local attempts record the participant's actual stable Node version at the engine's Node 22-or-newer
+floor, including Node 24. This local runtime disclosure is not independent-witness eligibility:
+the [witness kit](launch/witness-kit.md) and canonical adoption-record schema still require Node 22.
+Do not replace an observed Node 24 version with Node 22 to make a record eligible.
 Local storage requires explicit consent. Publication is deliberately false: review and publication
 consent belong to the separate existing adoption-record process.
 
