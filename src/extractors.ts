@@ -1551,6 +1551,9 @@ function typescriptConfigPath(filePath: string): string {
 export class TypeScriptModuleGraphExtractor implements RepositoryFactsExtractor {
   readonly kind = 'ast' as const;
   private readonly packageRootCache = new Map<string, ReadonlySet<string>>();
+  private readonly resolutionInputPaths = new Set<string>();
+  /** Repository config files actually read, including extensionless tsconfig extends chains. */
+  getResolutionInputPaths(): readonly string[] { return [...this.resolutionInputPaths].sort(); }
   constructor(private readonly cfg: ResolvedExtraction) {
     if (cfg.profile !== 'typescript-module-graph') {
       throw new Error(`TypeScriptModuleGraphExtractor requires profile 'typescript-module-graph'`);
@@ -1558,6 +1561,7 @@ export class TypeScriptModuleGraphExtractor implements RepositoryFactsExtractor 
   }
 
   extract(repoDir: string, revision: string): ArchitectureGraph {
+    this.resolutionInputPaths.clear();
     const files = resolveFiles(repoDir, this.cfg.paths);
     const unsupportedFiles = files.filter((file) => !MODULE_SOURCE_EXTENSIONS.has(path.extname(file).toLowerCase()));
     if (unsupportedFiles.length > 0) {
@@ -1761,6 +1765,7 @@ export class TypeScriptModuleGraphExtractor implements RepositoryFactsExtractor 
     const root = fs.realpathSync(repoDir);
     if (seen.has(configPath)) return;
     seen.add(configPath);
+    this.resolutionInputPaths.add(path.relative(repoDir, configPath).replace(/\\/g, '/'));
     if (!config || typeof config !== 'object' || Array.isArray(config)) return;
     const rawExtends = (config as Record<string, unknown>).extends;
     if (rawExtends === undefined) return;

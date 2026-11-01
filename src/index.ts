@@ -377,3 +377,8 @@ export { COMPILER_IR_VERSION } from './compiler/ir.js';
 export type { PolicySourceAST, PolicyIR, FactIR, EvaluationPlanIR, VerdictIR, ProofIR, CompileResult,
   CompilerOptions, CompilerRefusal, Capability, SourceLink, CompilerPass, CompilerPassDescriptor,
   CompileManifest, PassReceipt, DiagnosticIR, ConstraintOutcomeIR, ObservationEvidence } from './compiler/ir.js';
+
+// Observed architectural change under one frozen TypeScript module contract.
+export { compareArchitectureSnapshots, architectureReviewExitCode } from './review.js';
+export type { ArchitectureReviewSnapshot, ArchitectureChangeReview, ArchitectureDelta } from './review.js';
+export { reviewArchitectureChange } from './proposal-io.js';

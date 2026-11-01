@@ -1,10 +1,16 @@
+import { makeExtractor } from './extractor-registry.js';
+import { resolveExtraction, type TypeScriptModuleGraphExtractor } from './extractors.js';
+import { resolveEngineVersion, semverLt } from './gate.js';
+import { materializeAtRevision, listTreeKnowledge } from './pin.js';
+import { parseBlueprint, type EngineeringBlueprint } from './schema.js';
+import { resolveToolchainIdentity } from './runtime-identity.js';
 /** Filesystem shell for constructing bounded, disclosed proposal context. */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { stableStringify } from './report.js';
-import { buildProposalContext } from './review.js';
+import { buildProposalContext, reviewDigest, compareArchitectureSnapshots, type ArchitectureChangeReview, type ArchitectureReviewSnapshot } from './review.js';
 import { isProtectedPolicyPath } from './policy-change.js';
 import type { ProposalContext, RepositoryPolicyDiff } from './review-contracts.js';
 
@@ -464,4 +470,42 @@ export function writeProposalFile(target: string, content: string): void {
   const fd = fs.openSync(path.join(parent, path.basename(target)), 'wx', 0o600);
   try { fs.writeFileSync(fd, content, 'utf8'); }
   finally { fs.closeSync(fd); }
+}
+
+/** Frozen Git acquisition for observed architecture review. */
+/** Accept full commit IDs only: symbolic refs cannot move between the two acquisitions. */
+export function reviewArchitectureChange(args: {
+  repoDir: string; baseRevision: string; headRevision: string; blueprint: EngineeringBlueprint;
+}): ArchitectureChangeReview {
+  const blueprint = parseBlueprint(JSON.parse(JSON.stringify(args.blueprint)));
+  const engineVersion = resolveEngineVersion();
+  if (blueprint.minEngineVersion && semverLt(engineVersion, blueprint.minEngineVersion)) throw new Error(`blueprint requires engine >= ${blueprint.minEngineVersion}`);
+  const cfg = resolveExtraction(blueprint.extraction, blueprint.constraints);
+  if (cfg.profile !== 'typescript-module-graph') throw new Error('architecture review requires typescript-module-graph');
+  const toolchain = resolveToolchainIdentity({ engineVersion, extractorKind: 'ast', extractionProfile: cfg.profile });
+  const acquire = (revision: string): ArchitectureReviewSnapshot => {
+    if (!/^[0-9a-f]{40}$/.test(revision)) throw new Error('architecture review requires full immutable 40-character commit SHAs');
+    const type = execFileSync('git', ['-C', args.repoDir, 'cat-file', '-t', revision], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    if (type !== 'commit') throw new Error('architecture review revision must identify a commit');
+    const knowledge = listTreeKnowledge(args.repoDir, revision);
+    if (!knowledge || knowledge.gitlinks.length) throw new Error('incomplete tree coverage: submodules are not supported by architecture review');
+    const tree = materializeAtRevision(args.repoDir, revision);
+    try {
+      // A symlink can change acquisition without changing a glob or nominal file count.
+      for (const file of knowledge.tracked) {
+        if (!fs.existsSync(path.join(tree, file)) || fs.lstatSync(path.join(tree, file)).isSymbolicLink()) throw new Error(`incomplete tree coverage: missing or symlinked tracked file ${file}`);
+      }
+      const extractor = makeExtractor('ast', cfg) as TypeScriptModuleGraphExtractor;
+      const graph = extractor.extract(tree, revision);
+      const resolverPaths = new Set([...knowledge.tracked].filter(file => /\.json$/i.test(file)));
+      for (const file of extractor.getResolutionInputPaths()) resolverPaths.add(file);
+      const resolverInputs = [...resolverPaths].sort()
+        .map(file => ({ path: file, content: fs.readFileSync(path.join(tree, file), 'utf8') }));
+      return {
+        blueprint, toolchain, graph,
+        trackedFiles: [...knowledge.tracked].sort(), resolverInputsDigest: reviewDigest(resolverInputs),
+      };
+    } finally { fs.rmSync(tree, { recursive: true, force: true }); }
+  };
+  return compareArchitectureSnapshots(acquire(args.baseRevision), acquire(args.headRevision));
 }
