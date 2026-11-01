@@ -84,6 +84,68 @@ describe('behavioralInvariant — the runtime not-a-mock constraint', () => {
     expect(r.violations.some((v) => v.observed.includes('property oracle'))).toBe(true);
   });
 
+  it.each([
+    ['one identity with different outputs', [
+      obs('dash', 's1', 'OUTPUT_FOR_A', true),
+      obs('dash', 's1', 'OUTPUT_FOR_B', true),
+    ]],
+    ['duplicate fabricates variation after two distinct identities', [
+      obs('dash', 's1', 'CONSTANT', true),
+      obs('dash', 's2', 'CONSTANT', true),
+      obs('dash', 's1', 'DIFFERENT', true),
+    ]],
+    ['duplicate repeats an otherwise valid observation', [
+      obs('dash', 's1', 'OUTPUT_FOR_A', true),
+      obs('dash', 's2', 'OUTPUT_FOR_B', true),
+      obs('dash', 's1', 'OUTPUT_FOR_A', true),
+    ]],
+  ])('FAIL-CLOSED: %s does not prove distinct stimuli', (_name, observations) => {
+    const r = evaluate(bp([BI('dash')]), graph(observations), 'plugin-surface');
+    expect(r.verdict).toBe('fail');
+    expect(r.violations).toContainEqual(expect.objectContaining({
+      constraintId: 'c-substance',
+      severity: 'critical',
+      component: 'behavior:dash:s1',
+      evidenceType: 'runtimeProbe',
+      evidenceRef: 'behavior:dash:s1',
+      observed: expect.stringContaining('duplicate observation ID'),
+    }));
+  });
+
+  it.each([false, true])('duplicate identity preserves a failed oracle (failed observation first: %s)', (failedFirst) => {
+    const duplicate = [
+      obs('dash', 's1', 'OUTPUT_FOR_A', true),
+      obs('dash', 's1', 'OUTPUT_FOR_A', false),
+    ];
+    if (failedFirst) duplicate.reverse();
+    const r = evaluate(bp([BI('dash')]), graph([
+      ...duplicate,
+      obs('dash', 's2', 'OUTPUT_FOR_B', true),
+    ]), 'plugin-surface');
+    expect(r.verdict).toBe('fail');
+    expect(r.violations.some((v) => v.observed.includes('duplicate observation ID'))).toBe(true);
+    expect(r.violations.filter((v) => v.observed.includes('property oracle'))).toHaveLength(1);
+  });
+
+  it('duplicate violation inherits the constraint severity', () => {
+    const r = evaluate(bp([{ ...BI('dash'), severity: 'high' }]), graph([
+      obs('dash', 's1', 'OUTPUT_FOR_A', true),
+      obs('dash', 's1', 'OUTPUT_FOR_B', true),
+    ]), 'plugin-surface');
+    expect(r.violations.find((v) => v.observed.includes('duplicate observation ID'))?.severity).toBe('high');
+  });
+
+  it('duplicates for a different behavior do not affect the matching constraint', () => {
+    const r = evaluate(bp([BI('dash')]), graph([
+      obs('dash', 's1', 'OUTPUT_FOR_A', true),
+      obs('dash', 's2', 'OUTPUT_FOR_B', true),
+      obs('other', 's1', 'OTHER_A', true),
+      obs('other', 's1', 'OTHER_B', false),
+    ]), 'plugin-surface');
+    expect(r.verdict).toBe('pass');
+    expect(r.violations).toHaveLength(0);
+  });
+
   it('FAIL-CLOSED: fewer than 2 observations cannot prove variation → violation', () => {
     const g = graph([obs('dash', 's1', 'OUTPUT_FOR_A', true)]);
     const r = evaluate(bp([BI('dash')]), g, 'plugin-surface');
