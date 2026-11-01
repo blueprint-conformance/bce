@@ -272,6 +272,8 @@ export {
   EVIDENCE_GENESIS_HASH,
 } from './emit.js';
 export type { EvidenceRecord, RemediationWorkOrder, RunEmission, ApprovalState } from './emit.js';
+export { captureRepairEvidence, buildRepairBriefs, readRepairEvidence, REPAIR_LIMITS } from './proposal-io.js';
+export type { RepairInput, RepairEvidence, RepairFileBinding, RepairContext, RepairBrief, RepairBriefBundle } from './proposal-io.js';
 export { resolveToolchainIdentity } from './runtime-identity.js';
 export type { ToolchainIdentity } from './runtime-identity.js';
 
@@ -377,3 +379,8 @@ export { COMPILER_IR_VERSION } from './compiler/ir.js';
 export type { PolicySourceAST, PolicyIR, FactIR, EvaluationPlanIR, VerdictIR, ProofIR, CompileResult,
   CompilerOptions, CompilerRefusal, Capability, SourceLink, CompilerPass, CompilerPassDescriptor,
   CompileManifest, PassReceipt, DiagnosticIR, ConstraintOutcomeIR, ObservationEvidence } from './compiler/ir.js';
+
+// Observed architectural change under one frozen TypeScript module contract.
+export { compareArchitectureSnapshots, architectureReviewExitCode } from './review.js';
+export type { ArchitectureReviewSnapshot, ArchitectureChangeReview, ArchitectureDelta } from './review.js';
+export { reviewArchitectureChange } from './proposal-io.js';
