@@ -141,3 +141,21 @@ acceptance, or release authorization. Under RFC-0001, the public RFC pull reques
 must record discussion and a maintainer decision with its rationale before a
 follow-on implementation/specification change lands. The draft status remains
 unaccepted until that decision is recorded.
+
+### Implementation finding resolution (2026-11-01)
+
+The mixed-dispatcher finding above was corrected in candidate commit
+`62da51b855168b73f28ba7433b0c294a99e09a10`: the shared live/replay evaluator
+translates the typed refusal into structured indeterminate evidence. Added
+controls cover enforced/advisory policy, API, offline replay, and CLI report output.
+Separate review confirmed the correction. A second integration finding, distinct
+path witnesses producing one work-order ID, was corrected in
+`ab0cb09542aedb03b77c116216e7e19f1172304a`; complete witnesses disambiguate
+collisions while existing unambiguous IDs remain unchanged. Separate AI review
+accepted that correction.
+
+The combined source candidate `90c3e54323091515420e225d3cfa5dc5686ae413`
+passed build/typecheck, 1,493 tests with four skips, self-gates, and 50 real-source
+mutation checks. These are local implementation results, not public adoption,
+a released package, or this RFC's acceptance decision. The proposal remains draft
+for public discussion.
