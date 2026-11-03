@@ -19,9 +19,12 @@ tightenings only: a decision timestamp must carry seconds and a `Z` or `±HH:MM`
 fields refuse unsafe integers and `Infinity`. It retains the stack foundation and selected
 declared-stack enforcement from v0.5.0. It does not add automatic repair or registry resolution.
 
-**Source candidate: v0.6.1 (not published).** This compatible runtime patch updates the runtime
-dependency `brace-expansion` to 5.0.12 and adds no engine behavior. It is not on npm; install
-v0.6.0 above. The Lane-A trust anchor stays v0.6.0 until v0.6.1's own release and activation.
+**Source candidate: v0.6.1 (not published).** This source line adds review APIs and CLI workflows,
+evidence-bound repair briefs, workspace-aware stack review, and bounded dependency-path checks.
+It also hardens evidence validation and updates the runtime dependency `brace-expansion` to 5.0.12.
+Qualify the exact artifact against the source and policy you use; the version label alone is not a
+compatibility guarantee. These source additions are not in the published v0.6.0 artifact. For npm
+installation, use v0.6.0 above. The Lane-A trust anchor stays v0.6.0 until v0.6.1's own release and activation.
 The registry preflight below answers `E404` until that release exists; do not install the candidate
 before it returns a version and integrity:
 
@@ -49,7 +52,7 @@ verify realistic violations in your own repository.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 1537">
+  <img src="assets/badges/tests.svg" alt="tests: 1542">
   <a href="https://github.com/blueprint-conformance/bce/releases/latest"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/release.yml/badge.svg" alt="release workflow status"></a>
   <a href="https://blueprint-conformance.github.io/bce/"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/docs-site-check.yml/badge.svg" alt="documentation site check status"></a>
   <a href="LICENSE"><img src="assets/badges/license.svg" alt="license: Apache-2.0"></a>

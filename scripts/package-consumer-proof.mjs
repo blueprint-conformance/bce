@@ -117,6 +117,11 @@ for (const mode of ['esm', 'cjs']) {
   execFileSync(process.execPath, [featureConsumer,
     installedRoot, join(previousConsumer, 'node_modules', 'bce-engine'), mode], { cwd: scratch, stdio: 'inherit' });
 }
+// The qualification recipe is shipped under the existing examples allowlist.
+// Run its installed files from a fresh consumer directory, without source imports.
+execFileSync(process.execPath, [join(installedRoot, 'examples/verifier-upgrade/proof.mjs'), installedRoot, tarball], {
+  cwd: scratch, stdio: 'inherit', timeout: 90_000,
+});
 // Also exercise npm's generated launcher, rather than only the declared JS
 // target. Windows installs a .cmd shim; use its command interpreter explicitly.
 const binShim = join(scratch, 'node_modules', '.bin', process.platform === 'win32' ? 'bce.cmd' : 'bce');

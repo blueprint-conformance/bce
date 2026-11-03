@@ -200,3 +200,11 @@ invocations of this engine over its own self-blueprint, chained
 genesis → 001 → 002 → 003, with recorded transcripts of the intact verify
 (exit 0), a field-tamper refusal (exit 1), and a record-excision refusal
 (exit 1). `tests/verify-chain-tool.test.ts` locks all three outcomes in CI.
+
+## Comparing verifier versions
+
+The [verifier qualification recipe](../examples/verifier-upgrade/README.md) captures existing
+`run --emit-bundle` evidence independently from two explicitly admitted first-party artifacts on
+one frozen TypeScript module fixture. Its data-only comparator distinguishes equivalent, changed
+and incomparable observations, preserving raw reports and complete inventories. It does not replay
+an old report through the candidate evaluator, authenticate local receipts, or approve an upgrade.
