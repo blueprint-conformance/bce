@@ -60,8 +60,9 @@ adds the structured Python reverse-layer defect. The paper mapping here covers r
 
 > **Non-claim:** we do **not** claim the files here are byte-identical to the paper's cited
 > artifact. They are not, by construction — publishing required genericization. The byte-frozen
-> originals remain in `bce-paper-artifacts`; a verdict-parity re-run (same defect ids, same
-> verdicts, public engine vs. frozen corpus) is maintained there alongside the originals.
+> originals remain in `bce-paper-artifacts`. No verdict-parity re-run of the public engine over
+> that frozen corpus is published yet; the paper's own verdicts there come from its private
+> engine build, recorded as CI transcripts.
 
 ## Reproduce it
 

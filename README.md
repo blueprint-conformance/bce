@@ -8,36 +8,28 @@
 
 # Check architectural boundaries in agent-written code
 
-> **Current registry release: v0.6.1.** Verify the exact public identity with
-> `npm view bce-engine@0.6.1 version dist.integrity` before installation. The same exact version is
+> **Current registry release: v0.6.2.** Verify the exact public identity with
+> `npm view bce-engine@0.6.2 version dist.integrity` before installation. The same exact version is
 > active as the Lane-A trust anchor.
 
-The release adds review APIs and CLI workflows (`architecture-review`, `policy-impact`),
-evidence-bound repair briefs (`repair capture`, `repair brief`), workspace-aware stack review, the
-explicit bounded `forbiddenDependencyPath` arm from [RFC-0004](rfcs/RFC-0004-bounded-dependency-path.md),
-and an experimental `forbiddenDependency` compiler API. It also hardens evidence validation and
-updates the runtime dependency `brace-expansion` to 5.0.12. It retains v0.6.0's native Zod 4
-schemas and the stack foundation and selected declared-stack enforcement from v0.5.0. It does not add
-automatic repair or registry resolution. Qualify the exact artifact against the source and policy you
-use; the version label alone is not a compatibility guarantee.
-
-**Source candidate: v0.6.2 (not published).** v0.6.1 plus npm identification on Windows when emitting evidence, and a smaller install.
-v0.6.1's published `npm-shrinkwrap.json` carries the development lock, and npm installs every entry of
-a dependency's shrinkwrap. So `npm install -D bce-engine@0.6.1` pulls 184 packages (202 MB), where the
-runtime needs 11 (43 MB). v0.6.2 publishes a production-only shrinkwrap. Its runtime tree and pins are
-unchanged. Until v0.6.2 is released, v0.6.1 above is the version to install. The registry preflight
-below answers `E404` until that release exists:
-
-```bash
-npm view bce-engine@0.6.2 version dist.integrity
-```
+v0.6.2 is v0.6.1 plus npm identification on Windows when emitting evidence and a production-only
+published `npm-shrinkwrap.json`, so `npm install -D bce-engine@0.6.2` installs 11 runtime packages
+(~43 MB) instead of v0.6.1's 184 packages (~202 MB). Its runtime tree and pins are unchanged; do not
+pin v0.6.1 for new installs. The v0.6.1 line added review APIs and CLI workflows
+(`architecture-review`, `policy-impact`), evidence-bound repair briefs (`repair capture`,
+`repair brief`), workspace-aware stack review, the explicit bounded `forbiddenDependencyPath` arm from
+[RFC-0004](rfcs/RFC-0004-bounded-dependency-path.md), and an experimental `forbiddenDependency`
+compiler API, and retains v0.6.0's native Zod 4 schemas and the stack foundation and selected
+declared-stack enforcement from v0.5.0. It does not add automatic repair or registry resolution.
+Qualify the exact artifact against the source and policy you use; the version label alone is not a
+compatibility guarantee.
 
 `bce` gives coding agents a local, deterministic architecture check. A versioned
 `EngineeringBlueprint` records the repository's structural rules. Agents draft those rules from
 your intent, inspect the code, and repair violations; the same engine checks every pull request.
 Humans own the intent and approve policy changes. Agents operate the day-to-day loop.
 
-**Released support (`v0.6.1`):** TypeScript/JavaScript framework-surface AST extraction,
+**Released support (`v0.6.2`):** TypeScript/JavaScript framework-surface AST extraction,
 direct TypeScript/JavaScript module boundaries, a Python import-surface MVP, and structured Python
 module boundaries. Node 22+ is required; the contract remains pre-1.0.
 
@@ -52,7 +44,7 @@ verify realistic violations in your own repository.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 1553">
+  <img src="assets/badges/tests.svg" alt="tests: 1554">
   <a href="https://github.com/blueprint-conformance/bce/releases/latest"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/release.yml/badge.svg" alt="release workflow status"></a>
   <a href="https://blueprint-conformance.github.io/bce/"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/docs-site-check.yml/badge.svg" alt="documentation site check status"></a>
   <a href="LICENSE"><img src="assets/badges/license.svg" alt="license: Apache-2.0"></a>
@@ -96,8 +88,8 @@ inspection tools and review cockpit let humans examine the same contract and evi
 Three commands. No account, hosted service, API key, or repository setup:
 
 ```bash
-npm view bce-engine@0.6.1 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.6.1
+npm view bce-engine@0.6.2 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.6.2
 npx --no-install bce demo
 ```
 
@@ -131,17 +123,17 @@ components out of `src/legacy/**`. The taxonomy has four more enforcing types an
 reserved types—[open the C1–C4 visual guide](docs/constraint-guide.md) or
 [read the exact semantics](spec/SPEC.md#3-constraint-taxonomy--17-types).
 
-In `v0.6.1`, the AI-first review surface's `bce propose` writes an immutable draft
+In `v0.6.2`, the AI-first review surface's `bce propose` writes an immutable draft
 packet to quarantine; the model cannot approve or land policy. [Read the review
 ceremony](docs/ai-first-review.md).
 
 ## Experimental compiler slice
 
-The `v0.6.1` release routes `forbiddenDependency` through typed policy, fact, evaluation-plan and
+The `v0.6.2` release routes `forbiddenDependency` through typed policy, fact, evaluation-plan and
 verdict IRs, with deterministic pass receipts and replayable proof links. Existing report formats
 remain unchanged; other constraint families retain their current evaluator.
 
-The experimental API is exported by the released `bce-engine@0.6.1` npm package; it is absent from
+The experimental API is exported by the released `bce-engine@0.6.2` npm package; it is absent from
 v0.6.0 and earlier. Read the [compiler readiness guide](docs/compiler-readiness.md)
 for the API, refusals, compatibility boundaries and deferred work.
 
@@ -179,7 +171,7 @@ replay against the engine.
 Use the **CLI** for local feedback, the pinned **GitHub Action** at the merge boundary, or ten
 read-only **MCP tools** inside an agent loop. They share the same extraction, evaluation, report,
 and exit-code path; policy changes remain outside MCP. The released Action source is pinned to
-`blueprint-conformance/bce@ef5b806dcf58b1100db9ca512c6f7683d3873697`.
+`blueprint-conformance/bce@17be7a3d25ca1db62be58ce88d6c16d7e35cd3ac`.
 
 <p align="center">
   <picture>
@@ -235,7 +227,7 @@ separately gated. We do not claim that BCE makes agents more successful, cheaper
 
 ## Start with your repository
 
-The `v0.6.1` release contains six packaged architecture recipes. Run one, then adapt it with a
+The `v0.6.2` release contains six packaged architecture recipes. Run one, then adapt it with a
 measured authoring walkthrough for an empty repository, plain JavaScript, TypeScript, a monorepo,
 or direct module layering: **[choose the boundary that must hold](docs/first-win.md)**. The measured
 test keeps every layout's author → RED → fix → GREEN first win in under 60 seconds, including
@@ -245,7 +237,7 @@ Specification: [blueprint-conformance/v1alpha1](spec/SPEC.md) · Agent loop:
 [MCP and agent workflow](docs/agent-loop.md) · Documentation:
 [blueprint-conformance.github.io/bce](https://blueprint-conformance.github.io/bce/)
 
-**Released stack plane (`v0.6.1`).** `bce stack
+**Released stack plane (`v0.6.2`).** `bce stack
 snapshot` emits a content-addressed `StackManifest` of the declared dependency closure (npm
 lockfile v3/shrinkwrap and pnpm-lock v9, Dockerfile/compose image refs, the declared node runtime),
 and `bce stack diff` classifies every move between two manifests (added / removed / forward /
@@ -256,7 +248,7 @@ exposes the classifier over already-written manifests. Check the registry identi
 an install target:
 
 ```bash
-npm view bce-engine@0.6.1 version dist.integrity
+npm view bce-engine@0.6.2 version dist.integrity
 ```
 
 The release also packages pnpm-lock v9 ingestion (`sources[].parser` widened accordingly) and five
@@ -265,8 +257,9 @@ digest-pinned images, and allowed Node versions. Missing, opaque, variable, or c
 declarations refuse instead of passing. These stack-plane capabilities remain absent from immutable
 v0.3.1, while the enforcement types are absent from immutable v0.4.0.
 
-**Current registry release: v0.6.1.** It adds architecture review, policy-impact preview, repair
-briefs, and bounded dependency paths, and retains v0.6.0's native Zod 4 schemas, the stack plane
+**Current registry release: v0.6.2.** It adds npm identification on Windows when emitting evidence
+and a production-only published shrinkwrap, and retains v0.6.1's architecture review, policy-impact
+preview, repair briefs, and bounded dependency paths, v0.6.0's native Zod 4 schemas, the stack plane
 above, and v0.5.0's expanded route-handler inventory, refusal of recognized unsupported or rebound
 handlers, and visible call-site evidence limit. A fresh registry installation passed all 52 route cases against the
 exact released archive, and a fresh public installation passed 90 declared-stack gate, CLI, MCP,
@@ -275,10 +268,10 @@ solo-steward lifecycle support, and the local specification; immutable v0.3.0 do
 those additions.
 
 Its exact npm integrity is
-`sha512-s2aUWpWiQPmb7pw7ruWAiE+TwodOTD+EFQIsI26hKAeOn0pv4LrGCSJY+xQWuNbYYDWQwMGNhVMQVsChWn0Reg==`,
-and its source/Action commit is `ef5b806dcf58b1100db9ca512c6f7683d3873697`. The canonical GitHub
+`sha512-ld3LEyKp6o5hxVDxfgjH6KnKHmKXGFHZwZhcXONb5WtCSs4dAtCSR/ep2s7OXlvAe9IkqKIdOFPvvjaUQJWN5A==`,
+and its source/Action commit is `17be7a3d25ca1db62be58ce88d6c16d7e35cd3ac`. The canonical GitHub
 Release is immutable with the exact tarball, signed payload manifest, signed EvidenceRecord, and
-compliance report attached. [Read the verification record](docs/release-v0.6.1.md).
+compliance report attached. [Read the verification record](docs/release-v0.6.2.md).
 Compatibility remains pre-1.0.
 
 Apache-2.0 — [license](LICENSE), [notice](NOTICE), and [trademarks](TRADEMARKS.md).
