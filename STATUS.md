@@ -22,7 +22,7 @@ replication, or product efficacy is claimed.
 
 | Surface | Status | What a user may rely on |
 |---|---|---|
-| Source checkout | Working, released | `v0.6.1`; Node 22.22.2, `npm ci`, `npm run build`, then `node dist/cli.js`; source and registry identities are bound in the release record |
+| Source checkout | Working, released | `v0.6.1`; Node 22.23.4, `npm ci`, `npm run build`, then `node dist/cli.js`; source and registry identities are bound in the release record |
 | Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree, preserves the zero-argument `bce demo` contract, and executes all six packaged architecture recipes; the released tarball digest also matches npm |
 | npm | Released | [`bce-engine@0.6.1`](https://www.npmjs.com/package/bce-engine/v/0.6.1) is public with SLSA provenance and integrity `sha512-s2aUWpWiQPmb7pw7ruWAiE+TwodOTD+EFQIsI26hKAeOn0pv4LrGCSJY+xQWuNbYYDWQwMGNhVMQVsChWn0Reg==`; install the exact version on Node 22+ |
 | Git tag / GitHub Release | Released, immutable | [`v0.6.1`](https://github.com/blueprint-conformance/bce/releases/tag/v0.6.1) is immutable at source `ef5b806dcf58b1100db9ca512c6f7683d3873697` with six digest-bound assets: the exact tarball, payload manifest and signature, EvidenceRecord and signature, and compliance report ([verification record](docs/release-v0.6.1.md)) |
@@ -69,7 +69,7 @@ replication, or product efficacy is claimed.
 - The v0.6.1 release evidence embeds the exact dependency-lock digest and extractor/provider
   identity. Its reproducibility proof obtains the same production graph and report hash from two
   clean installs. Historical 0.1.5 records predate this additive field.
-- The built MCP server passes strict discovery through locked Inspector 2.13.0, boundary/framing
+- The built MCP server passes strict discovery through locked Inspector 2.14.0, boundary/framing
   tests, and a 2-second startup/discovery p95 gate. This is Inspector compatibility, not proof of
   every named host client.
 - The synthetic scale track independently scans 2,000 TypeScript files and 2,000 Python files,

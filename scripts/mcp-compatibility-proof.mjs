@@ -8,13 +8,17 @@ import { performance } from 'node:perf_hooks';
 const root = process.cwd();
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const inspectorVersion = pkg.devDependencies?.['@modelcontextprotocol/inspector'];
-if (inspectorVersion !== '2.13.0') {
-  throw new Error(`Inspector proof requires exact @modelcontextprotocol/inspector 2.13.0; found ${inspectorVersion ?? 'none'}`);
+if (inspectorVersion !== '2.14.0') {
+  throw new Error(`Inspector proof requires exact @modelcontextprotocol/inspector 2.14.0; found ${inspectorVersion ?? 'none'}`);
 }
 
-const [major, minor] = process.versions.node.split('.').map(Number);
-if (major < 22 || (major === 22 && minor < 19)) {
-  throw new Error(`Inspector 2.13.0 requires Node >=22.19.0; running ${process.versions.node}`);
+// Inspector 2.14.0 declares engines `^22.23.4 || ^24.22.1 || >=26.12.1`.
+const [major, minor, patch] = process.versions.node.split('.').map(Number);
+const atLeast = (m, p) => minor > m || (minor === m && patch >= p);
+const supported = (major === 22 && atLeast(23, 4)) || (major === 24 && atLeast(22, 1))
+  || major > 26 || (major === 26 && atLeast(12, 1));
+if (!supported) {
+  throw new Error(`Inspector 2.14.0 requires Node ^22.23.4 || ^24.22.1 || >=26.12.1; running ${process.versions.node}`);
 }
 
 const server = join(root, 'dist', 'mcp-server.js');
