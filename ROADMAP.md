@@ -41,7 +41,9 @@ If a label here overstates reality, that is a bug — please open an issue.
   primary, line-scan fallback ([`src/extractors.ts`](src/extractors.ts)). The blueprint graph
   model itself is language-neutral.
 - **[RUNS]** CLI verbs: `validate`, `init`/`author`, `scan`, `run`, `gate`, `teeth`, `baseline`,
-  `graduate`, `portfolio`.
+  `graduate`, `portfolio`, `demo`, `doctor`, `adopt`, `onboard`, `propose`, `review`, `ratify`,
+  `amend`, `upgrade`, `verify-bundle`, `stack`, `repair`, `architecture-review`, `policy-impact`
+  (`bce --help` is authoritative).
 - **[RUNS]** Vacuity check — `bce teeth` refuses a blueprint that cannot fail (exit 2 on a
   `toothless` verdict). A gate that cannot go red is not a gate.
 - **[RUNS]** Advisory / enforced modes with one-way, recorded graduation — advisory never changes
@@ -55,6 +57,34 @@ If a label here overstates reality, that is a bug — please open an issue.
 - **[RUNS]** Hash-chained evidence records with a zero-dependency offline verifier — anyone can
   re-derive a verdict without this package installed
   ([`tools/verify-chain.mjs`](tools/verify-chain.mjs), [`docs/evidence-format.md`](docs/evidence-format.md)).
+- **[RUNS]** Architecture review across pinned revisions (`bce architecture-review`,
+  `reviewArchitectureChange`, released in v0.6.1). It runs a frozen TypeScript module-graph comparison
+  of two immutable commits and reports new, resolved and retained violations with exit 0/1/2. It never
+  applies baseline filtering or approves a policy
+  ([`tests/architecture-review.test.ts`](tests/architecture-review.test.ts),
+  [`docs/typescript-module-graph.md`](docs/typescript-module-graph.md)).
+- **[RUNS]** Policy-impact preview on frozen source (`bce policy-impact`, `reviewPolicyImpact`,
+  released in v0.6.1). It runs two supplied policies against one extraction of one immutable commit
+  and reports introduced, removed and retained findings. A removed finding is not a repair
+  ([`tests/policy-impact.test.ts`](tests/policy-impact.test.ts)). Frozen-source reads need Git 2.32 or
+  newer and refuse otherwise ([`docs/portability.md`](docs/portability.md)).
+- **[RUNS]** Explicit bounded dependency paths (`forbiddenDependencyPath`, `maxHops: 2`, accepted
+  [RFC-0004](rfcs/RFC-0004-bounded-dependency-path.md), released in v0.6.1, `minEngineVersion`
+  `0.6.1`). An unresolved or unscanned intermediate refuses with exit 2
+  ([`tests/dependency-path.test.ts`](tests/dependency-path.test.ts)). Paths of three or more edges are
+  outside the bound.
+- **[RUNS]** Evidence-bound repair briefs (`bce repair capture`, `bce repair brief`, released in
+  v0.6.1) ([`tests/repair-brief.test.ts`](tests/repair-brief.test.ts)). Automatic repair is not
+  implemented.
+- **[RUNS]** Experimental typed compiler with proof replay for the `forbiddenDependency` family
+  (`compileBlueprint`, `verifyCompilerProof`, exported since v0.6.1). One constraint family is
+  migrated; the IRs are `experimental-1`, not a ratified policy language
+  ([`tests/compiler-vertical-slice.test.ts`](tests/compiler-vertical-slice.test.ts),
+  [`docs/compiler-readiness.md`](docs/compiler-readiness.md)).
+- **[RUNS]** Honest adoption-attempt and repeat-use records (released in v0.6.1)
+  ([`tests/adoption-attempts.test.ts`](tests/adoption-attempts.test.ts),
+  [`docs/adoption-lifecycle.md`](docs/adoption-lifecycle.md)). They record attempts; they are not
+  independent adoption.
 
 ### Measurement
 
@@ -147,6 +177,13 @@ If a label here overstates reality, that is a bug — please open an issue.
   `FAILS CLOSED`. The read-only `stack_diff` MCP tool exposes the classifier over two
   already-written manifests (11th tool; [`src/mcp-server.ts`](src/mcp-server.ts)). `stack
   reconcile` and any gate wiring of the diff are not built.
+- **[RUNS]** Workspace-aware stack review (`bce stack snapshot --workspace-aware`, accepted
+  [RFC-0003](rfcs/RFC-0003-workspace-stack-review.md), released in v0.6.1). It writes an opt-in
+  schema-2 manifest with pnpm-lock v9 importer paths and direct resolutions, so `stack diff` can tell
+  an importer removal or dependency drop apart from a downgrade. A schema-1/schema-2 pair refuses, and
+  selected-stack gate evidence still refuses schema 2
+  ([`tests/stack-workspace.test.ts`](tests/stack-workspace.test.ts),
+  [`docs/stack-plane.md`](docs/stack-plane.md)).
 
 ## Directions — [FUTURE]
 
