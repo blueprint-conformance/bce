@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { bindVerifiedFoundryRegistry, loadEvidenceClaims } from './lib/evidence-claims.mjs';
 import { verifyStudyRegistry } from './lib/evidence-foundry-v3.mjs';
 
@@ -39,13 +39,14 @@ try {
   const failures = [];
   const immutablePilotArchive = /^research\/model-evaluation\/pilots\/accelerated-v[1-6]\//;
   const publicFiles = new Set(['README.md', 'STATUS.md', 'PRODUCT.md', 'llms.txt']);
+  // Collected as repository-relative POSIX paths, so path patterns agree on every platform.
   const collectMarkdown = (path) => {
     if (!existsSync(path)) return;
     const stat = lstatSync(path);
     if (stat.isSymbolicLink()) return;
     if (stat.isDirectory()) {
       for (const entry of readdirSync(path).sort()) collectMarkdown(join(path, entry));
-    } else if (path.endsWith('.md')) publicFiles.add(relative(root, path));
+    } else if (path.endsWith('.md')) publicFiles.add(relative(root, path).split(sep).join('/'));
   };
   collectMarkdown(join(root, 'docs'));
   collectMarkdown(join(root, 'research'));
