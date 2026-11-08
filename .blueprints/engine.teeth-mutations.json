@@ -169,7 +169,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/gate.ts",
-        "preconditionSha256": "51f83e2e0681de96e816c2bd037d8734ef1e9d3ed1591765fa629bb93d59e0ba",
+        "preconditionSha256": "46540fc7468537fa0378c617227c4bfb5e86c706a728993f842a9ae7a3536f01",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/gate.ts",
