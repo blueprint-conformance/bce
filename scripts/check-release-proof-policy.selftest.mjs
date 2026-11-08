@@ -245,6 +245,14 @@ for (const [label, altered] of [
   }
 }
 
+writeFileSync(fixture, source.replace('          node scripts/publish-shrinkwrap.mjs --write\n', ''));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a tarball packed with the development shrinkwrap');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('production-only shrinkwrap before the tarball')) throw error;
+}
+
 writeFileSync(fixture, source);
 const accepted = execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8' });
 if (!accepted.includes('PASS')) throw new Error(`intact release policy did not pass:\n${accepted}`);

@@ -45,6 +45,7 @@ const signingRequirements = [
   ['signed release payload manifest asset', /^\s*release-payload-manifest\.sigstore \\/m],
   ['exact published tarball release asset', /^\s*"\$RELEASE_TARBALL" \\/m],
   ['Sigstore payload-boundary attestation', /@sigstore\/cli\/bin\/run attest[\s\\]*\n\s*release-payload-manifest\.json/],
+  ['production-only shrinkwrap before the tarball', /node scripts\/publish-shrinkwrap\.mjs --write\n\s*npm pack --ignore-scripts/],
   ['single npm tarball creation', /npm pack --ignore-scripts --json --silent > release-pack-output\.txt/],
   ['canonical npm pack result parsing', /verify-release-payload\.mjs --pack-json release-pack-output\.txt --print-filename/],
   ['exact npm tarball verification', /verify-release-payload\.mjs[\s\\]*\n\s*--pack-json release-pack-output\.txt[\s\\]*\n\s*--tarball "\$tarball"[\s\\]*\n\s*--out release-payload-manifest\.json/],

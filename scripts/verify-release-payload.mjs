@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
+import { devEntries } from './lib/publish-shrinkwrap.mjs';
 
 const valueAfter = (flag) => {
   const index = process.argv.indexOf(flag);
@@ -96,6 +97,24 @@ if (suppliedTarball) {
       const missingFromMetadata = actualFiles.filter((path) => !reportedFiles.includes(path));
       if (missingFromTarball.length > 0) failures.push(`npm metadata names a file absent from the tarball: ${missingFromTarball[0]}`);
       if (missingFromMetadata.length > 0) failures.push(`tarball contains a file absent from npm metadata: ${missingFromMetadata[0]}`);
+      // npm installs every entry of a published shrinkwrap, dev-marked ones included
+      // (scripts/lib/publish-shrinkwrap.mjs). Refuse a tarball that would hand
+      // consumers the development toolchain.
+      if (actualFiles.includes('npm-shrinkwrap.json')) {
+        try {
+          const packedLock = JSON.parse(execFileSync('tar', ['-xzOf', tarball, 'package/npm-shrinkwrap.json'], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+            maxBuffer: 64 * 1024 * 1024,
+          }));
+          const leaked = devEntries(packedLock);
+          if (leaked.length > 0) {
+            failures.push(`packed npm-shrinkwrap.json carries ${leaked.length} development entries consumers would install (first: ${leaked[0]}); pack with scripts/publish-shrinkwrap.mjs --write first`);
+          }
+        } catch (error) {
+          failures.push(`packed npm-shrinkwrap.json could not be read: ${error.message}`);
+        }
+      }
     }
     if (packResult.filename && basename(tarball) !== packResult.filename) {
       failures.push(`tarball filename ${basename(tarball)} differs from npm pack metadata ${packResult.filename}`);

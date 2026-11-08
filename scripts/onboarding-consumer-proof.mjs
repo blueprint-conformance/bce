@@ -19,6 +19,7 @@ import {
 import { tmpdir } from 'node:os';
 import { basename, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { withPublishShrinkwrap } from './lib/publish-shrinkwrap.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const scratch = mkdtempSync(join(tmpdir(), 'bce-onboarding-consumer-proof-'));
@@ -201,7 +202,7 @@ process.stdout.write(`onboarding consumer proof: Node ${process.versions.node}\n
 
 // Build once, then prove the exact npm tarball can run without lifecycle scripts.
 npm(['run', 'build'], root);
-const packStdout = npm(['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], root).stdout;
+const packStdout = withPublishShrinkwrap(root, () => npm(['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], root)).stdout;
 // npm may stream prepare/build output before its requested JSON document. Anchor to the
 // package-result object rather than assuming stdout is a JSON-only channel.
 const packJsonStart = packStdout.lastIndexOf('[\n  {\n    "id":');

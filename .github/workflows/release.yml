@@ -464,6 +464,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Consumers install every entry of a published shrinkwrap; ship the runtime tree only.
+          node scripts/publish-shrinkwrap.mjs --write
           npm pack --ignore-scripts --json --silent > release-pack-output.txt
           tarball="$(node scripts/verify-release-payload.mjs --pack-json release-pack-output.txt --print-filename)"
           node scripts/verify-release-payload.mjs \

@@ -6,12 +6,13 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync } from '
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { publishShrinkwrap, withPublishShrinkwrap } from './lib/publish-shrinkwrap.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const scratch = mkdtempSync(join(tmpdir(), 'bce-reproducibility-proof-'));
 const npmBin = realpathSync(execFileSync('which', ['npm'], { encoding: 'utf8' }).trim());
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
-const lockBytes = readFileSync(join(root, 'npm-shrinkwrap.json'));
+const lockBytes = publishShrinkwrap(readFileSync(join(root, 'npm-shrinkwrap.json'), 'utf8'));
 const lockDigest = sha256(lockBytes);
 
 function run(file, args, cwd) {
@@ -36,7 +37,7 @@ function canonical(value) {
 }
 
 npm(['run', 'build'], root);
-const packOutput = npm(['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], root);
+const packOutput = withPublishShrinkwrap(root, () => npm(['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], root));
 const jsonStart = packOutput.lastIndexOf('[\n  {\n    "id"');
 if (jsonStart < 0) throw new Error(`npm pack did not emit a package result:\n${packOutput}`);
 const pack = JSON.parse(packOutput.slice(jsonStart))[0];

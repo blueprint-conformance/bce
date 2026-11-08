@@ -5,6 +5,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync,
 import { arch, platform, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withPublishShrinkwrap } from './lib/publish-shrinkwrap.mjs';
 import {
   canonicalJson, expectedSeal, fileArtifact, hashTree, loadVerifiedRecords, regenerateAssignments,
   sha256Bytes, sha256Json, validateCapabilityCanaryAttestation, verifyBundle,
@@ -133,7 +134,7 @@ if (isQualifiedReferencePilot) {
     throw new Error(`${pilotVersion} treatment bytes differ from the exact canary-qualified treatment`);
   }
 } else {
-  const packed = spawnSync('npm', ['pack', '--json', '--pack-destination', join(output, 'artifacts')], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const packed = withPublishShrinkwrap(root, () => spawnSync('npm', ['pack', '--json', '--pack-destination', join(output, 'artifacts')], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
   if (packed.status !== 0) throw new Error(`npm pack failed:\n${packed.stderr}`);
   const jsonStart = packed.stdout.lastIndexOf('\n[');
   const packResult = JSON.parse(jsonStart >= 0 ? packed.stdout.slice(jsonStart + 1) : packed.stdout);
