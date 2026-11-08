@@ -24,7 +24,10 @@ in-tree headers of `publish-schemas.yml`, `self-gate.yml`, `release.yml`,
    [docs/comparison.md](../comparison.md) (header comment there); decide
    normal vs contested README top-section
    ([README-contested-variant.md](README-contested-variant.md)).
-   Last pass: 2026-08-27 —
+   Last pass: 2026-11-08 —
+   [landscape-reverify-2026-11-08.md](landscape-reverify-2026-11-08.md)
+   (agent recommendation: normal variant, escalated to the maintainer because
+   an earlier-shipped neighbour was found), extending the 2026-08-27 pass
    [landscape-reverify-2026-08-27.md](landscape-reverify-2026-08-27.md)
    (verdict: normal variant, with a qualifier this item's actor must read).
 3. **[operator]** External-witness attestation exists
