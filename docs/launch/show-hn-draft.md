@@ -1,6 +1,6 @@
 # Show HN — DRAFT
 
-> **DRAFT — not posted.** The repository and `bce-engine@0.6.1` are public, but this text remains
+> **DRAFT — not posted.** The repository and `bce-engine@0.6.2` are public, but this text remains
 > operator-owned launch material. Re-check every claim and link against main on the posting morning;
 > nothing in this draft may outrun the tree.
 
@@ -70,8 +70,8 @@ on seeded defects is a fair proxy at all.
       banned-phrase" — filename-shaped, and not one of the four matched a job
       in this repository. See public-flip-checklist.md item 10 for why that
       distinction bites.
-- [x] v0.6.1 published on npm with provenance; exact registry consumers checked; six-asset immutable
-      Release recorded in `docs/release-v0.6.1.md`
+- [x] v0.6.2 published on npm with provenance; exact registry consumers checked; six-asset immutable
+      Release recorded in `docs/release-v0.6.2.md`
 - [x] All draft links replaced and checked
 - [ ] External-witness attestation linked (HARD blocker per launch plan — no post without it)
 - [ ] Comparison page landscape re-verify done this month — last pass
