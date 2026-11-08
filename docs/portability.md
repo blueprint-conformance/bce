@@ -1,9 +1,9 @@
 # Portability contract
 
 BCE's published runtime declares Node 22 and newer. The repository's source-build toolchain is pinned
-to Node 22.22.2 because its locked release-signing dependency requires that patch floor. The
+to Node 22.23.4 because its locked release-signing dependency requires that patch floor. The
 portability workflow tests the supported core on Ubuntu, macOS, and Windows against exact Node
-22.22.2 and 24.15.0. Each matrix leg performs an exact `npm ci`, build, typecheck, cross-platform
+22.23.4 and 24.22.1. Each matrix leg performs an exact `npm ci`, build, typecheck, cross-platform
 test suite, built MCP compatibility proof, a stack-manifest cross-OS golden-byte-identity proof
 (see [`docs/stack-plane.md`](stack-plane.md)), and clean packed-consumer proof.
 

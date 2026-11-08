@@ -73,7 +73,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: 22.22.2
+          node-version: 22.23.4
           cache: npm
 
       - name: Install (clean, lockfile-exact)
@@ -116,7 +116,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: 22.22.2
+          node-version: 22.23.4
           cache: npm
           # registry-url writes the .npmrc that makes NODE_AUTH_TOKEN usable, so the
           # publish-auth gate leg below can PROVE the credential against the registry
@@ -126,7 +126,7 @@ jobs:
       # node-version:22 ships npm 10.9.x. npm's Trusted Publishing (OIDC) requires
       # npm >= 11.5.1 (and node >= 22.14.0), so auth path (B) is DEAD ON ARRIVAL on
       # the stock toolchain. Do not ask that bundled npm to overwrite itself: the
-      # 22.22.2 hosted toolcache can be missing one of npm's own Arborist modules.
+      # hosted Node toolcache can be missing one of npm's own Arborist modules.
       # Corepack downloads the exact CLI without executing the broken npm, then
       # installs its shim in RUNNER_TEMP. This exact ceremony runs in BOTH jobs.
       - name: Bootstrap exact npm 11.19.1 through Corepack
@@ -419,7 +419,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: 22.22.2
+          node-version: 22.23.4
           registry-url: https://registry.npmjs.org
           cache: npm
 

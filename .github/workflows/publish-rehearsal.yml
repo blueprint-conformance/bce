@@ -52,11 +52,11 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: 22.22.2
+          node-version: 22.23.4
           registry-url: https://registry.npmjs.org
           cache: npm
 
-      # Mirrors release.yml. The hosted Node 22.22.2 npm can be missing one of its
+      # Mirrors release.yml. The hosted Node toolcache npm can be missing one of its
       # own Arborist modules, so never ask it to overwrite itself. Corepack installs
       # the exact release CLI behind a RUNNER_TEMP shim without invoking that npm.
       - name: Bootstrap exact npm 11.19.1 through Corepack
