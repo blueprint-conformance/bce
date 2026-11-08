@@ -69,7 +69,7 @@ replication, or product efficacy is claimed.
 - The v0.6.1 release evidence embeds the exact dependency-lock digest and extractor/provider
   identity. Its reproducibility proof obtains the same production graph and report hash from two
   clean installs. Historical 0.1.5 records predate this additive field.
-- The built MCP server passes strict discovery through locked Inspector 2.13.0, boundary/framing
+- The built MCP server passes strict discovery through locked Inspector 2.14.0, boundary/framing
   tests, and a 2-second startup/discovery p95 gate. This is Inspector compatibility, not proof of
   every named host client.
 - The synthetic scale track independently scans 2,000 TypeScript files and 2,000 Python files,
