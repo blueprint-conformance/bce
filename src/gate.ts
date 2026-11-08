@@ -236,6 +236,9 @@ export function runGate(
   const reports: ComplianceReport[] = [];
   const warnings: string[] = [];
   const refusals: string[] = [];
+  // Reports are paired with baseline partitions by `id@version`, so two files sharing one identity
+  // would grade under one name (and a baseline could read the passing twin's empty new set).
+  const identities = new Map<string, string>();
   let selected = 0;
   // FIX-B / FIX-E skip counters — every skip below is ALSO an explicit warnings line; the counters
   // surface omit-when-0 on the GateResult (mirroring `warnings?`) so a consumer can assert
@@ -314,6 +317,14 @@ export function runGate(
       });
       selected += 1;
       continue;
+    }
+    const identity = `${bp.metadata.id}@${bp.metadata.version}`;
+    const firstFile = identities.get(identity);
+    if (firstFile !== undefined) {
+      refusals.push(`${identity}: declared by both ${firstFile} and ${path.basename(bpPath)}; `
+        + 'each blueprint file needs its own id@version');
+    } else {
+      identities.set(identity, path.basename(bpPath));
     }
     if (!blueprintTouchesChanges(repoDir, bp, changed)) continue;
     selected += 1;
