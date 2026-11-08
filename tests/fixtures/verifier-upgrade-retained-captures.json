@@ -1,0 +1,2182 @@
+{
+  "admissions": {
+    "candidate": {
+      "artifactRef": "candidate",
+      "provenance": "Explicitly admitted first-party local source build from clean commit b47ece0c8515a04fc4e430b55060c41c13df71db tree 5b1c35bb46713ac7f15a9b839e951b43b61e44a3. Reused completed build, checked source-map inputs, used exact npm-generated tarball retained from the source writer package proof, checked every regular archive member against this clean source/completed build, and installed offline with scripts disabled. No repack by this validator. Not a registry release."
+    },
+    "release": {
+      "artifactRef": "release",
+      "provenance": "Retained explicitly admitted first-party released 0.6.0; SHA256/SHA1/npm SHA512 rechecked against original admission and exact installed artifact identity unchanged. No independent signature verification."
+    }
+  },
+  "artifacts": {
+    "candidate": {
+      "arch": "arm64",
+      "dependencyLockSha256": "636ff90a2842550db1c81ddff0f2823d21ee5d84059762b868f594827ecf4f3b",
+      "dependencyTreeSha256": "14f64d39c982f429b9a769955a95cfcbfec88e67a0bdf85a51496e5db2c70f56",
+      "distInventory": [
+        {
+          "path": "assistant-adapter.d.ts",
+          "sha256": "a56448e98cf9479d718bed75e5fa53bb4d91f3886da8372f5578e7429b2f5489"
+        },
+        {
+          "path": "assistant-adapter.d.ts.map",
+          "sha256": "1373377663a536340ce8fd58192fd2af64a6dd71837354dfe295bc288ffe11c7"
+        },
+        {
+          "path": "baseline.d.ts",
+          "sha256": "527528a982fbf8aa576360ade3325c86ef1fadf4d6f74655d409cfcf590bd371"
+        },
+        {
+          "path": "baseline.d.ts.map",
+          "sha256": "279a22975beb9778a328a0fedaed717b6cd5c54544869a0e6cef23790157cd5a"
+        },
+        {
+          "path": "benchmark.d.ts",
+          "sha256": "0a80dd07d450bd8800c9b5a0374c0404872a9d5a2b054fb241ac6360f30df04c"
+        },
+        {
+          "path": "benchmark.d.ts.map",
+          "sha256": "28e39f6babcbbf28d7649b26fffdcf3a9e671432821b766b50def01d7d2e5d9b"
+        },
+        {
+          "path": "cli.cjs",
+          "sha256": "c32ea3d040225112d147fae75915a33998889ebdfbdabcf1dbe95c291f52977d"
+        },
+        {
+          "path": "cli.cjs.map",
+          "sha256": "e07d1fd93b6d26d9d50667055f8e3cfb9d5ad40889b8ddb8ef3a87125182c220"
+        },
+        {
+          "path": "cli.d.ts",
+          "sha256": "c0fef74d51eb25953f6d50d509cb5ee0b1da8978e3e7b0df69b821373248f92c"
+        },
+        {
+          "path": "cli.d.ts.map",
+          "sha256": "07e1bab322fbea936a00ec149ad924a0d46aa4c8de79147e59c11d25bd0ca9e6"
+        },
+        {
+          "path": "cli.js",
+          "sha256": "844bb5ea62b1e6d94662322cfc592a25d379c852794eb164fe030306a88fa07a"
+        },
+        {
+          "path": "cli.js.map",
+          "sha256": "c14330f78520fd57759aae782ed3b6e356e2223249c13ff6f15809a84facc20e"
+        },
+        {
+          "path": "compiler/canonical.d.ts",
+          "sha256": "1547b34a44cd5fd6cda3649570c88f2da514c1875dead6a79346c8eff4e85c6a"
+        },
+        {
+          "path": "compiler/canonical.d.ts.map",
+          "sha256": "9ee16bfc165debd582f7c708c5d2bd0f370e2f2edc5ad6bd82a03eecb757d33d"
+        },
+        {
+          "path": "compiler/compile.d.ts",
+          "sha256": "5b7871f65b7dccc3e92e0e6f47dd2dfe45dbc29b4eeb4a78060106bdc03d2766"
+        },
+        {
+          "path": "compiler/compile.d.ts.map",
+          "sha256": "d2caa51e7b5883ea08df5507ed1a6b7cf4d9f92a7db2196febed34e0fbe42263"
+        },
+        {
+          "path": "compiler/dependency.d.ts",
+          "sha256": "9a3ca7cf7fd08e15cf9f7018bbf7eb8f28ac706402d0fcab98143745bd6e6885"
+        },
+        {
+          "path": "compiler/dependency.d.ts.map",
+          "sha256": "63dc0fdfb4d4221ca3cc181cbe39627575fc2c351885742aec83bc46a76b6b86"
+        },
+        {
+          "path": "compiler/ir.d.ts",
+          "sha256": "827f9db94e07f10f1d7762476609a419d43f5b55c3e56e91701bcfdf3f8d0a79"
+        },
+        {
+          "path": "compiler/ir.d.ts.map",
+          "sha256": "ab26383639b51635fcf6c60dc8ffe9d9f93980924640e2d4b4ac2a4c19c0e52b"
+        },
+        {
+          "path": "compiler/pass-manager.d.ts",
+          "sha256": "57c42404fac67aa1d9882c90adc9f6a115aba0b88933e7c271a6d1ffc7e5a736"
+        },
+        {
+          "path": "compiler/pass-manager.d.ts.map",
+          "sha256": "9263ffdd43017385032f27a824e00d9c0c70de583a46cd047fd787c9b28b95bd"
+        },
+        {
+          "path": "compiler/version.d.ts",
+          "sha256": "3da33754439a69c8005b87314ba49d1231ca8ac9d95bc6172d13fa69285e88a6"
+        },
+        {
+          "path": "compiler/version.d.ts.map",
+          "sha256": "730729b9be8a7bdec28eaa5585d04ec3e3215aad3eb527d5625ba15aa711c4f9"
+        },
+        {
+          "path": "corpus.d.ts",
+          "sha256": "c25a018e2e84fdb3b3b23b76f71caca9766bd8b69ea4116054a9ccd13dfd0d6c"
+        },
+        {
+          "path": "corpus.d.ts.map",
+          "sha256": "f96e2cd543604d6e8b9721dd2b861b36898fb55b6cd3145dda9bca1aa8972ebb"
+        },
+        {
+          "path": "emit.d.ts",
+          "sha256": "a220fb02129fac18834b9afe48a63c95612fce89b58a01f28413cc6592931b3f"
+        },
+        {
+          "path": "emit.d.ts.map",
+          "sha256": "a646e22632891c26e2e17dfe6c25b15e64160210dab2bb61671a88facf83a204"
+        },
+        {
+          "path": "evidence-bundle.d.ts",
+          "sha256": "bf04309dc82e8a62d6c48d7d809e3861939952e960647efda775d5d8df23b25f"
+        },
+        {
+          "path": "evidence-bundle.d.ts.map",
+          "sha256": "e8e7e50a8a90c48dd23b78988668e0a9f84ec6ec00dc2df64b22793b55a58ff1"
+        },
+        {
+          "path": "evidence-store.d.ts",
+          "sha256": "cf192f83f6499eadd5441e52e92a5ca23f79e1da5104f39e3a90f98f9f21ccdb"
+        },
+        {
+          "path": "evidence-store.d.ts.map",
+          "sha256": "5d7245659ebdc3f229fe779943a40eb2bc29956f4998df70baaea5d32f08c0b5"
+        },
+        {
+          "path": "extractor-registry.d.ts",
+          "sha256": "d8f8abb391a2e771112fcc84dc009e9db08900b5a81cd851edeb230d18c37913"
+        },
+        {
+          "path": "extractor-registry.d.ts.map",
+          "sha256": "6163f779bc967a00a0e2e047deaa4921264a5e889505e5eefbb38fdb0df635bd"
+        },
+        {
+          "path": "extractor-teeth.d.ts",
+          "sha256": "b16f4b1e32cd91026bcf0841f752511c0c8a57fce3607108ba1186f9070da471"
+        },
+        {
+          "path": "extractor-teeth.d.ts.map",
+          "sha256": "52f99715da72c9f0f5be1b1baa126cc11dbd58a72a4c98c7fec464691eb2f9b4"
+        },
+        {
+          "path": "extractors.d.ts",
+          "sha256": "83b4779b382a489b1771bce81f355c03bd131e1eff90bc80c37aa6ed3b4c3e56"
+        },
+        {
+          "path": "extractors.d.ts.map",
+          "sha256": "a96918ac031c7de2bfdbbe735ec737bf8ad63354f0191bb043ef3734fa9ff651"
+        },
+        {
+          "path": "gate.d.ts",
+          "sha256": "dc478b3e46fbfe4d9431cb81f7ac54e678eb2b83d31e2f66ef88f3a101e1b932"
+        },
+        {
+          "path": "gate.d.ts.map",
+          "sha256": "f722069865497e4daad8ab3d4c993fb672ec8e6a056be22afc6c3a561398a73e"
+        },
+        {
+          "path": "graph.d.ts",
+          "sha256": "1383a50b53f861649b7f396ef83c26482af7c860efa1e56824bf59d91d84c7fd"
+        },
+        {
+          "path": "graph.d.ts.map",
+          "sha256": "d50537a3449ebd8a2cb9cf854c8dd3be68ecc31ed75263bfe405162169fb6838"
+        },
+        {
+          "path": "index.cjs",
+          "sha256": "c17a46a4699e9dac170086c1259577c6ab5a10768a43e0378e2374270f5e5f70"
+        },
+        {
+          "path": "index.cjs.map",
+          "sha256": "04d5ed3eba89e2470c58000b4775a164506935ef45486ede8c3bf235e93d8823"
+        },
+        {
+          "path": "index.d.ts",
+          "sha256": "9c5ff515c3e69f6bf9e38ac05df3697cc5417c3ccb85b623d5f25ec63e5c1b39"
+        },
+        {
+          "path": "index.d.ts.map",
+          "sha256": "0c1f2f5d85805707bc96e66a1b1da33ebc0735ded24ecae09e148cd450ead20b"
+        },
+        {
+          "path": "index.js",
+          "sha256": "2c8e8ef0e8dbec40b065e073e57dc96778af7daab3350dc55426fa200d5b34b8"
+        },
+        {
+          "path": "index.js.map",
+          "sha256": "58f2a47ea598cdc31ef61ae94e6fb3d9418d6e20d4a79a7b2ed7adedee13af47"
+        },
+        {
+          "path": "lifecycle.d.ts",
+          "sha256": "3e7897b40e2e3cc77d8edf6c8dc38a8f5ac754a2ea74a9df69f4c403e236f85a"
+        },
+        {
+          "path": "lifecycle.d.ts.map",
+          "sha256": "f650a3051892d2d03eee90ebe716626bfa523dac58b8dca4f53a5abcebfe3505"
+        },
+        {
+          "path": "materializer.d.ts",
+          "sha256": "af8e13d884672d777c8fce73c0e12341b8e76a9cc6785760a94a8ea082953ede"
+        },
+        {
+          "path": "materializer.d.ts.map",
+          "sha256": "3bf7c5c5f587fb340685ea2adb1772a45a32dee8bd6e4a5936557cbaaac9854b"
+        },
+        {
+          "path": "mcp-server.cjs",
+          "sha256": "8f6008bc6dd21913fdc1ee1e0df798ec12721b1b58a0fc0a4bcb013e406ca21d"
+        },
+        {
+          "path": "mcp-server.cjs.map",
+          "sha256": "b1d5432e1814b5bbf7a6897ae4dc446b0d08bc4d9cae63e2534c3048f8ab69b0"
+        },
+        {
+          "path": "mcp-server.d.ts",
+          "sha256": "86cdf33e2c15708c301548b69d680664333aeabf453a78c609c81dcb2634c61f"
+        },
+        {
+          "path": "mcp-server.d.ts.map",
+          "sha256": "765bce39847e725655c404b14e7a6752e11ee7a01a092973aa4ff4b18dc356e7"
+        },
+        {
+          "path": "mcp-server.js",
+          "sha256": "ce829efea39f02bf32453b8b92e0bffc6bbf0fd3da574e2c618b4ed5aebc2e0c"
+        },
+        {
+          "path": "mcp-server.js.map",
+          "sha256": "640be89a5b0d62ec70d58da531a2e64cea02a47cf0fc5e51292ef499928d05b3"
+        },
+        {
+          "path": "mode.d.ts",
+          "sha256": "91e2f0c6da56482f2393286a6f05eacb67cd4e2729bed79b52a1be90e382b8d6"
+        },
+        {
+          "path": "mode.d.ts.map",
+          "sha256": "8a83103cba9822461b844164174be421eae0fc3f991b6718b769562a5c1a8f9c"
+        },
+        {
+          "path": "observations.d.ts",
+          "sha256": "5529368a741027b4d0ee146d7e41a28a58b85022f063225e40ea8dfd2e96ff04"
+        },
+        {
+          "path": "observations.d.ts.map",
+          "sha256": "8b8ac7de8131d8ee24c157b7166e777ec02e64517fb930b0c624c35d6b40e0b5"
+        },
+        {
+          "path": "pin.d.ts",
+          "sha256": "0744764708b5fc09c7af8fb8780e539204ac350f25e7f74b42ede04d65c8b1f6"
+        },
+        {
+          "path": "pin.d.ts.map",
+          "sha256": "7e928be9c510e5af154407d8729fbd89fd9506ef9a694e6a7f278eff7a39c4c7"
+        },
+        {
+          "path": "policy-change.d.ts",
+          "sha256": "8b66f2fe75296f506b3165467b2130cc5025154937ace3a8c8031d02895b0a21"
+        },
+        {
+          "path": "policy-change.d.ts.map",
+          "sha256": "49acfdbbff0b86fe78973d7c15ac3fbf7933bc37439108ac845199d4795b6f44"
+        },
+        {
+          "path": "policy-history.d.ts",
+          "sha256": "9776cf4020c675cd6100fc5769dd8111309d8421c28f5af72b1bef1199195da3"
+        },
+        {
+          "path": "policy-history.d.ts.map",
+          "sha256": "41b93741faf4aef125efe72f8184214c6ba39423b47e1e95c528e7b868518fbb"
+        },
+        {
+          "path": "portfolio-collect.d.ts",
+          "sha256": "59df60abc348b9df3f17a0c124df8bd9cd6ee00911ed13256f5c42e7954fdfbb"
+        },
+        {
+          "path": "portfolio-collect.d.ts.map",
+          "sha256": "9434eb811d381810e541e603e018eb0ddd0f7fdb4f5944954c7c2dec484b023f"
+        },
+        {
+          "path": "portfolio-compile.d.ts",
+          "sha256": "8e1f780e621311408c3222b6eeea8139fcc0f0d8e09c78e44f74498ec8b8be43"
+        },
+        {
+          "path": "portfolio-compile.d.ts.map",
+          "sha256": "3c7c70ea19958f3636618dcbb50e0d8e81daa5189c1c778a90a967171e2b50ff"
+        },
+        {
+          "path": "proposal-io.d.ts",
+          "sha256": "693e7936878421e98ea3a7216e715079dbdeb1c50180f02653bd7e0a9be7c93d"
+        },
+        {
+          "path": "proposal-io.d.ts.map",
+          "sha256": "e5e69f81f301908e0573e037160cd0ea53115b4ab2066eb0c8b2d30c5ea834c0"
+        },
+        {
+          "path": "python-extractor.d.ts",
+          "sha256": "6ae549c9800677ab6471c54e1d912f1c4ec74bb9701b6f8a51872f77741c771c"
+        },
+        {
+          "path": "python-extractor.d.ts.map",
+          "sha256": "b4fbce847847740364bf350c1ecc51e19b515dcfc18ee891228cf1f30a8d65a6"
+        },
+        {
+          "path": "python-module-graph.d.ts",
+          "sha256": "ddd8eb1ced3540eaaf89d3346d2e01175d1f78dd8506c95b31d014315a100d9c"
+        },
+        {
+          "path": "python-module-graph.d.ts.map",
+          "sha256": "339495ef17a6bbcc4cf1592618c1a8bf0c6e029bb8531354dfd4e2108d4daca6"
+        },
+        {
+          "path": "recall-gate.d.ts",
+          "sha256": "91e16db759d26319364b7d36bb9f60fe09ad3c7c8601823ac435dc6264080351"
+        },
+        {
+          "path": "recall-gate.d.ts.map",
+          "sha256": "bda640089f01a4d0869cd745c367d4f42683b959c50e7cdfe7349d96f86cfb2e"
+        },
+        {
+          "path": "report.d.ts",
+          "sha256": "711df2115e928d0f172b01b45c66d61ff1bc5770d269a7ce7d9e9ef9d8e71a9e"
+        },
+        {
+          "path": "report.d.ts.map",
+          "sha256": "08b53cc8e5620155436ab60e8171b598bc157bdcb5d52396dda159599ee20ef7"
+        },
+        {
+          "path": "review-contracts.d.ts",
+          "sha256": "d6b63dbb2ad0b9ceb916f75b93e6d757e03a721381bd78b2439fd43ffdaa49b9"
+        },
+        {
+          "path": "review-contracts.d.ts.map",
+          "sha256": "c0aa41326181886943edbfa0101112f6276a153c9111e89a2a82307e211e1022"
+        },
+        {
+          "path": "review-render.d.ts",
+          "sha256": "68ba30e220a107d25f5fdba4194acb81068f6d975b4e371ef3208d6311021769"
+        },
+        {
+          "path": "review-render.d.ts.map",
+          "sha256": "9235b443d3d611046b0f23b267db56c1c18c090b5b6823fa3f763e2ac6ba4dea"
+        },
+        {
+          "path": "review.d.ts",
+          "sha256": "9d0b7803ebfa82d05427e3c4b88d51241a54134e64a6d63d235d4d24f3b5b290"
+        },
+        {
+          "path": "review.d.ts.map",
+          "sha256": "70d24ed7ee9474aed474e56a6d1d583d874151b0ef3a9708d5d11bf03aa1fd0a"
+        },
+        {
+          "path": "runtime-identity.d.ts",
+          "sha256": "28cd648e4d4f9c01ecd92da0371deac7c9e4f6d732028cb69ea9fd47c5cc8abc"
+        },
+        {
+          "path": "runtime-identity.d.ts.map",
+          "sha256": "812676c5f5220245124feefed8015f851b080d9b54a965252f09b62ffbb7ec4b"
+        },
+        {
+          "path": "safe-regex.d.ts",
+          "sha256": "c8769f1af448aef762297a9ee131ea3c74bd81ca087f1b664fe6aa70723b67e6"
+        },
+        {
+          "path": "safe-regex.d.ts.map",
+          "sha256": "e3f433ed8103993ea52ad8379b7d4ef2f4cc8525400a122ac46f7367c0f4fb65"
+        },
+        {
+          "path": "schema.d.ts",
+          "sha256": "59a95a0876b167d167c173ee583dcf5f922fe8a1ea6689a7dfa7a38ae6534409"
+        },
+        {
+          "path": "schema.d.ts.map",
+          "sha256": "5e7b42e2cd4d72c9a0369c36df30a646646366507e06f96618c5e7204eea7158"
+        },
+        {
+          "path": "scm-review.d.ts",
+          "sha256": "17f0e54b3c48955820e856e683a4a6b44c8b7df0d67db887de9e304a18eeb8b1"
+        },
+        {
+          "path": "scm-review.d.ts.map",
+          "sha256": "63501a9699c5b9272cb387296c903470e3843481596e846c5acad2536d0c3be9"
+        },
+        {
+          "path": "score.d.ts",
+          "sha256": "9677ae28d8705bcec556f10c82befb1ddb7b65b16554173ca1f6c065a004ab8b"
+        },
+        {
+          "path": "score.d.ts.map",
+          "sha256": "ce0826a3960fac7c1ce7299b2f6d85a9adec7c497f089115c947e95fc01a0ff0"
+        },
+        {
+          "path": "stack/pnpm-lock-reader.d.ts",
+          "sha256": "42d8d2c46bbdc04f7759121d458c8678279134b9772b7231f61d9b647f4d9aa2"
+        },
+        {
+          "path": "stack/pnpm-lock-reader.d.ts.map",
+          "sha256": "d45054bc3945d4ce298c9126ae29b502e588d79652c7c140dd8bd8d14f98726d"
+        },
+        {
+          "path": "stack/selected-stack.d.ts",
+          "sha256": "80c1272a929bd2a2ef9db1fac6963a506ff2826357c84a260ed6e6e2f00a65a1"
+        },
+        {
+          "path": "stack/selected-stack.d.ts.map",
+          "sha256": "e74a5ba0dd8062f290e3d889559553d1c33e1a5230dbb07ab404062a3ef1ceef"
+        },
+        {
+          "path": "stack/stack-diff.d.ts",
+          "sha256": "4b9a0c907c76b83b46dd33e498ee80b3434f96563c211243f895591b33aa5d0a"
+        },
+        {
+          "path": "stack/stack-diff.d.ts.map",
+          "sha256": "daa53b2dbe32b7a2db5f60d222cd5f0bf68545cb332b9b9154bf004b9c4b509b"
+        },
+        {
+          "path": "stack/stack-evaluation.d.ts",
+          "sha256": "473ab2530a0ce70e61444102e4bb2f0d20d16cf3eaf1c4b898691b5588fa290f"
+        },
+        {
+          "path": "stack/stack-evaluation.d.ts.map",
+          "sha256": "f58cae9531d30c2c65d21b7f1dac3f68d53e4f74ebadc9d1ebdbba50f045c28c"
+        },
+        {
+          "path": "stack/stack-extractor.d.ts",
+          "sha256": "ef441a6b1d122af7e6dc5f8bef4580d94660f501b7500467f00f1c5b83e8ee3d"
+        },
+        {
+          "path": "stack/stack-extractor.d.ts.map",
+          "sha256": "44798d3d75327dfdff4c6cea1a4d2846b4b93c33fa41c3f3a9339f90333a6564"
+        },
+        {
+          "path": "stack/stack-manifest.d.ts",
+          "sha256": "244183b5c1be829d0aab01527cafa210cb8ac9464b950d09c9676c9166c1b0ab"
+        },
+        {
+          "path": "stack/stack-manifest.d.ts.map",
+          "sha256": "5aea37f63aa420d18f131a9b14696bb985ccf841a676dc159d51fa0a799c8523"
+        },
+        {
+          "path": "teeth-waiver.d.ts",
+          "sha256": "2fd3a711cdc7f9ebf31b88ebd3e6b8b04cf250b15690341dd5ecd7c258070928"
+        },
+        {
+          "path": "teeth-waiver.d.ts.map",
+          "sha256": "b9f576d9b28ce24d10007f0c8bd08f452a6c6b2f1634c6246a08a6a52577bb73"
+        },
+        {
+          "path": "teeth.d.ts",
+          "sha256": "2b62112a52c8d5da6b2be93f8b59515e937fbda6fe5bfe41fe5ba6ae171389c1"
+        },
+        {
+          "path": "teeth.d.ts.map",
+          "sha256": "f8a5f874f9659ab5083843cfa0d1066f3105d554edc354464a9045234c604094"
+        },
+        {
+          "path": "violation-format.d.ts",
+          "sha256": "67f3a72e37f2b76789d829092e30d70a7e57e110f46ee45043ec4bdcba8ec556"
+        },
+        {
+          "path": "violation-format.d.ts.map",
+          "sha256": "1035ab07e8ad3140187ba17ce305548870be071c425706f79035513d8f07a24d"
+        },
+        {
+          "path": "violation-rollup.d.ts",
+          "sha256": "a40d8766a366f35e3ec968a1e26d0a532e2940bda0410d44001e0760ac8a008f"
+        },
+        {
+          "path": "violation-rollup.d.ts.map",
+          "sha256": "59fda95906862074c8e289c74b19b1a9df974c5180c91c78d7fc886fb6772eaf"
+        }
+      ],
+      "name": "bce-engine",
+      "node": "22.22.2",
+      "platform": "darwin",
+      "tarballSha256": "9f41bd06a0d3c3667b44212007211e6f1707e7d39dafa95e043a7acf2165b93d",
+      "version": "0.6.1"
+    },
+    "release": {
+      "arch": "arm64",
+      "dependencyLockSha256": "7e3eeba748b95b84dac9c1d082749592916c1e3db3c81ef6a074105d9841ff62",
+      "dependencyTreeSha256": "858614df9258f798b2b349c9428e5632519aa5e37cd7a91ac0dfe44a1a362db6",
+      "distInventory": [
+        {
+          "path": "assistant-adapter.d.ts",
+          "sha256": "a56448e98cf9479d718bed75e5fa53bb4d91f3886da8372f5578e7429b2f5489"
+        },
+        {
+          "path": "assistant-adapter.d.ts.map",
+          "sha256": "1373377663a536340ce8fd58192fd2af64a6dd71837354dfe295bc288ffe11c7"
+        },
+        {
+          "path": "baseline.d.ts",
+          "sha256": "527528a982fbf8aa576360ade3325c86ef1fadf4d6f74655d409cfcf590bd371"
+        },
+        {
+          "path": "baseline.d.ts.map",
+          "sha256": "279a22975beb9778a328a0fedaed717b6cd5c54544869a0e6cef23790157cd5a"
+        },
+        {
+          "path": "benchmark.d.ts",
+          "sha256": "0a80dd07d450bd8800c9b5a0374c0404872a9d5a2b054fb241ac6360f30df04c"
+        },
+        {
+          "path": "benchmark.d.ts.map",
+          "sha256": "28e39f6babcbbf28d7649b26fffdcf3a9e671432821b766b50def01d7d2e5d9b"
+        },
+        {
+          "path": "cli.cjs",
+          "sha256": "a0e38dd9020554603af51cf691412afbfb824dce020ba6cb9cdce6dde6169903"
+        },
+        {
+          "path": "cli.cjs.map",
+          "sha256": "47fa745ddbf4884aac5b6f68510a4e470e13a6535538697232b203e06d41151a"
+        },
+        {
+          "path": "cli.d.ts",
+          "sha256": "c0fef74d51eb25953f6d50d509cb5ee0b1da8978e3e7b0df69b821373248f92c"
+        },
+        {
+          "path": "cli.d.ts.map",
+          "sha256": "07e1bab322fbea936a00ec149ad924a0d46aa4c8de79147e59c11d25bd0ca9e6"
+        },
+        {
+          "path": "cli.js",
+          "sha256": "42246ba9f210ccaf7f9a497eb5e2d498db28bd0315881528634c7192f76783c9"
+        },
+        {
+          "path": "cli.js.map",
+          "sha256": "682da39a9c33535b48b72994565e75ada9fa37acfb5391f4a38ff7c3cf48e137"
+        },
+        {
+          "path": "corpus.d.ts",
+          "sha256": "c25a018e2e84fdb3b3b23b76f71caca9766bd8b69ea4116054a9ccd13dfd0d6c"
+        },
+        {
+          "path": "corpus.d.ts.map",
+          "sha256": "f96e2cd543604d6e8b9721dd2b861b36898fb55b6cd3145dda9bca1aa8972ebb"
+        },
+        {
+          "path": "emit.d.ts",
+          "sha256": "a220fb02129fac18834b9afe48a63c95612fce89b58a01f28413cc6592931b3f"
+        },
+        {
+          "path": "emit.d.ts.map",
+          "sha256": "31f848145420c690061ad19f76665eabb59e148391bbe38cbad0f455132ac3de"
+        },
+        {
+          "path": "evidence-bundle.d.ts",
+          "sha256": "bf04309dc82e8a62d6c48d7d809e3861939952e960647efda775d5d8df23b25f"
+        },
+        {
+          "path": "evidence-bundle.d.ts.map",
+          "sha256": "e8e7e50a8a90c48dd23b78988668e0a9f84ec6ec00dc2df64b22793b55a58ff1"
+        },
+        {
+          "path": "evidence-store.d.ts",
+          "sha256": "cf192f83f6499eadd5441e52e92a5ca23f79e1da5104f39e3a90f98f9f21ccdb"
+        },
+        {
+          "path": "evidence-store.d.ts.map",
+          "sha256": "5d7245659ebdc3f229fe779943a40eb2bc29956f4998df70baaea5d32f08c0b5"
+        },
+        {
+          "path": "extractor-registry.d.ts",
+          "sha256": "d8f8abb391a2e771112fcc84dc009e9db08900b5a81cd851edeb230d18c37913"
+        },
+        {
+          "path": "extractor-registry.d.ts.map",
+          "sha256": "6163f779bc967a00a0e2e047deaa4921264a5e889505e5eefbb38fdb0df635bd"
+        },
+        {
+          "path": "extractor-teeth.d.ts",
+          "sha256": "b16f4b1e32cd91026bcf0841f752511c0c8a57fce3607108ba1186f9070da471"
+        },
+        {
+          "path": "extractor-teeth.d.ts.map",
+          "sha256": "52f99715da72c9f0f5be1b1baa126cc11dbd58a72a4c98c7fec464691eb2f9b4"
+        },
+        {
+          "path": "extractors.d.ts",
+          "sha256": "4ef78dd0e55a1b03c17a8a6747e265a6cf5e0438429be241aa3a5e0b313dc020"
+        },
+        {
+          "path": "extractors.d.ts.map",
+          "sha256": "5cee576c30fa1e0deda610326cdb9cacc907e0a82a02e4a3328ef61dd600cfc6"
+        },
+        {
+          "path": "gate.d.ts",
+          "sha256": "635445e7c49fae57d2428fba10f3ee9f8821f9533ab5e02b7bc939f71617440c"
+        },
+        {
+          "path": "gate.d.ts.map",
+          "sha256": "0992caea18be1556f6eb4a2a9d7121683cacb10a3f8cf0c5287dabd43a2ff464"
+        },
+        {
+          "path": "graph.d.ts",
+          "sha256": "1383a50b53f861649b7f396ef83c26482af7c860efa1e56824bf59d91d84c7fd"
+        },
+        {
+          "path": "graph.d.ts.map",
+          "sha256": "d50537a3449ebd8a2cb9cf854c8dd3be68ecc31ed75263bfe405162169fb6838"
+        },
+        {
+          "path": "index.cjs",
+          "sha256": "2c1badcf8d8aab9ca8ce4e09d7cec845d4baaac333d89c307d9c30ac2047fc49"
+        },
+        {
+          "path": "index.cjs.map",
+          "sha256": "f3be503bc8fc1de6fa99fc95488ebef0fb5590ca512a98ffbed59c35ee460a91"
+        },
+        {
+          "path": "index.d.ts",
+          "sha256": "16c72c67c8885a7400027e41435a69f9817ad9c2d165a67f5da3385d025e3aad"
+        },
+        {
+          "path": "index.d.ts.map",
+          "sha256": "23ff3dce64e3421d1f2b10ec76d97c51b5bc91cddc67d67ff11112a01549af79"
+        },
+        {
+          "path": "index.js",
+          "sha256": "f70c5f9d7457b0eb7ec8c5596f482887ab5e1caab4e82f76f54b1bfeeda8b569"
+        },
+        {
+          "path": "index.js.map",
+          "sha256": "536013c19529ed97aa28498b8690085e46088d606685cbd836b3ed8754b8c16d"
+        },
+        {
+          "path": "lifecycle.d.ts",
+          "sha256": "3e7897b40e2e3cc77d8edf6c8dc38a8f5ac754a2ea74a9df69f4c403e236f85a"
+        },
+        {
+          "path": "lifecycle.d.ts.map",
+          "sha256": "f650a3051892d2d03eee90ebe716626bfa523dac58b8dca4f53a5abcebfe3505"
+        },
+        {
+          "path": "materializer.d.ts",
+          "sha256": "af8e13d884672d777c8fce73c0e12341b8e76a9cc6785760a94a8ea082953ede"
+        },
+        {
+          "path": "materializer.d.ts.map",
+          "sha256": "3bf7c5c5f587fb340685ea2adb1772a45a32dee8bd6e4a5936557cbaaac9854b"
+        },
+        {
+          "path": "mcp-server.cjs",
+          "sha256": "59c5369963e429e3d009a8c3765712a7bd80e3675960502be6dde14d8142d4cb"
+        },
+        {
+          "path": "mcp-server.cjs.map",
+          "sha256": "b61e141bd9151c7bc3e5a175b0b4b873a07dd4647a3b1f77541bf32127be8f4b"
+        },
+        {
+          "path": "mcp-server.d.ts",
+          "sha256": "86cdf33e2c15708c301548b69d680664333aeabf453a78c609c81dcb2634c61f"
+        },
+        {
+          "path": "mcp-server.d.ts.map",
+          "sha256": "765bce39847e725655c404b14e7a6752e11ee7a01a092973aa4ff4b18dc356e7"
+        },
+        {
+          "path": "mcp-server.js",
+          "sha256": "02307f32d50992324f984053dc690768b1a197c0bab8d297142651101cc2981c"
+        },
+        {
+          "path": "mcp-server.js.map",
+          "sha256": "99ceeb93da143af55d72a0fb8a8ffd518dd8c4cc88f769dcb7f8b1de681a2b10"
+        },
+        {
+          "path": "mode.d.ts",
+          "sha256": "91e2f0c6da56482f2393286a6f05eacb67cd4e2729bed79b52a1be90e382b8d6"
+        },
+        {
+          "path": "mode.d.ts.map",
+          "sha256": "8a83103cba9822461b844164174be421eae0fc3f991b6718b769562a5c1a8f9c"
+        },
+        {
+          "path": "observations.d.ts",
+          "sha256": "5529368a741027b4d0ee146d7e41a28a58b85022f063225e40ea8dfd2e96ff04"
+        },
+        {
+          "path": "observations.d.ts.map",
+          "sha256": "8b8ac7de8131d8ee24c157b7166e777ec02e64517fb930b0c624c35d6b40e0b5"
+        },
+        {
+          "path": "pin.d.ts",
+          "sha256": "f926f16a17208f342f4b0f8709f82d24c39829aab7d7e3b43e1d60a5fab0866e"
+        },
+        {
+          "path": "pin.d.ts.map",
+          "sha256": "d80ad6a1d3e24dd19a2639131ae49f83514d071b4619e0b5060e90d9094d6747"
+        },
+        {
+          "path": "policy-change.d.ts",
+          "sha256": "8b66f2fe75296f506b3165467b2130cc5025154937ace3a8c8031d02895b0a21"
+        },
+        {
+          "path": "policy-change.d.ts.map",
+          "sha256": "49acfdbbff0b86fe78973d7c15ac3fbf7933bc37439108ac845199d4795b6f44"
+        },
+        {
+          "path": "policy-history.d.ts",
+          "sha256": "9776cf4020c675cd6100fc5769dd8111309d8421c28f5af72b1bef1199195da3"
+        },
+        {
+          "path": "policy-history.d.ts.map",
+          "sha256": "41b93741faf4aef125efe72f8184214c6ba39423b47e1e95c528e7b868518fbb"
+        },
+        {
+          "path": "portfolio-collect.d.ts",
+          "sha256": "59df60abc348b9df3f17a0c124df8bd9cd6ee00911ed13256f5c42e7954fdfbb"
+        },
+        {
+          "path": "portfolio-collect.d.ts.map",
+          "sha256": "9434eb811d381810e541e603e018eb0ddd0f7fdb4f5944954c7c2dec484b023f"
+        },
+        {
+          "path": "portfolio-compile.d.ts",
+          "sha256": "8e1f780e621311408c3222b6eeea8139fcc0f0d8e09c78e44f74498ec8b8be43"
+        },
+        {
+          "path": "portfolio-compile.d.ts.map",
+          "sha256": "41818712e3e56d948f6d52746657f75a386c4a5e88dbccc729102b3a1ae2ba56"
+        },
+        {
+          "path": "proposal-io.d.ts",
+          "sha256": "9d064047765a27c177f13c79a469aede4ccdc67e8d62a9a6d37b5f737f20f6fb"
+        },
+        {
+          "path": "proposal-io.d.ts.map",
+          "sha256": "ced3c850401b547e7f302ea25ba2e68e8083771e635bd08996be678840aeec38"
+        },
+        {
+          "path": "python-extractor.d.ts",
+          "sha256": "6ae549c9800677ab6471c54e1d912f1c4ec74bb9701b6f8a51872f77741c771c"
+        },
+        {
+          "path": "python-extractor.d.ts.map",
+          "sha256": "b4fbce847847740364bf350c1ecc51e19b515dcfc18ee891228cf1f30a8d65a6"
+        },
+        {
+          "path": "python-module-graph.d.ts",
+          "sha256": "ddd8eb1ced3540eaaf89d3346d2e01175d1f78dd8506c95b31d014315a100d9c"
+        },
+        {
+          "path": "python-module-graph.d.ts.map",
+          "sha256": "339495ef17a6bbcc4cf1592618c1a8bf0c6e029bb8531354dfd4e2108d4daca6"
+        },
+        {
+          "path": "recall-gate.d.ts",
+          "sha256": "91e16db759d26319364b7d36bb9f60fe09ad3c7c8601823ac435dc6264080351"
+        },
+        {
+          "path": "recall-gate.d.ts.map",
+          "sha256": "bda640089f01a4d0869cd745c367d4f42683b959c50e7cdfe7349d96f86cfb2e"
+        },
+        {
+          "path": "report.d.ts",
+          "sha256": "4d1993eb16701920900e5b4dfbc7f92b06745edbd0c1d5004c20d9c1c0900956"
+        },
+        {
+          "path": "report.d.ts.map",
+          "sha256": "b1494c6230d5a8ff808f1ffcb1b8970fb04d5f9e7447f7738bae65c4a44e97f5"
+        },
+        {
+          "path": "review-contracts.d.ts",
+          "sha256": "c446805583950cfd5b7e1d4c8f8e48242d2ea42c8339fbc319177a79a77136f8"
+        },
+        {
+          "path": "review-contracts.d.ts.map",
+          "sha256": "b7e8e999b260ddd379235744f3b26ca7272b71b33c4d0711c333ac1195bc2902"
+        },
+        {
+          "path": "review-render.d.ts",
+          "sha256": "68ba30e220a107d25f5fdba4194acb81068f6d975b4e371ef3208d6311021769"
+        },
+        {
+          "path": "review-render.d.ts.map",
+          "sha256": "9235b443d3d611046b0f23b267db56c1c18c090b5b6823fa3f763e2ac6ba4dea"
+        },
+        {
+          "path": "review.d.ts",
+          "sha256": "52d5a23dfb26145a76123a861c8d816a70c34e3d91d0a5032d748706847a0496"
+        },
+        {
+          "path": "review.d.ts.map",
+          "sha256": "575772c6c2c3b667add7e8eb56babf783c04a93f03acd0885c24391016d4dac6"
+        },
+        {
+          "path": "runtime-identity.d.ts",
+          "sha256": "28cd648e4d4f9c01ecd92da0371deac7c9e4f6d732028cb69ea9fd47c5cc8abc"
+        },
+        {
+          "path": "runtime-identity.d.ts.map",
+          "sha256": "812676c5f5220245124feefed8015f851b080d9b54a965252f09b62ffbb7ec4b"
+        },
+        {
+          "path": "safe-regex.d.ts",
+          "sha256": "c8769f1af448aef762297a9ee131ea3c74bd81ca087f1b664fe6aa70723b67e6"
+        },
+        {
+          "path": "safe-regex.d.ts.map",
+          "sha256": "e3f433ed8103993ea52ad8379b7d4ef2f4cc8525400a122ac46f7367c0f4fb65"
+        },
+        {
+          "path": "schema.d.ts",
+          "sha256": "a818db36c04d0af0eb6533295289db36a3a46184943f864b41d32dd6b618b1e4"
+        },
+        {
+          "path": "schema.d.ts.map",
+          "sha256": "b327df2b4d45eef43a4d963e1f4973c44354e847819cda51fedd4a39b062c41d"
+        },
+        {
+          "path": "scm-review.d.ts",
+          "sha256": "17f0e54b3c48955820e856e683a4a6b44c8b7df0d67db887de9e304a18eeb8b1"
+        },
+        {
+          "path": "scm-review.d.ts.map",
+          "sha256": "63501a9699c5b9272cb387296c903470e3843481596e846c5acad2536d0c3be9"
+        },
+        {
+          "path": "score.d.ts",
+          "sha256": "9677ae28d8705bcec556f10c82befb1ddb7b65b16554173ca1f6c065a004ab8b"
+        },
+        {
+          "path": "score.d.ts.map",
+          "sha256": "ce0826a3960fac7c1ce7299b2f6d85a9adec7c497f089115c947e95fc01a0ff0"
+        },
+        {
+          "path": "stack/pnpm-lock-reader.d.ts",
+          "sha256": "a7bc08cd8e1a8207f574ea838d8ddab1d40e132f993bc8d5424f9f3f239233d9"
+        },
+        {
+          "path": "stack/pnpm-lock-reader.d.ts.map",
+          "sha256": "c299a3da86b92b0cb68c0bd5b5300a7a0244247dc1983cb5c5c07a5587ca56b5"
+        },
+        {
+          "path": "stack/selected-stack.d.ts",
+          "sha256": "80c1272a929bd2a2ef9db1fac6963a506ff2826357c84a260ed6e6e2f00a65a1"
+        },
+        {
+          "path": "stack/selected-stack.d.ts.map",
+          "sha256": "21f3909ce07a0e9342b7d74f1e7b52b1f1b2eb43d4642dbc89a6f92d8bdc1e13"
+        },
+        {
+          "path": "stack/stack-diff.d.ts",
+          "sha256": "481e7d5f43c6cc541c10cca7a6e0b804a3aee2553c453d208f1c316b8de84805"
+        },
+        {
+          "path": "stack/stack-diff.d.ts.map",
+          "sha256": "c45a12165f72011e093c07aaace43cda4777afb0f574391af1a9a5ee577162bc"
+        },
+        {
+          "path": "stack/stack-evaluation.d.ts",
+          "sha256": "473ab2530a0ce70e61444102e4bb2f0d20d16cf3eaf1c4b898691b5588fa290f"
+        },
+        {
+          "path": "stack/stack-evaluation.d.ts.map",
+          "sha256": "6bc710b21a022e9cdfe1c1d11db5f415189f7e7336772665989d2da1f9b5c403"
+        },
+        {
+          "path": "stack/stack-extractor.d.ts",
+          "sha256": "70c2a19a9c6ae6dd977247e1255b9b196427b9a8ca9d84691f615c23ddb4aa04"
+        },
+        {
+          "path": "stack/stack-extractor.d.ts.map",
+          "sha256": "854181fe8468051ba7bd86396dc0d3287ff9ffcdea82789687ad66630e8be179"
+        },
+        {
+          "path": "stack/stack-manifest.d.ts",
+          "sha256": "568f1ce806dffe098ecc1daedf4f5d0d79b92ad26de41dde057a00534e74fcdc"
+        },
+        {
+          "path": "stack/stack-manifest.d.ts.map",
+          "sha256": "2f8850aea344af9673dab97793a1bae8a9ce4407d97f6b3d68d9c5b8c3c96d90"
+        },
+        {
+          "path": "teeth-waiver.d.ts",
+          "sha256": "2fd3a711cdc7f9ebf31b88ebd3e6b8b04cf250b15690341dd5ecd7c258070928"
+        },
+        {
+          "path": "teeth-waiver.d.ts.map",
+          "sha256": "b9f576d9b28ce24d10007f0c8bd08f452a6c6b2f1634c6246a08a6a52577bb73"
+        },
+        {
+          "path": "teeth.d.ts",
+          "sha256": "2b62112a52c8d5da6b2be93f8b59515e937fbda6fe5bfe41fe5ba6ae171389c1"
+        },
+        {
+          "path": "teeth.d.ts.map",
+          "sha256": "3933ffebdf67b469a72535f407cc1c24e7a535436982375fde5f66c306dc4608"
+        },
+        {
+          "path": "violation-format.d.ts",
+          "sha256": "67f3a72e37f2b76789d829092e30d70a7e57e110f46ee45043ec4bdcba8ec556"
+        },
+        {
+          "path": "violation-format.d.ts.map",
+          "sha256": "1035ab07e8ad3140187ba17ce305548870be071c425706f79035513d8f07a24d"
+        },
+        {
+          "path": "violation-rollup.d.ts",
+          "sha256": "a40d8766a366f35e3ec968a1e26d0a532e2940bda0410d44001e0760ac8a008f"
+        },
+        {
+          "path": "violation-rollup.d.ts.map",
+          "sha256": "59fda95906862074c8e289c74b19b1a9df974c5180c91c78d7fc886fb6772eaf"
+        }
+      ],
+      "name": "bce-engine",
+      "node": "22.22.2",
+      "platform": "darwin",
+      "tarballSha256": "00402da4120288abd6d97557bc643d40facad3b86fcc727fc5ec452cb0a6780a",
+      "version": "0.6.0"
+    }
+  },
+  "candidateSource": {
+    "candidateCommit": "b47ece0c8515a04fc4e430b55060c41c13df71db",
+    "candidateTree": "5b1c35bb46713ac7f15a9b839e951b43b61e44a3",
+    "role": "Historical candidate at the recorded experiment date; not the current source or a registry release."
+  },
+  "captures": {
+    "bounded-candidate": {
+      "bundle": {
+        "artifacts": {
+          "blueprint": {
+            "apiVersion": "blueprint-conformance/v1alpha1",
+            "approvals": [
+              {
+                "role": "blueprint-steward",
+                "stage": "ratify"
+              }
+            ],
+            "architecture": {
+              "components": [
+                {
+                  "id": "typescriptModule",
+                  "type": "typescriptModule"
+                }
+              ],
+              "relationships": [
+                {
+                  "allowed": false,
+                  "from": "packages/domain/**",
+                  "to": "module:packages/app/**",
+                  "type": "imports"
+                }
+              ]
+            },
+            "constraints": [
+              {
+                "component": "typescriptModule",
+                "id": "module-surface-exists",
+                "severity": "critical",
+                "type": "requiredComponent"
+              },
+              {
+                "id": "domain-cannot-import-app",
+                "maxHops": 2,
+                "scopePaths": [
+                  "packages/domain/**"
+                ],
+                "severity": "critical",
+                "to": "module:packages/app/**",
+                "type": "forbiddenDependencyPath"
+              }
+            ],
+            "evidenceRequirements": [
+              {
+                "onMissing": "block",
+                "required": true,
+                "type": "staticAst"
+              }
+            ],
+            "extraction": {
+              "minFiles": 2,
+              "paths": [
+                "packages/**/*.ts"
+              ],
+              "profile": "typescript-module-graph"
+            },
+            "intentRefs": [
+              "docs/typescript-module-graph.md#directional-layering"
+            ],
+            "kind": "EngineeringBlueprint",
+            "metadata": {
+              "id": "bounded-path-v2-upgrade-control",
+              "name": "TypeScript module layering",
+              "ownerRole": "architecture-owner",
+              "status": "approved",
+              "stewardRole": "blueprint-steward",
+              "version": "0.1.0"
+            },
+            "minEngineVersion": "0.6.1",
+            "scope": {
+              "paths": [
+                "packages/**/*.ts"
+              ],
+              "repositories": [
+                "example-org/storefront"
+              ]
+            }
+          },
+          "graph": {
+            "components": [
+              {
+                "id": "module:packages/app/api.ts",
+                "line": 1,
+                "path": "packages/app/api.ts",
+                "type": "typescriptModule"
+              },
+              {
+                "id": "module:packages/domain/model.ts",
+                "line": 1,
+                "path": "packages/domain/model.ts",
+                "type": "typescriptModule"
+              }
+            ],
+            "coverage": {
+              "extractor": "ast",
+              "filesScanned": 2,
+              "scannedFiles": [
+                "packages/app/api.ts",
+                "packages/domain/model.ts"
+              ],
+              "unsupported": [
+                "direct statically named imports only; no transitive reachability or cycle analysis",
+                "runtime-constructed module specifiers cannot be resolved statically and fail relevant boundaries closed",
+                "no tsconfig supplied: aliases, package imports (#...), and URL imports are unresolved"
+              ]
+            },
+            "ctRepoRevision": "376d60f7c192bf7a462b72a6395675cc3977a623",
+            "guardEdges": [
+              {
+                "evidenceRef": "packages/domain/model.ts#L1",
+                "from": "module:packages/domain/model.ts",
+                "to": "module:packages/app/api.ts",
+                "type": "imports"
+              }
+            ],
+            "schemaVersion": "1"
+          },
+          "report": {
+            "blueprintRef": "bounded-path-v2-upgrade-control@0.1.0",
+            "coverage": {
+              "extractor": "ast",
+              "filesScanned": 2,
+              "unsupported": [
+                "direct statically named imports only; no transitive reachability or cycle analysis",
+                "runtime-constructed module specifiers cannot be resolved statically and fail relevant boundaries closed",
+                "no tsconfig supplied: aliases, package imports (#...), and URL imports are unresolved"
+              ]
+            },
+            "ctRepoRevision": "376d60f7c192bf7a462b72a6395675cc3977a623",
+            "evidenceRef": "architecture-graph.json@sha256:47e2775fe153ff3375f295dc6e03841be059170ecc922f59c79ca108cb9c7563",
+            "schemaVersion": "1",
+            "score": 60,
+            "summary": "2 constraint(s) evaluated; 1 violation(s); score 60; bounded dependency paths cover 1 or 2 observed import edges; external package internals are outside the bound",
+            "verdict": "fail",
+            "violations": [
+              {
+                "component": "module:packages/domain/model.ts",
+                "constraintId": "domain-cannot-import-app",
+                "evidenceRef": "packages/domain/model.ts#L1",
+                "evidenceType": "staticAst",
+                "expected": "no imports path of 1 or 2 edges from packages/domain/** to module:packages/app/**",
+                "observed": "forbidden dependency path (1 hop): module:packages/domain/model.ts --[packages/domain/model.ts#L1]--> module:packages/app/api.ts",
+                "severity": "critical"
+              }
+            ]
+          }
+        },
+        "claim": "self-contained-integrity-not-origin-authenticity",
+        "engine": {
+          "name": "bce-engine",
+          "version": "0.6.1"
+        },
+        "environment": {
+          "arch": "arm64",
+          "node": "22.22.2",
+          "npm": "10.9.7",
+          "platform": "darwin"
+        },
+        "hashes": {
+          "blueprint": "552b50606c9dc6c14f57a0581f3a7c0cb5a3ffa9c393446670e200b0427bd375",
+          "bundle": "09a00f24498919546d383ecbe414590c8afa19683f80f193313b1be0284e1dd2",
+          "graph": "47e2775fe153ff3375f295dc6e03841be059170ecc922f59c79ca108cb9c7563",
+          "report": "237532aeacffdc6d2af506f34c7a209784ee7594c7598ef8ea05b7f7a41bbf50"
+        },
+        "invocation": {
+          "command": "bce run",
+          "extractionProfile": "typescript-module-graph"
+        },
+        "kind": "BceEvidenceBundle",
+        "schemaVersion": "1",
+        "toolchain": {
+          "dependencyLock": {
+            "file": "npm-shrinkwrap.json",
+            "sha256": "636ff90a2842550db1c81ddff0f2823d21ee5d84059762b868f594827ecf4f3b"
+          },
+          "engine": {
+            "name": "bce-engine",
+            "version": "0.6.1"
+          },
+          "extractor": {
+            "kind": "ast",
+            "profile": "typescript-module-graph",
+            "provider": "typescript-ts-morph",
+            "version": "0.6.1"
+          },
+          "runtime": {
+            "arch": "arm64",
+            "node": "22.22.2",
+            "npm": "10.9.7",
+            "platform": "darwin"
+          }
+        }
+      },
+      "captureCliExit": 0,
+      "originalFiles": {
+        "bundle.json": "12cc1175b84159b752597ee4d96488fcf1cc37eb12fb94c366f9d5a149997e80",
+        "capture-process.json": "7e19b941ad74738b356977c0de2e244a7118d62c14a6e7c88d907c212ec86a0e",
+        "capture.json": "48f66a38f8a7bdf59a678b034118b6bddddeb1770fb2970559b313493f23305f",
+        "report.json": "237532aeacffdc6d2af506f34c7a209784ee7594c7598ef8ea05b7f7a41bbf50"
+      },
+      "projectedReceiptSha256": "8d203ef46cf47fb41b497cf8b99e5d1f9a57c88c8244385fe028fadc5c425a3d",
+      "receipt": {
+        "after": "bounded",
+        "artifact": "candidate",
+        "artifactAfter": "candidate",
+        "before": "bounded",
+        "configuration": {
+          "argv": [
+            "<node>",
+            "--input-type=module",
+            "-e",
+            "import fs from 'node:fs';import {pathToFileURL} from 'node:url';const api=await import(pathToFileURL(process.argv[1]));const bp=api.parseBlueprint(JSON.parse(fs.readFileSync(process.argv[2],'utf8')));console.log(JSON.stringify(api.resolveExtraction(bp.extraction,bp.constraints)));",
+            "<candidate-installation>/dist/index.js",
+            "<capture-directory>/policy.json"
+          ],
+          "error": null,
+          "exit": 0,
+          "limitBytes": 1048576,
+          "outputLimit": false,
+          "signal": null,
+          "stderr": "",
+          "stdout": "{\"profile\":\"typescript-module-graph\",\"paths\":[\"packages/**/*.ts\"],\"guardSymbols\":[],\"forbiddenImports\":[],\"forbiddenEgressHosts\":[],\"governedModules\":[],\"minFiles\":2,\"egressEnabled\":false,\"governedHosts\":[],\"egressCallees\":[\"fetch\"],\"patterns\":[],\"pythonRoots\":[]}\n",
+          "timeout": false,
+          "timeoutMs": 60000
+        },
+        "measurementErrors": [],
+        "process": {
+          "argv": [
+            "<node>",
+            "<candidate-installation>/dist/cli.js",
+            "run",
+            "--blueprint",
+            "<capture-directory>/policy.json",
+            "--ct-repo",
+            "<isolated-source>",
+            "--ref",
+            "376d60f7c192bf7a462b72a6395675cc3977a623",
+            "--out",
+            "<capture-directory>/report.json",
+            "--emit-bundle",
+            "<capture-directory>/bundle.json"
+          ],
+          "error": null,
+          "exit": 1,
+          "limitBytes": 1048576,
+          "outputLimit": false,
+          "signal": null,
+          "stderr": "",
+          "stdout": "emitted self-contained integrity bundle -> <capture-directory>/bundle.json (origin authenticity not established)\nComplianceReport: bounded-path-v2-upgrade-control@0.1.0 @ 376d60f7c192bf7a462b72a6395675cc3977a623 -> score 60 (fail), 1 violation(s). 2 constraint(s) evaluated; 1 violation(s); score 60; bounded dependency paths cover 1 or 2 observed import edges; external package internals are outside the bound\n",
+          "timeout": false,
+          "timeoutMs": 60000
+        },
+        "provenance": "Explicitly admitted first-party local source build from clean commit b47ece0c8515a04fc4e430b55060c41c13df71db tree 5b1c35bb46713ac7f15a9b839e951b43b61e44a3. Reused completed build, checked source-map inputs, used exact npm-generated tarball retained from the source writer package proof, checked every regular archive member against this clean source/completed build, and installed offline with scripts disabled. No repack by this validator. Not a registry release.",
+        "resolvedExtraction": {
+          "egressCallees": [
+            "fetch"
+          ],
+          "egressEnabled": false,
+          "forbiddenEgressHosts": [],
+          "forbiddenImports": [],
+          "governedHosts": [],
+          "governedModules": [],
+          "guardSymbols": [],
+          "minFiles": 2,
+          "paths": [
+            "packages/**/*.ts"
+          ],
+          "patterns": [],
+          "profile": "typescript-module-graph",
+          "pythonRoots": []
+        }
+      },
+      "report": {
+        "blueprintRef": "bounded-path-v2-upgrade-control@0.1.0",
+        "coverage": {
+          "extractor": "ast",
+          "filesScanned": 2,
+          "unsupported": [
+            "direct statically named imports only; no transitive reachability or cycle analysis",
+            "runtime-constructed module specifiers cannot be resolved statically and fail relevant boundaries closed",
+            "no tsconfig supplied: aliases, package imports (#...), and URL imports are unresolved"
+          ]
+        },
+        "ctRepoRevision": "376d60f7c192bf7a462b72a6395675cc3977a623",
+        "evidenceRef": "architecture-graph.json@sha256:47e2775fe153ff3375f295dc6e03841be059170ecc922f59c79ca108cb9c7563",
+        "schemaVersion": "1",
+        "score": 60,
+        "summary": "2 constraint(s) evaluated; 1 violation(s); score 60; bounded dependency paths cover 1 or 2 observed import edges; external package internals are outside the bound",
+        "verdict": "fail",
+        "violations": [
+          {
+            "component": "module:packages/domain/model.ts",
+            "constraintId": "domain-cannot-import-app",
+            "evidenceRef": "packages/domain/model.ts#L1",
+            "evidenceType": "staticAst",
+            "expected": "no imports path of 1 or 2 edges from packages/domain/** to module:packages/app/**",
+            "observed": "forbidden dependency path (1 hop): module:packages/domain/model.ts --[packages/domain/model.ts#L1]--> module:packages/app/api.ts",
+            "severity": "critical"
+          }
+        ]
+      }
+    },
+    "bounded-release": {
+      "captureCliExit": 0,
+      "originalFiles": {
+        "capture-process.json": "e54d994bf17d4ba427d4543be5a18450a6d5a7e8872743d656ab291d926aa0e1",
+        "capture.json": "002129879545c21c5f28e38bd616612d814880095ed369955bab066f7b13b858"
+      },
+      "projectedReceiptSha256": "02f985bf4b7c61c432a558b39dc6bf650d983eec917123dd33c3c9a6a8fa2233",
+      "receipt": {
+        "after": "bounded",
+        "artifact": "release",
+        "artifactAfter": "release",
+        "before": "bounded",
+        "configuration": {
+          "argv": [
+            "<node>",
+            "--input-type=module",
+            "-e",
+            "import fs from 'node:fs';import {pathToFileURL} from 'node:url';const api=await import(pathToFileURL(process.argv[1]));const bp=api.parseBlueprint(JSON.parse(fs.readFileSync(process.argv[2],'utf8')));console.log(JSON.stringify(api.resolveExtraction(bp.extraction,bp.constraints)));",
+            "<release-installation>/dist/index.js",
+            "<capture-directory>/policy.json"
+          ],
+          "error": null,
+          "exit": 1,
+          "limitBytes": 1048576,
+          "outputLimit": false,
+          "signal": null,
+          "stderr": "file://<release-installation>/dist/index.js:610\n  return ValidatedEngineeringBlueprintSchema.parse(input);\n                                             ^\n\nZodError: [\n  {\n    \"code\": \"invalid_value\",\n    \"values\": [\n      \"forbiddenDependency\",\n      \"requiredDependency\",\n      \"requiredComponent\",\n      \"forbiddenPath\",\n      \"forbiddenFile\",\n      \"forbiddenEgress\",\n      \"requiredEvidence\",\n      \"minimumMetric\",\n      \"customPolicy\",\n      \"behavioralInvariant\",\n      \"forbiddenPattern\",\n      \"pinnedVersion\",\n      \"stackClosureMatch\",\n      \"forbiddenStackPackage\",\n      \"requirePinnedImages\",\n      \"allowedNodeVersions\"\n    ],\n    \"path\": [\n      \"constraints\",\n      1,\n      \"type\"\n    ],\n    \"message\": \"Invalid option: expected one of \\\"forbiddenDependency\\\"|\\\"requiredDependency\\\"|\\\"requiredComponent\\\"|\\\"forbiddenPath\\\"|\\\"forbiddenFile\\\"|\\\"forbiddenEgress\\\"|\\\"requiredEvidence\\\"|\\\"minimumMetric\\\"|\\\"customPolicy\\\"|\\\"behavioralInvariant\\\"|\\\"forbiddenPattern\\\"|\\\"pinnedVersion\\\"|\\\"stackClosureMatch\\\"|\\\"forbiddenStackPackage\\\"|\\\"requirePinnedImages\\\"|\\\"allowedNodeVersions\\\"\"\n  }\n]\n    at Module.parseBlueprint (file://<release-installation>/dist/index.js:610:46)\n    at file://<isolated-working-directory>/[eval1]:1:133\n\nNode.js v22.22.2\n",
+          "stdout": "",
+          "timeout": false,
+          "timeoutMs": 60000
+        },
+        "measurementErrors": [],
+        "process": {
+          "argv": [
+            "<node>",
+            "<release-installation>/dist/cli.js",
+            "run",
+            "--blueprint",
+            "<capture-directory>/policy.json",
+            "--ct-repo",
+            "<isolated-source>",
+            "--ref",
+            "376d60f7c192bf7a462b72a6395675cc3977a623",
+            "--out",
+            "<capture-directory>/report.json",
+            "--emit-bundle",
+            "<capture-directory>/bundle.json"
+          ],
+          "error": null,
+          "exit": 1,
+          "limitBytes": 1048576,
+          "outputLimit": false,
+          "signal": null,
+          "stderr": "::error::blueprint failed schema validation: [\n  {\n    \"code\": \"invalid_value\",\n    \"values\": [\n      \"forbiddenDependency\",\n      \"requiredDependency\",\n      \"requiredComponent\",\n      \"forbiddenPath\",\n      \"forbiddenFile\",\n      \"forbiddenEgress\",\n      \"requiredEvidence\",\n      \"minimumMetric\",\n      \"customPolicy\",\n      \"behavioralInvariant\",\n      \"forbiddenPattern\",\n      \"pinnedVersion\",\n      \"stackClosureMatch\",\n      \"forbiddenStackPackage\",\n      \"requirePinnedImages\",\n      \"allowedNodeVersions\"\n    ],\n    \"path\": [\n      \"constraints\",\n      1,\n      \"type\"\n    ],\n    \"message\": \"Invalid option: expected one of \\\"forbiddenDependency\\\"|\\\"requiredDependency\\\"|\\\"requiredComponent\\\"|\\\"forbiddenPath\\\"|\\\"forbiddenFile\\\"|\\\"forbiddenEgress\\\"|\\\"requiredEvidence\\\"|\\\"minimumMetric\\\"|\\\"customPolicy\\\"|\\\"behavioralInvariant\\\"|\\\"forbiddenPattern\\\"|\\\"pinnedVersion\\\"|\\\"stackClosureMatch\\\"|\\\"forbiddenStackPackage\\\"|\\\"requirePinnedImages\\\"|\\\"allowedNodeVersions\\\"\"\n  }\n]\n",
+          "stdout": "",
+          "timeout": false,
+          "timeoutMs": 60000
+        },
+        "provenance": "Retained explicitly admitted first-party released 0.6.0; SHA256/SHA1/npm SHA512 rechecked against original admission and exact installed artifact identity unchanged. No independent signature verification.",
+        "resolvedExtraction": null
+      }
+    },
+    "direct-candidate": {
+      "bundle": {
+        "artifacts": {
+          "blueprint": {
+            "apiVersion": "blueprint-conformance/v1alpha1",
+            "approvals": [
+              {
+                "role": "blueprint-steward",
+                "stage": "ratify"
+              }
+            ],
+            "architecture": {
+              "components": [
+                {
+                  "id": "typescriptModule",
+                  "type": "typescriptModule"
+                }
+              ],
+              "relationships": [
+                {
+                  "allowed": false,
+                  "from": "packages/domain/**",
+                  "to": "module:packages/app/**",
+                  "type": "imports"
+                }
+              ]
+            },
+            "constraints": [
+              {
+                "component": "typescriptModule",
+                "id": "module-surface-exists",
+                "severity": "critical",
+                "type": "requiredComponent"
+              },
+              {
+                "from": "*",
+                "id": "domain-cannot-import-app",
+                "scopePaths": [
+                  "packages/domain/**"
+                ],
+                "severity": "critical",
+                "to": "module:packages/app/**",
+                "type": "forbiddenDependency"
+              }
+            ],
+            "evidenceRequirements": [
+              {
+                "onMissing": "block",
+                "required": true,
+                "type": "staticAst"
+              }
+            ],
+            "extraction": {
+              "minFiles": 2,
+              "paths": [
+                "packages/**/*.ts"
+              ],
+              "profile": "typescript-module-graph"
+            },
+            "intentRefs": [
+              "docs/typescript-module-graph.md#directional-layering"
+            ],
+            "kind": "EngineeringBlueprint",
+            "metadata": {
+              "id": "typescript-module-layering",
+              "name": "TypeScript module layering",
+              "ownerRole": "architecture-owner",
+              "status": "approved",
+              "stewardRole": "blueprint-steward",
+              "version": "0.1.0"
+            },
+            "minEngineVersion": "0.3.0",
+            "scope": {
+              "paths": [
+                "packages/**/*.ts"
+              ],
+              "repositories": [
+                "example-org/storefront"
+              ]
+            }
+          },
+          "graph": {
+            "components": [
+              {
+                "id": "module:packages/app/api.ts",
+                "line": 1,
+                "path": "packages/app/api.ts",
+                "type": "typescriptModule"
+              },
+              {
+                "id": "module:packages/domain/model.ts",
+                "line": 1,
+                "path": "packages/domain/model.ts",
+                "type": "typescriptModule"
+              }
+            ],
+            "coverage": {
+              "extractor": "ast",
+              "filesScanned": 2,
+              "scannedFiles": [
+                "packages/app/api.ts",
+                "packages/domain/model.ts"
+              ],
+              "unsupported": [
+                "direct statically named imports only; no transitive reachability or cycle analysis",
+                "runtime-constructed module specifiers cannot be resolved statically and fail relevant boundaries closed",
+                "no tsconfig supplied: aliases, package imports (#...), and URL imports are unresolved"
+              ]
+            },
+            "ctRepoRevision": "e4a4ec76fbca5af2b1dc67c214a0b5562c06fab9",
+            "guardEdges": [
+              {
+                "evidenceRef": "packages/domain/model.ts#L1",
+                "from": "module:packages/domain/model.ts",
+                "to": "module:packages/app/api.ts",
+                "type": "imports"
+              }
+            ],
+            "schemaVersion": "1"
+          },
+          "report": {
+            "blueprintRef": "typescript-module-layering@0.1.0",
+            "coverage": {
+              "extractor": "ast",
+              "filesScanned": 2,
+              "unsupported": [
+                "direct statically named imports only; no transitive reachability or cycle analysis",
+                "runtime-constructed module specifiers cannot be resolved statically and fail relevant boundaries closed",
+                "no tsconfig supplied: aliases, package imports (#...), and URL imports are unresolved"
+              ]
+            },
+            "ctRepoRevision": "e4a4ec76fbca5af2b1dc67c214a0b5562c06fab9",
+            "evidenceRef": "architecture-graph.json@sha256:0d610116cec7d0757b4575e4330ebc6a9f06735e3ab35c87595e13249b40980c",
+            "schemaVersion": "1",
+            "score": 60,
+            "summary": "2 constraint(s) evaluated; 1 violation(s); score 60",
+            "verdict": "fail",
+            "violations": [
+              {
+                "component": "module:packages/domain/model.ts",
+                "constraintId": "domain-cannot-import-app",
+                "evidenceRef": "packages/domain/model.ts#L1",
+                "evidenceType": "staticAst",
+                "expected": "no direct imports edge from packages/domain/** to module:packages/app/**",
+                "observed": "forbidden direct import module:packages/domain/model.ts -> module:packages/app/api.ts is present",
+                "severity": "critical"
+              }
+            ]
+          }
+        },
+        "claim": "self-contained-integrity-not-origin-authenticity",
+        "engine": {
+          "name": "bce-engine",
+          "version": "0.6.1"
+        },
+        "environment": {
+          "arch": "arm64",
+          "node": "22.22.2",
+          "npm": "10.9.7",
+          "platform": "darwin"
+        },
+        "hashes": {
+          "blueprint": "85f2964bb56e7f123b4250f7dc412fa3587ee04f8dad505c7ae247382037c7ed",
+          "bundle": "a1939e926d4259b8dbbd9e767c26e5fe9883b3263f232d8766893ad5acc2bb9b",
+          "graph": "0d610116cec7d0757b4575e4330ebc6a9f06735e3ab35c87595e13249b40980c",
+          "report": "555fdd47480b3ec914d52a6e9189ed081a5604ffe040446f9cb6ddd8d9891f32"
+        },
+        "invocation": {
+          "command": "bce run",
+          "extractionProfile": "typescript-module-graph"
+        },
+        "kind": "BceEvidenceBundle",
+        "schemaVersion": "1",
+        "toolchain": {
+          "dependencyLock": {
+            "file": "npm-shrinkwrap.json",
+            "sha256": "636ff90a2842550db1c81ddff0f2823d21ee5d84059762b868f594827ecf4f3b"
+          },
+          "engine": {
+            "name": "bce-engine",
+            "version": "0.6.1"
+          },
+          "extractor": {
+            "kind": "ast",
+            "profile": "typescript-module-graph",
+            "provider": "typescript-ts-morph",
+            "version": "0.6.1"
+          },
+          "runtime": {
+            "arch": "arm64",
+            "node": "22.22.2",
+            "npm": "10.9.7",
+            "platform": "darwin"
+          }
+        }
+      },
+      "captureCliExit": 0,
+      "originalFiles": {
+        "bundle.json": "c0ace93918bdf3072c4d095705744728910e10c43bb75bb03eefa52452dbfe48",
+        "capture-process.json": "bfb4d5b3686363f7a95697b1226ca71517d5f6a4ad7698ad0d87ccd56b7f7fb2",
+        "capture.json": "b33a0193f7004241b5e40f1cca1c7f542b7ddd30ec0c3903d27cde51ada0261b",
+        "report.json": "555fdd47480b3ec914d52a6e9189ed081a5604ffe040446f9cb6ddd8d9891f32"
+      },
+      "projectedReceiptSha256": "55a6367334a5b904cbb052c2db88b3551443cf08b502c4c6638b8d110d1f44ef",
+      "receipt": {
+        "after": "direct",
+        "artifact": "candidate",
+        "artifactAfter": "candidate",
+        "before": "direct",
+        "configuration": {
+          "argv": [
+            "<node>",
+            "--input-type=module",
+            "-e",
+            "import fs from 'node:fs';import {pathToFileURL} from 'node:url';const api=await import(pathToFileURL(process.argv[1]));const bp=api.parseBlueprint(JSON.parse(fs.readFileSync(process.argv[2],'utf8')));console.log(JSON.stringify(api.resolveExtraction(bp.extraction,bp.constraints)));",
+            "<candidate-installation>/dist/index.js",
+            "<capture-directory>/policy.json"
+          ],
+          "error": null,
+          "exit": 0,
+          "limitBytes": 1048576,
+          "outputLimit": false,
+          "signal": null,
+          "stderr": "",
+          "stdout": "{\"profile\":\"typescript-module-graph\",\"paths\":[\"packages/**/*.ts\"],\"guardSymbols\":[],\"forbiddenImports\":[\"module:packages/app/**\"],\"forbiddenEgressHosts\":[],\"governedModules\":[],\"minFiles\":2,\"egressEnabled\":false,\"governedHosts\":[],\"egressCallees\":[\"fetch\"],\"patterns\":[],\"pythonRoots\":[]}\n",
+          "timeout": false,
+          "timeoutMs": 60000
+        },
+        "measurementErrors": [],
+        "process": {
+          "argv": [
+            "<node>",
+            "<candidate-installation>/dist/cli.js",
+            "run",
+            "--blueprint",
+            "<capture-directory>/policy.json",
+            "--ct-repo",
+            "<isolated-source>",
+            "--ref",
+            "e4a4ec76fbca5af2b1dc67c214a0b5562c06fab9",
+            "--out",
+            "<capture-directory>/report.json",
+            "--emit-bundle",
+            "<capture-directory>/bundle.json"
+          ],
+          "error": null,
+          "exit": 1,
+          "limitBytes": 1048576,
+          "outputLimit": false,
+          "signal": null,
+          "stderr": "",
+          "stdout": "emitted self-contained integrity bundle -> <capture-directory>/bundle.json (origin authenticity not established)\nComplianceReport: typescript-module-layering@0.1.0 @ e4a4ec76fbca5af2b1dc67c214a0b5562c06fab9 -> score 60 (fail), 1 violation(s). 2 constraint(s) evaluated; 1 violation(s); score 60\n",
+          "timeout": false,
+          "timeoutMs": 60000
+        },
+        "provenance": "Explicitly admitted first-party local source build from clean commit b47ece0c8515a04fc4e430b55060c41c13df71db tree 5b1c35bb46713ac7f15a9b839e951b43b61e44a3. Reused completed build, checked source-map inputs, used exact npm-generated tarball retained from the source writer package proof, checked every regular archive member against this clean source/completed build, and installed offline with scripts disabled. No repack by this validator. Not a registry release.",
+        "resolvedExtraction": {
+          "egressCallees": [
+            "fetch"
+          ],
+          "egressEnabled": false,
+          "forbiddenEgressHosts": [],
+          "forbiddenImports": [
+            "module:packages/app/**"
+          ],
+          "governedHosts": [],
+          "governedModules": [],
+          "guardSymbols": [],
+          "minFiles": 2,
+          "paths": [
+            "packages/**/*.ts"
+          ],
+          "patterns": [],
+          "profile": "typescript-module-graph",
+          "pythonRoots": []
+        }
+      },
+      "report": {
+        "blueprintRef": "typescript-module-layering@0.1.0",
+        "coverage": {
+          "extractor": "ast",
+          "filesScanned": 2,
+          "unsupported": [
+            "direct statically named imports only; no transitive reachability or cycle analysis",
+            "runtime-constructed module specifiers cannot be resolved statically and fail relevant boundaries closed",
+            "no tsconfig supplied: aliases, package imports (#...), and URL imports are unresolved"
+          ]
+        },
+        "ctRepoRevision": "e4a4ec76fbca5af2b1dc67c214a0b5562c06fab9",
+        "evidenceRef": "architecture-graph.json@sha256:0d610116cec7d0757b4575e4330ebc6a9f06735e3ab35c87595e13249b40980c",
+        "schemaVersion": "1",
+        "score": 60,
+        "summary": "2 constraint(s) evaluated; 1 violation(s); score 60",
+        "verdict": "fail",
+        "violations": [
+          {
+            "component": "module:packages/domain/model.ts",
+            "constraintId": "domain-cannot-import-app",
+            "evidenceRef": "packages/domain/model.ts#L1",
+            "evidenceType": "staticAst",
+            "expected": "no direct imports edge from packages/domain/** to module:packages/app/**",
+            "observed": "forbidden direct import module:packages/domain/model.ts -> module:packages/app/api.ts is present",
+            "severity": "critical"
+          }
+        ]
+      }
+    },
+    "direct-release": {
+      "bundle": {
+        "artifacts": {
+          "blueprint": {
+            "apiVersion": "blueprint-conformance/v1alpha1",
+            "approvals": [
+              {
+                "role": "blueprint-steward",
+                "stage": "ratify"
+              }
+            ],
+            "architecture": {
+              "components": [
+                {
+                  "id": "typescriptModule",
+                  "type": "typescriptModule"
+                }
+              ],
+              "relationships": [
+                {
+                  "allowed": false,
+                  "from": "packages/domain/**",
+                  "to": "module:packages/app/**",
+                  "type": "imports"
+                }
+              ]
+            },
+            "constraints": [
+              {
+                "component": "typescriptModule",
+                "id": "module-surface-exists",
+                "severity": "critical",
+                "type": "requiredComponent"
+              },
+              {
+                "from": "*",
+                "id": "domain-cannot-import-app",
+                "scopePaths": [
+                  "packages/domain/**"
+                ],
+                "severity": "critical",
+                "to": "module:packages/app/**",
+                "type": "forbiddenDependency"
+              }
+            ],
+            "evidenceRequirements": [
+              {
+                "onMissing": "block",
+                "required": true,
+                "type": "staticAst"
+              }
+            ],
+            "extraction": {
+              "minFiles": 2,
+              "paths": [
+                "packages/**/*.ts"
+              ],
+              "profile": "typescript-module-graph"
+            },
+            "intentRefs": [
+              "docs/typescript-module-graph.md#directional-layering"
+            ],
+            "kind": "EngineeringBlueprint",
+            "metadata": {
+              "id": "typescript-module-layering",
+              "name": "TypeScript module layering",
+              "ownerRole": "architecture-owner",
+              "status": "approved",
+              "stewardRole": "blueprint-steward",
+              "version": "0.1.0"
+            },
+            "minEngineVersion": "0.3.0",
+            "scope": {
+              "paths": [
+                "packages/**/*.ts"
+              ],
+              "repositories": [
+                "example-org/storefront"
+              ]
+            }
+          },
+          "graph": {
+            "components": [
+              {
+                "id": "module:packages/app/api.ts",
+                "line": 1,
+                "path": "packages/app/api.ts",
+                "type": "typescriptModule"
+              },
+              {
+                "id": "module:packages/domain/model.ts",
+                "line": 1,
+                "path": "packages/domain/model.ts",
+                "type": "typescriptModule"
+              }
+            ],
+            "coverage": {
+              "extractor": "ast",
+              "filesScanned": 2,
+              "scannedFiles": [
+                "packages/app/api.ts",
+                "packages/domain/model.ts"
+              ],
+              "unsupported": [
+                "direct statically named imports only; no transitive reachability or cycle analysis",
+                "runtime-constructed module specifiers cannot be resolved statically and fail relevant boundaries closed",
+                "no tsconfig supplied: aliases, package imports (#...), and URL imports are unresolved"
+              ]
+            },
+            "ctRepoRevision": "e4a4ec76fbca5af2b1dc67c214a0b5562c06fab9",
+            "guardEdges": [
+              {
+                "evidenceRef": "packages/domain/model.ts#L1",
+                "from": "module:packages/domain/model.ts",
+                "to": "module:packages/app/api.ts",
+                "type": "imports"
+              }
+            ],
+            "schemaVersion": "1"
+          },
+          "report": {
+            "blueprintRef": "typescript-module-layering@0.1.0",
+            "coverage": {
+              "extractor": "ast",
+              "filesScanned": 2,
+              "unsupported": [
+                "direct statically named imports only; no transitive reachability or cycle analysis",
+                "runtime-constructed module specifiers cannot be resolved statically and fail relevant boundaries closed",
+                "no tsconfig supplied: aliases, package imports (#...), and URL imports are unresolved"
+              ]
+            },
+            "ctRepoRevision": "e4a4ec76fbca5af2b1dc67c214a0b5562c06fab9",
+            "evidenceRef": "architecture-graph.json@sha256:0d610116cec7d0757b4575e4330ebc6a9f06735e3ab35c87595e13249b40980c",
+            "schemaVersion": "1",
+            "score": 60,
+            "summary": "2 constraint(s) evaluated; 1 violation(s); score 60",
+            "verdict": "fail",
+            "violations": [
+              {
+                "component": "module:packages/domain/model.ts",
+                "constraintId": "domain-cannot-import-app",
+                "evidenceRef": "packages/domain/model.ts#L1",
+                "evidenceType": "staticAst",
+                "expected": "no direct imports edge from packages/domain/** to module:packages/app/**",
+                "observed": "forbidden direct import module:packages/domain/model.ts -> module:packages/app/api.ts is present",
+                "severity": "critical"
+              }
+            ]
+          }
+        },
+        "claim": "self-contained-integrity-not-origin-authenticity",
+        "engine": {
+          "name": "bce-engine",
+          "version": "0.6.0"
+        },
+        "environment": {
+          "arch": "arm64",
+          "node": "22.22.2",
+          "npm": "10.9.7",
+          "platform": "darwin"
+        },
+        "hashes": {
+          "blueprint": "85f2964bb56e7f123b4250f7dc412fa3587ee04f8dad505c7ae247382037c7ed",
+          "bundle": "e351ad212a540571d69d4c6668edb591521c3bbd49e4ff900a8a51e384fb572d",
+          "graph": "0d610116cec7d0757b4575e4330ebc6a9f06735e3ab35c87595e13249b40980c",
+          "report": "555fdd47480b3ec914d52a6e9189ed081a5604ffe040446f9cb6ddd8d9891f32"
+        },
+        "invocation": {
+          "command": "bce run",
+          "extractionProfile": "typescript-module-graph"
+        },
+        "kind": "BceEvidenceBundle",
+        "schemaVersion": "1",
+        "toolchain": {
+          "dependencyLock": {
+            "file": "npm-shrinkwrap.json",
+            "sha256": "7e3eeba748b95b84dac9c1d082749592916c1e3db3c81ef6a074105d9841ff62"
+          },
+          "engine": {
+            "name": "bce-engine",
+            "version": "0.6.0"
+          },
+          "extractor": {
+            "kind": "ast",
+            "profile": "typescript-module-graph",
+            "provider": "typescript-ts-morph",
+            "version": "0.6.0"
+          },
+          "runtime": {
+            "arch": "arm64",
+            "node": "22.22.2",
+            "npm": "10.9.7",
+            "platform": "darwin"
+          }
+        }
+      },
+      "captureCliExit": 0,
+      "originalFiles": {
+        "bundle.json": "d3102de0d80ca47024b4034481b1e418deb98e385da6f63f2bef74b7702c9c5e",
+        "capture-process.json": "e91a0b14eddfeed721b3f60e7866d8669aa1c80632419ab5f4554fd5725052ee",
+        "capture.json": "b3fd6afd34cebe00349616f7eb1950ff1b148aceaa96a28b27627f867edbf24b",
+        "report.json": "555fdd47480b3ec914d52a6e9189ed081a5604ffe040446f9cb6ddd8d9891f32"
+      },
+      "projectedReceiptSha256": "d93a2dbd798aedb79916ef525f00a5d136cec6a2b09295c8926c2f756891e36b",
+      "receipt": {
+        "after": "direct",
+        "artifact": "release",
+        "artifactAfter": "release",
+        "before": "direct",
+        "configuration": {
+          "argv": [
+            "<node>",
+            "--input-type=module",
+            "-e",
+            "import fs from 'node:fs';import {pathToFileURL} from 'node:url';const api=await import(pathToFileURL(process.argv[1]));const bp=api.parseBlueprint(JSON.parse(fs.readFileSync(process.argv[2],'utf8')));console.log(JSON.stringify(api.resolveExtraction(bp.extraction,bp.constraints)));",
+            "<release-installation>/dist/index.js",
+            "<capture-directory>/policy.json"
+          ],
+          "error": null,
+          "exit": 0,
+          "limitBytes": 1048576,
+          "outputLimit": false,
+          "signal": null,
+          "stderr": "",
+          "stdout": "{\"profile\":\"typescript-module-graph\",\"paths\":[\"packages/**/*.ts\"],\"guardSymbols\":[],\"forbiddenImports\":[\"module:packages/app/**\"],\"forbiddenEgressHosts\":[],\"governedModules\":[],\"minFiles\":2,\"egressEnabled\":false,\"governedHosts\":[],\"egressCallees\":[\"fetch\"],\"patterns\":[],\"pythonRoots\":[]}\n",
+          "timeout": false,
+          "timeoutMs": 60000
+        },
+        "measurementErrors": [],
+        "process": {
+          "argv": [
+            "<node>",
+            "<release-installation>/dist/cli.js",
+            "run",
+            "--blueprint",
+            "<capture-directory>/policy.json",
+            "--ct-repo",
+            "<isolated-source>",
+            "--ref",
+            "e4a4ec76fbca5af2b1dc67c214a0b5562c06fab9",
+            "--out",
+            "<capture-directory>/report.json",
+            "--emit-bundle",
+            "<capture-directory>/bundle.json"
+          ],
+          "error": null,
+          "exit": 1,
+          "limitBytes": 1048576,
+          "outputLimit": false,
+          "signal": null,
+          "stderr": "",
+          "stdout": "emitted self-contained integrity bundle -> <capture-directory>/bundle.json (origin authenticity not established)\nComplianceReport: typescript-module-layering@0.1.0 @ e4a4ec76fbca5af2b1dc67c214a0b5562c06fab9 -> score 60 (fail), 1 violation(s). 2 constraint(s) evaluated; 1 violation(s); score 60\n",
+          "timeout": false,
+          "timeoutMs": 60000
+        },
+        "provenance": "Retained explicitly admitted first-party released 0.6.0; SHA256/SHA1/npm SHA512 rechecked against original admission and exact installed artifact identity unchanged. No independent signature verification.",
+        "resolvedExtraction": {
+          "egressCallees": [
+            "fetch"
+          ],
+          "egressEnabled": false,
+          "forbiddenEgressHosts": [],
+          "forbiddenImports": [
+            "module:packages/app/**"
+          ],
+          "governedHosts": [],
+          "governedModules": [],
+          "guardSymbols": [],
+          "minFiles": 2,
+          "paths": [
+            "packages/**/*.ts"
+          ],
+          "patterns": [],
+          "profile": "typescript-module-graph",
+          "pythonRoots": []
+        }
+      },
+      "report": {
+        "blueprintRef": "typescript-module-layering@0.1.0",
+        "coverage": {
+          "extractor": "ast",
+          "filesScanned": 2,
+          "unsupported": [
+            "direct statically named imports only; no transitive reachability or cycle analysis",
+            "runtime-constructed module specifiers cannot be resolved statically and fail relevant boundaries closed",
+            "no tsconfig supplied: aliases, package imports (#...), and URL imports are unresolved"
+          ]
+        },
+        "ctRepoRevision": "e4a4ec76fbca5af2b1dc67c214a0b5562c06fab9",
+        "evidenceRef": "architecture-graph.json@sha256:0d610116cec7d0757b4575e4330ebc6a9f06735e3ab35c87595e13249b40980c",
+        "schemaVersion": "1",
+        "score": 60,
+        "summary": "2 constraint(s) evaluated; 1 violation(s); score 60",
+        "verdict": "fail",
+        "violations": [
+          {
+            "component": "module:packages/domain/model.ts",
+            "constraintId": "domain-cannot-import-app",
+            "evidenceRef": "packages/domain/model.ts#L1",
+            "evidenceType": "staticAst",
+            "expected": "no direct imports edge from packages/domain/** to module:packages/app/**",
+            "observed": "forbidden direct import module:packages/domain/model.ts -> module:packages/app/api.ts is present",
+            "severity": "critical"
+          }
+        ]
+      }
+    }
+  },
+  "claim": "Retained actual fixture observations, replayed as data only; no origin authentication, upgrade approval or compatibility guarantee.",
+  "projection": {
+    "description": "Full artifact, source, process, report and bundle content retained. Repeated identical artifact/source objects use lossless named references. Absolute local execution paths are replaced with role placeholders; original raw-file hashes identify private originals, not the redacted projections.",
+    "redactedFields": {
+      "bounded-candidate": [
+        "configuration.argv[0]",
+        "configuration.argv[4]",
+        "configuration.argv[5]",
+        "process.argv[0]",
+        "process.argv[1]",
+        "process.argv[4]",
+        "process.argv[6]",
+        "process.argv[10]",
+        "process.argv[12]",
+        "process.stdout"
+      ],
+      "bounded-release": [
+        "configuration.argv[0]",
+        "configuration.argv[4]",
+        "configuration.argv[5]",
+        "configuration.stderr",
+        "process.argv[0]",
+        "process.argv[1]",
+        "process.argv[4]",
+        "process.argv[6]",
+        "process.argv[10]",
+        "process.argv[12]"
+      ],
+      "direct-candidate": [
+        "configuration.argv[0]",
+        "configuration.argv[4]",
+        "configuration.argv[5]",
+        "process.argv[0]",
+        "process.argv[1]",
+        "process.argv[4]",
+        "process.argv[6]",
+        "process.argv[10]",
+        "process.argv[12]",
+        "process.stdout"
+      ],
+      "direct-release": [
+        "configuration.argv[0]",
+        "configuration.argv[4]",
+        "configuration.argv[5]",
+        "process.argv[0]",
+        "process.argv[1]",
+        "process.argv[4]",
+        "process.argv[6]",
+        "process.argv[10]",
+        "process.argv[12]",
+        "process.stdout"
+      ]
+    }
+  },
+  "recordedAt": "2026-11-01T19:32:41.978841+00:00",
+  "schemaVersion": 1,
+  "sources": {
+    "bounded": {
+      "expectedModules": [
+        "packages/app/api.ts",
+        "packages/domain/model.ts"
+      ],
+      "files": [
+        {
+          "path": "packages/app/api.ts",
+          "sha256": "df6a8a4e2a73e8db64cd702ad3f2c7c24f1e1f350cf49951a8772880ef9b4ec1"
+        },
+        {
+          "path": "packages/domain/model.ts",
+          "sha256": "687a65fba4387103562e22d8b1ce0f124683eac41cbde1035f444fb5933df5c6"
+        },
+        {
+          "path": "policy.json",
+          "sha256": "95523590c48e369406a6f13627304bd7aa9888cd020de664c26ac4189cc6e4ad"
+        }
+      ],
+      "policy": {
+        "apiVersion": "blueprint-conformance/v1alpha1",
+        "approvals": [
+          {
+            "role": "blueprint-steward",
+            "stage": "ratify"
+          }
+        ],
+        "architecture": {
+          "components": [
+            {
+              "id": "typescriptModule",
+              "type": "typescriptModule"
+            }
+          ],
+          "relationships": [
+            {
+              "allowed": false,
+              "from": "packages/domain/**",
+              "to": "module:packages/app/**",
+              "type": "imports"
+            }
+          ]
+        },
+        "constraints": [
+          {
+            "component": "typescriptModule",
+            "id": "module-surface-exists",
+            "severity": "critical",
+            "type": "requiredComponent"
+          },
+          {
+            "id": "domain-cannot-import-app",
+            "maxHops": 2,
+            "scopePaths": [
+              "packages/domain/**"
+            ],
+            "severity": "critical",
+            "to": "module:packages/app/**",
+            "type": "forbiddenDependencyPath"
+          }
+        ],
+        "evidenceRequirements": [
+          {
+            "onMissing": "block",
+            "required": true,
+            "type": "staticAst"
+          }
+        ],
+        "extraction": {
+          "minFiles": 2,
+          "paths": [
+            "packages/**/*.ts"
+          ],
+          "profile": "typescript-module-graph"
+        },
+        "intentRefs": [
+          "docs/typescript-module-graph.md#directional-layering"
+        ],
+        "kind": "EngineeringBlueprint",
+        "metadata": {
+          "id": "bounded-path-v2-upgrade-control",
+          "name": "TypeScript module layering",
+          "ownerRole": "architecture-owner",
+          "status": "approved",
+          "stewardRole": "blueprint-steward",
+          "version": "0.1.0"
+        },
+        "minEngineVersion": "0.6.1",
+        "scope": {
+          "paths": [
+            "packages/**/*.ts"
+          ],
+          "repositories": [
+            "example-org/storefront"
+          ]
+        }
+      },
+      "policyBytesSha256": "95523590c48e369406a6f13627304bd7aa9888cd020de664c26ac4189cc6e4ad",
+      "policyDigest": "552b50606c9dc6c14f57a0581f3a7c0cb5a3ffa9c393446670e200b0427bd375",
+      "revision": "376d60f7c192bf7a462b72a6395675cc3977a623"
+    },
+    "direct": {
+      "expectedModules": [
+        "packages/app/api.ts",
+        "packages/domain/model.ts"
+      ],
+      "files": [
+        {
+          "path": "packages/app/api.ts",
+          "sha256": "df6a8a4e2a73e8db64cd702ad3f2c7c24f1e1f350cf49951a8772880ef9b4ec1"
+        },
+        {
+          "path": "packages/domain/model.ts",
+          "sha256": "687a65fba4387103562e22d8b1ce0f124683eac41cbde1035f444fb5933df5c6"
+        },
+        {
+          "path": "policy.json",
+          "sha256": "03eeae9010e12ae9f8a49696423091982075f05b6375cfa35c4d2ee1729650bf"
+        }
+      ],
+      "policy": {
+        "apiVersion": "blueprint-conformance/v1alpha1",
+        "approvals": [
+          {
+            "role": "blueprint-steward",
+            "stage": "ratify"
+          }
+        ],
+        "architecture": {
+          "components": [
+            {
+              "id": "typescriptModule",
+              "type": "typescriptModule"
+            }
+          ],
+          "relationships": [
+            {
+              "allowed": false,
+              "from": "packages/domain/**",
+              "to": "module:packages/app/**",
+              "type": "imports"
+            }
+          ]
+        },
+        "constraints": [
+          {
+            "component": "typescriptModule",
+            "id": "module-surface-exists",
+            "severity": "critical",
+            "type": "requiredComponent"
+          },
+          {
+            "from": "*",
+            "id": "domain-cannot-import-app",
+            "scopePaths": [
+              "packages/domain/**"
+            ],
+            "severity": "critical",
+            "to": "module:packages/app/**",
+            "type": "forbiddenDependency"
+          }
+        ],
+        "evidenceRequirements": [
+          {
+            "onMissing": "block",
+            "required": true,
+            "type": "staticAst"
+          }
+        ],
+        "extraction": {
+          "minFiles": 2,
+          "paths": [
+            "packages/**/*.ts"
+          ],
+          "profile": "typescript-module-graph"
+        },
+        "intentRefs": [
+          "docs/typescript-module-graph.md#directional-layering"
+        ],
+        "kind": "EngineeringBlueprint",
+        "metadata": {
+          "id": "typescript-module-layering",
+          "name": "TypeScript module layering",
+          "ownerRole": "architecture-owner",
+          "status": "approved",
+          "stewardRole": "blueprint-steward",
+          "version": "0.1.0"
+        },
+        "minEngineVersion": "0.3.0",
+        "scope": {
+          "paths": [
+            "packages/**/*.ts"
+          ],
+          "repositories": [
+            "example-org/storefront"
+          ]
+        }
+      },
+      "policyBytesSha256": "03eeae9010e12ae9f8a49696423091982075f05b6375cfa35c4d2ee1729650bf",
+      "policyDigest": "85f2964bb56e7f123b4250f7dc412fa3587ee04f8dad505c7ae247382037c7ed",
+      "revision": "e4a4ec76fbca5af2b1dc67c214a0b5562c06fab9"
+    }
+  }
+}
