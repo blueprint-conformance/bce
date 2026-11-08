@@ -10,8 +10,31 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+/** `GIT_CONFIG_GLOBAL` (below) first exists in Git 2.32; older Git ignores it and reads ~/.gitconfig. */
+const CONFIG_ISOLATION_GIT = [2, 32] as const;
+
+/** True when a `git --version` line names a Git that honours `GIT_CONFIG_GLOBAL`. */
+export function gitIsolatesGlobalConfig(versionLine: string): boolean {
+  const match = /^git version (\d+)\.(\d+)/.exec(versionLine.trim());
+  if (!match) return false;
+  const [major, minor] = [Number(match[1]), Number(match[2])];
+  return major > CONFIG_ISOLATION_GIT[0] || (major === CONFIG_ISOLATION_GIT[0] && minor >= CONFIG_ISOLATION_GIT[1]);
+}
+
+let isolatingGitChecked = false;
+function requireIsolatingGit(): void {
+  if (isolatingGitChecked) return;
+  const versionLine = execFileSync('git', ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  if (!gitIsolatesGlobalConfig(versionLine)) {
+    throw new Error(`frozen-source reads need Git ${CONFIG_ISOLATION_GIT.join('.')} or newer to exclude global `
+      + `configuration (GIT_CONFIG_GLOBAL); found "${versionLine.trim()}"`);
+  }
+  isolatingGitChecked = true;
+}
+
 /** Internal environment for canonical object reads, independent of caller Git overrides. */
 export function canonicalGitEnvironment(emptyConfigFile: string): NodeJS.ProcessEnv {
+  requireIsolatingGit();
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('GIT_') && key.toUpperCase() !== 'TAR_OPTIONS'));
   return { ...env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: emptyConfigFile,
     GIT_ATTR_NOSYSTEM: '1', GIT_NO_REPLACE_OBJECTS: '1' };
@@ -107,10 +130,11 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
       );
     }
     // Hop 2: tar -x reads the temp file as stdin (fd again — still no Node buffer).
+    // `-f -` names stdin explicitly: Windows' bundled bsdtar otherwise defaults to a tape device.
     const inFd = fs.openSync(tarPath, 'r');
     let extract;
     try {
-      extract = spawnSync('tar', ['-x', '-C', dest], {
+      extract = spawnSync('tar', ['-x', '-f', '-', '-C', dest], {
         stdio: [inFd, 'ignore', 'pipe'],
         env,
       });
