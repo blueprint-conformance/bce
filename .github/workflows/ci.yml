@@ -50,6 +50,9 @@ jobs:
       - name: Release proof policy (negative control + gate check)
         run: node scripts/check-release-proof-policy.selftest.mjs && node scripts/check-release-proof-policy.mjs
 
+      - name: Release payload boundary (negative controls, including a dev-carrying shrinkwrap)
+        run: node scripts/verify-release-payload.selftest.mjs
+
       - name: Cross-document release claims (negative controls + truth check)
         run: node scripts/check-release-claims.selftest.mjs && node scripts/check-release-claims.mjs
 

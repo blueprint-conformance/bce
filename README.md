@@ -21,6 +21,17 @@ schemas and the stack foundation and selected declared-stack enforcement from v0
 automatic repair or registry resolution. Qualify the exact artifact against the source and policy you
 use; the version label alone is not a compatibility guarantee.
 
+**Source candidate: v0.6.2 (not published).** v0.6.1 plus npm identification on Windows when emitting evidence, and a smaller install.
+v0.6.1's published `npm-shrinkwrap.json` carries the development lock, and npm installs every entry of
+a dependency's shrinkwrap. So `npm install -D bce-engine@0.6.1` pulls 184 packages (202 MB), where the
+runtime needs 11 (43 MB). v0.6.2 publishes a production-only shrinkwrap. Its runtime tree and pins are
+unchanged. Until v0.6.2 is released, v0.6.1 above is the version to install. The registry preflight
+below answers `E404` until that release exists:
+
+```bash
+npm view bce-engine@0.6.2 version dist.integrity
+```
+
 `bce` gives coding agents a local, deterministic architecture check. A versioned
 `EngineeringBlueprint` records the repository's structural rules. Agents draft those rules from
 your intent, inspect the code, and repair violations; the same engine checks every pull request.
@@ -41,7 +52,7 @@ verify realistic violations in your own repository.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 1550">
+  <img src="assets/badges/tests.svg" alt="tests: 1553">
   <a href="https://github.com/blueprint-conformance/bce/releases/latest"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/release.yml/badge.svg" alt="release workflow status"></a>
   <a href="https://blueprint-conformance.github.io/bce/"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/docs-site-check.yml/badge.svg" alt="documentation site check status"></a>
   <a href="LICENSE"><img src="assets/badges/license.svg" alt="license: Apache-2.0"></a>

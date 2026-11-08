@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { defineConfig } from 'tsup';
+import { publishShrinkwrapSha256 } from './scripts/lib/publish-shrinkwrap.mjs';
 
-const dependencyLockSha256 = createHash('sha256').update(readFileSync('npm-shrinkwrap.json')).digest('hex');
+// The digest of the shrinkwrap a consumer installs: the production-only publish form.
+const dependencyLockSha256 = publishShrinkwrapSha256();
 
 export default defineConfig({
   entry: ['src/index.ts', 'src/cli.ts', 'src/mcp-server.ts'],
@@ -15,8 +15,8 @@ export default defineConfig({
   target: 'es2022',
   outDir: 'dist',
   platform: 'node',
-  // npm-shrinkwrap.json is published with the package and freezes the full
-  // runtime tree. The two public runtime dependencies also remain exact.
+  // npm-shrinkwrap.json is published (production-only, scripts/lib/publish-shrinkwrap.mjs)
+  // and freezes the full runtime tree. The two public runtime dependencies also remain exact.
   external: ['zod', 'ts-morph'],
   define: {
     __BCE_DEPENDENCY_LOCK_SHA256__: JSON.stringify(dependencyLockSha256),

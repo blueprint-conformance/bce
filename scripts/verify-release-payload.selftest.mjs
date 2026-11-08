@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -61,6 +62,27 @@ const fakeTarball = join(fixture, 'bce-engine-0.2.0.tgz');
 writeFileSync(fakeTarball, 'not the bytes described by npm pack metadata');
 reject('tarball substitution', { ...valid, filename: 'bce-engine-0.2.0.tgz' }, 'tarball integrity differs', ['--tarball', fakeTarball]);
 
+// A real tarball whose shrinkwrap still carries a dev entry must be refused; its
+// production-only form must pass.
+function tarballWithLock(name, lock) {
+  const stage = join(fixture, `stage-${name}`);
+  const paths = [...required, 'npm-shrinkwrap.json'];
+  for (const path of paths) {
+    mkdirSync(dirname(join(stage, 'package', path)), { recursive: true });
+    writeFileSync(join(stage, 'package', path), path === 'npm-shrinkwrap.json' ? `${JSON.stringify(lock, null, 2)}\n` : 'fixture\n');
+  }
+  const tarball = join(fixture, `bce-engine-${name}.tgz`);
+  execFileSync('tar', ['-czf', tarball, '-C', stage, 'package']);
+  const integrity = `sha512-${createHash('sha512').update(readFileSync(tarball)).digest('base64')}`;
+  const result = { ...valid, filename: `bce-engine-${name}.tgz`, integrity, files: paths.map((path) => ({ path, size: 1, mode: 420 })) };
+  return { tarball, result };
+}
+const runtimeLock = { lockfileVersion: 3, packages: { '': { name: 'bce-engine' }, 'node_modules/zod': { version: '4.6.7' } } };
+const leaky = tarballWithLock('leaky', { ...runtimeLock, packages: { ...runtimeLock.packages, 'node_modules/vitest': { version: '5.0.0', dev: true } } });
+reject('dev toolchain in published shrinkwrap', leaky.result, 'development entries consumers would install', ['--tarball', leaky.tarball]);
+const clean = tarballWithLock('clean', runtimeLock);
+if (!run(clean.result, ['--tarball', clean.tarball]).includes('PASS')) throw new Error('production-only shrinkwrap tarball did not pass');
+
 const accepted = run(valid);
 if (!accepted.includes('PASS')) throw new Error(`valid payload did not pass:\n${accepted}`);
-process.stdout.write('release-payload-proof self-test: PASS — research leakage, missing runtime, source/version drift, and tarball substitution were rejected\n');
+process.stdout.write('release-payload-proof self-test: PASS — research leakage, missing runtime, source/version drift, tarball substitution, and a dev-carrying shrinkwrap were rejected\n');

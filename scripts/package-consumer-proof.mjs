@@ -3,6 +3,7 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSyn
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { withPublishShrinkwrap } from './lib/publish-shrinkwrap.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const scratch = mkdtempSync(join(tmpdir(), 'bce-package-proof-'));
@@ -20,7 +21,7 @@ if (tarballArg >= 0) {
   if (!existsSync(tarball)) throw new Error(`--tarball not found: ${tarball}`);
 } else {
   npm(['run', 'build'], { cwd: root, stdio: 'inherit' });
-  const packOutput = npm(['pack', '--json', '--pack-destination', scratch], { cwd: root, encoding: 'utf8' });
+  const packOutput = withPublishShrinkwrap(root, () => npm(['pack', '--json', '--pack-destination', scratch], { cwd: root, encoding: 'utf8' }));
   // Git/npm lifecycle output may precede npm's JSON when `prepare` builds the
   // package. Parse the final JSON document, not the build log.
   const jsonStart = packOutput.lastIndexOf('\n[');
