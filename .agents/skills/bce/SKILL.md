@@ -26,6 +26,14 @@ under the installed `node_modules/bce-engine/docs/` and `spec/`, not the consume
 - **The user asks to create or adopt a new rule:** read
   `references/lifecycle.md` before acting. Use local `bce author`, or the optional `bce propose` adapter;
   governance changes use the CLI and require an authenticated human review.
+- **A red needs a reviewable repair plan:** `npx --no-install bce repair capture --repo . --blueprint <path>`,
+  then `bce repair brief --repo . --blueprint <path> --evidence .bce/repair/evidence.json`. The brief
+  grants no edit authority and is not a gate; recapture after any change, then finish with the gate.
+- **The user asks what a policy change would report:** `bce policy-impact --repo . --repo-name <owner/repo>
+  --revision <full-sha> --base-blueprint <path> --candidate-blueprint <path>`. A removed finding is not a
+  repair, and the result approves nothing.
+- **The user asks what changed architecturally between commits:** `bce architecture-review --repo .
+  --blueprint <path> --base <full-sha> --head <full-sha>`; exit 2 is unknown, never a pass.
 - **The user asks to tune an Agent Skill:** use the separate `skill-tuning` skill.
 
 ## MCP-first repair loop

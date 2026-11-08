@@ -38,12 +38,12 @@ a partial scan), it errors — the agent treats an error as a red, not a pass.
 
 ## Evidence-bound repair briefs (opt-in)
 
-The development CLI can turn a fresh static violation into a proposed repair brief with the exact
-source bytes behind it. Build this checkout with `npm run build`, then run:
+The CLI (v0.6.1 and later) can turn a fresh static violation into a proposed repair brief with the
+exact source bytes behind it:
 
 ```bash
-node /path/to/bce/dist/cli.js repair capture --repo . --blueprint .blueprints/app.blueprint.json
-node /path/to/bce/dist/cli.js repair brief --repo . --blueprint .blueprints/app.blueprint.json \
+npx --no-install bce repair capture --repo . --blueprint .blueprints/app.blueprint.json
+npx --no-install bce repair brief --repo . --blueprint .blueprints/app.blueprint.json \
   --evidence .bce/repair/evidence.json
 ```
 
