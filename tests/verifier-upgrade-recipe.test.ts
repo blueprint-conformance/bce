@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { publishShrinkwrap } from '../scripts/lib/publish-shrinkwrap.mjs';
 
 describe('installed verifier qualification recipe', () => {
   it('captures immutable source twice and refuses incomplete or altered evidence without replaying historical reports', () => {
@@ -13,9 +14,11 @@ describe('installed verifier qualification recipe', () => {
       // a private package; identify() must still inventory every byte in that tree.
       const packageRoot = path.join(scratch, 'source-package');
       fs.mkdirSync(packageRoot);
-      for (const file of ['package.json', 'npm-shrinkwrap.json', 'dist']) {
+      for (const file of ['package.json', 'dist']) {
         fs.cpSync(path.join(process.cwd(), file), path.join(packageRoot, file), { recursive: true });
       }
+      // An installed package carries the production-only shrinkwrap whose digest the build baked in.
+      fs.writeFileSync(path.join(packageRoot, 'npm-shrinkwrap.json'), publishShrinkwrap(fs.readFileSync('npm-shrinkwrap.json', 'utf8')));
       const lock = JSON.parse(fs.readFileSync(path.join(packageRoot, 'npm-shrinkwrap.json'), 'utf8')) as {
         packages: Record<string, { dev?: boolean }>;
       };

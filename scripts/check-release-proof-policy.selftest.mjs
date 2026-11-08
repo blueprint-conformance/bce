@@ -3,7 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -252,6 +252,18 @@ try {
 } catch (error) {
   if (error.status !== 1 || !String(error.stderr).includes('production-only shrinkwrap before the tarball')) throw error;
 }
+
+const rehearsalFixture = join(dirname(fixture), 'publish-rehearsal.yml');
+const rehearsalSource = readFileSync(join(dirname(original), 'publish-rehearsal.yml'), 'utf8');
+writeFileSync(fixture, source);
+writeFileSync(rehearsalFixture, rehearsalSource.replace('          node scripts/publish-shrinkwrap.mjs --write\n', ''));
+try {
+  execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  throw new Error('release policy accepted a rehearsal packed with the development shrinkwrap');
+} catch (error) {
+  if (error.status !== 1 || !String(error.stderr).includes('production-only shrinkwrap before the rehearsal tarball')) throw error;
+}
+writeFileSync(rehearsalFixture, rehearsalSource);
 
 writeFileSync(fixture, source);
 const accepted = execFileSync(process.execPath, [checker, '--workflow', fixture], { encoding: 'utf8' });

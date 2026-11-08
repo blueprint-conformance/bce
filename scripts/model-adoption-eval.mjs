@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
+import { withPublishShrinkwrap } from './lib/publish-shrinkwrap.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
@@ -66,7 +67,7 @@ writeFileSync(schemaPath, JSON.stringify({
   },
 }, null, 2) + '\n');
 
-const packOutput = run('npm', ['pack', '--json', '--pack-destination', scratch], root);
+const packOutput = withPublishShrinkwrap(root, () => run('npm', ['pack', '--json', '--pack-destination', scratch], root));
 const packJsonStart = packOutput.lastIndexOf('\n[\n');
 if (packJsonStart < 0) fail(`npm pack did not return its JSON manifest\n${packOutput}`);
 const packed = JSON.parse(packOutput.slice(packJsonStart + 1));

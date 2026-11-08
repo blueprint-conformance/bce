@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 
 const workflowArg = process.argv.indexOf('--workflow');
 const workflow = resolve(workflowArg >= 0 ? process.argv[workflowArg + 1] ?? '' : '.github/workflows/release.yml');
@@ -100,6 +100,12 @@ if (
   !(tarballIndex < consumerIndex && consumerIndex < declaredStackConsumerIndex && declaredStackConsumerIndex < generateIndex && generateIndex < verifyIndex && verifyIndex < stageIndex && stageIndex < npmPublishIndex && npmPublishIndex < finalizerIndex && finalizerIndex < freezeIndex)
 ) {
   missing.push('verified evidence and payload staged on a draft before exact-tarball npm publish and frozen only afterward; exact-tarball route and declared-stack consumer proofs must precede signing');
+}
+
+// The rehearsal must pack the same consumer shape the release publishes.
+const rehearsal = resolve(dirname(workflow), 'publish-rehearsal.yml');
+if (existsSync(rehearsal) && !/node scripts\/publish-shrinkwrap\.mjs --write\n\s*npm pack --ignore-scripts/.test(readFileSync(rehearsal, 'utf8'))) {
+  missing.push('production-only shrinkwrap before the rehearsal tarball');
 }
 
 if (missing.length > 0) {

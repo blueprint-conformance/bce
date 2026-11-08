@@ -21,7 +21,7 @@ schemas and the stack foundation and selected declared-stack enforcement from v0
 automatic repair or registry resolution. Qualify the exact artifact against the source and policy you
 use; the version label alone is not a compatibility guarantee.
 
-**Source candidate: v0.6.2 (not published).** The same source as v0.6.1, plus a smaller install.
+**Source candidate: v0.6.2 (not published).** v0.6.1 plus npm identification on Windows when emitting evidence, and a smaller install.
 v0.6.1's published `npm-shrinkwrap.json` carries the development lock, and npm installs every entry of
 a dependency's shrinkwrap. So `npm install -D bce-engine@0.6.1` pulls 184 packages (202 MB), where the
 runtime needs 11 (43 MB). v0.6.2 publishes a production-only shrinkwrap. Its runtime tree and pins are

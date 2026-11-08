@@ -130,6 +130,7 @@
     "prompts",
     "scripts/ai-adoption-proof.mjs",
     "scripts/model-adoption-eval.mjs",
+    "scripts/lib/publish-shrinkwrap.mjs",
     ".claude-plugin",
     ".codex-plugin",
     "docs",
