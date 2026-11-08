@@ -75,7 +75,8 @@ on seeded defects is a fair proxy at all.
 - [x] All draft links replaced and checked
 - [ ] External-witness attestation linked (HARD blocker per launch plan — no post without it)
 - [ ] Comparison page landscape re-verify done this month — last pass
-      2026-08-27 (docs/launch/landscape-reverify-2026-08-27.md). If launch is
+      2026-11-08 (docs/launch/landscape-reverify-2026-11-08.md, extending
+      2026-08-27). If launch is
       materially later than ~30 days after that date, run another pass; do
       not let the 60-day automated nudge be the only backstop.
 - [ ] Week-1 triage rotation armed (docs/launch/week-1-triage.md)

@@ -479,6 +479,7 @@ const UNPUBLISHED = {
   'docs/launch/week-1-triage.md': 'launch-preparation material, not documentation',
   'docs/launch/witness-kit.md': 'launch-preparation material, not documentation',
   'docs/launch/landscape-reverify-2026-08-27.md': 'dated launch-verification record, not documentation',
+  'docs/launch/landscape-reverify-2026-11-08.md': 'dated launch-verification record, not documentation',
   'docs/launch/skill-listing-drafts.md': 'launch-preparation material, not documentation',
   'docs/launch/openai-plugin-submission.md': 'launch-preparation material, not documentation',
 };
