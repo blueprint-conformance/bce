@@ -136,6 +136,28 @@ for (const c of CASES) {
 
 console.log(`\n${discriminating} of ${CASES.length} case(s) were fully discriminating (quiet when stripped, red on the plant).`);
 
+// Visibility must fail closed in CI: an unknown value refuses, an explicit private stays inert.
+const visibilityRun = (value) => {
+  const env = { ...process.env, GITHUB_ACTIONS: 'true' };
+  delete env.LAUNCH_READINESS_FORCE_PUBLIC;
+  if (value === undefined) delete env.REPO_IS_PRIVATE; else env.REPO_IS_PRIVATE = value;
+  try {
+    execFileSync(process.execPath, [path.join(clean, 'scripts/launch-readiness-check.mjs')], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    return 0;
+  } catch (e) {
+    return typeof e.status === 'number' ? e.status : 1;
+  }
+};
+for (const [value, expected] of [[undefined, 2], ['', 2], ['true', 0]]) {
+  const code = visibilityRun(value);
+  if (code !== expected) {
+    console.log(`  FAIL  visibility ${JSON.stringify(value ?? null)} in CI exited ${code}, expected ${expected}`);
+    failures++;
+  } else {
+    console.log(`  OK    visibility ${JSON.stringify(value ?? null)} in CI exits ${expected}`);
+  }
+}
+
 if (failures) {
   console.error(`\n::error::selftest: ${failures} detector(s) failed to fire on a targeted breakage.`);
   console.error('A promise whose detector cannot fire reports READY forever and vouches for nothing.');
