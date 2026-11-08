@@ -48,7 +48,15 @@ const read = (rel) => {
 };
 
 const forced = process.env.LAUNCH_READINESS_FORCE_PUBLIC === '1';
-const isPublic = forced || process.env.REPO_IS_PRIVATE === 'false';
+const visibility = process.env.REPO_IS_PRIVATE;
+// In CI an unknown visibility must not read as "private": that would make this required gate
+// inert, and pass, on a public repository. Local runs without the value stay inert and say so.
+if (!forced && process.env.GITHUB_ACTIONS === 'true' && visibility !== 'true' && visibility !== 'false') {
+  console.error(`launch-readiness: FAIL(harness) — REPO_IS_PRIVATE is ${JSON.stringify(visibility ?? null)}; `
+    + 'the gate cannot tell whether its promises are due.');
+  process.exit(2);
+}
+const isPublic = forced || visibility === 'false';
 
 /** @type {{id:string, ready:boolean, detail:string, remedy:string}[]} */
 const promises = [];
@@ -63,8 +71,9 @@ const pin = JSON.parse(read('.engine-pin.json'));
 let npmVersion = '(not checked)';
 let npmOk = false;
 try {
+  // npm is a `.cmd` shim on Windows, which Node spawns only through a shell (fixed arguments).
   npmVersion = execFileSync('npm', ['view', `${pin.package}@${pin.pin}`, 'version'], {
-    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32',
   }).trim();
   npmOk = npmVersion === pin.pin;
 } catch {
