@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1",
+  "kind": "declared-stack-registry-consumer-result-summary",
+  "package": "bce-engine",
+  "version": "0.6.2",
+  "predecessorVersion": "0.4.0",
+  "sourceCommit": "17be7a3d25ca1db62be58ce88d6c16d7e35cd3ac",
+  "releaseUrl": "https://github.com/blueprint-conformance/bce/releases/tag/v0.6.2",
+  "provenanceRunUrl": "https://github.com/blueprint-conformance/bce/actions/runs/42493918390/attempts/1",
+  "tarballSha256": "f6f951b54a5940d79fab62ee67cef6fe6fa6819cf476743e60035a38a368bba4",
+  "npmIntegrity": "sha512-ld3LEyKp6o5hxVDxfgjH6KnKHmKXGFHZwZhcXONb5WtCSs4dAtCSR/ep2s7OXlvAe9IkqKIdOFPvvjaUQJWN5A==",
+  "npmShasum": "0b2a24b27e76c37e2507005959906021178dfeec",
+  "passed": true,
+  "caseCount": 90,
+  "claims": [
+    "selected-declarations",
+    "offline-integrity-replay"
+  ],
+  "originAuthenticity": "not-established",
+  "environment": {
+    "node": "v22.19.0",
+    "npm": "10.9.3",
+    "platform": "win32",
+    "architecture": "x64"
+  },
+  "predecessorNote": "The predecessor-refusal leg needs a public engine below the declaredStack minimum engine 0.5.0, so it installs public 0.4.0 exactly as scripts/package-consumer-proof.mjs does; 0.6.2 adds no declared-stack constraint vocabulary.",
+  "invocationNote": "Run directly with node on Windows. v0.6.1 needed npm exec because its npm-version probe could not spawn npm.cmd without a shell; v0.6.2 carries that fix (#142), and the direct invocation completed all 90 cases.",
+  "evidenceBoundary": "First-party synthetic installed-byte verification across gate, run, MCP, offline replay, tamper, substitution, and refusal paths; not installed-state, origin-authenticity, independent-adoption, or efficacy evidence.",
+  "rawLocalProofSha256": "47495cf9640a84a668fb169b9ef666ef55623b1aea07c9a5dfa6c5a452c9c6e2"
+}

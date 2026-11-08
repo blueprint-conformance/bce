@@ -5,7 +5,7 @@
 **The rule:** application code may use domain code; domain code must never import the application
 layer. The starting tree contains one reverse import in `packages/domain/order.ts`.
 
-**Availability:** this walkthrough uses `typescript-module-graph` from the `v0.6.1` release.
+**Availability:** this walkthrough uses `typescript-module-graph` from the `v0.6.2` release.
 
 ## 0. Work in a copy
 
@@ -15,7 +15,7 @@ cd /tmp/bce-first-win-module-layering
 mkdir -p .blueprints
 ```
 
-`bce` below means `npx --no-install bce` after installing exact `bce-engine@0.6.1`.
+`bce` below means `npx --no-install bce` after installing exact `bce-engine@0.6.2`.
 
 ## 1. Author one directional boundary
 
