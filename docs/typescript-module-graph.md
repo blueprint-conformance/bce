@@ -166,8 +166,8 @@ The supplied blueprint is frozen once for both revisions; it need not be the blu
 either revision. Policy amendment review remains a separate workflow.
 
 Both frozen-source commands need Git 2.32 or newer, the first release that honours
-`GIT_CONFIG_GLOBAL`; see the [portability contract](portability.md). This source refuses older Git
-with exit 2. The released v0.6.1 package does not check: Git 2.31 reads the caller's global
+`GIT_CONFIG_GLOBAL`; see the [portability contract](portability.md). Since v0.6.2 they refuse
+older Git with exit 2. v0.6.1 and earlier do not check: Git 2.31 reads the caller's global
 configuration there, and earlier Git fails with a misleading `ENOENT`.
 
 ```sh
