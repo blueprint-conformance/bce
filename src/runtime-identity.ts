@@ -28,7 +28,13 @@ function npmVersion(): string {
   const fromUserAgent = /(?:^|\s)npm\/([^\s]+)/.exec(process.env.npm_config_user_agent ?? '')?.[1];
   if (fromUserAgent) return fromUserAgent;
   try {
-    return execFileSync('npm', ['--version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    // On Windows npm is a `.cmd` shim, which Node refuses to spawn without a shell. The argument
+    // list is a fixed literal, so the shell receives no caller-controlled input.
+    return execFileSync('npm', ['--version'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      shell: process.platform === 'win32',
+    }).trim();
   } catch {
     throw new Error('cannot identify npm version for evidence; npm must be available when emitting evidence');
   }

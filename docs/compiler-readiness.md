@@ -1,24 +1,23 @@
 # Experimental compiler readiness slice
 
-This source checkout routes `forbiddenDependency` through a pure policy-and-evidence compiler inside the existing
+The `v0.6.1` release routes `forbiddenDependency` through a pure policy-and-evidence compiler inside the existing
 `evaluate()` path. The CLI, gate and MCP continue to consume the existing evaluator and report formats.
 This is one migrated constraint family, not a completed compiler platform or a new normative schema.
 Application source is never rewritten.
 
 ## Use the experimental API
 
-**Availability: source checkout only.** The released `bce-engine@0.6.0` npm package does not contain
-this compiler slice or its experimental exports. From a checkout containing `src/compiler/`, run
-`npm ci` and `npm run build` with Node 22+ before importing the local build.
+**Availability: `bce-engine@0.6.1` and later.** The released v0.6.1 npm package contains this
+compiler slice and its experimental exports; v0.6.0 and earlier do not. A source checkout containing
+`src/compiler/` exposes the same API after `npm ci` and `npm run build` with Node 22+.
 
-The local build exports `compileBlueprint`, `verifyCompilerProof`,
+The package exports `compileBlueprint`, `verifyCompilerProof`,
 `COMPILER_IR_VERSION` and the typed IR contracts. Supply an already acquired blueprint and architecture
 graph. `compileBlueprint(blueprint, graph)` resolves the blueprint's declared extraction profile;
 an explicit contradictory profile refuses. Acquisition remains the existing extractor's responsibility.
 
 ```ts
-// Run from this source checkout's root after building it.
-import { compileBlueprint, verifyCompilerProof } from './dist/index.js';
+import { compileBlueprint, verifyCompilerProof } from 'bce-engine';
 
 const result = compileBlueprint(blueprint, graph);
 if (result.status === 'compiled') {

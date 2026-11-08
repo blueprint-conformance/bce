@@ -5,12 +5,12 @@ not a framework-specific route or plugin shape. Every scanned module becomes a
 `typescriptModule` component. Every statically named dependency becomes an `imports` edge before
 any policy is applied.
 
-This profile is available in the `v0.6.0` registry release. Install the exact version and run its packaged
+This profile is available in the `v0.6.1` registry release. Install the exact version and run its packaged
 proof:
 
 ```bash
-npm view bce-engine@0.6.0 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.6.0
+npm view bce-engine@0.6.1 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.6.1
 npx --no-install bce demo --recipe module-layering
 ```
 
@@ -203,12 +203,12 @@ have graphs, tracked-file manifests, the complete blueprint, resolver-input dige
 identities. Caller-supplied snapshots are assertions: their digests prove integrity, not authenticity.
 `architectureReviewExitCode(report)` implements the same 0/1/2 result as the CLI.
 
-## Proposed bounded paths (RFC-0004)
+## Bounded paths (RFC-0004)
 
-The candidate implementation of [RFC-0004](../rfcs/RFC-0004-bounded-dependency-path.md)
-adds an explicit `forbiddenDependencyPath` arm with `maxHops: 2`. Existing
-`forbiddenDependency` remains direct. This proposed format is pending the RFC decision,
-not part of the released 0.6.0 profile described above.
+The `v0.6.1` release implements accepted [RFC-0004](../rfcs/RFC-0004-bounded-dependency-path.md):
+an explicit `forbiddenDependencyPath` arm with `maxHops: 2`. Existing
+`forbiddenDependency` remains direct. v0.6.0 and earlier do not recognize the arm and fail the
+`minEngineVersion` preflight instead of skipping it.
 
 ```json
 {
@@ -221,7 +221,7 @@ not part of the released 0.6.0 profile described above.
 }
 ```
 
-Use `minEngineVersion: "0.6.1"` with the current candidate and scan a superset such as
+Use `minEngineVersion: "0.6.1"` and scan a superset such as
 `extraction.paths: ["src/**/*.ts"]`: the intermediate module must be scanned even when
 it is outside the governed source scope. The ordinary CLI/API/MCP gate then reports a
 complete anchored one/two-edge witness. An unresolved or unscanned intermediate, a

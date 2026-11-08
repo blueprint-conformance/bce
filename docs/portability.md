@@ -7,6 +7,10 @@ portability workflow tests the supported core on Ubuntu, macOS, and Windows agai
 test suite, built MCP compatibility proof, a stack-manifest cross-OS golden-byte-identity proof
 (see [`docs/stack-plane.md`](stack-plane.md)), and clean packed-consumer proof.
 
+Frozen-source reads (pinned `run`, `architecture-review`, `policy-impact`, and stack snapshots at a
+revision) need Git 2.32 or newer, the first release that honours `GIT_CONFIG_GLOBAL`. Older Git
+would read the caller's global configuration, so BCE refuses with exit 2 and names the floor instead.
+
 The cross-platform suite excludes three intentionally Unix-specific integration contracts: the POSIX pre-commit hook, the shell-based Agent Skill scanner, and the repository self-gate shell harness. Those integrations remain release-gated on Ubuntu; their exclusion does not remove engine, CLI, evidence, or MCP coverage from Windows or macOS.
 
 ## Claim boundary
