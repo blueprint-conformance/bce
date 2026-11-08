@@ -409,7 +409,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/runtime-identity.ts",
-        "preconditionSha256": "b356e0c250ae613b90af092fa9f7ea925fa76b7722cdc1f0a6e27b543ed15e97",
+        "preconditionSha256": "5c14697efff42dfa99680bd40488095519afb25e5945e3c4115ec268bd95e8f3",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/runtime-identity.ts",
