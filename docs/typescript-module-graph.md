@@ -165,6 +165,11 @@ provider. It reads archived commits, so dirty working-tree changes do not contam
 The supplied blueprint is frozen once for both revisions; it need not be the blueprint committed at
 either revision. Policy amendment review remains a separate workflow.
 
+Both frozen-source commands need Git 2.32 or newer, the first release that honours
+`GIT_CONFIG_GLOBAL`; see the [portability contract](portability.md). Since v0.6.2 they refuse
+older Git with exit 2. v0.6.1 and earlier do not check: Git 2.31 reads the caller's global
+configuration there, and earlier Git fails with a misleading `ENOENT`.
+
 ```sh
 node dist/cli.js architecture-review --repo . --blueprint boundary.blueprint.json \
   --base <40-character-base-commit-sha> --head <40-character-head-commit-sha> \
@@ -248,7 +253,7 @@ resolved acquisition settings, a policy-independent source-acquisition digest (g
 tracked inventory and resolver inputs), exact coverage,
 toolchain identity and an artifact digest. Digests prove integrity, not origin authenticity; the
 supplied repository name must be applicable to both policies but is not authenticated by this call.
-Uncommitted source changes, Git replacement objects, mutable Git attributes and caller Git configuration do not alter the pinned acquisition. Committed `.gitattributes` remain part of the immutable input.
+Uncommitted source changes, Git replacement objects, mutable Git attributes and caller Git configuration do not alter the pinned acquisition on Git 2.32 or newer. Committed `.gitattributes` remain part of the immutable input.
 Policy inputs are supplied documents, not implicitly loaded from the commit.
 
 This first slice admits direct TypeScript module dependency constraints, required module components,
