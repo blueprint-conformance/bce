@@ -94,6 +94,9 @@ npm install --save-dev --save-exact bce-engine@0.6.2
 npx --no-install bce demo
 ```
 
+On Windows, if PowerShell refuses `npm` or `npx` because "running scripts is disabled on this system",
+run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or type `npm.cmd` / `npx.cmd` in place of `npm` / `npx`.
+
 The released demo runs one conforming tree and one drifted tree. List six targeted recipes for
 extension registration, tenant access, egress, TypeScript and Python module layering, and
 configuration widening, then run the boundary closest to your repository:
