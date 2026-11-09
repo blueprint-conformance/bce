@@ -147,6 +147,15 @@ export function materializeAtRevision(repoDir: string, sha: string): string {
         `tar -x failed (exit ${extract.status}): ${extract.stderr?.toString().trim() ?? ''}`,
       );
     }
+    // Every file the commit tracks must be present: a committed `export-ignore` attribute (or a
+    // short extraction that still exits 0) would otherwise drop files from the graded input.
+    const knowledge = listTreeKnowledge(repoDir, sha);
+    if (!knowledge) throw new Error(`incomplete tree coverage: cannot list the files of ${sha}`);
+    for (const file of knowledge.tracked) {
+      let present = true;
+      try { fs.lstatSync(path.join(dest, file)); } catch { present = false; }
+      if (!present) throw new Error(`incomplete tree coverage: ${sha} tracks ${file}, which git archive did not produce`);
+    }
   } catch (error) {
     fs.rmSync(dest, { recursive: true, force: true });
     throw error;
