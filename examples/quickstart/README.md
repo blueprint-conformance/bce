@@ -36,6 +36,8 @@ itself quietly bypasses all three. The blueprint makes that rule enforceable.
 ## 0. Install the exact release and copy the writable example
 
 These commands also work in PowerShell; run each line as a separate step.
+On Windows, if PowerShell refuses `npm` or `npx` because "running scripts is disabled on this system",
+run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or type `npm.cmd` / `npx.cmd` in place of `npm` / `npx`.
 
 ```sh
 mkdir bce-quickstart
