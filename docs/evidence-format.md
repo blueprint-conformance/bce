@@ -55,6 +55,14 @@ verify/tamper transcripts).
   provider to the record. The field is optional in the schema only so historical
   records emitted before 0.1.6 remain verifiable; absence means that identity was
   not recorded, never that it can be inferred.
+- Records from declared-stack (schema 2) reports differ in three ways:
+  - `verdict` may be `indeterminate`, and `score` is then `null`; `null` appears with no other verdict;
+  - they carry `stackDigest` and `manifestDigest` (64 hex each, always together), and both are hashed
+    with the rest of the body;
+  - `toolchain` names `providers` (`staticAst` extractor entries and a `declaredStack` /
+    `selected-stack-v1` entry) instead of a single `extractor`.
+
+  `tools/verify-chain.mjs` accepts exactly these shapes and nothing else.
 
 ## 2. Content hash: derived-field stripping
 
@@ -69,7 +77,8 @@ Everything else, **including `previousHash`**, is hashed:
 ```
 hash = sha256( stableStringify({ schemaVersion, traceId, blueprintRef,
                                  ctRepoRevision, score, verdict, violationCount,
-                                 reportEvidenceRef, toolchain, previousHash }) )
+                                 reportEvidenceRef, toolchain, previousHash,
+                                 [stackDigest, manifestDigest] }) )
 ```
 
 Because `previousHash` is inside the hashed body, each link commits to its whole
