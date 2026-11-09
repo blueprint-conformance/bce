@@ -3,10 +3,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { parseBlueprint } from '../src/schema.js';
 import { resolveExtraction } from '../src/extractors.js';
 import { makeExtractor } from '../src/extractor-registry.js';
-import { evaluate } from '../src/report.js';
+import { evaluate, stableStringify } from '../src/report.js';
 import { createEvidenceBundle, verifyEvidenceBundle } from '../src/evidence-bundle.js';
 
 const ROOT = path.join(__dirname, '..');
@@ -39,6 +40,35 @@ describe('self-contained evidence bundle', () => {
     const result = verifyEvidenceBundle(b);
     expect(result.valid).toBe(false);
     expect(result.failures.join(' ')).toContain(part);
+  });
+
+  // Re-hash a tampered v1 bundle completely, so only a consistency check can refuse it.
+  const rehash = (b: ReturnType<typeof bundle>) => {
+    const sha = (v: unknown) => createHash('sha256').update(stableStringify(v)).digest('hex');
+    b.hashes.report = sha(b.artifacts.report);
+    const { bundle: ignored, ...artifactHashes } = b.hashes;
+    void ignored;
+    b.hashes.bundle = sha({ ...b, hashes: artifactHashes });
+    return b;
+  };
+
+  it('refuses a v1 bundle graded under a profile other than the blueprint declares', () => {
+    const b = bundle();
+    const wrong = 'typescript-module-graph' as const;
+    b.invocation.extractionProfile = wrong;
+    b.toolchain.extractor.profile = wrong;
+    b.artifacts.report = evaluate(b.artifacts.blueprint, b.artifacts.graph, wrong);
+    const result = verifyEvidenceBundle(rehash(b));
+    expect(result.valid).toBe(false);
+    expect(result.failures).toContain('extraction profile mismatch');
+  });
+
+  it('refuses a v1 bundle whose toolchain disagrees with its envelope', () => {
+    const b = bundle();
+    b.engine = { ...b.engine, version: '9.9.9' };
+    const result = verifyEvidenceBundle(rehash(b));
+    expect(result.valid).toBe(false);
+    expect(result.failures).toContain('toolchain identity mismatch');
   });
 
   it('CLI emits and independently verifies a portable bundle', () => {
