@@ -97,7 +97,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/emit.ts",
-        "preconditionSha256": "b74db8a9f626b1b61f37349f0728e4f6dce5db184a2461ee5374f753ca6ef6ba",
+        "preconditionSha256": "97252a81a4ab7af94259530bf1a3484dfc541559ad0923860a8aa55aa1e5cc91",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/emit.ts",
