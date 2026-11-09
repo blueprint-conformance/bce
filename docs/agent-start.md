@@ -82,7 +82,7 @@ proof. Preserve the real planted RED and exact source anchor as evidence of what
 ## Know which artifact you are operating
 
 The immutable `bce-engine@0.6.2` registry release includes named demos, authoring, onboarding,
-ten MCP tools, provider-backed proposals, and the non-author GitHub review path. It also includes
+eleven MCP tools, provider-backed proposals, and the non-author GitHub review path. It also includes
 offline `review prepare`, explicit solo-steward ratification, and coherent lifecycle audits.
 Those additions are absent from v0.3.0. An installed v0.6.2 package runs them through its local
 binary without a source checkout; see [solo-steward ratification](solo-steward-ratification.md).

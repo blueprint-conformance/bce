@@ -27,9 +27,10 @@ the [release record](release-v0.6.2.md) before changing artifacts or choosing th
 
 Node 22 or newer is required. Check `node --version` first. Use the repository’s existing package
 manager and workspace; preserve its lockfile. For npm, install the exact release as a development
-dependency. Both `bce` and `bce-mcp` become local project binaries:
+dependency. Both `bce` and `bce-mcp` become local project binaries. Every command in this guide
+is one line and also works in PowerShell and cmd.exe; each line is a separate step:
 
-```bash
+```sh
 npm view bce-engine@0.6.2 version dist.integrity
 npm install --save-dev --save-exact bce-engine@0.6.2
 npx --no-install bce demo
@@ -56,16 +57,8 @@ draft and review packet; a local-folder identity is sufficient for an offline fi
 `bce author` deterministically compiles the agent’s draft and checks its scope. Start with one important rule over
 files that already exist. This example bans direct `axios` imports from TypeScript/JavaScript source:
 
-```bash
-npx --no-install bce author \
-  --id no-direct-http-client \
-  --intent-ref docs/architecture-intent.md \
-  --constraint 'forbiddenDependency:axios:critical' \
-  --extraction-profile plugin-surface \
-  --scope-paths 'src/**/*.js,src/**/*.jsx,src/**/*.ts,src/**/*.tsx' \
-  --min-files 1 \
-  --repo . \
-  --out bce-draft.json
+```sh
+npx --no-install bce author --id no-direct-http-client --intent-ref docs/architecture-intent.md --constraint "forbiddenDependency:axios:critical" --extraction-profile plugin-surface --scope-paths "src/**/*.js,src/**/*.jsx,src/**/*.ts,src/**/*.tsx" --min-files 1 --repo . --out bce-draft.json
 ```
 
 Create `docs/architecture-intent.md` with the intended network boundary first. This example assumes
@@ -89,12 +82,8 @@ immutable Action commit, adds BCE's done-check to the selected agent context wit
 existing instructions, installs both shipped Agent Skills, and configures MCP in the harness's
 project-local format.
 
-```bash
-npx --no-install bce onboard \
-  --repo . \
-  --blueprint bce-draft.json \
-  --engine blueprint-conformance/bce@17be7a3d25ca1db62be58ce88d6c16d7e35cd3ac \
-  --harness agents
+```sh
+npx --no-install bce onboard --repo . --blueprint bce-draft.json --engine blueprint-conformance/bce@17be7a3d25ca1db62be58ce88d6c16d7e35cd3ac --harness agents
 ```
 
 Harness choices:
@@ -126,11 +115,9 @@ CI does not include it.
 
 ## 4. Diagnose, prove RED, and go GREEN
 
-```bash
+```sh
 npx --no-install bce doctor --repo .
-npx --no-install bce teeth \
-  --blueprint .blueprints/no-direct-http-client.blueprint.json \
-  --ct-repo . --no-pin --extractor ast
+npx --no-install bce teeth --blueprint .blueprints/no-direct-http-client.blueprint.json --ct-repo . --no-pin --extractor ast
 npx --no-install bce gate --repo . --all
 ```
 
@@ -205,12 +192,8 @@ installation as having completed solo ratification.
 
 ## 7. Emit reproducible evidence
 
-```bash
-npx --no-install bce run \
-  --blueprint .blueprints/no-direct-http-client.blueprint.json \
-  --ct-repo . --no-pin --extractor ast \
-  --out compliance-report.json \
-  --emit-bundle bce-evidence-bundle.json
+```sh
+npx --no-install bce run --blueprint .blueprints/no-direct-http-client.blueprint.json --ct-repo . --no-pin --extractor ast --out compliance-report.json --emit-bundle bce-evidence-bundle.json
 npx --no-install bce verify-bundle --bundle bce-evidence-bundle.json
 ```
 

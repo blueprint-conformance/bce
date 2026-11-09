@@ -225,7 +225,7 @@ assert(installedPackage.engines?.node === '>=22', 'packed package does not decla
 const documentedScopePaths = 'src/**/*.js,src/**/*.jsx,src/**/*.ts,src/**/*.tsx';
 const installedOnboarding = readFileSync(join(installedRoot, 'docs', 'onboarding.md'), 'utf8');
 assert(
-  installedOnboarding.includes(`--scope-paths '${documentedScopePaths}'`),
+  installedOnboarding.includes(`--scope-paths "${documentedScopePaths}"`),
   'packed onboarding guide lost the executable multi-extension scope example',
 );
 for (const rel of [

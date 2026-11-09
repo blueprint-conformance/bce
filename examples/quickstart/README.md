@@ -35,24 +35,28 @@ itself quietly bypasses all three. The blueprint makes that rule enforceable.
 
 ## 0. Install the exact release and copy the writable example
 
-```bash
-mkdir bce-quickstart && cd bce-quickstart
+These commands also work in PowerShell; run each line as a separate step.
+
+```sh
+mkdir bce-quickstart
+cd bce-quickstart
 npm init -y
 npm view bce-engine@0.6.2 version dist.integrity
 npm install --save-dev --save-exact bce-engine@0.6.2
-cp -R node_modules/bce-engine/examples/quickstart .
+node -e "require('node:fs').cpSync('node_modules/bce-engine/examples/quickstart', 'quickstart', {recursive:true})"
 cd quickstart
-alias bce='../node_modules/.bin/bce'
 ```
 
 Every command below runs in the copied `quickstart` directory through the exact public engine pin.
+`npx --no-install bce` resolves the engine installed in the parent `bce-quickstart` directory and
+never downloads anything.
 
 ## 1. The blueprint is valid — and the engine says how far its vacuity probe can trust it
 
 First, confirm the contract parses:
 
-```bash
-bce validate --blueprint blueprint/no-direct-http-client.blueprint.json
+```sh
+npx --no-install bce validate --blueprint blueprint/no-direct-http-client.blueprint.json
 ```
 
 ```
@@ -63,8 +67,8 @@ Then ask the engine how much its own vacuity probe can prove about this contract
 `teeth` gate, and its verdict is deliberately three-way — `toothed` / `evaluator-refutable` /
 `toothless` — because the probe itself has an honesty boundary:
 
-```bash
-bce teeth --blueprint blueprint/no-direct-http-client.blueprint.json --ct-repo clean --no-pin --extractor ast
+```sh
+npx --no-install bce teeth --blueprint blueprint/no-direct-http-client.blueprint.json --ct-repo clean --no-pin --extractor ast
 ```
 
 ```
@@ -87,8 +91,8 @@ code and the gate refuse it.
 
 ## 2. Gate the clean tree — it passes
 
-```bash
-bce gate --repo clean --blueprint-dir blueprint --extractor ast
+```sh
+npx --no-install bce gate --repo clean --blueprint-dir blueprint --extractor ast
 ```
 
 ```
@@ -101,8 +105,8 @@ no forbidden import edge — the gate is green.
 
 ## 3. Gate the drifted tree — it fails, and names the line
 
-```bash
-bce gate --repo drift --blueprint-dir blueprint --extractor ast --all
+```sh
+npx --no-install bce gate --repo drift --blueprint-dir blueprint --extractor ast --all
 ```
 
 ```
@@ -143,8 +147,8 @@ the clean tree does:
 
 Now re-run the gate on the tree you just fixed:
 
-```bash
-bce gate --repo drift --blueprint-dir blueprint --extractor ast
+```sh
+npx --no-install bce gate --repo drift --blueprint-dir blueprint --extractor ast
 ```
 
 ```
