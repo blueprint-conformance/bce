@@ -1,0 +1,156 @@
+name: public-install
+
+# The install path a NEW USER follows, run exactly as written, on Linux, macOS and Windows.
+#
+# Every other cross-OS proof here (portability.yml) builds from source or installs a tarball
+# packed from this checkout. This workflow does neither: it installs the exact bce-engine
+# version named in .engine-pin.json FROM THE PUBLIC NPM REGISTRY into an empty directory and
+# runs the commands taken verbatim from the documents a reader copies them from:
+#
+#   * README.md § "Run a real gate"          (npm view / npm install / npx --no-install bce demo …)
+#   * docs/quickstart.md                     (the one-screen RED → fix → GREEN path)
+#   * examples/quickstart/README.md          (the full walkthrough, including its manual fix)
+#
+# scripts/public-install-walkthrough.mjs extracts the fenced commands and asserts each one's
+# documented exit code and output (GREEN = exit 0 and "0 failing"; RED = exit 1 naming the
+# forbidden axios edge at src/greeting.plugin.ts#L16). Windows runs them in PowerShell, using a
+# document's `powershell` block where it gives one; Linux and macOS run them in bash. If a
+# document is wrong for an OS, that leg goes red — the fix belongs in the document.
+#
+# NOT a required check. It depends on the public registry being reachable, so it runs on a
+# schedule, on demand, after the release workflow completes, and on pull requests that touch
+# the documents or the pin. Its result is evidence about the published artifact, not a merge
+# gate for source changes.
+
+on:
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+  pull_request:
+    paths:
+      - .engine-pin.json
+      - README.md
+      - docs/quickstart.md
+      - examples/quickstart/**
+      - scripts/public-install-walkthrough.mjs
+      - .github/workflows/public-install.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-install-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  walkthrough:
+    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ["22", "24"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      # The checkout supplies only the documents, the pin, and the command extractor. Every
+      # command runs in a fresh directory under RUNNER_TEMP, outside this tree.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Cold npm cache and the default public registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          cache="$RUNNER_TEMP/npm-cache"
+          mkdir -p "$cache"
+          echo "npm_config_cache=$cache" >> "$GITHUB_ENV"
+          echo "npm_config_update_notifier=false" >> "$GITHUB_ENV"
+          echo "npm_config_fund=false" >> "$GITHUB_ENV"
+          registry="$(cd "$RUNNER_TEMP" && npm config get registry)"
+          echo "node $(node --version), npm $(npm --version), registry ${registry}"
+          case "$registry" in
+            https://registry.npmjs.org|https://registry.npmjs.org/) ;;
+            *) echo "::error::expected the default public registry, got ${registry}"; exit 1 ;;
+          esac
+          echo "pinned: $(node -p "require('./.engine-pin.json').package + '@' + require('./.engine-pin.json').pin")"
+
+      - name: Extract the documented commands
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "Windows" ]; then sh=pwsh; ext=ps1; else sh=bash; ext=sh; fi
+          gen() {
+            node scripts/public-install-walkthrough.mjs --shell "$sh" --pin .engine-pin.json "$@"
+          }
+          gen --doc README.md --section "Run a real gate" --out "$RUNNER_TEMP/readme.$ext"
+          gen --doc docs/quickstart.md --out "$RUNNER_TEMP/docs-quickstart.$ext"
+          gen --doc examples/quickstart/README.md --out "$RUNNER_TEMP/example-quickstart.$ext"
+          for name in readme docs-quickstart example-quickstart; do
+            mkdir -p "$RUNNER_TEMP/consumer-$name"
+          done
+
+      # ---- Linux / macOS: bash -------------------------------------------------------------
+      - name: README "Run a real gate" (bash)
+        if: runner.os != 'Windows'
+        shell: bash
+        working-directory: ${{ runner.temp }}/consumer-readme
+        run: bash "$RUNNER_TEMP/readme.sh"
+      - name: docs/quickstart.md (bash)
+        if: runner.os != 'Windows'
+        shell: bash
+        working-directory: ${{ runner.temp }}/consumer-docs-quickstart
+        run: bash "$RUNNER_TEMP/docs-quickstart.sh"
+      - name: examples/quickstart walkthrough (bash)
+        if: runner.os != 'Windows'
+        shell: bash
+        working-directory: ${{ runner.temp }}/consumer-example-quickstart
+        run: bash "$RUNNER_TEMP/example-quickstart.sh"
+
+      # ---- Windows: PowerShell -------------------------------------------------------------
+      - name: README "Run a real gate" (pwsh)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: ${{ runner.temp }}/consumer-readme
+        run: pwsh -NoProfile -File "$env:RUNNER_TEMP/readme.ps1"
+      - name: docs/quickstart.md (pwsh)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: ${{ runner.temp }}/consumer-docs-quickstart
+        run: pwsh -NoProfile -File "$env:RUNNER_TEMP/docs-quickstart.ps1"
+      - name: examples/quickstart walkthrough (pwsh)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: ${{ runner.temp }}/consumer-example-quickstart
+        run: pwsh -NoProfile -File "$env:RUNNER_TEMP/example-quickstart.ps1"
+
+      - name: The installed bytes are the pinned registry artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'EOF'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const pin = require('./.engine-pin.json');
+          const root = process.env.RUNNER_TEMP;
+          for (const lock of [
+            'consumer-readme/package-lock.json',
+            'consumer-docs-quickstart/bce-quickstart/package-lock.json',
+            'consumer-example-quickstart/bce-quickstart/package-lock.json',
+          ]) {
+            const entry = JSON.parse(fs.readFileSync(path.join(root, lock), 'utf8')).packages['node_modules/bce-engine'];
+            const ok = entry && entry.version === pin.pin && entry.integrity === pin.integrity
+              && entry.resolved === `https://registry.npmjs.org/bce-engine/-/bce-engine-${pin.pin}.tgz`;
+            if (!ok) { console.error(`::error::${lock} did not install the pinned registry artifact: ${JSON.stringify(entry)}`); process.exit(1); }
+            console.log(`${lock}: bce-engine@${entry.version} ${entry.integrity}`);
+          }
+          console.log('GREEN: every walkthrough installed the exact pinned registry artifact');
+          EOF
