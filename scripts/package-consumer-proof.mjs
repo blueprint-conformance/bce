@@ -138,6 +138,70 @@ for (const marker of ['GREEN conformant: score 100, exit 0', 'RED drift-forbidde
 }
 process.stdout.write('installed npm bce launcher: GREEN/RED PASS\n');
 
+// The first-win walkthroughs are followed from an npm-installed project, not a checkout. Replay
+// each installed README's own step 0 (the `node -e` copy into a project subdirectory), then run
+// its first `bce` command exactly as the README says to: `npx --no-install bce` from inside the
+// copy, which has its own dependency-free package.json and must resolve the parent's launcher.
+const npmExecEnv = Object.fromEntries(Object.entries(process.env)
+  .filter(([key]) => !/^npm_config_(local_)?prefix$/i.test(key)));
+const tokenizeShellLine = (line) => {
+  const out = [];
+  let cur = '';
+  let started = false;
+  let quote = null;
+  for (const ch of line) {
+    if (quote) {
+      if (ch === quote) quote = null;
+      else cur += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; started = true; continue; }
+    if (/\s/.test(ch)) {
+      if (started) { out.push(cur); cur = ''; started = false; }
+      continue;
+    }
+    cur += ch;
+    started = true;
+  }
+  if (started) out.push(cur);
+  return out;
+};
+for (const shape of ['empty-repo', 'plain-js', 'typescript', 'monorepo', 'module-layering', 'python-layering']) {
+  const readme = readFileSync(join(installedRoot, 'examples', 'first-win', shape, 'README.md'), 'utf8');
+  const lines = [...readme.matchAll(/```bash\n([\s\S]*?)```/g)]
+    .flatMap((m) => m[1].replace(/\\\n\s*/g, ' ').split('\n').map((line) => line.trim()));
+  const copyLine = lines.find((line) => line.startsWith('node -e "'));
+  const copyDir = `first-win-${shape}`;
+  if (!copyLine || !lines.includes(`cd ${copyDir}`)) {
+    throw new Error(`installed first-win ${shape} README lacks the installed-package step 0`);
+  }
+  if (lines.some((line) => /(^|\s)\/tmp\//.test(line))) {
+    throw new Error(`installed first-win ${shape} README still copies to /tmp`);
+  }
+  execFileSync(process.execPath, ['-e', copyLine.slice('node -e "'.length, -1)], { cwd: scratch, stdio: 'inherit' });
+  const workDir = join(scratch, copyDir);
+  if (!existsSync(join(workDir, 'package.json')) || !existsSync(join(workDir, '.blueprints'))) {
+    throw new Error(`first-win ${shape} step 0 did not produce ${copyDir}/ with .blueprints/`);
+  }
+  const first = lines.find((line) => line.startsWith('bce '));
+  if (!first) throw new Error(`installed first-win ${shape} README has no bce command`);
+  const argv = ['exec', '--no-install', '--', 'bce', ...tokenizeShellLine(first).slice(1)];
+  const run = npmExecPath
+    ? spawnSync(process.execPath, [npmExecPath, ...argv], { cwd: workDir, encoding: 'utf8', env: npmExecEnv })
+    : spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', argv, {
+      cwd: workDir, encoding: 'utf8', env: npmExecEnv, shell: process.platform === 'win32',
+    });
+  const out = `${run.stdout ?? ''}${run.stderr ?? ''}`;
+  const [wantStatus, marker] = shape === 'empty-repo'
+    ? [2, 'author sanity FAILED: the blueprint scope matched 0 files']
+    : [0, 'authored DRAFT blueprint'];
+  if (run.status !== wantStatus || !out.includes(marker)) {
+    throw new Error(`first-win ${shape}: \`npx --no-install ${first}\` from ${copyDir}/ exited ${run.status}, ` +
+      `expected ${wantStatus} with "${marker}"\n${out}`);
+  }
+}
+process.stdout.write('installed first-win walkthroughs: step 0 + npx --no-install bce from project subdirectory PASS\n');
+
 function callInstalledRunGate(repoDir, blueprintDir) {
   const input = [
     { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25' } },
