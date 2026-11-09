@@ -253,8 +253,9 @@ if (shell === 'bash') {
       `Write-Host ${pwshQuote(`::group::> ${step.run}`)}`,
       '$global:LASTEXITCODE = 0',
       // Windows PowerShell 5.1 turns redirected native stderr into error records, which 'Stop' would
-      // throw on; keep every stream as plain text lines for the marker check instead.
-      `try { $ErrorActionPreference = 'Continue'; Invoke-Expression ${pwshQuote(step.run)} *>&1 | ForEach-Object { "$_" } | Out-File -LiteralPath $LOG -Encoding utf8 -Width 4096; $code = "$global:LASTEXITCODE" } catch { $_.ToString() | Add-Content -LiteralPath $LOG; $code = 'threw' } finally { $ErrorActionPreference = 'Stop' }`,
+      // throw on; keep every stream as plain text lines for the marker check instead. The command's
+      // own `2>&1` is what makes 5.1 capture a native command's stderr inside Invoke-Expression.
+      `try { $ErrorActionPreference = 'Continue'; Invoke-Expression ${pwshQuote(`${step.run} 2>&1`)} *>&1 | ForEach-Object { "$_" } | Out-File -LiteralPath $LOG -Encoding utf8 -Width 4096; $code = "$global:LASTEXITCODE" } catch { $_.ToString() | Add-Content -LiteralPath $LOG; $code = 'threw' } finally { $ErrorActionPreference = 'Stop' }`,
       'Get-Content -LiteralPath $LOG | Write-Host; Write-Host "::endgroup::"',
       `Check-Step $code ${step.expect} ${pwshQuote(step.command)} @(${step.markers.map(pwshQuote).join(', ')})`,
     );
