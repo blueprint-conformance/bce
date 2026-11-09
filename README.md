@@ -25,6 +25,19 @@ declared-stack enforcement from v0.5.0. It does not add automatic repair or regi
 Qualify the exact artifact against the source and policy you use; the version label alone is not a
 compatibility guarantee.
 
+**Source candidate: v0.6.3 (not published).** v0.6.2 plus a security fix and fail-closed
+corrections. A pinned `bce run` (the default, and the evidence path) now refuses a materialized tree
+that is missing any file the commit tracks; the advisory is published with the release. The gate
+refuses two blueprint files that share one `id@version`; the bundle and chain verifiers check
+extraction profile, toolchain and record identity; and the offline chain verifier accepts genuine
+declared-stack records. The package no longer ships JS source maps or bin-only CJS builds. Until
+v0.6.3 is released, v0.6.2 above is the version to install. The registry preflight below answers
+`E404` until that release exists:
+
+```bash
+npm view bce-engine@0.6.3 version dist.integrity
+```
+
 `bce` gives coding agents a local, deterministic architecture check. A versioned
 `EngineeringBlueprint` records the repository's structural rules. Agents draft those rules from
 your intent, inspect the code, and repair violations; the same engine checks every pull request.
