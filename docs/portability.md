@@ -40,9 +40,13 @@ README "Run a real gate" section, `docs/quickstart.md`, and `examples/quickstart
 `scripts/public-install-walkthrough.mjs` extracts those commands from the documents, so a
 document that drifts from what works fails the leg. Each command must exit with its documented code:
 GREEN gates exit 0 with `0 failing`, and the drifted gate exits 1 naming the forbidden `axios` edge
-at `src/greeting.plugin.ts#L16`. Windows runs the commands in PowerShell, using a document's
-`powershell` block in place of the `bash` block directly before it; Linux and macOS use bash. A
-last step checks that every lockfile resolved the pinned registry tarball with the pinned integrity.
+at `src/greeting.plugin.ts#L16`. Windows runs the commands in Windows PowerShell 5.1, using a
+document's `powershell` block in place of the `bash` block directly before it; Linux and macOS use
+bash. The Windows legs run under the Restricted execution policy of an unconfigured Windows client:
+each first proves that bare `npm` is refused with "running scripts is disabled", then runs the
+commands with the `npm.cmd` / `npx.cmd` workaround the document states, so a document without
+that note fails the leg. A last step checks that every lockfile resolved the pinned registry
+tarball with the pinned integrity.
 
 Like the matrix, this workflow is evidence only after it has completed successfully on the relevant
 revision. It depends on registry availability, so it is not a required check.

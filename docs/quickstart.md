@@ -30,6 +30,8 @@ examples/quickstart/
 
 Check `node --version`: Node 22 or newer is required. Use a fresh directory.
 The commands below also work in PowerShell; each is a separate step.
+On Windows, if PowerShell refuses `npm` or `npx` because "running scripts is disabled on this system",
+run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or type `npm.cmd` / `npx.cmd` in place of `npm` / `npx`.
 After installation, all BCE operations are local.
 
 ```sh

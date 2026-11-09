@@ -28,7 +28,9 @@ the [release record](release-v0.6.2.md) before changing artifacts or choosing th
 Node 22 or newer is required. Check `node --version` first. Use the repository’s existing package
 manager and workspace; preserve its lockfile. For npm, install the exact release as a development
 dependency. Both `bce` and `bce-mcp` become local project binaries. Every command in this guide
-is one line and also works in PowerShell and cmd.exe; each line is a separate step:
+is one line and also works in PowerShell and cmd.exe; each line is a separate step.
+On Windows, if PowerShell refuses `npm` or `npx` because "running scripts is disabled on this system",
+run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or type `npm.cmd` / `npx.cmd` in place of `npm` / `npx`.
 
 ```sh
 npm view bce-engine@0.6.2 version dist.integrity
