@@ -44,7 +44,7 @@ verify realistic violations in your own repository.
 <p align="center">
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/self-gate.yml/badge.svg" alt="self-gate workflow status"></a>
   <a href="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/ci.yml/badge.svg" alt="continuous integration workflow status"></a>
-  <img src="assets/badges/tests.svg" alt="tests: 1556">
+  <img src="assets/badges/tests.svg" alt="tests: 1558">
   <a href="https://github.com/blueprint-conformance/bce/releases/latest"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/release.yml/badge.svg" alt="release workflow status"></a>
   <a href="https://blueprint-conformance.github.io/bce/"><img src="https://github.com/blueprint-conformance/bce/actions/workflows/docs-site-check.yml/badge.svg" alt="documentation site check status"></a>
   <a href="LICENSE"><img src="assets/badges/license.svg" alt="license: Apache-2.0"></a>
