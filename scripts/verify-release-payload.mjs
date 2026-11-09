@@ -54,7 +54,30 @@ try {
 
 const failures = [];
 const files = Array.isArray(packResult?.files) ? [...packResult.files].sort((a, b) => a.path.localeCompare(b.path)) : [];
-const declared = Array.isArray(packageJson.files) ? packageJson.files : [];
+const declaredEntries = Array.isArray(packageJson.files) ? packageJson.files : [];
+// npm treats a files[] entry that starts with "!" as an exclusion; the rest are inclusions.
+const declared = declaredEntries.filter((entry) => !entry.startsWith('!'));
+// Minimal glob for the exclusions: "**" may cross directories, "*" and "?" stay inside one segment.
+const globToRegExp = (glob) => {
+  let source = '';
+  for (let index = 0; index < glob.length; index += 1) {
+    const char = glob[index];
+    if (char === '*' && glob[index + 1] === '*') {
+      source += '.*';
+      index += 1;
+    } else if (char === '*') {
+      source += '[^/]*';
+    } else if (char === '?') {
+      source += '[^/]';
+    } else {
+      source += /[\\^$.|+()[\]{}]/.test(char) ? `\\${char}` : char;
+    }
+  }
+  return new RegExp(`^${source}(?:/.*)?$`);
+};
+const exclusions = declaredEntries
+  .filter((entry) => entry.startsWith('!'))
+  .map((entry) => ({ entry, pattern: globToRegExp(entry.slice(1)) }));
 const automatic = new Set(['LICENSE', 'README.md', 'package.json']);
 const forbiddenRoots = ['.blueprints/', '.github/', 'research/', 'evidence/dogfood/'];
 
@@ -125,6 +148,8 @@ if (suppliedTarball) {
 const isDeclared = (candidate) => automatic.has(candidate) || declared.some((entry) => candidate === entry || candidate.startsWith(`${entry}/`));
 for (const file of files) {
   if (!isDeclared(file.path)) failures.push(`${file.path} is outside package.json files[]`);
+  const exclusion = exclusions.find(({ pattern }) => pattern.test(file.path));
+  if (exclusion) failures.push(`${file.path} matches package.json files[] exclusion ${exclusion.entry}`);
   if (forbiddenRoots.some((prefix) => file.path.startsWith(prefix))) failures.push(`${file.path} belongs to a non-shipping evidence/governance root`);
 }
 for (const required of ['LICENSE', 'README.md', 'package.json', 'release-state.json', 'action.yml', 'dist/cli.js', 'dist/index.js', 'dist/index.cjs', 'dist/index.d.ts']) {
