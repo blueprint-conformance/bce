@@ -27,15 +27,23 @@ bce author …   →   bce gate  (RED, exit 1)   →   edit the code   →   bce
 
 ## Which command is `bce`?
 
-Install the exact public package and copy its shipped examples to a writable directory:
+Install the exact public package in your project:
 
 ```bash
 npm view bce-engine@0.6.2 version dist.integrity
 npm install --save-dev --save-exact bce-engine@0.6.2
-cp -R node_modules/bce-engine/examples/first-win ./bce-first-win
 # then, wherever a walkthrough says `bce`:
 npx --no-install bce …
 ```
+
+Step 0 of each walkthrough copies its starting tree out of `node_modules/bce-engine/examples/first-win/`
+into a subdirectory of that same project (for example `first-win-plain-js/`), with a `node -e` one-liner
+that works in bash, zsh, PowerShell and cmd. Keep the copy inside the project. It has its own
+`package.json` with no dependencies, so `npx --no-install bce` only resolves through the parent's
+`node_modules/.bin`; from `/tmp` or another unrelated directory it fails. `node ../node_modules/bce-engine/dist/cli.js`
+is the explicit equivalent. Never drop `--no-install`: an unrelated package named `bce` exists on the
+npm registry. From a checkout of this repository, copy `examples/first-win/<shape>/repo` instead and
+use `node /path/to/bce/dist/cli.js`.
 
 The published package manifest includes `examples/`, with all six walkthroughs plus the full
 onboarding assets.

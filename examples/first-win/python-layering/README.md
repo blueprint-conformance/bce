@@ -9,13 +9,25 @@ one reverse import in `src/service/domain/orders.py`.
 
 ## 0. Work in a copy
 
+Run this from the project where you installed the engine (`npm install --save-dev --save-exact
+bce-engine@0.6.2`, see [`../README.md`](../README.md)). It copies the shipped starting tree into a
+subdirectory of that project and works the same in bash, zsh, PowerShell and cmd:
+
 ```bash
-cp -R examples/first-win/python-layering/repo /tmp/bce-first-win-python-layering
-cd /tmp/bce-first-win-python-layering
-mkdir -p .blueprints
+node -e "const fs=require('node:fs');fs.cpSync('node_modules/bce-engine/examples/first-win/python-layering/repo','first-win-python-layering',{recursive:true});fs.mkdirSync('first-win-python-layering/.blueprints',{recursive:true})"
+cd first-win-python-layering
 ```
 
-`bce` below means `npx --no-install bce` after installing exact `bce-engine@0.6.2`.
+`bce` below means `npx --no-install bce`, run from inside `first-win-python-layering`. The copy has its own
+`package.json` with no dependencies, so it must stay inside the project: npx finds the CLI in the
+parent's `node_modules/.bin`. A copy somewhere else (for example `/tmp`) cannot resolve it. If
+npx still cannot find it, `node ../node_modules/bce-engine/dist/cli.js` runs the same CLI. Do not
+drop `--no-install`: an unrelated package named `bce` is on the npm registry, and npx would offer
+to install it.
+
+**From a checkout of this repository instead:** after `npm ci && npm run build`, copy
+`examples/first-win/python-layering/repo` to any scratch directory, create `.blueprints/` in it, and use
+`node /path/to/bce/dist/cli.js` wherever a step says `bce`.
 
 ## 1. Author one direct boundary
 
