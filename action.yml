@@ -98,10 +98,17 @@ runs:
       run: |
         set -euo pipefail
         if [ "${{ inputs.engine }}" = "local" ]; then
-          echo "→ building the immutable Action engine (npm ci + npm run build)"
+          echo "→ building the immutable Action engine (npm ci; its prepare script builds)"
           cd "$GITHUB_ACTION_PATH"
-          npm ci
-          npm run build
+          # The local arm compiles from source, so it needs the full dev tree
+          # (tsup, tsc). `npm ci` already runs the root `prepare` script
+          # (= `npm run build`), so a second explicit build only repeated the
+          # same work. Build again only if prepare did not leave the CLI behind.
+          npm ci --no-audit --no-fund
+          if [ ! -f dist/cli.js ]; then
+            echo "→ dist/cli.js missing after npm ci; running npm run build"
+            npm run build
+          fi
           echo "bce=node $GITHUB_ACTION_PATH/dist/cli.js" >> "$GITHUB_OUTPUT"
         else
           if [[ ! "${{ inputs.engine }}" =~ ^bce-engine@[0-9]+\.[0-9]+\.[0-9]+$ ]]; then

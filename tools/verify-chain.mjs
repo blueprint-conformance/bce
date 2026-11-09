@@ -65,14 +65,15 @@ const REQUIRED = [
   ['traceId', 'string'],
   ['blueprintRef', 'string'],
   ['ctRepoRevision', 'string'],
-  ['score', 'number'],
   ['verdict', 'string'],
   ['violationCount', 'number'],
   ['reportEvidenceRef', 'string'],
   ['previousHash', 'string'],
   ['hash', 'string'],
 ];
-const OPTIONAL = new Set(['toolchain']);
+// `score` is checked in shapeError: a number, or null exactly when the verdict is 'indeterminate'.
+// The two stack digests come from declared-stack (v2) reports and are present together or not at all.
+const OPTIONAL = new Set(['score', 'toolchain', 'stackDigest', 'manifestDigest']);
 
 function toolchainError(value) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return "field 'toolchain' is not an object";
@@ -83,7 +84,9 @@ function toolchainError(value) {
     const extra = Object.keys(object).filter((field) => !fields.includes(field));
     return extra.length > 0 ? `${label} has unexpected field(s): ${extra.join(', ')}` : null;
   };
-  let error = exact(value, ['engine', 'dependencyLock', 'runtime', 'extractor'], 'toolchain');
+  // Declared-stack records name their providers instead of a single extractor.
+  const providers = 'providers' in value;
+  let error = exact(value, ['engine', 'dependencyLock', 'runtime', providers ? 'providers' : 'extractor'], 'toolchain');
   if (error) return error;
   error = exact(value.engine, ['name', 'version'], 'toolchain.engine');
   if (error) return error;
@@ -91,17 +94,36 @@ function toolchainError(value) {
   if (error) return error;
   error = exact(value.runtime, ['node', 'npm', 'platform', 'arch'], 'toolchain.runtime');
   if (error) return error;
-  error = exact(value.extractor, ['kind', 'profile', 'provider', 'version'], 'toolchain.extractor');
-  if (error) return error;
+  const extractors = [];
+  if (providers) {
+    if (!Array.isArray(value.providers) || value.providers.length === 0) return 'toolchain.providers is not a non-empty array';
+    for (const [i, p] of value.providers.entries()) {
+      const label = `toolchain.providers[${i}]`;
+      if (p?.evidenceClass === 'declaredStack') {
+        error = exact(p, ['evidenceClass', 'provider', 'version'], label);
+        if (error) return error;
+        if (p.provider !== 'selected-stack-v1') return `${label}.provider must be 'selected-stack-v1'`;
+        if (typeof p.version !== 'string' || p.version.length === 0) return `${label}.version is not a non-empty string`;
+      } else if (p?.evidenceClass === 'staticAst') {
+        error = exact(p, ['evidenceClass', 'kind', 'profile', 'provider', 'version'], label);
+        if (error) return error;
+        extractors.push([label, p]);
+      } else return `${label}.evidenceClass must be 'staticAst' | 'declaredStack'`;
+    }
+  } else {
+    error = exact(value.extractor, ['kind', 'profile', 'provider', 'version'], 'toolchain.extractor');
+    if (error) return error;
+    extractors.push(['toolchain.extractor', value.extractor]);
+  }
   if (value.engine.name !== 'bce-engine') return "toolchain.engine.name must be 'bce-engine'";
   if (value.dependencyLock.file !== 'npm-shrinkwrap.json') return "toolchain.dependencyLock.file must be 'npm-shrinkwrap.json'";
   if (!/^[0-9a-f]{64}$/.test(value.dependencyLock.sha256)) return 'toolchain.dependencyLock.sha256 is not 64 lowercase hex chars';
   for (const [label, field] of [
     ['toolchain.engine.version', value.engine.version], ['toolchain.runtime.node', value.runtime.node],
     ['toolchain.runtime.npm', value.runtime.npm], ['toolchain.runtime.platform', value.runtime.platform],
-    ['toolchain.runtime.arch', value.runtime.arch], ['toolchain.extractor.kind', value.extractor.kind],
-    ['toolchain.extractor.profile', value.extractor.profile], ['toolchain.extractor.provider', value.extractor.provider],
-    ['toolchain.extractor.version', value.extractor.version],
+    ['toolchain.runtime.arch', value.runtime.arch],
+    ...extractors.flatMap(([label, x]) => [[`${label}.kind`, x.kind], [`${label}.profile`, x.profile],
+      [`${label}.provider`, x.provider], [`${label}.version`, x.version]]),
   ]) if (typeof field !== 'string' || field.length === 0) return `${label} is not a non-empty string`;
   return null;
 }
@@ -118,7 +140,15 @@ function shapeError(rec) {
   if (rec.schemaVersion !== '1') return `unknown schemaVersion '${rec.schemaVersion}' (expected '1')`;
   if (!/^[0-9a-f]{64}$/.test(rec.hash)) return `'hash' is not 64 lowercase hex chars`;
   if (!/^[0-9a-f]{64}$/.test(rec.previousHash)) return `'previousHash' is not 64 lowercase hex chars`;
-  if (rec.verdict !== 'pass' && rec.verdict !== 'fail') return `'verdict' must be 'pass' | 'fail'`;
+  if (!['pass', 'fail', 'indeterminate'].includes(rec.verdict)) return `'verdict' must be 'pass' | 'fail' | 'indeterminate'`;
+  if (!('score' in rec)) return "missing required field 'score'";
+  if (rec.score === null ? rec.verdict !== 'indeterminate' : typeof rec.score !== 'number' || rec.verdict === 'indeterminate') {
+    return "'score' must be a number, or null exactly when 'verdict' is 'indeterminate'";
+  }
+  if (('stackDigest' in rec) !== ('manifestDigest' in rec)) return "'stackDigest' and 'manifestDigest' must appear together";
+  for (const field of ['stackDigest', 'manifestDigest']) {
+    if (field in rec && !/^[0-9a-f]{64}$/.test(rec[field])) return `'${field}' is not 64 lowercase hex chars`;
+  }
   if (rec.toolchain !== undefined) {
     const error = toolchainError(rec.toolchain);
     if (error) return error;
