@@ -115,6 +115,11 @@ source locally. The canonical `v0.6.2` Release is immutable, but executable work
 source commit rather than relying on tag semantics. Pass `--engine bce-engine@0.6.2` when you want
 the generated workflow to install the exact registry package independently.
 
+CI cost per run: the default `engine: local` arm runs `npm ci` on the Action checkout, which
+installs the full development tree (the engine is compiled with tsup and tsc), and then builds once.
+An `engine: bce-engine@<exact-version>` pin skips the build and fetches only the published
+package's runtime dependencies through npx, so it is the lighter choice for most PR gates.
+
 These examples select v0.6.2 for CI. Upgrading a local installation does not upgrade an existing
 workflow. Verify the generated engine pin before relying on the route correction in CI; v0.3.0
 CI does not include it.
