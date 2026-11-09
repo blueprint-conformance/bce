@@ -13,8 +13,9 @@
 > active as the Lane-A trust anchor.
 
 v0.6.2 is v0.6.1 plus npm identification on Windows when emitting evidence and a production-only
-published `npm-shrinkwrap.json`, so `npm install -D bce-engine@0.6.2` installs 11 runtime packages
-(~43 MB) instead of v0.6.1's 184 packages (~202 MB). Its runtime tree and pins are unchanged; do not
+published `npm-shrinkwrap.json`, so `npm install -D bce-engine@0.6.2` installs bce-engine plus the
+15 runtime packages that shrinkwrap locks (~43 MB). v0.6.1's shrinkwrap locked 387 packages, 372 of
+them development-only (~202 MB). Its runtime tree and pins are unchanged; do not
 pin v0.6.1 for new installs. The v0.6.1 line added review APIs and CLI workflows
 (`architecture-review`, `policy-impact`), evidence-bound repair briefs (`repair capture`,
 `repair brief`), workspace-aware stack review, the explicit bounded `forbiddenDependencyPath` arm from
@@ -168,7 +169,7 @@ replay against the engine.
 
 ## One engine, three entry points
 
-Use the **CLI** for local feedback, the pinned **GitHub Action** at the merge boundary, or ten
+Use the **CLI** for local feedback, the pinned **GitHub Action** at the merge boundary, or eleven
 read-only **MCP tools** inside an agent loop. They share the same extraction, evaluation, report,
 and exit-code path; policy changes remain outside MCP. The released Action source is pinned to
 `blueprint-conformance/bce@17be7a3d25ca1db62be58ce88d6c16d7e35cd3ac`.

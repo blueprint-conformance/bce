@@ -14,10 +14,12 @@ no runtime dependency version.
 - **A production-only published `npm-shrinkwrap.json`** ([#145](https://github.com/blueprint-conformance/bce/pull/145)).
   npm installs every entry of a dependency's published shrinkwrap, including entries marked
   `"dev": true`, whenever the registry packument says `_hasShrinkwrap`. v0.6.1 shipped the
-  repository's full development lock, so `npm install -D bce-engine@0.6.1` installed 184 nested
-  packages (202 MB on disk), including vitest, rolldown, oclif, the MCP inspector, and the sigstore
-  CLI. v0.6.2 publishes the runtime tree only: 16 lock entries, 0 development entries. The release
-  and rehearsal workflows prune the lock immediately before the single `npm pack`;
+  repository's full development lock, so `npm install -D bce-engine@0.6.1` installed its development
+  toolchain (202 MB on disk): the published shrinkwrap locked 387 packages, 372 of them
+  development-only, including vitest, rolldown, oclif, the MCP inspector, and the sigstore CLI.
+  v0.6.2 publishes the runtime tree only: 15 locked packages plus the root entry, 0 development
+  entries. The release and rehearsal workflows prune the lock immediately before the single
+  `npm pack`;
   `verify-release-payload` refuses a tarball whose packed shrinkwrap carries any development entry;
   and the build bakes the digest of that production-only form, so evidence `toolchain.dependencyLock`
   names the bytes a consumer installs. Local-tarball installs never read a dependency's shrinkwrap,
@@ -83,12 +85,13 @@ summaries are [route replay evidence](../evidence/releases/v0.6.2-registry-consu
 [declared-stack replay evidence](../evidence/releases/v0.6.2-declared-stack-consumer.json).
 
 Install footprint, measured from the public registry into empty projects with empty npm caches
-(`npm install -D -E`, Windows x64, Node v22.19.0, npm 10.9.3):
+(`npm install -D -E`, Windows x64, Node v22.19.0, npm 10.9.3). The package column counts the
+non-root `packages` entries of the `npm-shrinkwrap.json` inside each version's registry tarball:
 
-| Version | `node_modules` | Nested packages | Dev toolchain present | `bce demo --recipe module-layering` |
+| Version | `node_modules` | Packages locked in published shrinkwrap | Dev toolchain present | `bce demo --recipe module-layering` |
 |---|---|---|---|---|
-| `0.6.1` | 202 MB | 184 | yes (vitest, rolldown, …) | GREEN/RED |
-| `0.6.2` | 43 MB | 11 | no | GREEN/RED |
+| `0.6.1` | 202 MB | 387 (372 development-only) | yes (vitest, rolldown, …) | GREEN/RED |
+| `0.6.2` | 43 MB | 15 (0 development-only) | no | GREEN/RED |
 
 The tag run passed `1,551` tests with `2` skipped, the self-gate, every release gate, provenance
 publication, and immutable Release finalization. The

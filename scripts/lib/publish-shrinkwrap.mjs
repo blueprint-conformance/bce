@@ -4,9 +4,9 @@
 // ones marked `"dev": true`, whenever the registry packument says
 // `_hasShrinkwrap: true` (npmjs.com always does for a tarball that carries one).
 // bce-engine 0.6.1 shipped its full development lock: a plain
-// `npm install -D bce-engine@0.6.1` pulled 184 packages / 202 MB (vitest,
-// rolldown, oclif, the MCP inspector, the sigstore CLI) where the runtime needs
-// 11 / 43 MB. A local-tarball install never reads the shrinkwrap, so the
+// `npm install -D bce-engine@0.6.1` pulled 202 MB from a shrinkwrap of 387
+// locked packages, 372 of them dev (vitest, rolldown, oclif, the MCP inspector,
+// the sigstore CLI), where the runtime needs 15 locked packages / 43 MB. A local-tarball install never reads the shrinkwrap, so the
 // tarball-based consumer proofs could not see it.
 //
 // The repository keeps the full lock (`npm ci` needs it). Every place that packs
