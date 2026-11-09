@@ -27,6 +27,26 @@ Cold installation still depends on the configured npm-compatible registry servin
 artifact. Authentication against a particular enterprise registry is not claimed until exercised
 against that registry; the proof only establishes that runtime execution neither bypasses nor needs it.
 
+## Public install path
+
+The matrix above proves the source tree and a tarball packed from it. It does not prove what a new
+user gets. The non-required `public-install` workflow (`.github/workflows/public-install.yml`) runs
+on a daily schedule, on manual dispatch, after the `release` workflow completes, and on pull
+requests that change the install documents or `.engine-pin.json`. On Ubuntu, macOS, and Windows,
+with Node 22 and 24, it installs the exact version named in `.engine-pin.json` from the public npm
+registry into empty directories with a cold npm cache. It then runs the fenced commands from the
+README "Run a real gate" section, `docs/quickstart.md`, and `examples/quickstart/README.md`.
+
+`scripts/public-install-walkthrough.mjs` extracts those commands from the documents, so a
+document that drifts from what works fails the leg. Each command must exit with its documented code:
+GREEN gates exit 0 with `0 failing`, and the drifted gate exits 1 naming the forbidden `axios` edge
+at `src/greeting.plugin.ts#L16`. Windows runs the commands in PowerShell, using a document's
+`powershell` block in place of the `bash` block directly before it; Linux and macOS use bash. A
+last step checks that every lockfile resolved the pinned registry tarball with the pinned integrity.
+
+Like the matrix, this workflow is evidence only after it has completed successfully on the relevant
+revision. It depends on registry availability, so it is not a required check.
+
 ## Full doctor integration budget
 
 The repository doctor integration test executes the complete live-source mutation corpus for both
