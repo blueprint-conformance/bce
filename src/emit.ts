@@ -93,7 +93,8 @@ export function toEvidenceRecord(
 
 /**
  * Verify an evidence chain is intact and un-tampered: each record's `previousHash` matches the
- * prior record's `hash`, and each record's `hash` re-derives from its body. Returns the index of
+ * prior record's `hash`, each record's `hash` re-derives from its body, and each `id` is the one derived
+ * from that hash. Returns the index of
  * the first broken link, or -1 if the whole chain verifies. Empty chain → -1 (vacuously intact).
  */
 export function verifyEvidenceChain(chain: readonly EvidenceRecord[]): number {
@@ -102,8 +103,9 @@ export function verifyEvidenceChain(chain: readonly EvidenceRecord[]): number {
     const r = chain[i]!;
     if (r.previousHash !== prev) return i;
     const { id, hash, ...body } = r;
-    void id;
     if (sha256(stableStringify(body)) !== hash) return i;
+    // The id is not hashed, so bind it to the content explicitly (as tools/verify-chain.mjs does).
+    if (id !== `evidence:${r.blueprintRef}:${hash.slice(0, 16)}`) return i;
     prev = r.hash;
   }
   return -1;
