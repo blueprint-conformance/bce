@@ -123,6 +123,10 @@
   },
   "files": [
     "dist",
+    "!dist/*.js.map",
+    "!dist/*.cjs.map",
+    "!dist/cli.cjs",
+    "!dist/mcp-server.cjs",
     "src",
     "fixtures",
     "integrations",

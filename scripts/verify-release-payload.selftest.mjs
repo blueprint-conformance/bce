@@ -13,6 +13,7 @@ const fixture = mkdtempSync(join(tmpdir(), 'bce-release-payload-proof-'));
 cpSync(join(repoRoot, 'package.json'), join(fixture, 'package.json'));
 const packageJson = JSON.parse(readFileSync(join(fixture, 'package.json'), 'utf8'));
 for (const entry of packageJson.files) {
+  if (entry.startsWith('!')) continue; // an exclusion names no path to create
   const target = join(fixture, entry);
   if (/\.[a-z0-9]+$/i.test(entry)) {
     mkdirSync(dirname(target), { recursive: true });
@@ -52,6 +53,10 @@ function reject(label, result, marker, extraArgs = []) {
 
 reject('research leakage', { ...valid, files: [...valid.files, { path: 'research/private.json', size: 1, mode: 420 }] }, 'non-shipping evidence/governance root');
 reject('missing CLI', { ...valid, files: valid.files.filter((file) => file.path !== 'dist/cli.js') }, 'required runtime artifact is missing');
+// package.json files[] excludes the JS source maps and the bin-only CJS builds; a payload that
+// still carries them must be refused.
+reject('source map in payload', { ...valid, files: [...valid.files, { path: 'dist/cli.js.map', size: 1, mode: 420 }] }, 'files[] exclusion !dist/*.js.map');
+reject('bin-only CJS build in payload', { ...valid, files: [...valid.files, { path: 'dist/cli.cjs', size: 1, mode: 420 }] }, 'files[] exclusion !dist/cli.cjs');
 reject('version drift', { ...valid, version: '9.9.9' }, 'differs from package.json');
 const releaseStatePath = join(fixture, 'release-state.json');
 const releaseState = JSON.parse(readFileSync(releaseStatePath, 'utf8'));
@@ -85,4 +90,4 @@ if (!run(clean.result, ['--tarball', clean.tarball]).includes('PASS')) throw new
 
 const accepted = run(valid);
 if (!accepted.includes('PASS')) throw new Error(`valid payload did not pass:\n${accepted}`);
-process.stdout.write('release-payload-proof self-test: PASS — research leakage, missing runtime, source/version drift, tarball substitution, and a dev-carrying shrinkwrap were rejected\n');
+process.stdout.write('release-payload-proof self-test: PASS — research leakage, excluded source maps and CJS bin builds, missing runtime, source/version drift, tarball substitution, and a dev-carrying shrinkwrap were rejected\n');
