@@ -82,6 +82,16 @@ function verifyLegacyEvidenceBundle(bundle: LegacyEvidenceBundle): EvidenceBundl
     const body: WithoutBundleHash = { ...bundle, hashes: artifactHashes };
     if (sha256(body) !== bundle.hashes.bundle) failures.push('bundle hash mismatch');
     if (blueprint) {
+      // The profile changes how the report is scored, so it must be the blueprint's own (as in v2),
+      // and the recorded toolchain must agree with the envelope it travels in.
+      if (resolveExtraction(blueprint.extraction, blueprint.constraints).profile !== bundle.invocation.extractionProfile) {
+        failures.push('extraction profile mismatch');
+      }
+      if (bundle.toolchain && (stableStringify(bundle.toolchain.engine) !== stableStringify(bundle.engine)
+        || stableStringify(bundle.toolchain.runtime) !== stableStringify(bundle.environment)
+        || bundle.toolchain.extractor?.profile !== bundle.invocation.extractionProfile)) {
+        failures.push('toolchain identity mismatch');
+      }
       const reproduced = evaluate(blueprint, bundle.artifacts.graph, bundle.invocation.extractionProfile, bundle.artifacts.report.repo);
       if (stableStringify(reproduced) !== stableStringify(bundle.artifacts.report)) failures.push('report does not reproduce from bundled blueprint and graph');
     }
