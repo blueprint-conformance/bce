@@ -26,7 +26,7 @@ replication, or product efficacy is claimed.
 | Packed local tarball | Working, clean-room tested | `npm run test:package` installs the tarball outside the source tree, preserves the zero-argument `bce demo` contract, and executes all six packaged architecture recipes; the released tarball digest also matches npm |
 | npm | Released | [`bce-engine@0.6.3`](https://www.npmjs.com/package/bce-engine/v/0.6.3) is public with SLSA provenance and integrity `sha512-oDNXYjuX4/Dui1f5DKf3UgvaZ09TJVfMKdx2Zvz75fdZeTXbjCrMLbKQqMt2SdawsEc6HtBczc3xTetSuUukOg==`; install the exact version on Node 22+ |
 | Git tag / GitHub Release | Released, immutable | [`v0.6.3`](https://github.com/blueprint-conformance/bce/releases/tag/v0.6.3) is immutable at source `0e0b022a20e458f77118c5adb210e5e26e5a6e82` with six digest-bound assets: the exact tarball, payload manifest and signature, EvidenceRecord and signature, and compliance report ([verification record](docs/release-v0.6.3.md)) |
-| GitHub Action | Released | Pin `blueprint-conformance/bce@0e0b022a20e458f77118c5adb210e5e26e5a6e82` (the v0.6.3 source commit), never a tag; the creator-maintained external RED/GREEN witness below was replayed under the enforced posture against the v0.6.2 Action commit `17be7a3d25ca1db62be58ce88d6c16d7e35cd3ac` and the v0.6.1 Action commit `ef5b806dcf58b1100db9ca512c6f7683d3873697` on 2026-11-08, not yet against this v0.6.3 commit |
+| GitHub Action | Released | Pin `blueprint-conformance/bce@0e0b022a20e458f77118c5adb210e5e26e5a6e82` (the v0.6.3 source commit), never a tag; the creator-maintained external RED/GREEN witness below was replayed under the enforced posture against this v0.6.3 commit on 2026-11-10, and against the v0.6.2 (`17be7a3d25ca1db62be58ce88d6c16d7e35cd3ac`) and v0.6.1 (`ef5b806dcf58b1100db9ca512c6f7683d3873697`) Action commits on 2026-11-08 |
 | GitLab template | Unsupported reference | It uses exact `bce-engine@0.6.3` and is fail-closed, but no real GitLab runner/client matrix has been completed; GitLab is not a supported integration |
 | OpenAI plugin | Packaged, unsubmitted | `.codex-plugin/plugin.json` validates as a skills-only ChatGPT/Codex plugin; there is no portal submission, public listing URL, or clean-account directory install |
 
@@ -98,8 +98,14 @@ replication, or product efficacy is claimed.
   [GREEN after the fix](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/33690296051).
   That RED is evidence of enforced blocking in an external consumer. It remains creator-maintained
   (see the consumer's `WITNESS.md`), so it does not change the independent-witness count below.
-  On 2026-11-08 the enforced sequence was replayed on the consumer's unmerged draft PRs (its committed
-  pin moves only after human review). Against the v0.6.2 Action commit
+  Since 2026-11-08 the enforced sequence has been replayed on the consumer's unmerged draft PRs (its committed
+  pin moves only after human review). On 2026-11-10, against the v0.6.3 Action commit
+  `0e0b022a20e458f77118c5adb210e5e26e5a6e82`, on draft PR #9:
+  [clean GREEN](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/42729584269) →
+  [planted drift **FAILED the run**](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/42729720960)
+  (`forbidden-dependency-axios` at `src/billing.extension.ts#L1`, score 60) →
+  [GREEN after the fix](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/42729865676).
+  Against the v0.6.2 Action commit
   `17be7a3d25ca1db62be58ce88d6c16d7e35cd3ac`, on draft PR #7:
   [clean GREEN](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/42499038562) →
   [planted drift **FAILED the run**](https://github.com/blueprint-conformance/bce-action-witness/actions/runs/42499103158)
