@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1",
+  "kind": "registry-consumer-result-summary",
+  "package": "bce-engine",
+  "version": "0.6.3",
+  "sourceCommit": "0e0b022a20e458f77118c5adb210e5e26e5a6e82",
+  "releaseUrl": "https://github.com/blueprint-conformance/bce/releases/tag/v0.6.3",
+  "provenanceRunUrl": "https://github.com/blueprint-conformance/bce/actions/runs/42723194499/attempts/1",
+  "tarballSha256": "f445114df49ef674b1c9c8af542d2ec7b7b2f42f60f689e647d35cf3bdffbcb4",
+  "npmIntegrity": "sha512-oDNXYjuX4/Dui1f5DKf3UgvaZ09TJVfMKdx2Zvz75fdZeTXbjCrMLbKQqMt2SdawsEc6HtBczc3xTetSuUukOg==",
+  "npmShasum": "61dacb83a956bae38578a5f085a096fce6a4081c",
+  "passed": true,
+  "caseCount": 52,
+  "environment": {
+    "node": "v22.19.0",
+    "npm": "10.9.3",
+    "platform": "win32",
+    "architecture": "x64"
+  },
+  "evidenceBoundary": "First-party synthetic installed-CLI verification; not independent adoption, human review, product efficacy, or behavioral authorization proof. This is a result summary, not the complete raw local evidence bundle.",
+  "replayScriptUrl": "https://github.com/blueprint-conformance/bce/blob/0e0b022a20e458f77118c5adb210e5e26e5a6e82/scripts/route-consumer-proof.mjs",
+  "tagConsumerArtifactUrl": "https://github.com/blueprint-conformance/bce/actions/runs/42723194499/artifacts/13720639537",
+  "rawLocalProofSha256": "a100b20ebd145213f21321688b719e6d48adfd0c894f1198e7b2a08de2f613d0"
+}

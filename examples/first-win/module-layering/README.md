@@ -5,12 +5,12 @@
 **The rule:** application code may use domain code; domain code must never import the application
 layer. The starting tree contains one reverse import in `packages/domain/order.ts`.
 
-**Availability:** this walkthrough uses `typescript-module-graph` from the `v0.6.2` release.
+**Availability:** this walkthrough uses `typescript-module-graph` from the `v0.6.3` release.
 
 ## 0. Work in a copy
 
 Run this from the project where you installed the engine (`npm install --save-dev --save-exact
-bce-engine@0.6.2`, see [`../README.md`](../README.md)). It copies the shipped starting tree into a
+bce-engine@0.6.3`, see [`../README.md`](../README.md)). It copies the shipped starting tree into a
 subdirectory of that project and works the same in bash, zsh, PowerShell and cmd:
 
 ```bash

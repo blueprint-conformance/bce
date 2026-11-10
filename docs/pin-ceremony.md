@@ -11,7 +11,7 @@ Lane A exists to close a trusting-trust hole: a change that simultaneously break
 engine's ability to notice the break must not be able to self-grade green. That property only holds if
 the grader is **fixed** — a published artifact the PR under review cannot influence.
 
-- `bce-engine@0.6.2` — never `^0.6.2`, `~0.6.2`, or `@latest`. A range would let a *later* publish
+- `bce-engine@0.6.3` — never `^0.6.3`, `~0.6.3`, or `@latest`. A range would let a *later* publish
   silently change the gate every contributor is measured against, reintroducing the exact hole Lane A
   removes.
 - The **caret-0.x incident** is the recorded reason ranges are forbidden even when they look harmless:
@@ -76,8 +76,8 @@ published to pin, so:
   [`docs/self-hosting.md`](./self-hosting.md).
 
 The `v0.1.0` release completed this bootstrap. The current pin is the published, registry-resolvable
-`bce-engine@0.6.2`, so Lane A runs on every self-gate. The v0.6.2 pin/claims PR is graded by v0.6.1
-from its exact PR base SHA; the post-merge push then activates v0.6.2. Later releases follow the same
+`bce-engine@0.6.3`, so Lane A runs on every self-gate. The v0.6.3 pin/claims PR is graded by v0.6.2
+from its exact PR base SHA; the post-merge push then activates v0.6.3. Later releases follow the same
 predecessor-gated ceremony. The conditional remains solely as a fail-closed generic bootstrap state,
 not as a description of the current repository.
 
