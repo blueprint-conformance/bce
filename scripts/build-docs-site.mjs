@@ -189,6 +189,7 @@ const PAGES = [
   { route: 'rfcs/RFC-0003-workspace-stack-review', source: 'rfcs/RFC-0003-workspace-stack-review.md', section: 'RFCs' },
 
   { route: 'rfcs/RFC-0004-bounded-dependency-path', source: 'rfcs/RFC-0004-bounded-dependency-path.md', section: 'RFCs' },
+  { route: 'rfcs/RFC-0005-reserved-constraints-refuse', source: 'rfcs/RFC-0005-reserved-constraints-refuse.md', section: 'RFCs' },
 
   { route: 'guides/faq', source: 'docs/faq.md', nav: 'FAQ', section: 'Guides' },
 
