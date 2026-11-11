@@ -1,16 +1,16 @@
 {
   "$comment": "The Lane-A engine pin \u2014 the EXACT published bce-engine version that gates this tree independently of the code under review. See docs/pin-ceremony.md and docs/self-hosting.md \u00a7'Lane A / Lane B'. Bumping this pin is a PR gated by the OLD pin (a trust-anchor ratchet), never an in-line edit.",
   "package": "bce-engine",
-  "pin": "0.6.3",
+  "pin": "0.6.4",
   "range": false,
-  "rangeRationale": "EXACT pin only \u2014 never ^0.6.3, ~0.6.3, or @latest. Lane A must be independent of the code under review, so it installs a fixed published artifact. A range would let a later publish silently change the grader every contributor is measured against, reintroducing the trusting-trust hole Lane A exists to close. The caret-0.x incident is the recorded reason: on a 0.x line `^0.6.3` is equivalent to `~0.6.3` and EXCLUDES 0.7.0, so a caret pin does not even receive a minor bump \u2014 it ships dead-green.",
+  "rangeRationale": "EXACT pin only \u2014 never ^0.6.4, ~0.6.4, or @latest. Lane A must be independent of the code under review, so it installs a fixed published artifact. A range would let a later publish silently change the grader every contributor is measured against, reintroducing the trusting-trust hole Lane A exists to close. The caret-0.x incident is the recorded reason: on a 0.x line `^0.6.4` is equivalent to `~0.6.4` and EXCLUDES 0.7.0, so a caret pin does not even receive a minor bump \u2014 it ships dead-green.",
   "published": true,
-  "integrity": "sha512-oDNXYjuX4/Dui1f5DKf3UgvaZ09TJVfMKdx2Zvz75fdZeTXbjCrMLbKQqMt2SdawsEc6HtBczc3xTetSuUukOg==",
-  "shasum": "61dacb83a956bae38578a5f085a096fce6a4081c",
-  "sourceCommit": "0e0b022a20e458f77118c5adb210e5e26e5a6e82",
-  "provenanceRunUrl": "https://github.com/blueprint-conformance/bce/actions/runs/42723194499/attempts/1",
-  "evidenceReleaseUrl": "https://github.com/blueprint-conformance/bce/releases/tag/v0.6.3",
-  "publishedNote": "bce-engine@0.6.3 is live on the public npm registry with verified SLSA provenance from release run 42723194499 attempt 1; its exact registry integrity, source commit, and six-asset immutable Release are recorded above. Fresh registry consumers passed all 52 route cases and all 90 declared-stack cases against those same bytes.",
+  "integrity": "sha512-r2CUTrN7CyUkTaz+93giOVOlnzV5FkJ5WzMbEzgV+zwk/Ziu9w2Q+HhkbFerv1O67DzFkqm75FmFsDFjPAP6Jg==",
+  "shasum": "a5f00ef4dcfdf79fc31e3eb98d29fb563d52e88d",
+  "sourceCommit": "a3d89e99197a7f0f92267a6f22fad89667272598",
+  "provenanceRunUrl": "https://github.com/blueprint-conformance/bce/actions/runs/43003266928/attempts/1",
+  "evidenceReleaseUrl": "https://github.com/blueprint-conformance/bce/releases/tag/v0.6.4",
+  "publishedNote": "bce-engine@0.6.4 is live on the public npm registry with verified SLSA provenance from release run 43003266928 attempt 1; its exact registry integrity, source commit, and six-asset immutable Release are recorded above. Fresh registry consumers passed all 52 route cases and all 90 declared-stack cases against those same bytes.",
   "bumpCeremony": "docs/pin-ceremony.md",
-  "trustAnchor": "Lane A installs the exact public bce-engine@0.6.3 artifact, independently of the code under review. This pin is admitted by the predecessor v0.6.2 pin from the activation PR base."
+  "trustAnchor": "Lane A installs the exact public bce-engine@0.6.4 artifact, independently of the code under review. This pin is admitted by the predecessor v0.6.3 pin from the activation PR base."
 }

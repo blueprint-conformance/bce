@@ -21,9 +21,9 @@ standing rule. CI supplies enforcement. None of those duplicates conformance log
 
 ## 1. Install the exact release
 
-If you already have an installed v0.6.3 package, use its existing local binary and continue with
-the demo. The commands below install published v0.6.3. Identify the installed version and verify
-the [release record](release-v0.6.3.md) before changing artifacts or choosing the ceremony in step 6.
+If you already have an installed v0.6.4 package, use its existing local binary and continue with
+the demo. The commands below install published v0.6.4. Identify the installed version and verify
+the [release record](release-v0.6.4.md) before changing artifacts or choosing the ceremony in step 6.
 
 Node 22 or newer is required. Check `node --version` first. Use the repository’s existing package
 manager and workspace; preserve its lockfile. For npm, install the exact release as a development
@@ -33,13 +33,13 @@ On Windows, if PowerShell refuses `npm` or `npx` because "running scripts is dis
 run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or type `npm.cmd` / `npx.cmd` in place of `npm` / `npx`.
 
 ```sh
-npm view bce-engine@0.6.3 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.6.3
+npm view bce-engine@0.6.4 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.6.4
 npx --no-install bce demo
 ```
 
-For pnpm, use `pnpm add -D -E bce-engine@0.6.3` and `pnpm exec bce demo`. For Yarn with a `node_modules` install, use
-`yarn add --dev --exact bce-engine@0.6.3` and `yarn bce demo`. Run in the intended workspace;
+For pnpm, use `pnpm add -D -E bce-engine@0.6.4` and `pnpm exec bce demo`. For Yarn with a `node_modules` install, use
+`yarn add --dev --exact bce-engine@0.6.4` and `yarn bce demo`. Run in the intended workspace;
 do not create a second lockfile. Generated MCP launchers assume a `node_modules` install; Yarn
 Plug’n’Play requires a harness-specific launcher and is not covered by this walkthrough. Substitute that local runner for `npx --no-install` below.
 
@@ -85,7 +85,7 @@ existing instructions, installs both shipped Agent Skills, and configures MCP in
 project-local format.
 
 ```sh
-npx --no-install bce onboard --repo . --blueprint bce-draft.json --engine blueprint-conformance/bce@0e0b022a20e458f77118c5adb210e5e26e5a6e82 --harness agents
+npx --no-install bce onboard --repo . --blueprint bce-draft.json --engine blueprint-conformance/bce@a3d89e99197a7f0f92267a6f22fad89667272598 --harness agents
 ```
 
 Harness choices:
@@ -101,9 +101,9 @@ Override paths with `--agent-file` or `--mcp-config`. Paths are confined to the 
 existing context and unrelated MCP servers/settings are preserved. The command refuses to overwrite
 existing policy files, either installed skill, or an existing MCP server named `bce`.
 
-The generated Action uses the full commit SHA for the `v0.6.3` Action source and can build that
-source locally. The canonical `v0.6.3` Release is immutable, but executable workflows still pin the
-source commit rather than relying on tag semantics. Pass `--engine bce-engine@0.6.3` when you want
+The generated Action uses the full commit SHA for the `v0.6.4` Action source and can build that
+source locally. The canonical `v0.6.4` Release is immutable, but executable workflows still pin the
+source commit rather than relying on tag semantics. Pass `--engine bce-engine@0.6.4` when you want
 the generated workflow to install the exact registry package independently.
 
 CI cost per run: the default `engine: local` arm runs `npm ci` on the Action checkout, which
@@ -111,7 +111,7 @@ installs the full development tree (the engine is compiled with tsup and tsc), a
 An `engine: bce-engine@<exact-version>` pin skips the build and fetches only the published
 package's runtime dependencies through npx, so it is the lighter choice for most PR gates.
 
-These examples select v0.6.3 for CI. Upgrading a local installation does not upgrade an existing
+These examples select v0.6.4 for CI. Upgrading a local installation does not upgrade an existing
 workflow. Verify the generated engine pin before relying on the route correction in CI; v0.3.0
 CI does not include it.
 
@@ -175,10 +175,10 @@ findings as remaining work, not as a failed package installation or permission t
 
 Choose the ceremony supported by the exact artifact you installed:
 
-- **Published v0.6.3:** the [provider-backed review guide](ai-first-review.md) prepares a packet and
+- **Published v0.6.4:** the [provider-backed review guide](ai-first-review.md) prepares a packet and
   authenticates a non-author GitHub reviewer with maintain/admin permission. An approving review
   by the PR author does not satisfy that released path.
-- **Offline preparation in v0.6.3:** [offline review preparation and solo-steward ratification](solo-steward-ratification.md)
+- **Offline preparation in v0.6.4:** [offline review preparation and solo-steward ratification](solo-steward-ratification.md)
   use `bce review prepare` with the locally authored draft and explicit, trusted-base governance.
   This path does not need a second model call or, for the installed package, a source checkout.
 

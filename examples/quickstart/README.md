@@ -43,8 +43,8 @@ run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or type `npm.cmd
 mkdir bce-quickstart
 cd bce-quickstart
 npm init -y
-npm view bce-engine@0.6.3 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.6.3
+npm view bce-engine@0.6.4 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.6.4
 node -e "require('node:fs').cpSync('node_modules/bce-engine/examples/quickstart', 'quickstart', {recursive:true})"
 cd quickstart
 ```

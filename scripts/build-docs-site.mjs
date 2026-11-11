@@ -155,6 +155,7 @@ const PAGES = [
   { route: 'guides/release-v0.6.1', source: 'docs/release-v0.6.1.md', section: 'Guides' },
   { route: 'guides/release-v0.6.2', source: 'docs/release-v0.6.2.md', section: 'Guides' },
   { route: 'guides/release-v0.6.3', source: 'docs/release-v0.6.3.md', section: 'Guides' },
+  { route: 'guides/release-v0.6.4', source: 'docs/release-v0.6.4.md', section: 'Guides' },
   { route: 'guides/mcp-compatibility', source: 'docs/mcp-compatibility.md', section: 'Guides' },
   { route: 'guides/portability', source: 'docs/portability.md', section: 'Guides' },
   { route: 'guides/stack-plane', source: 'docs/stack-plane.md', section: 'Guides' },
