@@ -27,7 +27,7 @@ body:
     attributes:
       label: Exact BCE identity
       description: Package version plus integrity, or a 40-character source commit SHA.
-      placeholder: "bce-engine@0.2.0 / sha512-…"
+      placeholder: "bce-engine@0.6.3 / sha512-…"
     validations:
       required: true
   - type: textarea
