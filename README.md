@@ -8,15 +8,18 @@
 
 # Check architectural boundaries in agent-written code
 
-> **Current registry release: v0.6.3.** Verify the exact public identity with
-> `npm view bce-engine@0.6.3 version dist.integrity` before installation. The same exact version is
+> **Current registry release: v0.6.4.** Verify the exact public identity with
+> `npm view bce-engine@0.6.4 version dist.integrity` before installation. The same exact version is
 > active as the Lane-A trust anchor.
 
-v0.6.3 fixes a security issue: a pinned `bce run` (the default, and the evidence path) graded a
-`git archive` tree that a committed `export-ignore` could trim, so a violating file could be left out
+v0.6.4 fixes a security issue: the source walker skipped symlinked sources, so a violating file
+behind a symlinked file or directory inside a scoped glob was left out of the grade
+([GHSA-2h5p-pxm5-h89w](https://github.com/blueprint-conformance/bce/security/advisories/GHSA-2h5p-pxm5-h89w)).
+It now refuses symlinked sources and over-deep trees under extraction paths. **Upgrade from v0.6.3
+and earlier.** v0.6.3 fixed an earlier issue: a pinned `bce run` (the default, and the evidence path)
+graded a `git archive` tree that a committed `export-ignore` could trim, so a violating file could be left out
 of the grade ([GHSA-q3v2-5j8r-m3ww](https://github.com/blueprint-conformance/bce/security/advisories/GHSA-q3v2-5j8r-m3ww)).
-It now refuses any materialized tree that is missing a tracked file. **Upgrade from v0.6.2 and
-earlier.** v0.6.3 also refuses two blueprint files that share one `id@version`, checks extraction
+It now refuses any materialized tree that is missing a tracked file. v0.6.3 also refuses two blueprint files that share one `id@version`, checks extraction
 profile, toolchain and record identity in the bundle and chain verifiers, lets the offline chain
 verifier accept genuine declared-stack records, and stops shipping JS source maps and bin-only CJS
 builds. v0.6.2 added npm identification on Windows when emitting evidence and a production-only
@@ -29,22 +32,12 @@ stack foundation and selected declared-stack enforcement from v0.5.0. It does no
 repair or registry resolution. Qualify the exact artifact against the source and policy you use; the
 version label alone is not a compatibility guarantee.
 
-**Source candidate: v0.6.4 (not published).** v0.6.3 plus a security fix: the source walker
-refuses a symlinked directory, a symlinked file that matches the extraction pattern, and an over-deep
-tree under an extraction path, instead of silently leaving them out of the grade. The advisory is
-published with the release. Until v0.6.4 is released, v0.6.3 above is the version to install. The
-registry preflight below answers `E404` until that release exists:
-
-```bash
-npm view bce-engine@0.6.4 version dist.integrity
-```
-
 `bce` gives coding agents a local, deterministic architecture check. A versioned
 `EngineeringBlueprint` records the repository's structural rules. Agents draft those rules from
 your intent, inspect the code, and repair violations; the same engine checks every pull request.
 Humans own the intent and approve policy changes. Agents operate the day-to-day loop.
 
-**Released support (`v0.6.3`):** TypeScript/JavaScript framework-surface AST extraction,
+**Released support (`v0.6.4`):** TypeScript/JavaScript framework-surface AST extraction,
 direct TypeScript/JavaScript module boundaries, a Python import-surface MVP, and structured Python
 module boundaries. Node 22+ is required; the contract remains pre-1.0.
 
@@ -103,8 +96,8 @@ inspection tools and review cockpit let humans examine the same contract and evi
 Three commands. No account, hosted service, API key, or repository setup:
 
 ```bash
-npm view bce-engine@0.6.3 version dist.integrity
-npm install --save-dev --save-exact bce-engine@0.6.3
+npm view bce-engine@0.6.4 version dist.integrity
+npm install --save-dev --save-exact bce-engine@0.6.4
 npx --no-install bce demo
 ```
 
@@ -141,17 +134,17 @@ components out of `src/legacy/**`. The taxonomy has four more enforcing types an
 reserved types—[open the C1–C4 visual guide](docs/constraint-guide.md) or
 [read the exact semantics](spec/SPEC.md#3-constraint-taxonomy--17-types).
 
-In `v0.6.3`, the AI-first review surface's `bce propose` writes an immutable draft
+In `v0.6.4`, the AI-first review surface's `bce propose` writes an immutable draft
 packet to quarantine; the model cannot approve or land policy. [Read the review
 ceremony](docs/ai-first-review.md).
 
 ## Experimental compiler slice
 
-The `v0.6.3` release routes `forbiddenDependency` through typed policy, fact, evaluation-plan and
+The `v0.6.4` release routes `forbiddenDependency` through typed policy, fact, evaluation-plan and
 verdict IRs, with deterministic pass receipts and replayable proof links. Existing report formats
 remain unchanged; other constraint families retain their current evaluator.
 
-The experimental API is exported by the released `bce-engine@0.6.3` npm package; it is absent from
+The experimental API is exported by the released `bce-engine@0.6.4` npm package; it is absent from
 v0.6.0 and earlier. Read the [compiler readiness guide](docs/compiler-readiness.md)
 for the API, refusals, compatibility boundaries and deferred work.
 
@@ -189,7 +182,7 @@ replay against the engine.
 Use the **CLI** for local feedback, the pinned **GitHub Action** at the merge boundary, or eleven
 read-only **MCP tools** inside an agent loop. They share the same extraction, evaluation, report,
 and exit-code path; policy changes remain outside MCP. The released Action source is pinned to
-`blueprint-conformance/bce@0e0b022a20e458f77118c5adb210e5e26e5a6e82`.
+`blueprint-conformance/bce@a3d89e99197a7f0f92267a6f22fad89667272598`.
 
 <p align="center">
   <picture>
@@ -245,7 +238,7 @@ separately gated. We do not claim that BCE makes agents more successful, cheaper
 
 ## Start with your repository
 
-The `v0.6.3` release contains six packaged architecture recipes. Run one, then adapt it with a
+The `v0.6.4` release contains six packaged architecture recipes. Run one, then adapt it with a
 measured authoring walkthrough for an empty repository, plain JavaScript, TypeScript, a monorepo,
 or direct module layering: **[choose the boundary that must hold](docs/first-win.md)**. The measured
 test keeps every layout's author → RED → fix → GREEN first win in under 60 seconds, including
@@ -255,7 +248,7 @@ Specification: [blueprint-conformance/v1alpha1](spec/SPEC.md) · Agent loop:
 [MCP and agent workflow](docs/agent-loop.md) · Documentation:
 [blueprint-conformance.github.io/bce](https://blueprint-conformance.github.io/bce/)
 
-**Released stack plane (`v0.6.3`).** `bce stack
+**Released stack plane (`v0.6.4`).** `bce stack
 snapshot` emits a content-addressed `StackManifest` of the declared dependency closure (npm
 lockfile v3/shrinkwrap and pnpm-lock v9, Dockerfile/compose image refs, the declared node runtime),
 and `bce stack diff` classifies every move between two manifests (added / removed / forward /
@@ -266,7 +259,7 @@ exposes the classifier over already-written manifests. Check the registry identi
 an install target:
 
 ```bash
-npm view bce-engine@0.6.3 version dist.integrity
+npm view bce-engine@0.6.4 version dist.integrity
 ```
 
 The release also packages pnpm-lock v9 ingestion (`sources[].parser` widened accordingly) and five
@@ -275,8 +268,9 @@ digest-pinned images, and allowed Node versions. Missing, opaque, variable, or c
 declarations refuse instead of passing. These stack-plane capabilities remain absent from immutable
 v0.3.1, while the enforcement types are absent from immutable v0.4.0.
 
-**Current registry release: v0.6.3.** It fixes GHSA-q3v2-5j8r-m3ww (pinned runs refuse an
-incomplete materialized tree) and the fail-closed and verifier corrections above, and retains v0.6.2's
+**Current registry release: v0.6.4.** It fixes GHSA-2h5p-pxm5-h89w (symlinked sources refuse), retains
+v0.6.3's fix for GHSA-q3v2-5j8r-m3ww (pinned runs refuse an incomplete materialized tree) and the
+fail-closed and verifier corrections above, and retains v0.6.2's
 Windows npm identification and production-only shrinkwrap, v0.6.1's architecture review, policy-impact
 preview, repair briefs, and bounded dependency paths, v0.6.0's native Zod 4 schemas, the stack plane
 above, and v0.5.0's expanded route-handler inventory, refusal of recognized unsupported or rebound
@@ -287,10 +281,10 @@ solo-steward lifecycle support, and the local specification; immutable v0.3.0 do
 those additions.
 
 Its exact npm integrity is
-`sha512-oDNXYjuX4/Dui1f5DKf3UgvaZ09TJVfMKdx2Zvz75fdZeTXbjCrMLbKQqMt2SdawsEc6HtBczc3xTetSuUukOg==`,
-and its source/Action commit is `0e0b022a20e458f77118c5adb210e5e26e5a6e82`. The canonical GitHub
+`sha512-r2CUTrN7CyUkTaz+93giOVOlnzV5FkJ5WzMbEzgV+zwk/Ziu9w2Q+HhkbFerv1O67DzFkqm75FmFsDFjPAP6Jg==`,
+and its source/Action commit is `a3d89e99197a7f0f92267a6f22fad89667272598`. The canonical GitHub
 Release is immutable with the exact tarball, signed payload manifest, signed EvidenceRecord, and
-compliance report attached. [Read the verification record](docs/release-v0.6.3.md).
+compliance report attached. [Read the verification record](docs/release-v0.6.4.md).
 Compatibility remains pre-1.0.
 
 Apache-2.0 — [license](LICENSE), [notice](NOTICE), and [trademarks](TRADEMARKS.md).

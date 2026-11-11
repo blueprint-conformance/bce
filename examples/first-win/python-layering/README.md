@@ -5,12 +5,12 @@
 **The rule:** internal modules must not import the public API adapter. The starting tree contains
 one reverse import in `src/service/domain/orders.py`.
 
-**Availability:** this walkthrough uses `python-module-graph` from the `v0.6.3` release.
+**Availability:** this walkthrough uses `python-module-graph` from the `v0.6.4` release.
 
 ## 0. Work in a copy
 
 Run this from the project where you installed the engine (`npm install --save-dev --save-exact
-bce-engine@0.6.3`, see [`../README.md`](../README.md)). It copies the shipped starting tree into a
+bce-engine@0.6.4`, see [`../README.md`](../README.md)). It copies the shipped starting tree into a
 subdirectory of that project and works the same in bash, zsh, PowerShell and cmd:
 
 ```bash
