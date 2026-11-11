@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, resolve, relative } from 'node:path';
+import { join, resolve, relative, sep } from 'node:path';
 
 const rootArg = process.argv.indexOf('--root');
 const root = resolve(rootArg >= 0 ? process.argv[rootArg + 1] ?? '' : '.');
@@ -201,6 +201,31 @@ function scan(path) {
   }
 }
 for (const path of ['README.md', 'STATUS.md', 'docs', 'src']) scan(join(root, path));
+
+// An install command anywhere in the public docs must name the current (or candidate) release.
+// The immutable per-release records keep their historical commands. The pattern allows the command
+// to wrap onto a second line, which is how most guides lay it out.
+const installable = new Set([state.currentVersion, state.candidateVersion].filter(Boolean));
+const INSTALL = /npm\s+(?:install|i)\b[^`\n]*?(?:\n[^`\n]*?)?bce-engine@(\d+\.\d+\.\d+)/g;
+const SKIP_DIRS = new Set(['node_modules', '.git', 'research', 'evidence', 'fixtures', 'corpus', 'dist', '_site']);
+function scanInstalls(path) {
+  if (!existsSync(path)) return;
+  const stat = statSync(path);
+  if (stat.isDirectory()) {
+    for (const entry of readdirSync(path).sort()) if (!SKIP_DIRS.has(entry)) scanInstalls(join(path, entry));
+    return;
+  }
+  const rel = relative(root, path).split(sep).join('/');
+  if (!rel.endsWith('.md') || /^docs\/release-v\d/.test(rel)) return;
+  const text = readFileSync(path, 'utf8');
+  for (const match of text.matchAll(INSTALL)) {
+    if (!installable.has(match[1])) {
+      const line = text.slice(0, match.index).split('\n').length;
+      failures.push(`${rel}:${line}: stale install target bce-engine@${match[1]} (current ${state.currentVersion})`);
+    }
+  }
+}
+scanInstalls(root);
 
 if (failures.length > 0) {
   process.stderr.write(`release-claim-policy: FAIL (${failures.length})\n${failures.map((item) => `- ${item}`).join('\n')}\n`);

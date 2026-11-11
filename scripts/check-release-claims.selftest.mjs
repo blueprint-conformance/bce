@@ -41,6 +41,11 @@ function reject(label, mutate, marker) {
   }
 }
 
+reject('stale wrapped install command', () => {
+  const wrapped = 'Run `npm install --save-dev --save-exact\nbce-engine@0.0.1` first.\n';
+  writeFileSync(join(fixture, 'examples/first-win/README.md'), `${originals.get('examples/first-win/README.md')}\n\n${wrapped}`);
+}, 'stale install target bce-engine@0.0.1');
+
 reject('stale candidate version', () => {
   const state = JSON.parse(originals.get('release-state.json'));
   state.candidateVersion = '9.9.9';

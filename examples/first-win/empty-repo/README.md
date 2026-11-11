@@ -18,7 +18,7 @@ Every command below runs from a scratch copy, so the walkthrough never dirties t
 repository (and so you can point it at your own repo instead):
 
 Run this from the project where you installed the engine (`npm install --save-dev --save-exact
-bce-engine@0.6.2`, see [`../README.md`](../README.md)). It copies the shipped starting tree into a
+bce-engine@0.6.3`, see [`../README.md`](../README.md)). It copies the shipped starting tree into a
 subdirectory of that project and works the same in bash, zsh, PowerShell and cmd:
 
 ```bash
