@@ -157,7 +157,7 @@
       "operation": {
         "kind": "appendText",
         "target": "src/extractors.ts",
-        "preconditionSha256": "8bce39d1e4a97651dc0299be42a4d722ff51e06874fc888f5f170220176a23ae",
+        "preconditionSha256": "85dc1217b97fad16afa94d7661546b56d213bff266c449956db33c492b9f0675",
         "content": "\nexport function __bceExtractorTeethMutationProbe(): void { process.exit(99); }\n"
       },
       "expectedEvidencePath": "src/extractors.ts",

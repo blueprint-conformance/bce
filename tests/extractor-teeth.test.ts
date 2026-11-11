@@ -130,7 +130,8 @@ describe('extractor-real source mutation teeth', () => {
     fs.symlinkSync(path.join(repo, 'src', 'index.ts'), path.join(repo, 'src', 'linked.ts'));
     const linked = structuredClone(manifest) as { cases: Array<{ operation: Record<string, unknown> }> };
     linked.cases[0]!.operation.target = 'src/linked.ts';
-    expect(assessExtractorTeethCorpus({ repoDir: repo, blueprint, manifest: linked }).cases[0]?.detail).toContain('symbolic link');
+    // A symlinked source under the extraction path now refuses the whole tree before any mutant runs.
+    expect(() => assessExtractorTeethCorpus({ repoDir: repo, blueprint, manifest: linked })).toThrow(/symlinked source under extraction path/);
   });
 });
 
