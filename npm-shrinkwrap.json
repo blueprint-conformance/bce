@@ -1,12 +1,12 @@
 {
   "name": "bce-engine",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "lockfileVersion": 3,
   "requires": true,
   "packages": {
     "": {
       "name": "bce-engine",
-      "version": "0.6.3",
+      "version": "0.6.4",
       "license": "Apache-2.0",
       "dependencies": {
         "@lezer/common": "1.5.5",

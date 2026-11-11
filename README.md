@@ -29,6 +29,16 @@ stack foundation and selected declared-stack enforcement from v0.5.0. It does no
 repair or registry resolution. Qualify the exact artifact against the source and policy you use; the
 version label alone is not a compatibility guarantee.
 
+**Source candidate: v0.6.4 (not published).** v0.6.3 plus a security fix: the source walker
+refuses a symlinked directory, a symlinked file that matches the extraction pattern, and an over-deep
+tree under an extraction path, instead of silently leaving them out of the grade. The advisory is
+published with the release. Until v0.6.4 is released, v0.6.3 above is the version to install. The
+registry preflight below answers `E404` until that release exists:
+
+```bash
+npm view bce-engine@0.6.4 version dist.integrity
+```
+
 `bce` gives coding agents a local, deterministic architecture check. A versioned
 `EngineeringBlueprint` records the repository's structural rules. Agents draft those rules from
 your intent, inspect the code, and repair violations; the same engine checks every pull request.
