@@ -285,10 +285,22 @@ export function resolveFiles(repoDir: string, patterns: readonly string[]): stri
     const baseDir = path.join(repoDir, prefixDir);
     if (fs.existsSync(baseDir)) containedPath(baseDir);
     const re = globToRegExp(pattern);
-    for (const abs of walkFiles(baseDir)) {
+    const links: string[] = [];
+    for (const abs of walkFiles(baseDir, 0, links)) {
       const contained = containedPath(abs);
       const rel = path.relative(repoPath, contained).split(path.sep).join('/');
       if (re.test(rel)) out.add(contained);
+    }
+    // A symlink is never followed (cycle guard), so whatever it reaches would silently leave the
+    // graded input while toolchains still build it. Refuse instead: a linked directory could hold
+    // any matching file, and a linked file refuses when its own path matches the pattern.
+    for (const link of links) {
+      const rel = path.relative(repoPath, link).split(path.sep).join('/');
+      let directory = false;
+      try { directory = fs.statSync(link).isDirectory(); } catch { directory = false; }
+      if (directory || re.test(rel)) {
+        throw new Error(`fail-closed: symlinked source under extraction path '${pattern}': ${rel}`);
+      }
     }
   }
   return [...out].sort();
@@ -327,32 +339,35 @@ function globToRegExp(glob: string): RegExp {
 }
 
 /**
- * 0.12.1: maximum directory depth walkFiles descends. Deeper entries are SKIPPED
- * (fail toward under-detection), never a crash. 64 is far beyond any sane repo layout while
- * bounding pathological nesting (dirty trees with nested checkouts).
+ * Maximum directory depth walkFiles descends. 64 is far beyond any sane repo layout while
+ * bounding pathological nesting; a deeper tree refuses rather than dropping files from the scan.
  */
 const MAX_WALK_DEPTH = 64;
 
 /**
  * Recursively list files under dir (skips node_modules/.git/dist for determinism + speed).
  *
- * 0.12.1 hardening (dirty-tree `RangeError: Maximum call stack size exceeded`):
- * (a) symlinks are never followed (a symlinked dir reports isSymbolicLink, and following it
- *     can cycle); (b) descent is depth-bounded by MAX_WALK_DEPTH; (c) child results are
- *     loop-appended, NOT spread into push() — `out.push(...huge)` passes every element as a
- *     call argument and overflows the stack on the very large file sets a dirty tree with
- *     nested checkouts produces. All three fail toward under-detection, never a crash.
+ * Hardening (dirty-tree `RangeError: Maximum call stack size exceeded`): (a) symlinks are never
+ * followed, since following a linked dir can cycle; they are reported in `links` so the caller
+ * refuses instead of silently dropping what they reach; (b) descent is bounded by MAX_WALK_DEPTH and
+ * a deeper tree refuses; (c) child results are loop-appended, NOT spread into push(), because
+ * `out.push(...huge)` overflows the stack on very large file sets.
  */
-function walkFiles(dir: string, depth = 0): string[] {
+function walkFiles(dir: string, depth = 0, links: string[] = []): string[] {
   const out: string[] = [];
-  if (depth > MAX_WALK_DEPTH) return out; // bounded descent — skip, never overflow
+  if (depth > MAX_WALK_DEPTH) {
+    throw new Error(`fail-closed: extraction path is nested deeper than ${MAX_WALK_DEPTH} directories: ${dir}`);
+  }
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist') continue;
-    if (entry.isSymbolicLink()) continue; // never follow symlinks (cycle guard)
     const abs = path.join(dir, entry.name);
+    if (entry.isSymbolicLink()) {
+      links.push(abs); // never followed (cycle guard); the caller decides whether it refuses
+      continue;
+    }
     if (entry.isDirectory()) {
-      for (const f of walkFiles(abs, depth + 1)) out.push(f); // loop-append (no spread — RangeError guard)
+      for (const f of walkFiles(abs, depth + 1, links)) out.push(f); // loop-append (no spread — RangeError guard)
     } else if (entry.isFile()) out.push(abs);
   }
   return out;

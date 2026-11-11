@@ -162,7 +162,7 @@ describe('AstExtractor on a TS-hostile mixed scan surface (.sh/.yml in extractio
 /* -------------------------------------------------------------------------- */
 
 describe('walkFiles hardening (via resolveFiles) — depth bound + symlink skip (0.12.1)', () => {
-  it('depth bound: a file nested deeper than MAX_WALK_DEPTH(64) is SKIPPED (under-detection), shallow files still found, no throw', () => {
+  it('depth bound: a tree nested deeper than MAX_WALK_DEPTH(64) refuses instead of dropping files, and never overflows', () => {
     const dir = mkdtempSync(join(tmpdir(), 'astdepth-'));
     created.push(dir);
     // shallow file at depth 2
@@ -173,22 +173,49 @@ describe('walkFiles hardening (via resolveFiles) — depth bound + symlink skip 
     const deepDir = join(dir, 'deep', ...segs);
     mkdirSync(deepDir, { recursive: true });
     writeFileSync(join(deepDir, 'toodeep.ts'), 'export {};\n', 'utf8');
-    const files = resolveFiles(dir, ['deep/**/*.ts']);
-    const rels = files.map((f) => f.slice(dir.length + 1));
-    expect(rels).toContain(join('deep', 'a', 'shallow.ts'));
-    expect(rels.some((r) => r.endsWith('toodeep.ts'))).toBe(false);
+    expect(() => resolveFiles(dir, ['deep/**/*.ts'])).toThrow(/nested deeper than 64 directories/);
+    // A sibling scope that stays within the bound still resolves.
+    expect(resolveFiles(dir, ['deep/a/*.ts']).map((f) => f.slice(dir.length + 1))).toEqual([join('deep', 'a', 'shallow.ts')]);
   });
 
-  it('symlink guard: a symlink cycle inside the walked tree neither loops nor throws', () => {
+  it('symlink guard: a symlink cycle inside the walked tree refuses without looping', () => {
     const dir = mkdtempSync(join(tmpdir(), 'astsym-'));
     created.push(dir);
     mkdirSync(join(dir, 'tree', 'sub'), { recursive: true });
     writeFileSync(join(dir, 'tree', 'sub', 'real.ts'), 'export {};\n', 'utf8');
     // cycle: tree/sub/back -> tree (ancestor)
-    symlinkSync(join(dir, 'tree'), join(dir, 'tree', 'sub', 'back'), 'dir');
-    const files = resolveFiles(dir, ['tree/**/*.ts']);
-    const rels = files.map((f) => f.slice(dir.length + 1));
-    expect(rels).toEqual([join('tree', 'sub', 'real.ts')]);
+    symlinkSync(join(dir, 'tree'), join(dir, 'tree', 'sub', 'back'), 'junction');
+    expect(() => resolveFiles(dir, ['tree/**/*.ts'])).toThrow(/symlinked source under extraction path 'tree\/\*\*\/\*\.ts': tree\/sub\/back/);
+  });
+
+  it('a linked directory under the glob refuses, so a violating file behind it cannot leave the scan', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'astsym-dir-'));
+    created.push(dir);
+    mkdirSync(join(dir, 'src', 'real'), { recursive: true });
+    mkdirSync(join(dir, 'shadow'), { recursive: true });
+    writeFileSync(join(dir, 'src', 'real', 'ok.ts'), 'export {};\n', 'utf8');
+    writeFileSync(join(dir, 'shadow', 'bad.ts'), "import axios from 'axios';\n", 'utf8');
+    symlinkSync(join(dir, 'shadow'), join(dir, 'src', 'lib'), 'junction');
+    expect(() => resolveFiles(dir, ['src/**/*.ts'])).toThrow(/symlinked source under extraction path 'src\/\*\*\/\*\.ts': src\/lib/);
+  });
+
+  it('a linked file refuses only when its own path matches the pattern', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'astsym-file-'));
+    created.push(dir);
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    mkdirSync(join(dir, 'tools'), { recursive: true });
+    writeFileSync(join(dir, 'src', 'ok.ts'), 'export {};\n', 'utf8');
+    writeFileSync(join(dir, 'tools', 'impl.ts'), 'export {};\n', 'utf8');
+    writeFileSync(join(dir, 'tools', 'notes.md'), 'notes\n', 'utf8');
+    try {
+      symlinkSync(join(dir, 'tools', 'notes.md'), join(dir, 'src', 'notes.md'), 'file');
+    } catch {
+      return; // file symlinks need a privilege on Windows; the directory case above still runs there
+    }
+    // A linked file the pattern does not select is not graded input and does not refuse.
+    expect(resolveFiles(dir, ['src/**/*.ts']).map((f) => f.slice(dir.length + 1))).toEqual([join('src', 'ok.ts')]);
+    symlinkSync(join(dir, 'tools', 'impl.ts'), join(dir, 'src', 'pay.ts'), 'file');
+    expect(() => resolveFiles(dir, ['src/**/*.ts'])).toThrow(/symlinked source under extraction path 'src\/\*\*\/\*\.ts': src\/pay\.ts/);
   });
 
   it('exact-path symlink escaping the repository is refused', () => {
